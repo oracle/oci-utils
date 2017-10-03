@@ -1,0 +1,9 @@
+#!/usr/bin/env python2.7
+
+import oci_utils
+from oci_utils.packages.stun import get_ip_info
+
+nat_type, external_ip, external_port = get_ip_info()
+
+print "%s\n" % external_ip
+
