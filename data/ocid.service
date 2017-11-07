@@ -1,0 +1,12 @@
+[Unit]
+Description=Oracle Cloud Infrastructure utilities daemon
+After=iscsid.service
+
+[Service]
+ExecStart=/usr/libexec/ocid
+Restart=always
+StandardOutput=syslog
+StandardError=syslog
+
+[Install]
+WantedBy=multi-user.target

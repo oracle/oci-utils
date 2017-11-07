@@ -1,0 +1,135 @@
+#!/usr/bin/env python2.7
+
+# Copyright (c) 2017 Oracle and/or its affiliates.
+#
+# oci-utils is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# Ansible is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with oci-utils.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+Oracle Cloud Infrastructure utilities - daemon that polls for iscsi
+and network configuration changes.
+"""
+import os
+import sys
+import time
+import socket
+import daemon
+import json
+import logging
+from logging.handlers import SysLogHandler
+import lockfile
+import posixfile
+import oci_utils.iscsiadm
+
+GLOBAL_CACHE = "/var/cache/oci-utils/iscsiadm-cache"
+__ocid_logger = logging.getLogger('ocid')
+__log_level = logging.INFO
+
+def setup_logging():
+    handler = SysLogHandler(address='/dev/log',
+                            facility=SysLogHandler.LOG_DAEMON)
+    handler.setLevel(__log_level)
+    formatter = logging.Formatter('%(name)s - %(levelname)s '
+                                  '- %(message)s')
+    handler.setFormatter(formatter)
+    __ocid_logger.setLevel(__log_level)
+    __ocid_logger.addHandler(handler)
+    __ocid_logger.info('oci daemon starting')
+
+def daemon_main():
+    """
+    Main program
+    """
+    # iscsi devices we couldn't connect to (typically auth error)
+    attach_failed = {}
+    iscsi_devs = {}
+    all_iqns = {}
+    while True:
+        # save result of previous discovery so we can later check
+        # which devices are gone
+        prev_iqns = all_iqns
+        # all IQNs discovered
+        all_iqns = {}
+        cache_file = None
+        for r in range(20):
+            ipaddr = "169.254.2.%d" % (r+1)
+            iqns = oci_utils.iscsiadm.discovery(ipaddr)
+            if iqns:
+                all_iqns[ipaddr] = iqns
+        try:
+            cachedir = os.path.dirname(GLOBAL_CACHE)
+            if not os.path.exists(cachedir):
+                os.makedirs(cachedir)
+            if not os.path.exists(GLOBAL_CACHE):
+                cache_file = posixfile.open(GLOBAL_CACHE, 'w+')
+            else:
+                cache_file = posixfile.open(GLOBAL_CACHE, 'r+')
+        except (OSError, IOError):
+            # can't write to global cache dir, try the user dir
+            # FIXME: write error to log
+            pass
+
+        if cache_file is not None:
+            cache_file.lock("w|")
+            cache_file.write(json.dumps(all_iqns))
+            cache_file.truncate()
+            cache_file.lock("u")
+            cache_file.close()
+
+        iscsi_devs = oci_utils.iscsiadm.session()
+        # check if all discovered iscsi devices are configured and attached
+        for ipaddr in all_iqns.keys():
+            for iqn in all_iqns[ipaddr]:
+                if ipaddr in attach_failed \
+                   and attach_failed[ipaddr] == iqn:
+                    continue
+                if ipaddr not in iscsi_devs or \
+                   iqn not in iscsi_devs[ipaddr]:
+                    # configure and attach the device
+                    __ocid_logger.info("Attaching iscsi device: %s:%s (%s)" % \
+                                       (ipaddr, "3260", iqn))
+                    if not oci_utils.iscsiadm.attach(ipaddr, 3260, iqn,
+                                                     auto_startup=True):
+                        attach_failed[ipaddr] = iqn
+        for ipaddr in prev_iqns.keys():
+            for iqn in prev_iqns[ipaddr]:
+                if ipaddr not in all_iqns or\
+                   iqn not in all_iqns[ipaddr]:
+                    # means the device was disconnected
+                    __ocid_logger.info("Detaching iscsi device: %s:%s (%s)" % \
+                                       (ipaddr, "3260", iqn))
+                    oci_utils.iscsiadm.detach(ipaddr, 3260, iqn)
+        # update the metadata cache
+        oci_utils.metadata().refresh()
+        time.sleep(30)
+
+
+if os.geteuid() != 0:
+    sys.stderr.write("This program must be run as root.\n")
+    sys.exit(1)
+
+pidlock = lockfile.FileLock('/var/run/ocid.pid')
+
+if pidlock.is_locked():
+    sys.stderr.write("ocid already running.\n")
+    sys.exit(1)
+
+setup_logging()
+oci_utils.iscsiadm.set_logger(__ocid_logger)
+
+context = daemon.DaemonContext(
+    pidfile=pidlock,
+    umask=0o033
+    )
+with context:
+    daemon_main()
