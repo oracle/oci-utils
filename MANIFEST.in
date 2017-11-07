@@ -1,2 +1,6 @@
 include COPYING
 include *.txt
+include libexec/ocid
+include tests/*.py
+include data/*.service
+include rpmbuild/*.spec
