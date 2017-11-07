@@ -8,12 +8,15 @@ __version__ = '0.1.0'
 log = logging.getLogger("pystun")
 
 STUN_SERVERS = (
+    'stun.stunprotocol.org',
+    'stun.counterpath.net',
+    'stun.voxgratia.org',
+    'stun.callwithus.com',
     'stun.ekiga.net',
     'stun.ideasip.com',
-    'stun.voiparound.com',
     'stun.voipbuster.com',
-    'stun.voipstunt.com',
-    'stun.voxgratia.org'
+    'stun.voiparound.com',
+    'stun.voipstunt.com'
 )
 
 stun_servers_list = STUN_SERVERS
