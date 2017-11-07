@@ -1,2 +1,3 @@
-oci
+netifaces
+lockfile
 
