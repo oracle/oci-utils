@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+
+# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+
 import os
 import sys
 from setuptools import setup
@@ -25,18 +28,25 @@ def read(fname):
 
 setup(
     name = "oci-utils",
-    version = "0.1",
+    version = "0.2",
     author = "Laszlo Peter",
     author_email = "laszlo.peter@oracle.com",
     description = ("Oracle Cloud Infrastructure utilities"),
-    license = "GPLv2",
+    license = "UPL",
     install_requires=install_requirements,
     keywords = "Oracle Cloud Infrastructure",
     url = "http://github.com/oracle/oci-utils/",
     package_dir={'': 'lib'},
     packages=find_packages('lib'),
     long_description=read('README'),
-    scripts=['bin/oci-public-ip'],
+    data_files=[(os.path.join(sys.prefix, 'libexec'),
+                 ['libexec/ocid']),
+                ("/etc/systemd/system",
+                 ['data/ocid.service'])],
+    extra_files=['requirements.txt'],
+    scripts=['bin/oci-public-ip',
+             'bin/oci-metadata',
+             'bin/oci-network-config'],
     classifiers=[
         "Development Status :: 3 - Alpha",
         'Environment :: Console',
@@ -49,6 +59,6 @@ setup(
         'Topic :: System :: Installation/Setup',
         'Topic :: System :: Systems Administration',
         'Topic :: Utilities',
-        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+        'License :: OSI Approved :: Universal Permissive License (UPL)'
     ],
 )

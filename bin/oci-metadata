@@ -1,33 +1,90 @@
 #!/usr/bin/env python2.7
 
-# Copyright (c) 2017 Oracle and/or its affiliates.
+# oci-utils
 #
-# oci-utils is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 2 of the License, or
-# (at your option) any later version.
+# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
 #
-# Ansible is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# The Universal Permissive License (UPL), Version 1.0
 #
-# You should have received a copy of the GNU General Public License
-# along with oci-utils.  If not, see <http://www.gnu.org/licenses/>.
+# Subject to the condition set forth below, permission is hereby granted to
+# any person obtaining a copy of this software, associated documentation
+# and/or data (collectively the "Software"), free of charge and under any
+# and all copyright rights in the Software, and any and all patent rights
+# owned or freely licensable by each licensor hereunder covering either
+# (i) the unmodified Software as contributed to or provided by such licensor, or
+# (ii) the Larger Works (as defined below), to deal in both
+# (a) the Software, and
+# (b) any piece of software and/or hardware listed in the lrgrwrks.txt
+# file if one is included with the Software (each a “Larger Work” to which
+# the Software is contributed by such licensors),
+#
+# without restriction, including without limitation the rights to copy,
+# create derivative works of, display, perform, and distribute the Software
+# and make, use, sell, offer for sale, import, export, have made, and have
+# sold the Software and the Larger Work(s), and to sublicense the foregoing
+# rights on either these or other terms.
+#
+# This license is subject to the following condition:
+#
+# The above copyright notice and either this complete permission notice or
+# at a minimum a reference to the UPL must be included in all copies or
+# substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+# IN THE SOFTWARE.
 
 '''
-This utility display instance metadata when run on Oracle Cloud Infrastructure
+This utility displays instance metadata when run on Oracle Cloud Infrastructure
 instances.  See the manual page for more information.
 '''
 
 import sys
 import argparse
-import urllib
+import logging
+import time
 try:
     import json
 except ImportError:
     import simplejson as json
-from oci_utils.packages.stun import get_ip_info
+
+import oci_utils
+
+oci_api_url = 'http://169.254.169.254/opc/v1/'
+oci_metadata_detail = {
+    'displayName': 'Instance name',
+    'timeCreated': 'Instance created at',
+    'image': 'Image ID',
+    'state': 'Instance state',
+    'shape': 'Instance shape',
+    'region': 'Region',
+    'availabilityDomain': 'Availability Domain',
+    'image': 'Image OCID',
+    'compartmentId': 'Compartment OCID',
+    'id': 'Instance OCID',
+    'macAddr': 'MAC address',
+    'subnetCidrBlock': 'Subnet CIDR block',
+    'vnicId': 'VNIC OCID',
+    'privateIp': 'Private IP address',
+    'publicIp': 'Public IP address',
+    'virtualRouterIp': 'Virtual router IP address',
+    'vlanTag': 'VLAN tag'
+    }
+oci_regions = {
+    'phx': 'phx (Phoenix, AZ, USA)',
+    'iad': 'iad (Ashburn, VA, USA)',
+    'fra': 'fra (Frankfurt, Germany)'
+    }
+oci_metadata_display_order = [
+    'displayName', 'region', 'availabilityDomain',
+    'shape', 'timeCreated', 'state',
+    'id',
+    'privateIp', 'macAddr', 'subnetCidrBlock', 'virtualRouterIp', 'vnicId'
+    ]
 
 def parse_args():
     '''
@@ -45,11 +102,84 @@ def parse_args():
     parser.add_argument('-g', '--get', metavar='KEY', dest='keys',
                         action='append', type=str.lower,
                         help='Display the value of a specific key')
+    parser.add_argument('--debug', action='store_true',
+                        help='display diagnostic output'),
     parser.add_argument('--help', action='help',
                         help='Display this help')
 
     args = parser.parse_args()
     return args
+
+
+def pretty_print_section(metadata, indent):
+    """
+    Display a section of the metadata, indented by the given indent string
+    """
+    # first display the keys that are in the oci_metadata_display_order list
+    if type(metadata) is not dict:
+        for element in list(metadata):
+            pretty_print_section(element, indent)
+    for key in oci_metadata_display_order:
+        if key not in metadata:
+            continue
+        if key == 'metadata':
+            print "%sInstance Metadata:" % indent
+            pretty_print_section(metadata['metadata'], indent + "  ")
+            continue
+        display_key = key
+        if key in oci_metadata_detail:
+            display_key = oci_metadata_detail[key]
+
+        value = metadata[key]
+        if key == 'region':
+            if value in oci_regions:
+                value = oci_regions[value]
+        elif key == 'timeCreated':
+            value = time.strftime('%Y-%m-%d %H:%M:%S UTC',
+                                  time.gmtime(metadata['timeCreated']/1000))
+        print "%s%s: %s" % (indent, display_key, value)
+
+    for key in metadata:
+        # already printed the ones in oci_metadata_display_order
+        if key in oci_metadata_display_order:
+            continue
+        # print it last unless it's listed in oci_metadata_display_order
+        if key == 'metadata':
+            continue
+        display_key = key
+        if key in oci_metadata_detail:
+            display_key = oci_metadata_detail[key]
+
+        value = metadata[key]
+
+        print "%s%s: %s" % (indent, display_key, value)
+
+    # print it last unless it's listed in oci_metadata_display_order
+    if key == 'metadata' and key not in oci_metadata_display_order:
+        print "%sInstance Metadata:" % indent
+        pretty_print_section(metadata['metadata'], indent + "  ")
+
+def pretty_print(metadata):
+    if 'instance' in metadata:
+        print "Instance details:"
+        pretty_print_section(metadata['instance'], '  ')
+
+
+    if 'publicIp' in metadata or 'vnics' in metadata:
+        print "Networking details:"
+
+        if 'publicIp' in metadata:
+            print "  Public IP address: %s" % metadata['publicIp']
+
+        if 'vnics' in metadata:
+            if len(metadata['vnics']) > 1:
+                if_num = 1
+                for vnic_data in metadata['vnics']:
+                    print "  VNIC %s:" % if_num
+                    pretty_print_section(vnic_data, '    ')
+                    if_num += 1
+            else:
+                pretty_print_section(metadata['vnics'][0], '  ')
 
 def main():
     '''
@@ -57,34 +187,21 @@ def main():
     '''
     args = parse_args()
 
-    external_ip = None
-    if args.keys is None or 'publicip' in args.keys:
-        external_ip = get_ip_info()[1]
+    metadata = oci_utils.metadata(debug=args.debug).filter(args.keys)
 
-    metadata = None
-    if args.keys is None or args.keys != ['publicip']:
-        oci_api_url = 'http://169.254.169.254/opc/v1/'
-        try:
-            api_conn = urllib.urlopen(oci_api_url + 'metadata/')
-            metadata = json.loads(api_conn.read().decode())
-        except IOError as e:
-            sys.stderr.write("Error connecting to metadata server: %s\n" % e[1])
-            sys.exit(1)
-
-    if metadata is not None:
-        for key in metadata.keys():
-            print "%s: %s" % (key, data[key])
-
-    if external_ip is not None:
-        if args.json:
-            print json.dumps({ 'publicIp': external_ip })
+    if metadata is None:
+        if args.keys:
+            print "No matching metadata found."
         else:
-            print "Public IP address: %s" % external_ip
+            print "No metadata found."
+        return 1
 
+    if args.json:
+        print(json.dumps(metadata))
         return 0
     else:
-        sys.stderr.write("Failed to determine public IP address.\n")
-        return 1
+        pretty_print(metadata)
+        return 0
 
 sys.exit(main())
 
