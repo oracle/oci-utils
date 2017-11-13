@@ -1,0 +1,278 @@
+#!/usr/bin/env python2.7
+
+# oci-utils
+#
+# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+#
+# The Universal Permissive License (UPL), Version 1.0
+#
+# Subject to the condition set forth below, permission is hereby granted to
+# any person obtaining a copy of this software, associated documentation
+# and/or data (collectively the "Software"), free of charge and under any
+# and all copyright rights in the Software, and any and all patent rights
+# owned or freely licensable by each licensor hereunder covering either
+# (i) the unmodified Software as contributed to or provided by such licensor, or
+# (ii) the Larger Works (as defined below), to deal in both
+# (a) the Software, and
+# (b) any piece of software and/or hardware listed in the lrgrwrks.txt
+# file if one is included with the Software (each a "Larger Work" to which
+# the Software is contributed by such licensors),
+#
+# without restriction, including without limitation the rights to copy,
+# create derivative works of, display, perform, and distribute the Software
+# and make, use, sell, offer for sale, import, export, have made, and have
+# sold the Software and the Larger Work(s), and to sublicense the foregoing
+# rights on either these or other terms.
+#
+# This license is subject to the following condition:
+#
+# The above copyright notice and either this complete permission notice or
+# at a minimum a reference to the UPL must be included in all copies or
+# substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+# IN THE SOFTWARE.
+
+'''
+This utility assists with configuring iscsi storage on Oracle Cloud
+Infrastructure instances.  See the manual page for more information.
+'''
+
+import os
+import sys
+import posixfile
+import argparse
+import json
+from oci_utils import iscsiadm, lsblk, metadata
+
+def parse_args():
+    '''
+    Parse the command line arguments and return an object representing the
+    command line (as returned by argparse's parse_args())
+    '''
+    parser = argparse.ArgumentParser(description='Utility for displaying the '
+                                     'public IP address of the current OCI '
+                                     'instance.', add_help=False)
+    parser.add_argument('-h', '--human-readable', action='store_true',
+                        help='Display human readable output (default)')
+#   FIXME: add json ouput
+#    parser.add_argument('-j', '--json', action='store_true',
+#                        help='Display json output')
+    parser.add_argument('-i', '--interactive', action='store_true',
+                        help='Run in interactive mode')
+    parser.add_argument('-s', '--show', action='store_true',
+                        help='Display the current iscsi configuration')
+    parser.add_argument('-d', '--detach', metavar='TARGET', dest='detach_iqns',
+                        action='append', type=str,
+                        help='Detach the given iSCSI device')
+    parser.add_argument('--debug', action='store_true',
+                        help='display diagnostic output'),
+    parser.add_argument('--help', action='help',
+                        help='Display this help')
+
+    args = parser.parse_args()
+    return args
+
+def ask_yes_no(question):
+    """
+    Ask the user a question and enforce a yes/no answer.
+    Return True for yes, False for no.
+    """
+    while True:
+        print question
+        ans=raw_input().lower()
+        if ans in ['y', 'yes']:
+            return True
+        if ans in ['n', 'no']:
+            return False
+        print "Invalid answer, please answer with yes or no"
+            
+def get_instance_ocid():
+    md = metadata().filter('instance')
+    if 'instance' in md and 'id' in md['instance']:
+        return md['instance']['id']
+    else:
+        return '<instance OCID>'
+
+def read_ocid_cache():
+    """
+    read the iscsi discovery data saved by ocid
+    """
+    if not os.path.exists(iscsiadm.ISCSIADM_CACHE):
+        return {},[]
+    try:
+        cache_file = posixfile.open(iscsiadm.ISCSIADM_CACHE, 'r')
+        cache_file.lock("r|")
+        [targets, attach_failed] = json.load(cache_file)
+        cache_file.lock("u")
+        cache_file.close()
+        return targets, attach_failed
+    except (OSError, IOError):
+        # can't open the global cache
+        return {},[]
+
+def nvl(value, defval="Unknown"):
+    """
+    return defval if value is None or empty, otherwise return value
+    """
+    if value is None:
+        return defval
+    if not value:
+        return defval
+    return value
+        
+def display_current_devices(session, disks):
+    if session:
+        print "Currently attached iSCSI devices:"
+        for iqn in session.keys():
+            print
+            print "Target %s" % iqn
+            print "   Persistent portal:    %s:%s" % \
+                (session[iqn]['persistent_portal_ip'],
+                 session[iqn]['persistent_portal_port'])
+            print "      Current portal:    %s:%s" % \
+                (session[iqn]['current_portal_ip'],
+                 session[iqn]['current_portal_port'])
+            print "               State:    %s" % session[iqn]['state']
+            device = session[iqn]['device']
+            print "     Attached device:    %s" % device
+            if device in disks:
+                print "                Size:    %s" % disks[device]['size']
+                if not 'partitions' in disks[device]:
+                    print "    File system type:    %s" % \
+                        nvl(disks[device]['fstype'])
+                    print "          Mountpoint:    %s" % \
+                        nvl(disks[device]['mountpoint'], "Not mounted")
+                else:
+                    print "          Partitions:    " \
+                        "Device  %6s  %10s   Mountpoint" % \
+                        ("Size", "Filesystem")
+                    partitions = disks[device]['partitions']
+                    plist = partitions.keys()
+                    plist.sort()
+                    for part in plist:
+                        print "                         " \
+                            "%s  %8s  %10s   %s" % \
+                            (part, partitions[part]['size'],
+                             nvl(partitions[part]['fstype'], "Unknown fs"),
+                             nvl(partitions[part]['mountpoint'], "Not mounted")
+                            )
+        print
+
+def display_attach_failed_devices(targets, attach_failed):
+    if attach_failed:
+        print
+        print "Devices that could not be attached automatically:"
+    for iqn in attach_failed.keys():
+        print
+        print "Target %s" % iqn
+        for ipaddr in targets.keys():
+            if iqn in targets[ipaddr]:
+                print "              Portal:    %s:%s" % (ipaddr, 3260)
+                print "               State:    %s" % \
+                    iscsiadm.error_message_from_code(attach_failed[iqn])
+
+def main():
+    '''
+    Main program.
+    '''
+
+    args = parse_args()
+
+    targets, attach_failed = read_ocid_cache()
+    disks = lsblk.list()
+    session = iscsiadm.session()
+
+    if args.detach_iqns:
+        if os.geteuid() != 0:
+            sys.stderr.write("You must run this program with root privileges "
+                             "to detach iSCSI devices.\n")
+            sys.exit(1)
+        
+        for iqn in args.detach_iqns:
+            if iqn not in session:
+                sys.stderr.write("Target %s not found" % iqn)
+                return 1
+            if not iscsiadm.detach(session[iqn]['persistent_portal_ip'],
+                                   session[iqn]['persistent_portal_port'],
+                                   iqn):
+                sys.stderr.write("Failed to detach target %s" % iqn)
+                return 1
+        return 0
+
+    if args.show:
+        display_current_devices(session, disks)
+    if attach_failed:
+        display_attach_failed_devices(targets, attach_failed)
+
+        auth_errors = 0
+        for iqn in attach_failed.keys():
+            if attach_failed[iqn] == 24:
+                auth_errors += 1
+
+        if not args.interactive:
+            print
+            if auth_errors == 1:
+                print "Use the -i or --interactive mode to configure " \
+                    "this device"
+            if auth_errors > 1:
+                print "Use the -i or --interactive mode to configure " \
+                    "these devices"
+        else:
+            print
+            if os.geteuid() != 0:
+                sys.stderr.write("You must run this program with root privileges to configure iSCSI devices.\n")
+                sys.exit(1)
+
+            ans = False
+            if auth_errors == 1:
+                ans = ask_yes_no("Would you like to configure the device that "
+                                 "could not be attached automatically?")
+            elif auth_errors > 1:
+                ans = ask_yes_no("Would you like to configure the devices that "
+                                 "could not be attached automatically?")
+            if ans:
+                myocid = get_instance_ocid()
+                for iqn in attach_failed.keys():
+                    if attach_failed[iqn] != 24:
+                        continue
+                    while ans:
+                        print "To find the CHAP username and password for " \
+                            "this device, go to"
+                        print "https://console.us-phoenix-1.oraclecloud.com/#" \
+                            "/a/compute/instances/%s/disks?jt=listing" % \
+                            myocid
+                        print "Select the Block Volume, then click the " \
+                            "\"iSCSI Commands & Information\" button."
+                        print "CHAP username:"
+                        user = raw_input()
+                        print "CHAP password:"
+                        passwd = raw_input()
+                        portal_ip = None
+                        for ipaddr in targets.keys():
+                            if iqn in targets[ipaddr]:
+                                portal_ip = ipaddr
+                        print "Attaching iSCSI device..."
+                        retval = iscsiadm.attach(portal_ip, 3260, iqn,
+                                                 user, passwd,
+                                                 auto_startup=True)
+                        print "Result: %s" \
+                            % iscsiadm.error_message_from_code(retval)
+                        if retval != 0:
+                            ans = ask_yes_no("Would you like to try again?")
+                        else:
+                            ans = False
+
+    if not args.show and not attach_failed:
+        print "All known devices are attached."
+        print "Use the -s or --show option for details."
+
+    return 0
+
+
+sys.exit(main())
