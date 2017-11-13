@@ -16,6 +16,10 @@ BuildRequires: python-setuptools
 Requires: python2
 Requires: python-daemon
 Requires: python-lockfile
+# for lsblk
+Requires: util-linux
+# for iscsiadm
+Requires: iscsi-initiator-utils
 
 %description
 A package with useful scripts for querying/validating the state of OCI instances running Oracle Linux and facilitating some common configuration tasks.
