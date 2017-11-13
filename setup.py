@@ -28,7 +28,7 @@ def read(fname):
 
 setup(
     name = "oci-utils",
-    version = "0.2",
+    version = "0.3",
     author = "Laszlo Peter",
     author_email = "laszlo.peter@oracle.com",
     description = ("Oracle Cloud Infrastructure utilities"),
@@ -46,7 +46,7 @@ setup(
     extra_files=['requirements.txt'],
     scripts=['bin/oci-public-ip',
              'bin/oci-metadata',
-             'bin/oci-network-config'],
+             'bin/oci-iscsi-config'],
     classifiers=[
         "Development Status :: 3 - Alpha",
         'Environment :: Console',
