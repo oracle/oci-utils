@@ -15,7 +15,7 @@
 # (ii) the Larger Works (as defined below), to deal in both
 # (a) the Software, and
 # (b) any piece of software and/or hardware listed in the lrgrwrks.txt
-# file if one is included with the Software (each a “Larger Work” to which
+# file if one is included with the Software (each a "Larger Work" to which
 # the Software is contributed by such licensors),
 #
 # without restriction, including without limitation the rights to copy,
@@ -53,9 +53,9 @@ import logging
 from logging.handlers import SysLogHandler
 import lockfile
 import posixfile
+import oci_utils
 import oci_utils.iscsiadm
 
-GLOBAL_CACHE = "/var/cache/oci-utils/iscsiadm-cache"
 __ocid_logger = logging.getLogger('ocid')
 __log_level = logging.INFO
 
@@ -91,40 +91,53 @@ def daemon_main():
             if iqns:
                 all_iqns[ipaddr] = iqns
         try:
-            cachedir = os.path.dirname(GLOBAL_CACHE)
+            cachedir = os.path.dirname(oci_utils.GLOBAL_CACHE_DIR)
             if not os.path.exists(cachedir):
                 os.makedirs(cachedir)
-            if not os.path.exists(GLOBAL_CACHE):
-                cache_file = posixfile.open(GLOBAL_CACHE, 'w+')
+            if not os.path.exists(oci_utils.iscsiadm.ISCSIADM_CACHE):
+                cache_file = posixfile.open(
+                    oci_utils.iscsiadm.ISCSIADM_CACHE, 'w+')
             else:
-                cache_file = posixfile.open(GLOBAL_CACHE, 'r+')
+                cache_file = posixfile.open(
+                    oci_utils.iscsiadm.ISCSIADM_CACHE, 'r+')
         except (OSError, IOError):
-            # can't write to global cache dir, try the user dir
+            # can't write to global cache dir
             # FIXME: write error to log
             pass
-
-        if cache_file is not None:
-            cache_file.lock("w|")
-            cache_file.write(json.dumps(all_iqns))
-            cache_file.truncate()
-            cache_file.lock("u")
-            cache_file.close()
 
         iscsi_devs = oci_utils.iscsiadm.session()
         # check if all discovered iscsi devices are configured and attached
         for ipaddr in all_iqns.keys():
             for iqn in all_iqns[ipaddr]:
-                if ipaddr in attach_failed \
-                   and attach_failed[ipaddr] == iqn:
+                if iqn in attach_failed:
                     continue
-                if ipaddr not in iscsi_devs or \
-                   iqn not in iscsi_devs[ipaddr]:
+                if iqn not in iscsi_devs:
                     # configure and attach the device
                     __ocid_logger.info("Attaching iscsi device: %s:%s (%s)" % \
                                        (ipaddr, "3260", iqn))
-                    if not oci_utils.iscsiadm.attach(ipaddr, 3260, iqn,
-                                                     auto_startup=True):
-                        attach_failed[ipaddr] = iqn
+                    attach_result = \
+                        oci_utils.iscsiadm.attach(ipaddr, 3260, iqn,
+                                                  auto_startup=True)
+                    if attach_result != 0:
+                        attach_failed[iqn] = attach_result
+                    else:
+                        if iqn in attach_failed:
+                            # previously failed attach is now successful
+                            del(attach_failed[iqn])
+        if cache_file is not None:
+            try:
+                cache_file.lock("w|")
+                print "all_iqns: %s" % all_iqns
+                print "attach_failed: %s" % attach_failed
+                cache_file.write(json.dumps([all_iqns, attach_failed]))
+                cache_file.truncate()
+                cache_file.lock("u")
+                cache_file.close()
+            except (OSError, IOError):
+                # can't write to global cache
+                # FIXME: write error to log
+                pass
+
         for ipaddr in prev_iqns.keys():
             for iqn in prev_iqns[ipaddr]:
                 if ipaddr not in all_iqns or\
@@ -133,6 +146,7 @@ def daemon_main():
                     __ocid_logger.info("Detaching iscsi device: %s:%s (%s)" % \
                                        (ipaddr, "3260", iqn))
                     oci_utils.iscsiadm.detach(ipaddr, 3260, iqn)
+
         # update the metadata cache
         oci_utils.metadata().refresh()
         time.sleep(30)
