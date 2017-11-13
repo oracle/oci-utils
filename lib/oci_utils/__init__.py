@@ -15,7 +15,7 @@
 # (ii) the Larger Works (as defined below), to deal in both
 # (a) the Software, and
 # (b) any piece of software and/or hardware listed in the lrgrwrks.txt
-# file if one is included with the Software (each a “Larger Work” to which
+# file if one is included with the Software (each a "Larger Work" to which
 # the Software is contributed by such licensors),
 #
 # without restriction, including without limitation the rights to copy,
@@ -46,6 +46,8 @@ import posixfile
 import json
 from datetime import datetime, timedelta
 from .packages.stun import get_ip_info, log as stun_log
+
+GLOBAL_CACHE_DIR = "/var/cache/oci-utils"
 
 class OCIMetadata(dict):
     """
@@ -140,7 +142,7 @@ class metadata(object):
     _metadata_update_time = None
 
     # cache files
-    _global_cache = "/var/cache/oci-utils/metadata-cache"
+    _global_cache = GLOBAL_CACHE_DIR + "/metadata-cache"
     _user_cache = "~/.cache/oci-utils/metadata-cache"
     _cache_timeout = timedelta(minutes = 2)
 
@@ -205,7 +207,7 @@ class metadata(object):
                 global_cache_file.lock("u")
                 global_cache_file.close()
             try:
-                cached_metadata = json.load(user_cache_file.read())
+                cached_metadata = json.load(user_cache_file)
                 cache_update_time = user_cache_time
             except Exception as e:
                 try:
