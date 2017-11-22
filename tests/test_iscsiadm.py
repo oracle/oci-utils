@@ -26,8 +26,8 @@ class TestIScsiAdm(unittest.TestCase):
     @skipUnlessOCI()
     def test_session(self):
         iqns = oci_utils.iscsiadm.session()
-        self.assertIn('169.254.0.2', iqns)
-        self.assertIn('iqn.2015-02.oracle.boot:uefi', iqns['169.254.0.2'])
+        self.assertIn('iqn.2015-02.oracle.boot:uefi', iqns)
+        self.assertEqual(iqns['iqn.2015-02.oracle.boot:uefi'], '169.254.0.2')
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestIScsiAdm)

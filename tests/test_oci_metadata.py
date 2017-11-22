@@ -16,23 +16,23 @@ class TestOciMetadata(unittest.TestCase):
         metadata = oci_utils.metadata().get()
         self.assertNotEqual(metadata, [])
         print metadata
-        self.assertIn('instance', metadata)
-        self.assertIn('region', metadata['instance'])
-        self.assertIn(metadata['instance']['region'] in ['phx','iad','fra'])
-        self.assertIn('state', metadata['instance'])
+        self.assertTrue(metadata['instance'])
+        self.assertIn(u'region', metadata['instance'])
+        self.assertIn(metadata['instance']['region'], ['phx','iad','fra'])
+        self.assertIn(u'state', metadata['instance'])
         self.assertEquals(metadata['instance']['state'], 'Running')
 
     @skipUnlessOCI()
     def test__oci_metadata__filter(self):
         metadata = oci_utils.metadata().filter(['macaddr', 'instance'])
         self.assertTrue(metadata)
-        self.assertIn('instance', metadata)
-        self.assertIn('compartmentId', metadata['instance'])
+        self.assertIn(u'instance', metadata)
+        self.assertIn(u'compartmentId', metadata['instance'])
         self.assertIn('ocid1.compartment.oc1..',
                       metadata['instance']['compartmentId'])
-        self.assertIn('vnics', metadata)
-        self.assertIn('macAddr', metadata['vnics'][0])
-        self.assertNotIn('vnicId', metadata['vnics'][0])
+        self.assertIn(u'vnics', metadata)
+        self.assertIn(u'macAddr', metadata['vnics'][0])
+        self.assertNotIn(u'vnicId', metadata['vnics'][0])
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestOciMetadata)
