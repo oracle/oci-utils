@@ -42,6 +42,7 @@ rm -rf %{buildroot}
 %{_bindir}/oci-*
 %{_libexecdir}/ocid
 %{_sysconfdir}/systemd/system/ocid.service
+%{_datadir}/man
 %doc COPYING PKG-INFO
 
 %changelog

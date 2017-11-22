@@ -49,19 +49,24 @@ import time
 import socket
 import daemon
 import json
+import argparse
 import logging
 from logging.handlers import SysLogHandler
 import lockfile
 import posixfile
 import oci_utils
 import oci_utils.iscsiadm
+from oci_utils.cache import load_cache, write_cache, get_timestamp
 
 __ocid_logger = logging.getLogger('ocid')
 __log_level = logging.INFO
 
-def setup_logging():
-    handler = SysLogHandler(address='/dev/log',
-                            facility=SysLogHandler.LOG_DAEMON)
+def setup_logging(syslog=False):
+    if syslog:
+        handler = SysLogHandler(address='/dev/log',
+                                facility=SysLogHandler.LOG_DAEMON)
+    else:
+        handler = logging.StreamHandler(stream=sys.stderr)
     handler.setLevel(__log_level)
     formatter = logging.Formatter('%(name)s - %(levelname)s '
                                   '- %(message)s')
@@ -70,48 +75,91 @@ def setup_logging():
     __ocid_logger.addHandler(handler)
     __ocid_logger.info('oci daemon starting')
 
-def daemon_main():
+def parse_args():
+    '''
+    Parse the command line arguments and return an object representing the
+    command line (as returned by argparse's parse_args())
+    '''
+    parser = argparse.ArgumentParser(description='oci-utils daemon')
+    parser.add_argument('--refresh', action='store_true',
+                        help='scan for iSCSI devices and update the cached '
+                        'data')
+    parser.add_argument('--no-daemon', action='store_true',
+                        help='run ocid in the foreground, useful for debugging')
+    parser.add_argument('--debug', action='store_true',
+                        help='display diagnostic output'),
+
+    args = parser.parse_args()
+    return args
+
+    
+def daemon_main(args):
     """
     Main program
     """
-    # iscsi devices we couldn't connect to (typically auth error)
+    # iscsi devices we couldn't connect to and the error code
     attach_failed = {}
-    iscsi_devs = {}
+    # iscsi devices in the current session
+    session_devs = {}
+    # all IQNs discovered
     all_iqns = {}
+    ignore_ts = 0
+    if args.refresh and args.no_daemon:
+        print "Scanning for iSCSI devices"
     while True:
-        # save result of previous discovery so we can later check
-        # which devices are gone
-        prev_iqns = all_iqns
-        # all IQNs discovered
-        all_iqns = {}
-        cache_file = None
+        data_changed = False
+        new_iqns = {}
+        detached_iqns = {}
+        if ignore_ts == 0 or \
+           get_timestamp(oci_utils.__ignore_file) > ignore_ts:
+            # has the list of manually detached devices changed?
+            ignore_ts, ignore = load_cache(oci_utils.__ignore_file)
+        if ignore is None:
+            ignore = []
         for r in range(20):
             ipaddr = "169.254.2.%d" % (r+1)
             iqns = oci_utils.iscsiadm.discovery(ipaddr)
             if iqns:
-                all_iqns[ipaddr] = iqns
-        try:
-            cachedir = os.path.dirname(oci_utils.GLOBAL_CACHE_DIR)
-            if not os.path.exists(cachedir):
-                os.makedirs(cachedir)
-            if not os.path.exists(oci_utils.iscsiadm.ISCSIADM_CACHE):
-                cache_file = posixfile.open(
-                    oci_utils.iscsiadm.ISCSIADM_CACHE, 'w+')
+                if ipaddr in all_iqns:
+                    # devices were previously discovered at this address
+                    if iqns != all_iqns[ipaddr]:
+                        # list of iqns present at the given ipaddr changed
+                        __ocid_logger.debug('IQNs exported at %s changed: '
+                                            '%s -> %s' % \
+                                            (ipaddr, all_iqns[ipaddr], iqns))
+                        all_iqns[ipaddr] = iqns
+                        data_changed = True
+                        new_iqns[ipaddr] = iqns
+                else:
+                    # devices discovered at a new address
+                    __ocid_logger.debug('New devices discovered at %s: %s' % \
+                                        (ipaddr, iqns))
+                    all_iqns[ipaddr] = iqns
+                    data_changed = True
+                    new_iqns[ipaddr] = iqns
             else:
-                cache_file = posixfile.open(
-                    oci_utils.iscsiadm.ISCSIADM_CACHE, 'r+')
-        except (OSError, IOError):
-            # can't write to global cache dir
-            # FIXME: write error to log
-            pass
+                # no devices present at the given ipaddr
+                if ipaddr in all_iqns:
+                    __ocid_logger.debug('Device(s) no longer available at %s: '
+                                        '%s' % \
+                                        (ipaddr, all_iqns[ipaddr]))
+                    # delete previously discovered devices
+                    detached_iqns[ipaddr] = all_iqns[ipaddr]
+                    del(all_iqns[ipaddr])
+                    data_changed = True
 
-        iscsi_devs = oci_utils.iscsiadm.session()
+        session_devs = oci_utils.iscsiadm.session()
         # check if all discovered iscsi devices are configured and attached
-        for ipaddr in all_iqns.keys():
-            for iqn in all_iqns[ipaddr]:
-                if iqn in attach_failed:
-                    continue
-                if iqn not in iscsi_devs:
+        for ipaddr in new_iqns.keys():
+            for iqn in new_iqns[ipaddr]:
+                if iqn not in session_devs:
+                    if iqn in attach_failed:
+                        # previous attempt to attach failed, ignore
+                        continue
+                    if iqn in ignore:
+                        # a device that was manually detached, so don't
+                        # re-attach it automatically
+                        continue
                     # configure and attach the device
                     __ocid_logger.info("Attaching iscsi device: %s:%s (%s)" % \
                                        (ipaddr, "3260", iqn))
@@ -120,36 +168,50 @@ def daemon_main():
                                                   auto_startup=True)
                     if attach_result != 0:
                         attach_failed[iqn] = attach_result
-                    else:
-                        if iqn in attach_failed:
-                            # previously failed attach is now successful
-                            del(attach_failed[iqn])
-        if cache_file is not None:
-            try:
-                cache_file.lock("w|")
-                print "all_iqns: %s" % all_iqns
-                print "attach_failed: %s" % attach_failed
-                cache_file.write(json.dumps([all_iqns, attach_failed]))
-                cache_file.truncate()
-                cache_file.lock("u")
-                cache_file.close()
-            except (OSError, IOError):
-                # can't write to global cache
-                # FIXME: write error to log
-                pass
+                        data_changed = True
+                else:
+                    if iqn in attach_failed:
+                        # previously failed attach is now in the session
+                        # (e.g. attached using oci-iscsi-config or
+                        # using iscsiadm directly)
+                        del(attach_failed[iqn])
+                        data_changed = True
 
-        for ipaddr in prev_iqns.keys():
-            for iqn in prev_iqns[ipaddr]:
+        if data_changed:
+            write_cache(cache_content=[all_iqns, attach_failed],
+                        cache_fname=oci_utils.iscsiadm.ISCSIADM_CACHE)
+
+        # look for disconnected devices in the current session
+        for iqn in session_devs:
+            if session_devs[iqn]['state'] in ['blocked', 'transport-offline']:
+                # is the iqn discoverable at the portal?
+                ipaddr = session_devs[iqn]['persistent_portal_ip']
+                if ipaddr in detached_iqns:
+                    # we will disconnect this in the next step
+                    continue
+                if ipaddr not in all_iqns or iqn not in all_iqns[ipaddr]:
+                    # device no longer found by discovery
+                    __ocid_logger.info("Detaching iscsi device: %s:%s (%s)" % \
+                                       (ipaddr, "3260", iqn))
+                    oci_utils.iscsiadm.detach(ipaddr, 3260, iqn)
+
+        for ipaddr in detached_iqns.keys():
+            for iqn in detached_iqns[ipaddr]:
                 if ipaddr not in all_iqns or\
                    iqn not in all_iqns[ipaddr]:
-                    # means the device was disconnected
+                    # device no longer found by discovery
                     __ocid_logger.info("Detaching iscsi device: %s:%s (%s)" % \
                                        (ipaddr, "3260", iqn))
                     oci_utils.iscsiadm.detach(ipaddr, 3260, iqn)
 
         # update the metadata cache
         oci_utils.metadata().refresh()
-        time.sleep(30)
+
+        if args.refresh:
+            # run once only
+            return 0
+
+        time.sleep(60)
 
 
 if os.geteuid() != 0:
@@ -162,12 +224,22 @@ if pidlock.is_locked():
     sys.stderr.write("ocid already running.\n")
     sys.exit(1)
 
-setup_logging()
 oci_utils.iscsiadm.set_logger(__ocid_logger)
 
-context = daemon.DaemonContext(
-    pidfile=pidlock,
-    umask=0o033
-    )
-with context:
-    daemon_main()
+args = parse_args()
+
+if args.debug:
+    __log_level = logging.DEBUG
+
+if args.no_daemon:
+    setup_logging(syslog=False)
+    sys.exit(daemon_main(args))
+else:
+    setup_logging(syslog=True)
+    context = daemon.DaemonContext(
+        pidfile=pidlock,
+        umask=0o033
+        )
+    with context:
+        daemon_main(args)
+

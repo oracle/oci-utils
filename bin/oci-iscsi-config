@@ -48,28 +48,37 @@ import sys
 import posixfile
 import argparse
 import json
-from oci_utils import iscsiadm, lsblk, metadata
+import subprocess
+from datetime import timedelta
+from oci_utils import iscsiadm, lsblk, metadata, __ignore_file
+from oci_utils.cache import load_cache, write_cache
 
 def parse_args():
     '''
     Parse the command line arguments and return an object representing the
     command line (as returned by argparse's parse_args())
     '''
-    parser = argparse.ArgumentParser(description='Utility for displaying the '
-                                     'public IP address of the current OCI '
+    parser = argparse.ArgumentParser(description='Utility for listing or '
+                                     'configuring iSCSI devices on an OCI '
                                      'instance.', add_help=False)
-    parser.add_argument('-h', '--human-readable', action='store_true',
-                        help='Display human readable output (default)')
-#   FIXME: add json ouput
-#    parser.add_argument('-j', '--json', action='store_true',
-#                        help='Display json output')
     parser.add_argument('-i', '--interactive', action='store_true',
                         help='Run in interactive mode')
     parser.add_argument('-s', '--show', action='store_true',
                         help='Display the current iscsi configuration')
     parser.add_argument('-d', '--detach', metavar='TARGET', dest='detach_iqns',
                         action='append', type=str,
-                        help='Detach the given iSCSI device')
+                        help='Detach the iSCSI device with the specified IQN')
+    parser.add_argument('-a', '--attach', metavar='TARGET', dest='attach_iqns',
+                        action='append', type=str,
+                        help='Attach the iSCSI device with the specified IQN')
+    parser.add_argument('--username', metavar='USER', action='store',
+                        type=str,
+                        help='Use USER as the user name when attaching a ' \
+                        'device that requires CHAP authentication')
+    parser.add_argument('--password', metavar='PASSWD', action='store',
+                        type=str,
+                        help='Use PASSWD as the password when attaching a '
+                        'device that requires CHAP authentication')
     parser.add_argument('--debug', action='store_true',
                         help='display diagnostic output'),
     parser.add_argument('--help', action='help',
@@ -99,23 +108,6 @@ def get_instance_ocid():
     else:
         return '<instance OCID>'
 
-def read_ocid_cache():
-    """
-    read the iscsi discovery data saved by ocid
-    """
-    if not os.path.exists(iscsiadm.ISCSIADM_CACHE):
-        return {},[]
-    try:
-        cache_file = posixfile.open(iscsiadm.ISCSIADM_CACHE, 'r')
-        cache_file.lock("r|")
-        [targets, attach_failed] = json.load(cache_file)
-        cache_file.lock("u")
-        cache_file.close()
-        return targets, attach_failed
-    except (OSError, IOError):
-        # can't open the global cache
-        return {},[]
-
 def nvl(value, defval="Unknown"):
     """
     return defval if value is None or empty, otherwise return value
@@ -125,7 +117,23 @@ def nvl(value, defval="Unknown"):
     if not value:
         return defval
     return value
-        
+
+def ocid_refresh(wait=False):
+    """
+    run ocid --refresh to update cached information
+    """
+    try:
+        if wait:
+            subprocess.check_call(['/usr/libexec/ocid',
+                                   '--refresh', '--no-daemon'])
+        else:
+            subprocess.check_call(['/usr/libexec/ocid',
+                                   '--refresh'])
+        return True
+    except subprocess.CalledProcessError as e:
+        return False
+    
+
 def display_current_devices(session, disks):
     if session:
         print "Currently attached iSCSI devices:"
@@ -164,18 +172,46 @@ def display_current_devices(session, disks):
                             )
         print
 
-def display_attach_failed_devices(targets, attach_failed):
-    if attach_failed:
-        print
-        print "Devices that could not be attached automatically:"
-    for iqn in attach_failed.keys():
-        print
-        print "Target %s" % iqn
+def display_attach_failed_device(iqn, targets, attach_failed):
+    print
+    print "Target %s" % iqn
+    for ipaddr in targets.keys():
+        if iqn in targets[ipaddr]:
+            print "              Portal:    %s:%s" % (ipaddr, 3260)
+            print "               State:    %s" % \
+                iscsiadm.error_message_from_code(attach_failed[iqn])
+
+def display_detached_device(iqn, targets):
+    print
+    print "Target %s" % iqn
+    if targets:
         for ipaddr in targets.keys():
             if iqn in targets[ipaddr]:
                 print "              Portal:    %s:%s" % (ipaddr, 3260)
-                print "               State:    %s" % \
-                    iscsiadm.error_message_from_code(attach_failed[iqn])
+    else:
+        print "              Portal:    unknown (need ocid to determine)"
+
+    print "               State:    Detached"
+    
+def do_attach(iqn, targets, user=None, passwd=None):
+    portal_ip = None
+    if targets is None:
+        print "ocid must be running to determine the portal IP address " \
+            "for this device"
+        return 99
+    for ipaddr in targets.keys():
+        if iqn in targets[ipaddr]:
+            portal_ip = ipaddr
+    if portal_ip is None:
+        # this shouldn't really happen, but just in case
+        print "Can't find portal IP address"
+        return 99
+    retval = iscsiadm.attach(portal_ip, 3260, iqn,
+                             user, passwd,
+                             auto_startup=True)
+    print "Result: %s" \
+        % iscsiadm.error_message_from_code(retval)
+    return retval
 
 def main():
     '''
@@ -184,91 +220,205 @@ def main():
 
     args = parse_args()
 
-    targets, attach_failed = read_ocid_cache()
+    ocid_cache = load_cache(iscsiadm.ISCSIADM_CACHE,
+                            max_age=timedelta(minutes = 2))[1]
+    if ocid_cache is None:
+        sys.stderr.write("For full functionality of this utility "
+                         "the ocid service must be running\n")
+        sys.stderr.write("The administrator can start it using this "
+                         "command:\n")
+        sys.stderr.write("    sudo systemctl start ocid.service\n")
+        if os.geteuid() == 0:
+            # run ocid once, to update the cache
+            ocid_refresh(wait=True)
+            # now try to load again
+            ocid_cache = load_cache(iscsiadm.ISCSIADM_CACHE,
+                                    max_age=timedelta(minutes = 2))[1]
+    if ocid_cache is None:
+        targets, attach_failed = None, None
+    else:
+        targets, attach_failed = ocid_cache
     disks = lsblk.list()
     session = iscsiadm.session()
+    detached = load_cache(__ignore_file)[1]
+    if detached is None:
+        detached = []
 
     if args.detach_iqns:
         if os.geteuid() != 0:
             sys.stderr.write("You must run this program with root privileges "
                              "to detach iSCSI devices.\n")
             sys.exit(1)
-        
+
+        write_ignore_file = False
+        retval = 0
+        do_refresh = False
         for iqn in args.detach_iqns:
+            if iqn in detached:
+                sys.stderr.write("Target %s is already detached\n" % iqn)
+                retval = 1
+                continue
             if iqn not in session:
-                sys.stderr.write("Target %s not found" % iqn)
-                return 1
+                sys.stderr.write("Target %s not found\n" % iqn)
+                retval = 1
+                continue
+            if 'boot:uefi' in iqn:
+                sys.stderr.write("IQN %s is the boot device, cannot detach.\n" \
+                                 % iqn)
+                retval = 1
+                continue                
             if not iscsiadm.detach(session[iqn]['persistent_portal_ip'],
                                    session[iqn]['persistent_portal_port'],
                                    iqn):
                 sys.stderr.write("Failed to detach target %s" % iqn)
-                return 1
-        return 0
+                retval = 1
+            else:
+                detached.append(iqn)
+                write_ignore_file = True
+                do_refresh = True
+        if write_ignore_file:
+            write_cache(cache_content=detached,
+                        cache_fname=__ignore_file)
+        if do_refresh:
+            ocid_refresh()
+        return retval
+
+    if args.attach_iqns:
+        if os.geteuid() != 0:
+            sys.stderr.write("You must run this program with root privileges "
+                             "to attach iSCSI devices.\n")
+            sys.exit(1)
+
+        write_ignore_file = False
+        retval = 0
+        for iqn in args.attach_iqns:
+            if iqn in session:
+                print "Target %s is already attached." % iqn
+                continue
+            if iqn not in detached and iqn not in attach_failed:
+                sys.stderr.write("Target %s not found\n" % iqn)
+                retval = 1
+                continue
+            if do_attach(iqn, targets,
+                         user=args.username, passwd=args.password) != 0:
+                sys.stderr.write("Failed to attach target %s" % iqn)
+                retval = 1
+            else:
+                if iqn in detached:
+                    detached.remove(iqn)
+                write_ignore_file = True
+        if write_ignore_file:
+            write_cache(cache_content=detached,
+                        cache_fname=__ignore_file)
+        ocid_refresh()
+        return retval
 
     if args.show:
         display_current_devices(session, disks)
+        
+    if detached:
+        print
+        print "Detached devices:"
+
+        do_refresh = False
+        write_ignore_file = False
+        for iqn in detached:
+            display_detached_device(iqn, targets)
+            if args.interactive:
+                if os.geteuid() != 0:
+                    print "You must run this program with root privileges " \
+                        "to attach iSCSI devices.\n"
+                    ans = False
+                else:
+                    ans = ask_yes_no("Would you like to attach this device?")
+                if ans:
+                    retval = do_attach(iqn, targets)
+                    do_refresh = True
+                    if retval == 24:
+                        # authentication error
+                        attach_failed[iqn] = 24
+                    if iqn in detached:
+                        detached.remove(iqn)
+                        write_ignore_file = True
+        if write_ignore_file:
+            write_cache(cache_content=detached,
+                        cache_fname=__ignore_file)
+        if do_refresh:
+            ocid_refresh()
+
     if attach_failed:
-        display_attach_failed_devices(targets, attach_failed)
+        print
+        print "Devices that could not be attached automatically:"
 
         auth_errors = 0
         for iqn in attach_failed.keys():
             if attach_failed[iqn] == 24:
                 auth_errors += 1
 
-        if not args.interactive:
-            print
-            if auth_errors == 1:
-                print "Use the -i or --interactive mode to configure " \
-                    "this device"
-            if auth_errors > 1:
-                print "Use the -i or --interactive mode to configure " \
-                    "these devices"
-        else:
-            print
-            if os.geteuid() != 0:
-                sys.stderr.write("You must run this program with root privileges to configure iSCSI devices.\n")
-                sys.exit(1)
-
-            ans = False
-            if auth_errors == 1:
-                ans = ask_yes_no("Would you like to configure the device that "
-                                 "could not be attached automatically?")
-            elif auth_errors > 1:
-                ans = ask_yes_no("Would you like to configure the devices that "
-                                 "could not be attached automatically?")
-            if ans:
-                myocid = get_instance_ocid()
-                for iqn in attach_failed.keys():
-                    if attach_failed[iqn] != 24:
-                        continue
+        for iqn in attach_failed.keys():
+            display_attach_failed_device(iqn, targets, attach_failed)
+            do_refresh = False
+            if args.interactive:
+                if attach_failed[iqn] != 24:
+                    # not authentication error
+                    ans = True
                     while ans:
-                        print "To find the CHAP username and password for " \
-                            "this device, go to"
-                        print "https://console.us-phoenix-1.oraclecloud.com/#" \
-                            "/a/compute/instances/%s/disks?jt=listing" % \
-                            myocid
-                        print "Select the Block Volume, then click the " \
-                            "\"iSCSI Commands & Information\" button."
-                        print "CHAP username:"
-                        user = raw_input()
-                        print "CHAP password:"
-                        passwd = raw_input()
-                        portal_ip = None
-                        for ipaddr in targets.keys():
-                            if iqn in targets[ipaddr]:
-                                portal_ip = ipaddr
-                        print "Attaching iSCSI device..."
-                        retval = iscsiadm.attach(portal_ip, 3260, iqn,
-                                                 user, passwd,
-                                                 auto_startup=True)
-                        print "Result: %s" \
-                            % iscsiadm.error_message_from_code(retval)
-                        if retval != 0:
-                            ans = ask_yes_no("Would you like to try again?")
+                        if os.geteuid() != 0:
+                            print "You must run this program with root " \
+                                "privileges to attach iSCSI devices.\n"
+                            ans = False
+                        else:
+                            ans = ask_yes_no("Would you like to retry "
+                                             "attaching this device?")
+                        if ans:
+                            retval = do_attach(iqn, targets)
+                            print "Result: %s" \
+                                % iscsiadm.error_message_from_code(retval)
+                            if retval == 0:
+                                ans = False
+                                do_refresh = True
                         else:
                             ans = False
+                else:
+                    # authentication error
+                    if os.geteuid() != 0:
+                        print "You must run this program with root " \
+                            "privileges to configure iSCSI devices.\n"
+                        ans = False
+                    else:
+                        ans = ask_yes_no("Would you like to configure this "
+                                         "device?")
+                    if ans:
+                        myocid = get_instance_ocid()
+                        while ans:
+                            print "To find the CHAP username and password " \
+                                "for this device, go to"
+                            print "https://console.us-phoenix-1.oraclecloud.com/#" \
+                                "/a/compute/instances/%s/disks?jt=listing" % \
+                                myocid
+                            print "Select the Block Volume, then click the " \
+                                "\"iSCSI Commands & Information\" button."
+                            print "CHAP username:"
+                            user = raw_input()
+                            print "CHAP password:"
+                            passwd = raw_input()
+                            print "Attaching iSCSI device..."
+                            retval = do_attach(iqn, targets, user, passwd)
+                            print "Result: %s" \
+                                % iscsiadm.error_message_from_code(retval)
+                            if retval != 0:
+                                ans = ask_yes_no("Would you like to try again?")
+                            else:
+                                ans = False
+                                do_refresh = True
+        if do_refresh:
+            ocid_refresh()
+        if not args.interactive and auth_errors:
+            print
+            print "Use the -i or --interactive mode to configure " \
+                "devices that require authentication information"
 
-    if not args.show and not attach_failed:
+    if not args.show and not attach_failed and not detached:
         print "All known devices are attached."
         print "Use the -s or --show option for details."
 

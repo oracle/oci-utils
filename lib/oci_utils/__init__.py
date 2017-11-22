@@ -46,8 +46,10 @@ import posixfile
 import json
 from datetime import datetime, timedelta
 from .packages.stun import get_ip_info, log as stun_log
+from cache import GLOBAL_CACHE_DIR
 
-GLOBAL_CACHE_DIR = "/var/cache/oci-utils"
+# file with a list IQNs to ignore
+__ignore_file = "/var/run/oci-utils/ignore_iqns"
 
 class OCIMetadata(dict):
     """
@@ -156,89 +158,16 @@ class metadata(object):
         handler = logging.StreamHandler()
         handler.setLevel(logging.DEBUG)
         self.logger.addHandler(handler)
-        if not self._load_cache():
-            self.logger.debug("_load_cache failed, refreshing metadata")
+        (cache_timestamp, cache_content) = cache.load_cache(
+            self._global_cache, self._user_cache, self._cache_timeout)
+        if cache_content is None:
+            self.logger.debug("Cache not found or not usable, "
+                              "refreshing metadata")
             self.refresh(debug=debug)
-            return
-        if self._metadata_update_time + self._cache_timeout < datetime.now():
-            self.logger.debug("cache expired, refreshing metadata")
-            self.refresh(debug=debug)
-
-    def _load_cache(self):
-        """
-        Load cached metadata information from file
-        """
-
-        epoch = datetime.fromtimestamp(0)
-
-        global_cache_file = None
-        global_cache_time = epoch
-        try:
-            global_cache_file = posixfile.open(self._global_cache, "r")
-            # acquire read lock
-            global_cache_file.lock("r|")
-            global_cache_time = datetime.fromtimestamp(
-                os.path.getmtime(self._global_cache))
-        except IOError:
-            # no global cache
-            self.logger.debug("global cache could not be opened")
-
-        user_cache_file = None
-        user_cache_time = epoch
-        try:
-            user_cache_file = posixfile.open(self._user_cache, "r")
-            # acquire read lock
-            user_cache_file.lock("r|")
-            user_cache_time = datetime.fromtimestamp(
-                os.path.getmtime(self._user_cache))
-        except IOError:
-            # no user cache
-            self.logger.debug("user cache could not be opened")
-            user_cache_time = epoch
-
-        if user_cache_time == epoch and global_cache_time == epoch:
-            # no cache found
-            self.logger.debug("no usable cache found")
-            return False
-
-        if user_cache_time > global_cache_time:
-            self.logger.debug("user cache newer than global cache")
-            if global_cache_file:
-                global_cache_file.lock("u")
-                global_cache_file.close()
-            try:
-                cached_metadata = json.load(user_cache_file)
-                cache_update_time = user_cache_time
-            except Exception as e:
-                try:
-                    os.path.remove(self._user_cache)
-                except:
-                    pass
-                self.logger.debug("failed to read global cache: %s" % e)
-                return False
-            finally:
-                user_cache_file.lock("u")
-                user_cache_file.close()
         else:
-            if user_cache_file:
-                user_cache_file.lock("u")
-                user_cache_file.close()
-            try:
-                cached_metadata = json.load(global_cache_file)
-                cache_update_time = global_cache_time
-            except Exception as e:
-                try:
-                    os.path.remove(self._global_cache)
-                except:
-                    pass
-                self.logger.debug("failed to read global cache: %s" % e)
-                return False
-            finally:
-                global_cache_file.lock("u")
-                global_cache_file.close()
-        self._metadata = OCIMetadata(cached_metadata)
-        self._metadata_update_time = cache_update_time
-        return True
+            self._metadata = OCIMetadata(cache_content)
+            self._metadata_update_time = datetime.fromtimestamp(
+                cache_timestamp)
             
     def refresh(self, debug=False):
         """
@@ -287,35 +216,9 @@ class metadata(object):
         if metadata:
             self._metadata = OCIMetadata(metadata)
 
-        # try to save in global metadata cache
-        try:
-            cachedir = os.path.dirname(self._global_cache)
-            if not os.path.exists(cachedir):
-                os.makedirs(cachedir)
-            if not os.path.exists(self._global_cache):
-                cache_file = posixfile.open(self._global_cache, 'w+')
-            else:
-                cache_file = posixfile.open(self._global_cache, 'r+')
-        except (OSError, IOError):
-            # can't write to global cache dir, try the user dir
-            cachedir = os.path.dirname(self._user_cache)
-            try:
-                if not os.path.exists(cachedir):
-                    os.makedirs(cachedir)
-                if not os.path.exists(self._user_cache):
-                    cache_file = posixfile.open(self._user_cache, 'w+')
-                else:
-                    cache_file = posixfile.open(self._user_cache, 'r+')
-            except (OSError, IOError) as e:
-                # can't write to user cache either, give up
-                sys.stderr.write("Error writing cache: %s" % e)
-                return result
-
-        cache_file.lock("w|")
-        cache_file.write(json.dumps(self._metadata.get()))
-        cache_file.truncate()
-        cache_file.lock("u")
-        cache_file.close()
+        cache.write_cache(cache_content=self._metadata.get(),
+                          cache_fname=self._global_cache,
+                          fallback_fname=self._user_cache)
         return result
 
     def filter(self, keys):
