@@ -1,0 +1,41 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-metadata.1
+.\"
+.\" Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+.\"
+.TH OCI-METADATA 1 "DECEMBER 2017" Linux "User Manuals"
+.SH NAME
+oci-metadata \- display OCI compute instance metadata
+.SH SYNOPSIS
+.B oci-metadata [-h|--human-readable] [-j|--json] [-g
+.I KEY
+.B | --get
+.I KEY
+.B ] [--debug] [--help]
+.SH DESCRIPTION
+The
+.B oci-metadata
+utility displays metadata for a compute instance running in the Oracle
+Cloud Infrastructure (OCI).  Without any command line options all available metadata is displayed.
+.SH OPTIONS
+.IP -h,\ --human-readable
+(default) Print the public IP address in a form intended for humans.
+.IP -j,\ --json
+Print the public IP address in JSON format, intended for scripting.
+.IP "-g KEY, --get KEY"
+Search for the given
+.B KEY
+in the metadata and only display matching entries.  For example
+.IR oci-metadata -g macaddr
+displays the MAC address of each VNIC interface.  Use the JSON output to see all available keys.
+.B KEY
+is not case sensitive, but it has to match the entire key.  You can use this option multiple times to display more than one key.
+.IP --debug
+Print diagnostic messages.
+.IP --help
+Print a summary of the command line options.
+.SH DIAGNOSTICS
+Return an exit status of 0 for success or 1 if an error occured.
+.SH "SEE ALSO"
+.BR oci-public-ip (1),
+.BR ocid (8)

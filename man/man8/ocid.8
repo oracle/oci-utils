@@ -1,0 +1,48 @@
+.\" Process this file with
+.\" groff -man -Tascii ocid.8
+.\"
+.\" Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+.\"
+.TH OCID 8 "DECEMBER 2017" Linux "System Administration Manuals"
+.SH NAME
+ocid \- oci-utils service
+.SH SYNOPSIS
+.B /usr/libexec/ocid [--refresh] [--no-daemon] [--debug] [--help]
+.SH DESCRIPTION
+The
+.B ocid(8)
+daemon is the service component of oci-utils.  It is normally started via
+.BR systemd(1)
+using:
+
+.RS
+sudo systemctl start ocid.service
+.RE
+
+When running, the service scans for changes in the iSCSI device configuration
+and attempts to automatically attach/detach devices as they appear or disappear.
+When a device requires CHAP authentication this will fail and the user has
+to supply the username and password using
+.BR oci-iscsi-config(1).
+
+It also caches the OCI metadata and the public IP address of the instance.
+
+.BR ocid(8)
+requires root privileges.
+
+.SH OPTIONS
+.IP "--refresh"
+Scan for iSCSI devices and refresh all metadata once and exit.
+.IP "--no-daemon"
+Run in the foreground and print log messages to standard error instead of
+the syslog facility.
+.IP --debug
+Print diagnostic messages.
+.IP --help
+Print a summary of the command line options.
+.SH DIAGNOSTICS
+Return an exit status of 0 for success or 1 if an error occured.
+.SH "SEE ALSO"
+.BR oci-iscsi-config (1),
+.BR systemd(1),
+.BR systemctl(1)

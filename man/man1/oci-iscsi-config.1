@@ -1,0 +1,82 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-iscsi-config.1
+.\"
+.\" Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+.\"
+.TH OCI-ISCSI-CONFIG 1 "DECEMBER 2017" Linux "User Manuals"
+.SH NAME
+oci-iscsi-config \- configure iSCSI devices on OCI compute instances
+.SH SYNOPSIS
+.B oci-iscsi-config [-i|--interactive] [-s|--show] [-a
+.I IQN
+.B | --attach
+.I IQN
+.B ] [-d
+.I IQN
+.B | --detach
+.I IQN
+.B ] [--username
+.I USER
+.B ] [--password
+.I PWD
+.B ] [--debug] [--help]
+.SH DESCRIPTION
+The
+.B oci-iscsi-config
+utility is used to display and/or configure iSCSI devices attached to a
+compute instance running in the Oracle Cloud Infrastructure (OCI).
+Without any command line options,
+.B oci-iscsi-config
+lists devices that need attention.
+
+To perform attach/detach operations
+.B oci-iscsi-config
+must be run with root privileges, either as user root or using
+.BR sudo(8).
+
+While
+.B oci-iscsi-config
+can be run by itself, it works best in conjunction with
+.BR ocid(8).
+When
+.BR ocid(8)
+is running, it keeps track of iSCSI devices and caches the information for
+.B oci-iscsi-config,
+which is then able to display all information without root privileges.
+It also attaches/detaches devices automatically if they do not require
+manual interaction.
+
+.SH OPTIONS
+.IP "-i, --interactive"
+Run in interactive mode -- displays devices that need attention and offers
+to attach/configure them.  Needs root privileges.
+.IP "-s, --show"
+Display all devices.  If
+.BR ocid(8)
+is not running then root privileges are needed.
+.IP "-a IQN, --attach IQN"
+Attempt to attach the device with the given
+.B IQN.
+This option can be used multiple times to attach multiple devices at the
+same time.  Requires root privileges.
+.IP "-d IQN, --detach IQN"
+Detach the device with the given
+.B IQN.
+This option can be used multiple times to detach multiple devices at the
+same time.  Requires root privileges.
+.IP "--username USER"
+Use
+.B USER
+as the CHAP username when authentication is needed for attaching a device.
+.IP "--password PWD"
+Use
+.B PWD
+as the CHAP password when authentication is needed for attaching a device.
+.IP --debug
+Print diagnostic messages.
+.IP --help
+Print a summary of the command line options.
+.SH DIAGNOSTICS
+Return an exit status of 0 for success or 1 if an error occured.
+.SH "SEE ALSO"
+.BR ocid (8)

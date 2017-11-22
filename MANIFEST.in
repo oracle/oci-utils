@@ -3,4 +3,5 @@ include *.txt
 include libexec/ocid
 include tests/*.py
 include data/*.service
-include rpmbuild/*.spec
+include buildrpm/*.spec
+include man/man?/*.[18]
