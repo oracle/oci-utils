@@ -56,6 +56,7 @@ import lockfile
 import posixfile
 import oci_utils
 import oci_utils.iscsiadm
+import subprocess
 from oci_utils.cache import load_cache, write_cache, get_timestamp
 
 __ocid_logger = logging.getLogger('ocid')
@@ -92,6 +93,22 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+def run_secondary_vnic_script():
+    try:
+        output = subprocess.check_output(
+            ['/usr/libexec/secondary_vnic_all_configure.sh',
+             '-c'],
+            stderr=subprocess.STDOUT)
+        __ocid_logger.info(output)
+    except OSError as e:
+        __ocid_logger.error('failed to execute '
+                            '/usr/libexec/secondary_vnic_all_configure')
+        return 100
+    except subprocess.CalledProcessError as e:
+        __ocid_logger.error('failed to configure secondary VNICs')
+        __ocid_logger.info(e.output)
+        return e.returncode
+    return 0
     
 def daemon_main(args):
     """
@@ -104,6 +121,14 @@ def daemon_main(args):
     # all IQNs discovered
     all_iqns = {}
     ignore_ts = 0
+    vnics = oci_utils.metadata().filter('vnics')
+    if vnics is not None and 'vnics' in vnics:
+        # deep copy
+        vnics = [dict(x) for x in vnics['vnics']]
+    else:
+        vnics = []
+    __ocid_logger.info("updating VNIC configuration")
+    run_secondary_vnic_script()
     if args.refresh and args.no_daemon:
         print "Scanning for iSCSI devices"
     while True:
@@ -180,6 +205,11 @@ def daemon_main(args):
         if data_changed:
             write_cache(cache_content=[all_iqns, attach_failed],
                         cache_fname=oci_utils.iscsiadm.ISCSIADM_CACHE)
+        else:
+            try:
+                os.utime(oci_utils.iscsiadm_cache.ISCSIADM_CACHE)
+            except:
+                pass
 
         # look for disconnected devices in the current session
         for iqn in session_devs:
@@ -206,7 +236,16 @@ def daemon_main(args):
 
         # update the metadata cache
         oci_utils.metadata().refresh()
-
+        new_vnics = oci_utils.metadata().filter('vnics')
+        if new_vnics is not None and 'vnics' in new_vnics:
+            if new_vnics['vnics'] != vnics:
+                # VNIC configuration changed
+                __ocid_logger.info("VNIC configuration changed, "
+                                   "updating network interfaces")
+                run_secondary_vnic_script()
+                # deep copy
+                vnics = [dict(x) for x in new_vnics['vnics']]
+        
         if args.refresh:
             # run once only
             return 0
