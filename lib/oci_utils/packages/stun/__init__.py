@@ -121,14 +121,16 @@ def stun_test(sock, host, port, source_ip, source_port, send_data=""):
             log.debug("sendto: %s", (host, port))
             try:
                 sock.sendto(data, (host, port))
-            except socket.gaierror:
+            except socket.gaierror as e:
+                log.debug("sendto exception: %s", e)
                 retVal['Resp'] = False
                 return retVal
             try:
                 buf, addr = sock.recvfrom(2048)
                 log.debug("recvfrom: %s", addr)
                 recieved = True
-            except Exception:
+            except Exception as e:
+                log.debug("recvfrom exception: %s", e)
                 recieved = False
                 if count > 0:
                     count -= 1
