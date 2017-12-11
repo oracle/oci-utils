@@ -41,6 +41,7 @@ rm -rf %{buildroot}
 %{python_sitelib}/oci_utils*
 %{_bindir}/oci-*
 %{_libexecdir}/ocid
+%{_libexecdir}/secondary_vnic_all_configure.sh
 %{_sysconfdir}/systemd/system/ocid.service
 %{_datadir}/man
 %doc COPYING PKG-INFO

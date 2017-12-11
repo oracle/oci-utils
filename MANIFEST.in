@@ -1,6 +1,7 @@
 include COPYING
 include *.txt
 include libexec/ocid
+include libexec/secondary_vnic_all_configure.sh
 include tests/*.py
 include data/*.service
 include buildrpm/*.spec
