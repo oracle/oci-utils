@@ -1,0 +1,119 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-network-config.1
+.\"
+.\" Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+.\"
+.TH OCI-NETWORK-CONFIG 1 "DECEMBER 2017" Linux "User Manuals"
+.SH NAME
+oci-network-config \- configure network devices on OCI compute instances
+.SH SYNOPSIS
+.B oci-network-config [-s|--show] [-X
+.I ITEM
+.B | --exclude
+.I ITEM
+.B ] [-I
+.I ITEM
+.B | --include
+.I ITEM
+.B ] [-q|--quiet] [--debug] [--help]
+
+.B oci-network-config [-s|--show] [-d|--deconfigure] [-e
+.I IP_ADDR VNIC_OCID
+.B ] [-X
+.I ITEM
+.B | --exclude
+.I ITEM
+.B ] [-I
+.I ITEM
+.B | --include
+.I ITEM
+.B ] [-q|--quiet] [--debug] [--help]
+
+.B oci-network-config [-s|--show] [-a|--auto|-c|--configure] [-e
+.I IP_ADDR VNIC_OCID
+.B ] [-n
+.I NS
+.B | --ns
+.I NS
+.B ] [-r|--sshd] [-X
+.I ITEM
+.B | --exclude
+.I ITEM
+.B ] [-I
+.I ITEM
+.B | --include
+.I ITEM
+.B ] [-q|--quiet] [--debug] [--help]
+.SH DESCRIPTION
+The
+.B oci-network-config
+utility shows the current OCI Virtual interface Cards provisioned in the cloud and configured on this instance. When a secondary VNIC is provisioned in OCI it must be explicitly configured on the instance using this script or similar commands.
+
+The first version of this command displays the currently provisioned VNICs and the current IP configuration for this instance. VNICs that are not yet configured are marked with '$ADD' and IP configurations that no longer have an associated VNIC are marked with '$DELETE'.
+
+The second version, with -c (or --configure or -a or --auto), configures VNICs that do not have an IP configuration and deletes the IP configurations of VNICs that are not currently provisioned. This puts the instance IP configuration in sync with current OCI provisioning.  If one or more optional -e options are present the secondary IP addresses are configured on the same interfaces as the corresponding VNIC.
+
+The configuring interfaces can optionally be placed inside separate network namespaces. This is necessary when VNICs are in subnets (different VCNs) with overlapping address blocks and the network applications are not bound directly to interfaces. Network namespaces require applications to be launched in them explicitly (via 'ip netns exec <ns>') in order to establish association with the interface. When namespaces are not used, policy-based routing is configured to provide a default route to the secondary VNIC\'s virtual router (default gateway) when the VNIC\'s address is the source address.
+
+Bare Metal secondary VNICs are configured using VLANs (where there is no corresponding physical interface). These will look like 2 addition interfaces when showing IP links, with names like '$MACVLAN_FORMAT' for the MAC VLAN and '$VLAN_FORMAT' for the IP VLAN.
+
+The third version, -d (or --deconfigure), deletes all IP configuration for provisioned secondary VNICs as long as there is no -e option. If one or more optional -e options are present only the given secondary IP addresses are deconfigured and the remaining configuration is left as is.
+
+When
+.BR ocid(8)
+is enabled, it runs this utility each time the VNIC configuration metadata of the instance changes.  If
+.BR ocid(8)
+is not enabled this script must be rnu periodically to pick up changes in VNIC provisioning (whether adding or deleting). Note that these IP configuration changes are not persistent, the script must, at a minimum, be run on each startup.
+
+To exclude VNICs, IP addresses or VLAN interfaces from automatic configuration use the -X (or --exclude) option.  Exclusions specified with this option are persistent so that they also apply when
+.BR ocid(8)
+runs this utility.  The exclusion remains in place until the VNIC/address/interface is re-included using the -I (or --include) option.
+
+.SH OPTIONS
+.IP "-s, --show"
+Show information on all provisioning and interface configuration. This is the default action if no options are given.
+Columns:
+    CONFIG   '$ADD' indicates missing IP config,
+             '$DELETE' missing VNIC, '$EXCL' excluded (-X)
+    ADDR     IP address
+    SPREFIX  subnet CIDR prefix
+    SBITS    subnet mask bits
+    VIRTRT   virutal router IP address
+    NS       namespace (if any)
+    IND      interface index (if BM)
+    IFACE    interface (underlying physical if VLAN is also set)
+    VLTAG    VLAN tag (if BM)
+    VLAN     IP virtual LAN (if any)
+    STATE    state of interface
+    MAC      MAC address
+    VNIC     VNIC object identifier
+.IP "-a, --auto, -c, --configure"
+Add IP configuration for VNICs that are not configured and delete for VNICs that are no longer provisioned.
+.IP "-d, --deconfigure"
+Deconfigure all VNICs (except the primary). If a -e option is also present only the secondary IP address(es) are deconfigured.
+.IP "-e IP_ADDR VNIC_OCID"
+Secondary private IP address to configure or deconfigure.
+.IP "-n FORMAT, --ns FORMAT"
+When configuring, place interfaces in namespace identified by the given format. Format can include $nic and $vltag variables. The name defaults to '$DEF_NS_FORMAT_BM' for BMs and '$DEF_NS_FORMAT_VM' for VMs. When configuring multiple VNICs ensure the namespaces are unique.
+.IP "-r, --sshd"
+Start sshd in namespace (if -n or --ns is present)
+.IP "-X ITEM, --exclude ITEM"
+Persistently exclude
+.B ITEM
+from automatic configuration/deconfiguration. Use the --include option to include the
+.B ITEM
+again.
+.B ITEM
+can be a VNIC OCID, an IP address or a VLAN interface name.
+.IP "-I ITEM, --include ITEM"
+Include an
+.B ITEM
+that was previously excluded using the --exclude option in automatic configuration/deconfiguration.
+.IP --debug
+Print diagnostic messages.
+.IP --help
+Print a summary of the command line options.
+.SH DIAGNOSTICS
+Return an exit status of 0 for success or 1 if an error occured.
+.SH "SEE ALSO"
+.BR ocid (8)

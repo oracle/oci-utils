@@ -1,0 +1,228 @@
+#!/usr/bin/env python2.7
+
+# oci-utils
+#
+# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+#
+# The Universal Permissive License (UPL), Version 1.0
+#
+# Subject to the condition set forth below, permission is hereby granted to
+# any person obtaining a copy of this software, associated documentation
+# and/or data (collectively the "Software"), free of charge and under any
+# and all copyright rights in the Software, and any and all patent rights
+# owned or freely licensable by each licensor hereunder covering either
+# (i) the unmodified Software as contributed to or provided by such licensor, or
+# (ii) the Larger Works (as defined below), to deal in both
+# (a) the Software, and
+# (b) any piece of software and/or hardware listed in the lrgrwrks.txt
+# file if one is included with the Software (each a "Larger Work" to which
+# the Software is contributed by such licensors),
+#
+# without restriction, including without limitation the rights to copy,
+# create derivative works of, display, perform, and distribute the Software
+# and make, use, sell, offer for sale, import, export, have made, and have
+# sold the Software and the Larger Work(s), and to sublicense the foregoing
+# rights on either these or other terms.
+#
+# This license is subject to the following condition:
+#
+# The above copyright notice and either this complete permission notice or
+# at a minimum a reference to the UPL must be included in all copies or
+# substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+# IN THE SOFTWARE.
+
+'''
+This utility assists with configuring network interfaces on Oracle Cloud
+Infrastructure instances.  See the manual page for more information.
+'''
+
+import os
+import sys
+import argparse
+import subprocess
+import json
+from oci_utils import __net_exclude_file
+from oci_utils.cache import load_cache, write_cache
+
+
+__print_info = True
+def msg_info(msg):
+    if __print_info:
+        print "Info: " + msg
+
+__print_debug = False
+def msg_debug(msg):
+    if __print_debug:
+        print "DEBUG: " + msg
+
+def msg_error(msg):
+    sys.stderr.write("%s\n" % msg)
+
+def parse_args():
+    '''
+    Parse the command line arguments and return an object representing the
+    command line (as returned by argparse's parse_args())
+    '''
+    parser = argparse.ArgumentParser(description='Utility for configuring '
+                                     'network interfaces on an instance '
+                                     'running in the Oracle Cloud '
+                                     'Infrastructure.')
+    parser.add_argument('-s', '--show', action='store_true',
+                        help='Show information on all provisioning and '
+                        'interface configuration. This is the default action '
+                        'if no options are given.')
+    parser.add_argument('-a', '--auto', '-c', '--configure',
+                        action='store_true',
+                        help='Add IP configuration for VNICs that are not '
+                        'configured and delete for VNICs that are no longer '
+                        'provisioned.')
+    parser.add_argument('-d', '--deconfigure', action='store_true',
+                        help='Deconfigure all VNICs (except the primary). '
+                        'If a -e option is also present only the secondary '
+                        'IP address(es) are deconfigured.')
+    parser.add_argument('-e', nargs=2, metavar=('IP_ADDR', 'VNIC_OCID'),
+                        dest='sec_ip', action='store',
+                        help='Secondary private IP address '
+                        'to configure or deconfigure.')
+    parser.add_argument('-n', '--ns', action='store', metavar='FORMAT',
+                        help='When configuring, place interfaces in '
+                        'namespace identified by the given format. Format '
+                        'can include $nic and $vltag variables.')
+    parser.add_argument('-r', '--sshd', action='store_true',
+                        help='Start sshd in namespace (if -n is present)')
+    parser.add_argument('-X', '--exclude', metavar='ITEM', action='append',
+                        type=str, dest='exclude',
+                        help='Persistently exclude ITEM from automatic '
+                        'configuration/deconfiguration.  Use the --include '
+                        'option to include the ITEM again.')
+    parser.add_argument('-I', '--include', metavar='ITEM', action='append',
+                        type=str, dest='include',
+                        help='Include an ITEM that was previously excluded '
+                        'using the --exclude option in automatic '
+                        'configuration/deconfiguration.')
+    parser.add_argument('--quiet', '-q', action='store_true',
+                        help='Suppress information messages')
+    parser.add_argument('--debug', action='store_true',
+                        help='display diagnostic output')
+
+    args = parser.parse_args()
+    return args
+
+
+def run_sec_vnic_script(script_args, excludes):
+    '''
+    Run the secondary_vnic_all_configure.sh script with the given arguments,
+    plus add each element of excludes with a -X option
+    '''
+    all_args = ['/usr/libexec/secondary_vnic_all_configure.sh']
+    all_args += script_args
+    if excludes:
+        for exc in excludes:
+            all_args += ['-X', exc]
+
+    msg_debug('Executing "%s"' % ' '.join(all_args))
+    try:
+        output = subprocess.check_output(all_args, stderr=subprocess.STDOUT)
+    except OSError as e:
+        msg_error('failed to execute '
+                  '/usr/libexec/secondary_vnic_all_configure.sh')
+        return 404
+    except subprocess.CalledProcessError as e:
+        msg_error('Error running command "%s":' % ' '.join(all_args))
+        msg_info(e.output)
+        return e.returncode
+
+    if output:
+        print output
+
+    return 0
+
+def do_show_network_config(excludes):
+    '''
+    Display the currect network interface configuration as well as the
+    VNIC configuration from OCI
+    '''
+    run_sec_vnic_script(['-s'], excludes=excludes)
+
+def do_auto_config(args, excludes):
+    '''
+    run script with -c arg
+    '''
+    all_options = ['-c']
+    if args.sec_ip:
+        all_options += ['-e', args.sec_ip[0], args.sec_ip[1]]
+    if args.ns:
+        all_options += ['-n', args.ns]
+    if args.sshd:
+        all_options += ['-r']
+    if args.quiet:
+        all_options += ['-q']
+    if args.show:
+        all_options += ['-s']
+
+    run_sec_vnic_script(all_options, excludes=excludes)
+
+def do_deconfig_all(args, excludes):
+    '''
+    run script with -c arg
+    '''
+    all_options = ['-d']
+    if args.show:
+        all_options += ['-s']
+    run_sec_vnic_script(all_options, excludes=excludes)
+
+def main():
+    '''
+    Main program
+    '''
+    args = parse_args()
+
+    if args.debug:
+        global __print_debug
+        __print_debug = True
+    if args.quiet:
+        global __print_info
+        __print_info = False
+
+    if os.geteuid() != 0:
+        sys.stderr.write("You must run this program with root privileges "
+                         "to detach iSCSI devices.\n")
+        sys.exit(1)
+
+    excludes = load_cache(__net_exclude_file)[1]
+
+    if args.exclude:
+        if excludes is None:
+            excludes = []
+        for exc in args.exclude:
+            if args.include and exc in args.include:
+                sys.stderr.write("Invalid arguments: item both included and excluded: %s" % exc)
+            if exc not in excludes:
+                excludes.append(exc)
+    if args.include:
+        for inc in args.include:
+            if inc in excludes:
+                excludes.remove(inc)
+    write_cache(cache_content=excludes, cache_fname=__net_exclude_file)
+
+    if excludes and not args.quiet:
+        print "Info: Excluded from automatic configuration:"
+        for exc in excludes:
+            print "Info:    %s" % exc
+        print
+
+    if args.auto:
+        do_auto_config(args, excludes)
+    elif args.deconfigure:
+        do_deconfig_all(args, excludes)
+    else:
+        do_show_network_config(excludes)
+
+sys.exit(main())

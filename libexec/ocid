@@ -63,6 +63,8 @@ __ocid_logger = logging.getLogger('ocid')
 __log_level = logging.INFO
 
 def setup_logging(syslog=False):
+    global __ocid_logger
+    global __log_level
     if syslog:
         handler = SysLogHandler(address='/dev/log',
                                 facility=SysLogHandler.LOG_DAEMON)
@@ -93,16 +95,15 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def run_secondary_vnic_script():
+def update_network_config():
     try:
         output = subprocess.check_output(
-            ['/usr/libexec/secondary_vnic_all_configure.sh',
-             '-c'],
+            ['/usr/bin/oci-network-config', '--auto'],
             stderr=subprocess.STDOUT)
         __ocid_logger.info(output)
     except OSError as e:
         __ocid_logger.error('failed to execute '
-                            '/usr/libexec/secondary_vnic_all_configure')
+                            '/usr/bin/oci-network-config')
         return 100
     except subprocess.CalledProcessError as e:
         __ocid_logger.error('failed to configure secondary VNICs')
@@ -128,7 +129,7 @@ def daemon_main(args):
     else:
         vnics = []
     __ocid_logger.info("updating VNIC configuration")
-    run_secondary_vnic_script()
+    update_network_config()
     if args.refresh and args.no_daemon:
         print "Scanning for iSCSI devices"
     while True:
@@ -242,7 +243,7 @@ def daemon_main(args):
                 # VNIC configuration changed
                 __ocid_logger.info("VNIC configuration changed, "
                                    "updating network interfaces")
-                run_secondary_vnic_script()
+                update_network_config()
                 # deep copy
                 vnics = [dict(x) for x in new_vnics['vnics']]
         

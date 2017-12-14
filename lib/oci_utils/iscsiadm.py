@@ -96,6 +96,7 @@ def error_message_from_code(errorcode):
     return "Unknown error (%s)" % errorcode
 
 def set_logger(logger):
+    global __iscsi_logger
     __iscsi_logger = logger
 
 def __can_connect(ipaddr, port=3260):
@@ -208,7 +209,6 @@ def attach(ipaddr, port, iqn, username=None, password=None, auto_startup=True):
     Return True on success, False otherwise
 
     """
-    DEVNULL = open(os.devnull, 'w')
     try:
         subprocess.check_output(['/usr/sbin/iscsiadm',
                                  '-m', 'node',

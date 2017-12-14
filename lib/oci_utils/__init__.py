@@ -50,6 +50,8 @@ from cache import GLOBAL_CACHE_DIR
 
 # file with a list IQNs to ignore
 __ignore_file = "/var/run/oci-utils/ignore_iqns"
+# file with VNICs and stuff to exclude from automatic configuration
+__net_exclude_file = "/var/run/oci-utils/net_exclude"
 
 class OCIMetadata(dict):
     """

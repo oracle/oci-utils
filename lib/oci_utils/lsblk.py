@@ -54,6 +54,7 @@ __handler = logging.StreamHandler()
 __lsblk_logger.addHandler(__handler)
 
 def set_logger(logger):
+    global __lsblk_logger
     __lsblk_logger = logger
 
 def list():
