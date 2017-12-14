@@ -100,14 +100,21 @@ def update_network_config():
         output = subprocess.check_output(
             ['/usr/bin/oci-network-config', '--auto'],
             stderr=subprocess.STDOUT)
-        __ocid_logger.info(output)
+        for line in output.split('\n'):
+            if line.startswith('Info: '):
+                line = line[6:]
+            if line:
+                __ocid_logger.info(line)
     except OSError as e:
         __ocid_logger.error('failed to execute '
                             '/usr/bin/oci-network-config')
         return 100
     except subprocess.CalledProcessError as e:
         __ocid_logger.error('failed to configure secondary VNICs')
-        __ocid_logger.info(e.output)
+        for line in output.split('\n'):
+            if line:
+                __ocid_logger.info(line)
+        __ocid_logger.error(e.output)
         return e.returncode
     return 0
     
