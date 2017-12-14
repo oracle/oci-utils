@@ -192,8 +192,7 @@ def main():
         __print_info = False
 
     if os.geteuid() != 0:
-        sys.stderr.write("You must run this program with root privileges "
-                         "to detach iSCSI devices.\n")
+        msg_error("You must run this program with root privileges")
         sys.exit(1)
 
     excludes = load_cache(__net_exclude_file)[1]
