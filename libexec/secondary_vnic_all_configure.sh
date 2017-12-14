@@ -23,6 +23,7 @@ declare -r VLAN_FORMAT='${iface}v${vltag}' # (max 15 chars)
 declare -ir MTU=9000
 declare -r ADD='ADD'
 declare -r DELETE='DELETE'
+declare -r EXCL='EXCL'
 declare -r YES='YES'
 declare -r CURL=$(which curl)
 declare -r IP=$(which ip)
@@ -75,6 +76,7 @@ declare USE_NS=''
 declare NS_FORMAT=''
 declare -a SEC_ADDRS
 declare -a SEC_VNICS
+declare -a EXCLUDES
 
 declare -r IFACE_AWK_SCRIPT='/tmp/oci_vcn_iface.awk'
 cat >$IFACE_AWK_SCRIPT <<'EOF'
@@ -141,6 +143,13 @@ oci_vcn_info() {
 
 oci_vcn_debug() {
     [ -z "$DEBUG" ] || echo "Debug: $1" >&2
+}
+
+oci_vcn_contains() {
+    for e in "${@:2}"; do
+	[[ "$e" = "$1" ]] && return 0
+    done
+    return 1
 }
 
 oci_vcn_virtual_ifaces_read() {
@@ -956,14 +965,14 @@ oci_vcn_read() {
                 if [ -n "$addr" ]; then
                     # addr is configured: should be deleted
                     # bm case (in vm case ifaces are auto-deleted when vnic is detached)
-                    IP_CONFIGS[$ip_i]="$DELETE"
+		    IP_CONFIGS[$ip_i]="$DELETE"
                 elif [ -z "$IS_VM" ]; then
                     # bm iface mac w/o addr and w/o md mac:
                     # skip if phys iface, else addr deleted w/o deleting vlan?
                     if [ ${IP_VLTAGS[$ip_i]} -ne 0 ]; then
                         IP_CONFIGS[$ip_i]="$DELETE"
                         warn_ifaces="$warn_ifaces $iface"
-                    fi
+		    fi
                 else
                     # vm iface mac w/o addr and w/o md mac: assume random mac
                     ([ $attempt -eq 1 ] && [ "${IP_STATES[$ip_i]}" = 'DOWN' ]) || oci_vcn_err "interface $iface with MAC $mac does not have corresponding metadata"
@@ -993,6 +1002,58 @@ oci_vcn_read() {
     if [ -n "$warn_ifaces" ]; then
         oci_vcn_warn "no VNIC (or MAC does not match) and no address, interfaces will be marked for delete:$warn_ifaces"
     fi
+    return 0
+}
+
+oci_vcn_exclude() {
+    if [ -z "$EXCLUDES" ]; then
+	# nothing to exclude
+	return
+    fi
+    local -i ip_i
+    for ip_i in ${!IP_CONFIGS[@]}; do
+        local config="${IP_CONFIGS[$ip_i]#$NA}"
+	if [ "$config" = "$DELETE" ]; then
+	    local addr="${IP_ADDRS[$ip_i]}"
+	    local iface="${IP_IFACES[$ip_i]}"
+	    local vlan="${IP_VLANS[$ip_i]}"
+	    if oci_vcn_contains "$addr" "${EXCLUDES[@]}"; then
+		if [ "x$1" != "x-q" ]; then
+		    oci_vcn_info "Excluding interface $iface addr $addr"
+		fi
+		IP_CONFIGS[$ip_i]="$EXCL"
+	    elif oci_vcn_contains "$iface" "${EXCLUDES[@]}"; then
+		if [ "x$1" != "x-q" ]; then
+		    oci_vcn_info "Excluding interface $iface addr $addr"
+		fi
+		IP_CONFIGS[$ip_i]="$EXCL"
+	    elif oci_vcn_contains "$vlan" "${EXCLUDES[@]}"; then
+		if [ "x$1" != "x-q" ]; then
+		    oci_vcn_info "Excluding interface $vlan addr $addr"
+		fi
+		IP_CONFIGS[$ip_i]="$EXCL"
+	    fi
+	fi
+    done
+    local -i md_i
+    for md_i in ${!MD_CONFIGS[@]}; do
+        local config="${MD_CONFIGS[$md_i]#$NA}"
+	if [ "$config" = "$ADD" ]; then
+	    local addr="${MD_ADDRS[$md_i]}"
+	    local vnic="${MD_VNICS[$md_i]}"
+	    if oci_vcn_contains "$addr" "${EXCLUDES[@]}"; then
+		if [ "x$1" != "x-q" ]; then
+		    oci_vcn_info "Excluding VNIC with addr $addr"
+		fi
+		MD_CONFIGS[$md_i]="$EXCL"
+	    elif oci_vcn_contains "$vnic" "${EXCLUDES[@]}"; then
+		if [ "x$1" != "x-q" ]; then
+		    oci_vcn_info "Excluding VNIC $vnic"
+		fi
+		MD_CONFIGS[$md_i]="$EXCL"
+	    fi
+	fi
+    done
 }
 
 oci_vcn_config_or_deconfig_sec_addrs() {
@@ -1003,6 +1064,14 @@ oci_vcn_config_or_deconfig_sec_addrs() {
     for i in $(seq 0 $((${#SEC_ADDRS[@]} - 1))); do
         local addr=${SEC_ADDRS[$i]}
         local vnic=${SEC_VNICS[$i]}
+	if oci_vcn_contains "$addr" "${EXCLUDES[@]}"; then
+	    oci_vcn_info "Excluding VNIC with addr $addr"
+	    continue
+	fi
+	if oci_vcn_contains "$vnic" "${EXCLUDES[@]}"; then
+	    oci_vcn_info "Excluding VNIC with OCID $vnic"
+	    continue
+	fi
         # find vnic's mac
         local mac=''
         local -i md_i
@@ -1093,6 +1162,23 @@ oci_vcn_deconfig_all() {
     local mac
     for mac in "${IP_MACS[@]}"; do
         local addr="${IP_ADDRS[$ip_i]#$NA}"
+        local iface="${IP_IFACES[$ip_i]#$NA}"
+        local vlan="${IP_VLANS[$ip_i]#$NA}"
+	if oci_vcn_contains "$addr" "${EXCLUDES[@]}"; then
+	    oci_vcn_info "Excluding interface $iface addr $addr"
+	    ip_i+=1
+	    continue
+	fi
+	if oci_vcn_contains "$iface" "${EXCLUDES[@]}"; then
+	    oci_vcn_info "Excluding interface $iface addr $addr"
+	    ip_i+=1
+	    continue
+	fi
+	if oci_vcn_contains "$vlan" "${EXCLUDES[@]}"; then
+	    oci_vcn_info "Excluding interface $vlan addr $addr"
+	    ip_i+=1
+	    continue
+	fi
         if [ -n "$addr" ]; then # ip is configured
             # note that primaries are encountered first
             if [ "${IP_SECADS[$ip_i]}" != "$YES" ]; then # primary addr
@@ -1250,11 +1336,12 @@ DESCRIPTION
                 defaults to '$DEF_NS_FORMAT_BM' for BMs and '$DEF_NS_FORMAT_VM' for VMs.
                 When configuring multiple VNICs ensure the namespaces are unique.
     -q          Suppress information messages.
-    -r          Start ssd in namespace (if -n is present)
+    -r          Start sshd in namespace (if -n is present)
     -s          Show information on all provisioning and interface configuration.
                 This is the default action if no options are given.
                 Columns:
-                    CONFIG  '$ADD' indicates missing IP config, '$DELETE' missing VNIC
+                    CONFIG  '$ADD' indicates missing IP config, '$DELETE' missing VNIC,
+                            '$EXCL' excluded (-X)
                     ADDR    IP address
                     SPREFIX subnet CIDR prefix
                     SBITS   subnet mask bits
@@ -1267,6 +1354,9 @@ DESCRIPTION
                     STATE   state of interface
                     MAC     MAC address
                     VNIC    VNIC object identifier
+    -X [<IP address>|<VNIC OCID>|<interface>]
+                Exclude the interface or the VNIC with the given OCID or IP address when
+                configuring or deconfiguring VNICs.
 
 EXAMPLES
     $THIS
@@ -1314,6 +1404,7 @@ while [ $# -ge 1 ]; do
         -s) show='t';;
         -h) oci_vcn_help; exit 0;;
         -q) QUIET='t';;
+	-X) EXCLUDES+=($1); shift;;
         -*) oci_vcn_err "unknown option $opt";;
     esac
 done
@@ -1326,18 +1417,21 @@ done
 oci_vcn_md_read
 oci_vcn_read
 
+# exclude the interfaces / addresses the user wants to exclude
+oci_vcn_exclude
+
 # process options
 if [ -n "$config" ]; then
     [ -z "$deconfig" ] || oci_vcn_err "conflicting options"
     oci_vcn_config
-    [ -z "$show" ] || oci_vcn_read # reread if show
+    [ -z "$show" ] || oci_vcn_read && oci_vcn_exclude -q # reread if show
 elif [ -n "$deconfig" ]; then
     if [ ${#SEC_ADDRS[@]} -gt 0 ]; then # just deconfig addrs
         oci_vcn_config_or_deconfig_sec_addrs
     else # deconfig all
         oci_vcn_deconfig_all
     fi
-    [ -z "$show" ] || oci_vcn_read # reread if show
+    [ -z "$show" ] || oci_vcn_read && oci_vcn_exclude -q # reread if show
 else
     show='t'
 fi
