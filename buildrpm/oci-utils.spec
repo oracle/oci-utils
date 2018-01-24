@@ -3,7 +3,7 @@ Version: 0.4
 Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
-License: GPLv2
+License: UPL
 Group: Development/Tools
 Source: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
