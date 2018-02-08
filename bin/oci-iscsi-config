@@ -2,7 +2,7 @@
 
 # oci-utils
 #
-# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 #
 # The Universal Permissive License (UPL), Version 1.0
 #
@@ -52,6 +52,7 @@ import subprocess
 from datetime import timedelta
 from oci_utils import iscsiadm, lsblk, metadata, __ignore_file
 from oci_utils.cache import load_cache, write_cache
+import oci_utils.oci_api
 
 def parse_args():
     '''
@@ -70,7 +71,18 @@ def parse_args():
                         help='Detach the iSCSI device with the specified IQN')
     parser.add_argument('-a', '--attach', metavar='TARGET', dest='attach_iqns',
                         action='append', type=str,
-                        help='Attach the iSCSI device with the specified IQN')
+                        help='Attach the iSCSI device with the specified IQN '
+                        'or volume OCID')
+    parser.add_argument('-c', '--create-volume', metavar='SIZE', action='store',
+                        type=int, help='Create a new volume and attach it to '
+                        'this instance. SIZE is in gigabytes. Use --volume-name'
+                        ' to specify a name for the volume.')
+    parser.add_argument('--volume-name', metavar='NAME', action='store',
+                        type=str, help='When used with --create-volume, '
+                        'set the name of the new volume to NAME')
+    #parser.add_argument('--use-chap', action='store_true',
+    #                    help='Use CHAP authentication when attaching an '
+    #                    'OCI volume to this instance.')
     parser.add_argument('--username', metavar='USER', action='store',
                         type=str,
                         help='Use USER as the user name when attaching a ' \
@@ -135,11 +147,25 @@ def ocid_refresh(wait=False):
     
 
 def display_current_devices(session, disks):
+    oci_sess = None
+    if oci_utils.oci_api.HAVE_OCI_SDK:
+        try:
+            oci_sess = oci_utils.oci_api.OCISession()
+        except:
+            pass
     if session:
         print "Currently attached iSCSI devices:"
         for iqn in session.keys():
+            oci_vol = None
+            if oci_sess is not None:
+                oci_vols = oci_sess.find_volumes(iqn=iqn)
+                if len(oci_vols) == 1:
+                    oci_vol = oci_vols[0]
             print
             print "Target %s" % iqn
+            if oci_vol is not None:
+                print "         Volume name:    %s" % oci_vol.get_display_name()
+                print "         Volume OCID:    %s" % oci_vol.get_ocid()
             print "   Persistent portal:    %s:%s" % \
                 (session[iqn]['persistent_portal_ip'],
                  session[iqn]['persistent_portal_port'])
@@ -194,6 +220,17 @@ def display_detached_device(iqn, targets):
     print "               State:    Detached"
     
 def do_attach(iqn, targets, user=None, passwd=None):
+    oci_sess = None
+    if oci_utils.oci_api.HAVE_OCI_SDK:
+        try:
+            oci_sess = oci_utils.oci_api.OCISession()
+        except:
+            pass
+    if oci_sess is not None:
+        oci_vols = oci_sess.find_volumes(iqn=iqn)
+        if len(oci_vols) == 1:
+            user=oci_vols[0].get_user()
+            passwd=oci_vols[0].get_password()
     portal_ip = None
     if targets is None:
         print "ocid must be running to determine the portal IP address " \
@@ -212,6 +249,207 @@ def do_attach(iqn, targets, user=None, passwd=None):
     print "Result: %s" \
         % iscsiadm.error_message_from_code(retval)
     return retval
+
+def api_display_available_devices():
+    sess = None
+    # needs the OCI SDK installed and configured
+    try:
+        sess = oci_utils.oci_api.OCISession()
+    except oci_utils.oci_api.OCISDKError as e:
+        sys.stderr.write("Failed to access OCI services: %s\n" % e)
+        return
+
+    vols = sess.all_volumes()
+    if len(vols) == 0:
+        print "No additional storage volumes found."
+        return
+
+    print "All available storage volumes:"
+    print
+
+    for vol in vols:
+        print "Volume %s" % vol.get_display_name()
+        print "   odid:        %s" % vol.get_ocid()
+        if vol.is_attached():
+            if vol.get_instance().get_ocid() == sess.this_instance().get_ocid():
+                instance = "this instance"
+            else:
+                instance = "instance %s (%s)" % \
+                           (vol.get_instance().get_display_name(),
+                            vol.get_instance().get_public_ip())
+            print "   attached to: %s" % instance
+        else:
+            print "   attached to: (not attached)"
+        print "   size:        %s" % vol.get_size(format=vol.HUMAN)
+        print
+
+def do_attach_ocid(ocid):
+    '''
+    Make API calls to attach a volume with the given OCID to this instance
+    '''
+    if not oci_utils.oci_api.HAVE_OCI_SDK:
+        sys.stderr.write("To connect a volume using its OCID you need to "
+                         "install and configure the OCI Python SDK "
+                         "(python-oci-sdk)\n")
+        return False
+    sess = None
+    try:
+        sess = oci_utils.oci_api.OCISession()
+    except oci_utils.oci_api.OCISDKError as e:
+        sys.stderr.write("Failed to access OCI services: %s\n" % e)
+        return False
+    vol = sess.get_volume(ocid)
+    if vol is None:
+        sys.stderr.write("Volume %s not found.\n" % ocid)
+        return False
+
+    if vol.is_attached():
+        if vol.get_instance().get_ocid() == sess.this_instance().get_ocid():
+            # attached to this instance already
+            print "Volume %s already attached to this instance." % \
+                ocid
+            return True
+        else:
+            sys.stderr.write("Volume %s\nis currently attached to "
+                             "instance %s (%s)\n" % \
+                             (ocid, vol.get_instance().get_display_name(),
+                              vol.get_instance().get_public_ip()))
+            return False
+    print "Attaching OCI Volume to this instance."
+    vol = vol.attach_to(instance_id=sess.this_instance().get_ocid(), wait=True)
+
+    if os.geteuid() != 0:
+        if vol.get_user() is not None:
+            # requires CHAP auth user/password
+            sys.stderr.write("Run oci-iscsi-config with root privileges "
+                             "to attach this device.\n")
+            return False
+        else:
+            # ocid will attach it automatically
+            return True
+
+    # attach using iscsiadm commands
+    print "Attaching iSCSI device"
+    retval = iscsiadm.attach(ipaddr=vol.get_portal_ip(),
+                             port=vol.get_portal_port(),
+                             iqn=vol.get_iqn(),
+                             username=vol.get_user(),
+                             password=vol.get_password(),
+                             auto_startup=True)
+    print "Result: %s" \
+        % iscsiadm.error_message_from_code(retval)
+    if retval == 0:
+        return True
+
+    return False
+
+def api_detach(iqn):
+    '''
+    Detach the given volume from the instance using OCI API calls
+    '''
+    sess = None
+    try:
+        sess = oci_utils.oci_api.OCISession()
+    except oci_utils.oci_api.OCISDKError as e:
+        sys.stderr.write("Failed to access OCI services: %s\n" % e)
+        return False
+    for v in sess.this_instance().all_volumes():
+        if v.get_iqn() == iqn:
+            try:
+                print "Detaching volume"
+                v.detach()
+                return True
+            except oci_utils.oci_api.OCISDKError as e:
+                sys.stderr.write("Failed to disconnect volume %s from this "
+                                 "instance: %s\n" % (iqn, e))
+                return False
+    sys.stderr.write("Volume not found...\n")
+    return False
+
+def do_umount(mountpoint, warn=True):
+    if os.geteuid() != 0:
+        if warn:
+            sys.stderr.write("Volume mounted.  Run this utility with root "
+                             "privileges or run this command:\n")
+        sys.stderr.write("  sudo umount %s\n" % mountpoint)
+        return False
+
+    output = ''
+    try:
+        print "Unmounting %s" % mountpoint
+        subprocess.check_output(['/usr/bin/umount',
+                                          mountpoint],
+                                         stderr=subprocess.STDOUT)
+        return True
+    except subprocess.CalledProcessError as e:
+        sys.stderr.write("Failed to unmount %s: %s\n" % \
+                         (mountpoint, e.output))
+        return False
+
+def unmount_device(session, iqn, disks):
+    '''
+    Check if any partitions of the device with the given iqn are mounted
+    and if so attempt to unmount them.
+    Return True for success of if the device isn't mounted
+    Return False if the device is mount and unmounting failed
+    '''
+    retval = True
+    # find mountpoints
+    device = session[iqn]['device']
+    if device not in disks:
+        return True
+    if not 'partitions' in disks[device]:
+        if disks[device]['mountpoint'] != '':
+            # volume has not partitions and is currently mounted
+            if not do_umount(disks[device]['mountpoint'], warn=retval):
+                retval = False
+    else:
+        partitions = disks[device]['partitions']
+        for part in partitions.keys():
+            if partitions[part]['mountpoint'] != '':
+                # the partition is mounted
+                if not do_umount(partitions[part]['mountpoint'], warn=retval):
+                    retval = False
+    return retval
+
+def do_create_volume(size, display_name, use_chap=False):
+    '''
+    User API calls to create a new OCI volume and attach it to this instance
+    '''
+    sess = None
+    try:
+        sess = oci_utils.oci_api.OCISession()
+    except oci_utils.oci_api.OCISDKError as e:
+        sys.stderr.write("Failed to access OCI services: %s\n" % e)
+        return False
+
+    # FIXME: use_chap
+    vol = None
+    try:
+        print "Creating a new %d GB volume" % size
+        vol = sess.this_instance().create_volume(size=size,
+                                                 display_name=display_name)
+    except oci_utils.oci_api.OCISDKError as e:
+        sys.stderr.write("Failed to create volume: %s\n" % e)
+        return False
+
+    print "Volume %s created" % vol.get_display_name()
+
+    if os.geteuid() == 0:
+        # attach using iscsiadm commands
+        print "Attaching iSCSI device"
+        retval = iscsiadm.attach(ipaddr=vol.get_portal_ip(),
+                                 port=vol.get_portal_port(),
+                                 iqn=vol.get_iqn(),
+                                 username=vol.get_user(),
+                                 password=vol.get_password(),
+                                 auto_startup=True)
+    print "Result: %s" \
+        % iscsiadm.error_message_from_code(retval)
+    if retval == 0:
+        return True
+
+    return False
 
 def main():
     '''
@@ -244,8 +482,27 @@ def main():
     if detached is None:
         detached = []
 
+    if args.create_volume:
+        if not oci_utils.oci_api.HAVE_OCI_SDK:
+            sys.stderr.write("You need to install and configure the "
+                             "OCI Python SDK (python-oci-sdk) to use "
+                             "the --create-volume option\n")
+            sys.exit(1)
+
+        if args.create_volume < 50:
+            sys.stderr.write("Volume size must be at least 50GBs\n")
+            sys.exit(1)
+        # FIXME: use_chap
+        retval= do_create_volume(size=args.create_volume,
+                                 display_name=args.volume_name)
+        session = iscsiadm.session()
+        if args.show:
+            display_current_devices(session, disks)
+            api_display_available_devices()
+        return retval
+
     if args.detach_iqns:
-        if os.geteuid() != 0:
+        if os.geteuid() != 0 and not oci_utils.oci_api.HAVE_OCI_SDK:
             sys.stderr.write("You must run this program with root privileges "
                              "to detach iSCSI devices.\n")
             sys.exit(1)
@@ -266,16 +523,32 @@ def main():
                 sys.stderr.write("IQN %s is the boot device, cannot detach.\n" \
                                  % iqn)
                 retval = 1
-                continue                
+                continue
+            if not unmount_device(session, iqn, disks):
+                if args.interactive:
+                    cont = ask_yes_no("Failed to unmount volume.  "
+                                      "Continue detaching anyway?")
+                    if not cont:
+                        sys.exit(1)
+                else:
+                    sys.exit(1)
+            api_detached = False
+            if oci_utils.oci_api.HAVE_OCI_SDK:
+                api_detached = api_detach(iqn)
+            if os.geteuid() != 0:
+                # can't detach with iscsiadm without root privileges,
+                # but ocid will take care of it anyway
+                continue
             if not iscsiadm.detach(session[iqn]['persistent_portal_ip'],
                                    session[iqn]['persistent_portal_port'],
                                    iqn):
-                sys.stderr.write("Failed to detach target %s" % iqn)
+                sys.stderr.write("Failed to detach target %s\n" % iqn)
                 retval = 1
             else:
-                detached.append(iqn)
-                write_ignore_file = True
-                do_refresh = True
+                if not api_detached:
+                    detached.append(iqn)
+                    write_ignore_file = True
+                    do_refresh = True
         if write_ignore_file:
             write_cache(cache_content=detached,
                         cache_fname=__ignore_file)
@@ -284,14 +557,19 @@ def main():
         return retval
 
     if args.attach_iqns:
-        if os.geteuid() != 0:
-            sys.stderr.write("You must run this program with root privileges "
-                             "to attach iSCSI devices.\n")
-            sys.exit(1)
-
-        write_ignore_file = False
         retval = 0
+        write_ignore_file = False
+        do_refresh = False
         for iqn in args.attach_iqns:
+            if iqn.startswith('ocid1.volume.oc'):
+                # it's an OCID
+                if not do_attach_ocid(iqn):
+                    retval = 1
+                continue
+            if os.geteuid() != 0:
+                sys.stderr.write("You must run this program with root "
+                                 "privileges to attach iSCSI devices.\n")
+                sys.exit(1)
             if iqn in session:
                 print "Target %s is already attached." % iqn
                 continue
@@ -301,20 +579,25 @@ def main():
                 continue
             if do_attach(iqn, targets,
                          user=args.username, passwd=args.password) != 0:
-                sys.stderr.write("Failed to attach target %s" % iqn)
+                sys.stderr.write("Failed to attach target %s\n" % iqn)
                 retval = 1
             else:
+                do_refresh = True
                 if iqn in detached:
                     detached.remove(iqn)
                 write_ignore_file = True
         if write_ignore_file:
             write_cache(cache_content=detached,
                         cache_fname=__ignore_file)
-        ocid_refresh()
-        return retval
+        if do_refresh:
+            ocid_refresh()
 
+        return retval
+    
     if args.show:
         display_current_devices(session, disks)
+        if oci_utils.oci_api.HAVE_OCI_SDK:
+            api_display_available_devices()
         
     if detached:
         print
@@ -372,8 +655,6 @@ def main():
                                              "attaching this device?")
                         if ans:
                             retval = do_attach(iqn, targets)
-                            print "Result: %s" \
-                                % iscsiadm.error_message_from_code(retval)
                             if retval == 0:
                                 ans = False
                                 do_refresh = True
@@ -389,28 +670,36 @@ def main():
                         ans = ask_yes_no("Would you like to configure this "
                                          "device?")
                     if ans:
-                        myocid = get_instance_ocid()
-                        while ans:
-                            print "To find the CHAP username and password " \
-                                "for this device, go to"
-                            print "https://console.us-phoenix-1.oraclecloud.com/#" \
-                                "/a/compute/instances/%s/disks?jt=listing" % \
-                                myocid
-                            print "Select the Block Volume, then click the " \
-                                "\"iSCSI Commands & Information\" button."
-                            print "CHAP username:"
-                            user = raw_input()
-                            print "CHAP password:"
-                            passwd = raw_input()
-                            print "Attaching iSCSI device..."
-                            retval = do_attach(iqn, targets, user, passwd)
-                            print "Result: %s" \
-                                % iscsiadm.error_message_from_code(retval)
-                            if retval != 0:
-                                ans = ask_yes_no("Would you like to try again?")
-                            else:
-                                ans = False
-                                do_refresh = True
+                        if oci_utils.oci_api.HAVE_OCI_SDK:
+                            # try and get the user and password from the API
+                            retval = do_attach(iqn, targets, None, None)
+                        if retval == 0:
+                            print "Device configured automatically."
+                            do_refresh = True
+                        else:
+                            myocid = get_instance_ocid()
+                            while ans:
+                                print "To find the CHAP username and " \
+                                    "password for this device, go to"
+                                print "https://console.us-phoenix-1." \
+                                    "oraclecloud.com/#/a/compute/instances" \
+                                    "/%s/disks?jt=listing" % \
+                                    myocid
+                                print "Select the Block Volume, then click " \
+                                    "the \"iSCSI Commands & Information\" " \
+                                    "button."
+                                print "CHAP username:"
+                                user = raw_input()
+                                print "CHAP password:"
+                                passwd = raw_input()
+                                print "Attaching iSCSI device..."
+                                retval = do_attach(iqn, targets, user, passwd)
+                                if retval != 0:
+                                    ans = ask_yes_no("Would you like to try "
+                                                     "again?")
+                                else:
+                                    ans = False
+                                    do_refresh = True
         if do_refresh:
             ocid_refresh()
         if not args.interactive and auth_errors:

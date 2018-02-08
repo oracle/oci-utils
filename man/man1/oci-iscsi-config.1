@@ -1,9 +1,9 @@
 .\" Process this file with
 .\" groff -man -Tascii oci-iscsi-config.1
 .\"
-.\" Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+.\" Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 .\"
-.TH OCI-ISCSI-CONFIG 1 "DECEMBER 2017" Linux "User Manuals"
+.TH OCI-ISCSI-CONFIG 1 "FEBRUARY 2018" Linux "User Manuals"
 .SH NAME
 oci-iscsi-config \- configure iSCSI devices on OCI compute instances
 .SH SYNOPSIS
@@ -20,6 +20,15 @@ oci-iscsi-config \- configure iSCSI devices on OCI compute instances
 .B ] [--password
 .I PWD
 .B ] [--debug] [--help]
+
+.B oci-iscsi-config [-s|--show] [-c
+.I SIZE
+.B | --create-volume
+.I SIZE
+.B ] [--volume-name
+.I NAME
+.B ]
+
 .SH DESCRIPTION
 The
 .B oci-iscsi-config
@@ -46,6 +55,17 @@ which is then able to display all information without root privileges.
 It also attaches/detaches devices automatically if they do not require
 manual interaction.
 
+Additional features of
+.B oci-iscsi-config
+are available when the OCI Python SDK is installed and configured.  The
+OCI Python SDK is available in the python-oci-sdk package.  When available,
+.B oci-iscsi-config
+displays additional information about the iSCSI devices and can display all
+available OCI storage volumes, not just the ones already assigned to the
+instance.  The second version of the command line requires the OCI Python
+SDK.  This invocation creates a new OCI storage volume and assigns
+it to the instance without the use of the Web-based OCI Console.
+
 .SH OPTIONS
 .IP "-i, --interactive"
 Run in interactive mode -- displays devices that need attention and offers
@@ -54,29 +74,82 @@ to attach/configure them.  Needs root privileges.
 Display all devices.  If
 .BR ocid(8)
 is not running then root privileges are needed.
-.IP "-a IQN, --attach IQN"
-Attempt to attach the device with the given
-.B IQN.
+.IP "-a TARGET, --attach TARGET"
+Attempt to attach the device with the given IQN or OCID.  When using an
+IQN, the volume must already be attached (assigned) to the instance in
+the OCI Console.  The OCI Python SDK is required for selecting
+volumes using their OCID.
 This option can be used multiple times to attach multiple devices at the
 same time.  Requires root privileges.
 .IP "-d IQN, --detach IQN"
 Detach the device with the given
 .B IQN.
+If the volume (or any partition of the volume) is mounted, this option
+will attempt to unmount it first.
 This option can be used multiple times to detach multiple devices at the
 same time.  Requires root privileges.
+.IP "-c SIZE, --create-volume SIZE"
+Create a new volume of
+.B SIZE
+gigabytes and attach it to the current instance.
+This option requires the OCI Python SDK to be installed and configured.
+.IP "--volume-name NAME"
+When using with the --create-volume option, set the display name of the
+new volume to
+.B NAME
 .IP "--username USER"
 Use
 .B USER
 as the CHAP username when authentication is needed for attaching a device.
+Not necessary when the OCI Python SDK is available.
 .IP "--password PWD"
 Use
 .B PWD
 as the CHAP password when authentication is needed for attaching a device.
+Not necessary when the OCI Python SDK is available.
 .IP --debug
 Print diagnostic messages.
 .IP --help
 Print a summary of the command line options.
+.SH EXAMPLES
+.PP
+.nf
+.RS
+sudo oci-iscsi-config --create-volume 100 --volume-name my-storage
+.RE
+.fi
+.PP
+Creates a new storage volume named my-storage and attaches it to this
+instance.  Note: since
+.BR sudo(8)
+is used, the OCI Python SDK must be configured
+in the root user's account.
+.PP
+.nf
+.RS
+oci-iscsi-config --attach ocid1.volume.oc1.phx.abyhqljrfuj4t76qpelfeox2hktcpt6gkz3fqqkajshdkajshdfkajfdjkmq
+.RE
+.fi
+.PP
+Attach the given volume to this instance.  Using
+.BR sudo(8)
+is not necessary if
+.BR ocid(8)
+is running, but it may take a couple of minutes for
+.BR ocid(8)
+to discover the newly attached device.  When using
+.BR sudo(8)
+the device is instantly attached.
+.PP
+.nf
+.RS
+sudo oci-iscsi-config --detach iqn.2015-12.com.oracleiaas:765083d7-c23c-4354-a51a-b72312334267
+.RE
+.fi
+.PP
+Detach the given volume.  If the volume (or a partition of the volume) is attached, it is unmounted before detaching the volume.
 .SH DIAGNOSTICS
 Return an exit status of 0 for success or 1 if an error occured.
 .SH "SEE ALSO"
 .BR ocid (8)
+.BR sudo (8)
