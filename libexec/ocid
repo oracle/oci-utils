@@ -2,7 +2,7 @@
 
 # oci-utils
 #
-# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 #
 # The Universal Permissive License (UPL), Version 1.0
 #
@@ -96,6 +96,7 @@ def parse_args():
     return args
 
 def update_network_config():
+    output = ""
     try:
         output = subprocess.check_output(
             ['/usr/bin/oci-network-config', '--auto'],
@@ -139,8 +140,9 @@ def daemon_main(args):
     update_network_config()
     if args.refresh and args.no_daemon:
         print "Scanning for iSCSI devices"
+    # write cache files once on startup, even if they are empty
+    data_changed = True
     while True:
-        data_changed = False
         new_iqns = {}
         detached_iqns = {}
         if ignore_ts == 0 or \
@@ -202,23 +204,17 @@ def daemon_main(args):
                     if attach_result != 0:
                         attach_failed[iqn] = attach_result
                         data_changed = True
-                else:
-                    if iqn in attach_failed:
-                        # previously failed attach is now in the session
-                        # (e.g. attached using oci-iscsi-config or
-                        # using iscsiadm directly)
-                        del(attach_failed[iqn])
-                        data_changed = True
 
-        if data_changed:
-            write_cache(cache_content=[all_iqns, attach_failed],
-                        cache_fname=oci_utils.iscsiadm.ISCSIADM_CACHE)
-        else:
-            try:
-                os.utime(oci_utils.iscsiadm_cache.ISCSIADM_CACHE)
-            except:
-                pass
+        for iqn in attach_failed.keys():
+            if iqn in session_devs:
+                # previously failed attach is now in the session
+                # (e.g. attached using oci-iscsi-config or
+                # using iscsiadm directly)
+                del(attach_failed[iqn])
+                data_changed = True
 
+        write_ignore = False
+        
         # look for disconnected devices in the current session
         for iqn in session_devs:
             if session_devs[iqn]['state'] in ['blocked', 'transport-offline']:
@@ -232,6 +228,25 @@ def daemon_main(args):
                     __ocid_logger.info("Detaching iscsi device: %s:%s (%s)" % \
                                        (ipaddr, "3260", iqn))
                     oci_utils.iscsiadm.detach(ipaddr, 3260, iqn)
+                    # device is gone, remove from "ignore" list
+                    if iqn in ignore:
+                        ignore.remove(iqn)
+                        write_ignore = True
+                    # remove from attach_failed list if present
+                    if iqn in attach_failed:
+                        del(attach_failed[iqn])
+                        data_changed = True
+
+        # check if the devices in "ignore" are still present
+        for iqn in ignore:
+            iqn_found = False
+            for ipaddr in all_iqns.keys():
+                if iqn in all_iqns[ipaddr]:
+                    iqn_found = True
+                    break
+            if not iqn_found:
+                ignore.remove(iqn)
+                write_ignore = True
 
         for ipaddr in detached_iqns.keys():
             for iqn in detached_iqns[ipaddr]:
@@ -241,9 +256,34 @@ def daemon_main(args):
                     __ocid_logger.info("Detaching iscsi device: %s:%s (%s)" % \
                                        (ipaddr, "3260", iqn))
                     oci_utils.iscsiadm.detach(ipaddr, 3260, iqn)
+                    # device is gone, remove from "ignore" list
+                    if iqn in ignore:
+                        ignore.remove(iqn)
+                        write_ignore = True
+                    # remove from attach_failed list if present
+                    if iqn in attach_failed:
+                        del(attach_failed[iqn])
+                        data_changed = True
+
+        if data_changed:
+            write_cache(cache_content=[all_iqns, attach_failed],
+                        cache_fname=oci_utils.iscsiadm.ISCSIADM_CACHE)
+        else:
+            try:
+                os.utime(oci_utils.iscsiadm.ISCSIADM_CACHE, None)
+            except Exception as e:
+                __ocid_logger.warn("Failed to update cache timestamp: %s" % e)
+
+        data_changed = False
+
+        if write_ignore:
+            ignore_ts = write_cache(cache_content=ignore,
+                                    cache_fname=oci_utils.__ignore_file)
+            if ignore_ts is None:
+                ignore_ts = 0
 
         # update the metadata cache
-        oci_utils.metadata().refresh()
+        oci_utils.metadata().refresh(get_public_ip=False)
         new_vnics = oci_utils.metadata().filter('vnics')
         if new_vnics is not None and 'vnics' in new_vnics:
             if new_vnics['vnics'] != vnics:
@@ -267,13 +307,14 @@ if os.geteuid() != 0:
 
 pidlock = lockfile.FileLock('/var/run/ocid.pid')
 
+args = parse_args()
+
 if pidlock.is_locked():
-    sys.stderr.write("ocid already running.\n")
+    if not args.refresh:
+        sys.stderr.write("ocid already running.\n")
     sys.exit(1)
 
 oci_utils.iscsiadm.set_logger(__ocid_logger)
-
-args = parse_args()
 
 if args.debug:
     __log_level = logging.DEBUG
