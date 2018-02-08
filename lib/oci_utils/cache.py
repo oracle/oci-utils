@@ -2,7 +2,7 @@
 
 # oci-utils
 #
-# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 #
 # The Universal Permissive License (UPL), Version 1.0
 #
@@ -132,9 +132,11 @@ def write_cache(cache_content, cache_fname, fallback_fname=None):
     """
     Save the cache_content as JSON data in cache_fname, or
     in fallback_fname if cache_fname is not writeable
-    Return True for success, False for failure
+    Return the cache timestamp for success, None for failure
     """
-    
+
+    cache_timestamp = None
+    fname = cache_fname
     # try to save in cache_file first
     try:
         cachedir = os.path.dirname(cache_fname)
@@ -147,7 +149,7 @@ def write_cache(cache_content, cache_fname, fallback_fname=None):
     except (OSError, IOError):
         # can't write to cache_fname, try fallback_fname
         if not fallback_fname:
-            return False
+            return None
         cachedir = os.path.dirname(fallback_fname)
         try:
             if not os.path.exists(cachedir):
@@ -156,13 +158,15 @@ def write_cache(cache_content, cache_fname, fallback_fname=None):
                 cache_file = posixfile.open(fallback_fname, 'w+')
             else:
                 cache_file = posixfile.open(fallback_fname, 'r+')
+            fname = fallback_fname
         except (OSError, IOError) as e:
             # can't write to fallback file either, give up
-            return False
+            return None
     try:
         cache_file.lock("w|")
         cache_file.write(json.dumps(cache_content))
         cache_file.truncate()
+        cache_timestamp = get_timestamp(fname)
         cache_file.lock("u")
         cache_file.close()
     except:
@@ -171,6 +175,6 @@ def write_cache(cache_content, cache_fname, fallback_fname=None):
             cache_file.close()
         except:
             pass
-        return False
+        return None
 
-    return True
+    return cache_timestamp
