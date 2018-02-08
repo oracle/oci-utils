@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 
 import os
 import sys
@@ -28,7 +28,7 @@ def read(fname):
 
 setup(
     name = "oci-utils",
-    version = "0.4",
+    version = "0.5",
     author = "Laszlo Peter",
     author_email = "laszlo.peter@oracle.com",
     description = ("Oracle Cloud Infrastructure utilities"),
