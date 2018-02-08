@@ -2,7 +2,7 @@
 
 # oci-utils
 #
-# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 #
 # The Universal Permissive License (UPL), Version 1.0
 #
@@ -52,6 +52,7 @@ try:
 except ImportError:
     import simplejson as json
 from oci_utils.packages.stun import get_ip_info, STUN_SERVERS, log as stun_log
+import oci_utils.oci_api
 
 def parse_args():
     '''
@@ -68,13 +69,17 @@ def parse_args():
     parser.add_argument('-g', '--get', action='store_true',
                         help='Print the IP address only')
     parser.add_argument('-s', '--sourceip', action='store', default="0.0.0.0",
-                        help='specify the source IP address to use'),
+                        help='Specify the source IP address to use'),
     parser.add_argument('-S', '--stun-server', action='store',
-                        help='specify the STUN server to use'),
+                        help='Specify the STUN server to use'),
     parser.add_argument('-L', '--list-servers', action='store_true',
-                        help='print a list of known STUN servers and exit'),
+                        help='Print a list of known STUN servers and exit'),
+    parser.add_argument('--instance-id', metavar='OCID', action='store',
+                        help='Display the public IP address of the given '
+                        'instance instead of the current one.  Requires '
+                        'the OCI Python SDK to be installed and configured')
     parser.add_argument('--debug', action='store_true',
-                        help='display diagnostic output'),
+                        help='Display diagnostic output'),
     parser.add_argument('--help', action='help',
                         help='Display this help')
 
@@ -99,9 +104,35 @@ def main():
             print server
         sys.exit(0)
 
-    # call to pystun
-    external_ip = get_ip_info(source_ip=args.sourceip,
-                              stun_host=args.stun_server)[1]
+    external_ip = None
+    if oci_utils.oci_api.HAVE_OCI_SDK or args.instance_id is not None:
+        # try the OCI APIs first
+        try:
+            sess = oci_utils.oci_api.OCISession()
+            inst = None
+            if args.instance_id is not None:
+                inst = sess.get_instance(args.instance_id)
+                if inst is None:
+                    sys.stderr.write("Instance not found: %s\n" \
+                                     % args.instance_id)
+                    sys.exit(1)
+            else:
+                inst = sess.this_instance()    
+            for vnic in inst.all_vnics():
+                if vnic.get_public_ip() is not None:
+                    external_ip = vnic.get_public_ip()
+                    break
+        except oci_utils.oci_api.OCISDKError:
+            if args.instance_id is not None:
+                sys.stderr.write("The OCI Python SDK must be installed and "
+                                 "configured when using the --instance-id "
+                                 "option.\n")
+                sys.exit(1)
+
+    if external_ip is None:
+        # fall back to pystun
+        external_ip = get_ip_info(source_ip=args.sourceip,
+                                  stun_host=args.stun_server)[1]
 
     if external_ip is not None:
         if args.json:
