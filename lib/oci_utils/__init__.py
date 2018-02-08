@@ -2,7 +2,7 @@
 
 # oci-utils
 #
-# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 #
 # The Universal Permissive License (UPL), Version 1.0
 #
@@ -47,6 +47,7 @@ import json
 from datetime import datetime, timedelta
 from .packages.stun import get_ip_info, log as stun_log
 from cache import GLOBAL_CACHE_DIR
+import oci_utils.oci_api
 
 # file with a list IQNs to ignore
 __ignore_file = "/var/run/oci-utils/ignore_iqns"
@@ -150,7 +151,7 @@ class metadata(object):
     _user_cache = "~/.cache/oci-utils/metadata-cache"
     _cache_timeout = timedelta(minutes = 2)
 
-    def __init__(self, debug=False):
+    def __init__(self, get_public_ip=True, debug=False):
         self._user_cache = os.path.expanduser(self._user_cache)
         self.logger = logging.getLogger('oci-metadata')
         if debug:
@@ -165,13 +166,13 @@ class metadata(object):
         if cache_content is None:
             self.logger.debug("Cache not found or not usable, "
                               "refreshing metadata")
-            self.refresh(debug=debug)
+            self.refresh(get_public_ip=get_public_ip, debug=debug)
         else:
             self._metadata = OCIMetadata(cache_content)
             self._metadata_update_time = datetime.fromtimestamp(
                 cache_timestamp)
             
-    def refresh(self, debug=False):
+    def refresh(self, debug=False, get_public_ip=True):
         """
         Fetch all instance metadata from all sources
         Return True for success, False for failure
@@ -207,21 +208,35 @@ class metadata(object):
                                 e[0])
             result = False
 
-        # get public_ip
-        public_ip = get_ip_info(source_ip='0.0.0.0')[1]
-        if public_ip is None:
-            self._errors.append("Failed to determine public IP address.\n")
-            result = False
-        else:
-            metadata['publicIp']=public_ip
+        if get_public_ip:
+            public_ip = self.get_public_ip()
+            if public_ip is None:
+                self._errors.append("Failed to determine public IP address.\n")
+                result = False
+            else:
+                metadata['publicIp']=public_ip
 
         if metadata:
             self._metadata = OCIMetadata(metadata)
 
-        cache.write_cache(cache_content=self._metadata.get(),
-                          cache_fname=self._global_cache,
-                          fallback_fname=self._user_cache)
+            cache.write_cache(cache_content=self._metadata.get(),
+                              cache_fname=self._global_cache,
+                              fallback_fname=self._user_cache)
         return result
+
+    def get_public_ip(self):
+        if oci_utils.oci_api.HAVE_OCI_SDK:
+            # try the OCI APIs first
+            try:
+                sess = oci_utils.oci_api.OCISession()
+                inst = sess.this_instance()    
+                for vnic in inst.all_vnics():
+                    if vnic.get_public_ip() is not None:
+                        return vnic.get_public_ip()
+            except oci_utils.oci_api.OCISDKError:
+                pass
+        # fallback to STUN:
+        get_ip_info(source_ip='0.0.0.0')[1]
 
     def filter(self, keys):
         return self._metadata.filter(keys)
