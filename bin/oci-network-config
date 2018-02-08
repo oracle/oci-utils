@@ -2,7 +2,7 @@
 
 # oci-utils
 #
-# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 #
 # The Universal Permissive License (UPL), Version 1.0
 #
@@ -50,7 +50,7 @@ import subprocess
 import json
 from oci_utils import __net_exclude_file
 from oci_utils.cache import load_cache, write_cache
-
+import oci_utils.oci_api
 
 __print_info = True
 def msg_info(msg):
@@ -78,6 +78,26 @@ def parse_args():
                         help='Show information on all provisioning and '
                         'interface configuration. This is the default action '
                         'if no options are given.')
+    parser.add_argument('--create-vnic', action='store_true',
+                        help='Create a new VNIC and attach it to this instance')
+    parser.add_argument('--add-private-ip', action='store_true',
+                        help='Add a secondary private IP to an existing VNIC')
+    parser.add_argument('--del-private-ip', action='store', metavar='ADDR',
+                        help='delete the secondary private IP address with '
+                        'the given IP address')
+    parser.add_argument('--private-ip', action='store', metavar='ADDR',
+                        help='When used with the --create-vnic or '
+                        'add-private-ip options, '
+                        'assign the given private IP address to the VNIC')
+    parser.add_argument('--subnet', action='store',
+                        help='When used with the --create-vnic option, '
+                        'connect the new VNIC to the given subnet.')
+    parser.add_argument('--assign-public-ip', action='store_true',
+                        help='When used with the --create-vnic option, '
+                        'assign a public IP address to the new VNIC.')
+    parser.add_argument('--vnic', action='store', metavar='OCID',
+                        help='When used with the --add-private-ip option, '
+                        'assign the private IP to the given VNIC')
     parser.add_argument('-a', '--auto', '-c', '--configure',
                         action='store_true',
                         help='Add IP configuration for VNICs that are not '
@@ -88,9 +108,10 @@ def parse_args():
                         'If a -e option is also present only the secondary '
                         'IP address(es) are deconfigured.')
     parser.add_argument('-e', nargs=2, metavar=('IP_ADDR', 'VNIC_OCID'),
-                        dest='sec_ip', action='store',
+                        dest='sec_ip', action='append',
                         help='Secondary private IP address '
-                        'to configure or deconfigure.')
+                        'to configure or deconfigure.  Use in conjunction with'
+                        ' -c or -d.')
     parser.add_argument('-n', '--ns', action='store', metavar='FORMAT',
                         help='When configuring, place interfaces in '
                         'namespace identified by the given format. Format '
@@ -144,20 +165,83 @@ def run_sec_vnic_script(script_args, excludes):
 
     return 0
 
+def api_show_network_config():
+    '''
+    Show the current network configuration of the instance based on
+    information obtained through OCI API calls, if the OCI SDK is
+    configured.
+    '''
+    sess = None
+    try:
+        sess = oci_utils.oci_api.OCISession()
+    except oci_utils.oci_api.OCISDKError as e:
+        msg_info("Failed to access OCI services: %s\n" % e)
+        msg_info("Unable to display OCI network configuration.")
+        return
+    inst = sess.this_instance()
+    vnics = inst.all_vnics()
+    priv_ips = inst.all_private_ips()
+    i = 1
+    print "VNIC configuration for instance %s" % inst.get_display_name()
+    print
+    for vnic in vnics:
+        primary = ""
+        if vnic.is_primary():
+            primary = " (primary)"
+        print "VNIC %d%s: %s" % (i, primary, vnic.get_display_name())
+        print "     Hostname: %s" % vnic.get_hostname()
+        print "     OCID: %s" % vnic.get_ocid()
+        print "     MAC address: %s" % vnic.get_mac_address()
+        print "     Public IP address: %s" % vnic.get_public_ip()
+        print "     Subnet: %s (%s)" % (vnic.get_subnet().get_display_name(),
+                                        vnic.get_subnet().get_cidr_block())
+        privips = vnic.all_private_ips()
+        if len(privips) == 1:
+            print "     Private IP address: %s (%s)" \
+                % (privips[0].get_address(),
+                   privips[0].get_hostname())
+            print
+        elif len(privips) > 1:
+            print "     Private IP addresses:"
+            for privip in privips:
+                primary = ""
+                if privip.is_primary():
+                    primary = " (primary)"
+                print "         IP address: %s%s" % \
+                    (privip.get_address(), primary)
+                print "         OCID: %s" % privip.get_ocid()
+                print "         Hostname: %s" % privip.get_hostname()
+                print "         Subnet: %s (%s)" % \
+                    (privip.get_subnet().get_display_name(),
+                     privip.get_subnet().get_cidr_block())
+                print
+        else:
+            print
+        i += 1
+    print
+    print "Operating System level network configuration"
+    print
+
 def do_show_network_config(excludes):
     '''
     Display the currect network interface configuration as well as the
     VNIC configuration from OCI
     '''
+    if oci_utils.oci_api.HAVE_OCI_SDK:
+        api_show_network_config()
     run_sec_vnic_script(['-s'], excludes=excludes)
 
-def do_auto_config(args, excludes):
+def do_auto_config(args, excludes, new_private_ip):
     '''
     run script with -c arg
     '''
     all_options = ['-c']
     if args.sec_ip:
-        all_options += ['-e', args.sec_ip[0], args.sec_ip[1]]
+        for si in args.sec_ip:
+            all_options += ['-e', si[0], si[1]]
+    if new_private_ip is not None:
+        (ipaddr, vnic_id) = new_private_ip
+        all_options += ['-e', ipaddr, vnic_id]
     if args.ns:
         all_options += ['-n', args.ns]
     if args.sshd:
@@ -174,9 +258,154 @@ def do_deconfig_all(args, excludes):
     run script with -c arg
     '''
     all_options = ['-d']
+    if args.sec_ip:
+        for si in args.sec_ip:
+            all_options += ['-e', si[0], si[1]]
     if args.show:
         all_options += ['-s']
     run_sec_vnic_script(all_options, excludes=excludes)
+
+
+def do_create_vnic(args):
+    '''
+    create and attach a VNIC to this instance
+    '''
+    sess = None
+    # needs the OCI SDK installed and configured
+    if not oci_utils.oci_api.HAVE_OCI_SDK:
+        msg_error("To use the --create-vnic option, you need to "
+                  "install and configure the OCI Python SDK "
+                  "(python-oci-sdk)\n")
+        sys.exit(1)
+    try:
+        sess = oci_utils.oci_api.OCISession()
+    except oci_utils.oci_api.OCISDKError as e:
+        msg_error("Failed to access OCI services: %s\n" % e)
+        sys.exit(1)
+
+    subnet_id = None
+    vnic = None
+    if args.subnet:
+        if args.subnet.startswith('ocid1.subnet.'):
+            subnet = sess.get_subnet(args.subnet)
+            if subnet is None:
+                msg_error("Subnet not found: %s\n" % args.subnet)
+                sys.exit(1)
+            else:
+                subnet_id = subnet.get_ocid()
+        else:    
+            subnets = sess.find_subnets(args.subnet)
+            if len(subnets) == 0:
+                msg_error("No subnet matching %s found\n" % args.subnet)
+                sys.exit(1)
+            elif len(subnets) > 1:
+                msg_error("More than one subnet matching %s found:\n" \
+                          % args.subnet)
+                for sn in subnets:
+                    msg_error("   %s\n" % sn.get_display_name())
+                sys.exit(1)
+            subnet_id = subnets[0].get_ocid()
+    try:
+        vnic = sess.this_instance().attach_vnic(
+            private_ip=args.private_ip,
+            assign_public_ip=args.assign_public_ip,
+            subnet_id=subnet_id)
+    except oci_utils.oci_api.OCISDKError as e:
+        msg_error('Failed to create VNIC: %s' % e)
+        sys.exit(1)
+    public_ip = vnic.get_public_ip()
+    if public_ip is not None:
+        msg_info('creating VNIC: %s (public IP %s)' % (vnic.get_private_ip(),
+                                                      public_ip))
+    else:
+        msg_info('creating VNIC: %s' % vnic.get_private_ip())
+
+def do_add_private_ip(args):
+    '''
+    Add a secondary private IP for an existing VNIC
+
+    Return (private_IP,vnic_ocid) for the new IP
+    '''
+    sess = None
+    # needs the OCI SDK installed and configured
+    if not oci_utils.oci_api.HAVE_OCI_SDK:
+        msg_error("To use the --add-private-ip option, you need to "
+                  "install and configure the OCI Python SDK "
+                  "(python-oci-sdk)\n")
+        sys.exit(1)
+    try:
+        sess = oci_utils.oci_api.OCISession()
+    except oci_utils.oci_api.OCISDKError as e:
+        msg_error("Failed to access OCI services: %s\n" % e)
+        sys.exit(1)
+
+    vnic_id = None
+    vnic = None
+    if args.vnic:
+        if args.vnic.startswith('ocid1.vnic.'):
+            vnic = sess.get_vnic(args.vnic)
+            if vnic is None:
+                msg_error("VNIC not found: %s\n" % args.vnic)
+                sys.exit(1)
+            else:
+                vnic_id = vnic.get_ocid()
+        else:
+            msg_error("Invalid VNIC OCID: %s\n" % args.vnic)
+            sys.exit(1)
+    else:    
+        vnics = sess.this_instance().all_vnics()
+        if len(vnics) > 1:
+            msg_error("More than one VNIC found.\n"
+                      "Use the --vnic option to select the one to add "
+                      "a secondary IP for:")
+            for vnic in vnics:
+                msg_error("   %s: %s" % (vnic.get_private_ip(),
+                                           vnic.get_ocid()))
+            sys.exit(1)
+        vnic_id = vnics[0].get_ocid()
+        vnic = vnics[0]
+    try:
+        priv_ip = vnic.add_private_ip(private_ip=args.private_ip)
+    except oci_utils.oci_api.OCISDKError as e:
+        msg_error('Failed to provision private IP: %s' % e)
+        sys.exit(1)
+    msg_info('provisioning secondary private IP: %s' % priv_ip.get_address())
+    return (priv_ip.get_address(), vnic.get_ocid())
+
+def do_del_private_ip(args):
+    '''
+    Delete a secondary private IP
+    '''
+    sess = None
+    # needs the OCI SDK installed and configured
+    if not oci_utils.oci_api.HAVE_OCI_SDK:
+        msg_error("To use the --add-private-ip option, you need to "
+                  "install and configure the OCI Python SDK "
+                  "(python-oci-sdk)\n")
+        sys.exit(1)
+    try:
+        sess = oci_utils.oci_api.OCISession()
+    except oci_utils.oci_api.OCISDKError as e:
+        msg_error("Failed to access OCI services: %s\n" % e)
+        sys.exit(1)
+    # find the private IP
+    priv_ip = sess.this_instance().find_private_ip(args.del_private_ip)
+    if priv_ip is None:
+        msg_error("Secondary private IP not found: %s" % args.del_private_ip)
+        sys.exit(1)
+    if priv_ip.is_primary():
+        msg_error("Cannot delete IP %s, it is the primary private address of"
+                  " the VNIC." % args.del_private_ip)
+        sys.exit(1)
+    vnic_id = priv_ip.get_vnic().get_ocid()
+    if priv_ip.delete():
+        msg_info('deleting secondary private IP %s' % args.del_private_ip)
+        run_sec_vnic_script(script_args=['-d', '-e',
+                                         args.del_private_ip, vnic_id],
+                            excludes=[])
+    else:
+        msg_error('failed to delete secondary private IP %s' % \
+                  args.del_private_ip)
 
 def main():
     '''
@@ -195,7 +424,23 @@ def main():
         msg_error("You must run this program with root privileges")
         sys.exit(1)
 
+    if args.create_vnic:
+        if args.add_private_ip:
+            msg_error("Cannot use --create-vnic and --add-private-ip at the "
+                      "same time")
+            sys.exit(1)
+        do_create_vnic(args)
+
     excludes = load_cache(__net_exclude_file)[1]
+    if excludes is None:
+        excludes = []
+
+    new_priv_ip = None
+    if args.add_private_ip:
+        new_priv_ip = do_add_private_ip(args)
+
+    if args.del_private_ip:
+        do_del_private_ip(args)
 
     if args.exclude:
         if excludes is None:
@@ -209,7 +454,6 @@ def main():
         for inc in args.include:
             if inc in excludes:
                 excludes.remove(inc)
-    write_cache(cache_content=excludes, cache_fname=__net_exclude_file)
 
     if excludes and not args.quiet:
         print "Info: Excluded from automatic configuration:"
@@ -217,11 +461,25 @@ def main():
             print "Info:    %s" % exc
         print
 
-    if args.auto:
-        do_auto_config(args, excludes)
+    if args.auto or args.create_vnic or args.add_private_ip:
+        do_auto_config(args, excludes, new_priv_ip)
     elif args.deconfigure:
         do_deconfig_all(args, excludes)
+    elif args.del_private_ip:
+        pass
     else:
         do_show_network_config(excludes)
+
+    # exclude the new private IP from automatic configuration otherwise
+    # it will be deleted by ocid as it doesn't appear in the metadata
+    if new_priv_ip is not None:
+        excludes.append(new_priv_ip[0])
+    if args.auto:
+        # exclude the manually configured secondary IPs so they don't get
+        # automatically deleted by ocid
+        if args.sec_ip:
+            for si in args.sec_ip:
+                excludes.append(si[0])
+    write_cache(cache_content=excludes, cache_fname=__net_exclude_file)
 
 sys.exit(main())

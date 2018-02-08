@@ -1,25 +1,13 @@
 .\" Process this file with
 .\" groff -man -Tascii oci-network-config.1
 .\"
-.\" Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+.\" Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 .\"
-.TH OCI-NETWORK-CONFIG 1 "DECEMBER 2017" Linux "User Manuals"
+.TH OCI-NETWORK-CONFIG 1 "FEBRUARY 2018" Linux "User Manuals"
 .SH NAME
 oci-network-config \- configure network devices on OCI compute instances
 .SH SYNOPSIS
 .B oci-network-config [-s|--show] [-X
-.I ITEM
-.B | --exclude
-.I ITEM
-.B ] [-I
-.I ITEM
-.B | --include
-.I ITEM
-.B ] [-q|--quiet] [--debug] [--help]
-
-.B oci-network-config [-s|--show] [-d|--deconfigure] [-e
-.I IP_ADDR VNIC_OCID
-.B ] [-X
 .I ITEM
 .B | --exclude
 .I ITEM
@@ -44,7 +32,39 @@ oci-network-config \- configure network devices on OCI compute instances
 .B | --include
 .I ITEM
 .B ] [-q|--quiet] [--debug] [--help]
+
+.B oci-network-config [-s|--show] [-d|--deconfigure] [-e
+.I IP_ADDR VNIC_OCID
+.B ] [-X
+.I ITEM
+.B | --exclude
+.I ITEM
+.B ] [-I
+.I ITEM
+.B | --include
+.I ITEM
+.B ] [-q|--quiet] [--debug] [--help]
+
+.B oci-network-config [-s|--show] [--create-vnic] [--add-private-ip] [--private-ip
+.I ADDR
+.B ] [--del-private-ip
+.I ADDR
+.B ] [--subnet
+.I SUBNET
+.B ] [--assign-public-ip] [--vnic
+.I OCID
+.B ] [-X
+.I ITEM
+.B | --exclude
+.I ITEM
+.B ] [-I
+.I ITEM
+.B | --include
+.I ITEM
+.B ] [-q|--quiet] [--debug] [--help]
+
 .SH DESCRIPTION
+
 The
 .B oci-network-config
 utility shows the current OCI Virtual interface Cards provisioned in the cloud and configured on this instance. When a secondary VNIC is provisioned in OCI it must be explicitly configured on the instance using this script or similar commands.
@@ -59,11 +79,16 @@ Bare Metal secondary VNICs are configured using VLANs (where there is no corresp
 
 The third version, -d (or --deconfigure), deletes all IP configuration for provisioned secondary VNICs as long as there is no -e option. If one or more optional -e options are present only the given secondary IP addresses are deconfigured and the remaining configuration is left as is.
 
+The fourth version requires the OCI Python SDK to be installed and configured.
+The OCI Python SDK is available in the python-oci-sdk package.  This version
+allows creating a new VNIC for the instance or adding/removing private IP
+addresses to/from an existing VNIC.
+
 When
 .BR ocid(8)
 is enabled, it runs this utility each time the VNIC configuration metadata of the instance changes.  If
 .BR ocid(8)
-is not enabled this script must be rnu periodically to pick up changes in VNIC provisioning (whether adding or deleting). Note that these IP configuration changes are not persistent, the script must, at a minimum, be run on each startup.
+is not enabled this script must be run periodically to pick up changes in VNIC provisioning (whether adding or deleting). Note that these IP configuration changes are not persistent, the script must, at a minimum, be run on each startup.
 
 To exclude VNICs, IP addresses or VLAN interfaces from automatic configuration use the -X (or --exclude) option.  Exclusions specified with this option are persistent so that they also apply when
 .BR ocid(8)
@@ -91,6 +116,37 @@ Columns:
 Add IP configuration for VNICs that are not configured and delete for VNICs that are no longer provisioned.
 .IP "-d, --deconfigure"
 Deconfigure all VNICs (except the primary). If a -e option is also present only the secondary IP address(es) are deconfigured.
+.IP "--create-vnic"
+Create a new VNIC and attach it to this instance.  Use the --subnet option to
+choose a subnet and --private-ip to choose a specific private IP address.
+This option requires the OCI Python SDK to be installed and configured.
+.IP "--add-private-ip"
+Add a secondary private IP address to an existing VNIC.  When the instance has
+multiple VNICs, use the --vnic option to select the VNIC to add the secondary
+private IP address to.
+This option requires the OCI Python SDK to be installed and configured.
+.IP "--del-private-ip ADDR"
+Delete the given secondary private IP.
+This option requires the OCI Python SDK to be installed and configured.
+.IP "--private-ip ADDR"
+When used with --create-vnic or --add-private-ip, assign the given private IP
+address.  Without this option an unused IP address from the subnet will be
+assigned automatically.
+.IP "--subnet SUBNET"
+When used with the --create-vnic option, connect the VNIC to the given
+.B SUBNET.
+The
+.B SUBNET
+can be an OCID or a regular expression that is matched against the display name
+of all available subnets.  When --private-ip is used, the subnet is inferred
+from the IP address, or it defaults to the subnet of the primary VNIC.
+.IP "--assign-public-ip"
+When used with the --create-vnic option, assign a public IP address to the new
+VNIC.  By default only a private IP address is assigned.
+.IP "--vnic OCID"
+When used with the --add-private-ip option, assign the new private IP address
+to the given VNIC.  This option is required when the instance has multiple
+VNICs.  Use the --show option to display the OCIDs of the VNICs.
 .IP "-e IP_ADDR VNIC_OCID"
 Secondary private IP address to configure or deconfigure.
 .IP "-n FORMAT, --ns FORMAT"
@@ -113,7 +169,42 @@ that was previously excluded using the --exclude option in automatic configurati
 Print diagnostic messages.
 .IP --help
 Print a summary of the command line options.
+.SH EXAMPLES
+.PP
+.nf
+.RS
+sudo oci-network-config --add-private-ip --private-ip 10.0.1.200
+.RE
+.fi
+.PP
+Attaches and configures a new secondary private IP address, 10.0.1.200 on the
+primary VNIC.  Note: since
+.BR sudo(8)
+is used, the OCI Python SDK must be configured
+in the root user's account.
+.PP
+.nf
+.RS
+sudo oci-network-config --del-private-ip 10.0.1.200
+.RE
+.fi
+.PP
+Delete and de-configure the secondary private IP set up in the previous example.
+.PP
+.nf
+.RS
+sudo oci-network-config --create-vnic --assign-public-ip --subnet my-subnet --show
+.RE
+.fi
+.PP
+Create a new VNIC in the
+.B my-subnet
+subnet.  An unused IP address from
+.B my-subnet
+is assigned automatically.  A public IP address is also assigned to the VNIC.
+The new network interface configuration is displayed after creating the VNIC.
 .SH DIAGNOSTICS
 Return an exit status of 0 for success or 1 if an error occured.
 .SH "SEE ALSO"
 .BR ocid (8)
+.BR sudo (8)
