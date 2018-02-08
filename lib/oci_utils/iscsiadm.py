@@ -2,7 +2,7 @@
 
 # oci-utils
 #
-# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 #
 # The Universal Permissive License (UPL), Version 1.0
 #
@@ -198,6 +198,9 @@ def session():
             devices[target] = device_info
         
         return devices
+    except OSError as e:
+        __iscsi_logger.error('failed to execute /usr/sbin/iscsiadm')
+        return {}
     except subprocess.CalledProcessError as e:
         return {}
 
