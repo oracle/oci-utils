@@ -44,7 +44,7 @@ rm -rf %{buildroot}
 %{_libexecdir}/secondary_vnic_all_configure.sh
 %{_sysconfdir}/systemd/system/ocid.service
 %{_datadir}/man
-%doc COPYING PKG-INFO
+%doc LICENSE.txt PKG-INFO
 
 %changelog
 * Fri Oct  6 2017 Laszlo (Laca) Peter <laszlo.peter@oracle.com>
