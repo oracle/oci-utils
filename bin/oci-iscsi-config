@@ -139,7 +139,12 @@ def display_current_devices(session, disks):
             print "      Current portal:    %s:%s" % \
                 (session[iqn]['current_portal_ip'],
                  session[iqn]['current_portal_port'])
-            print "               State:    %s" % session[iqn]['state']
+            if 'session_state' in session[iqn]:
+                print "               State:    %s" % \
+                    session[iqn]['session_state']
+            if 'device' not in session[iqn]:
+                print
+                continue
             device = session[iqn]['device']
             print "     Attached device:    %s" % device
             if device in disks:
