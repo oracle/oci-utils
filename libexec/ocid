@@ -97,7 +97,7 @@ def daemon_main(args):
     # all IQNs discovered
     all_iqns = {}
     ignore_ts = 0
-    vnics = oci_utils.metadata().filter('vnics')
+    vnics = oci_utils.metadata(get_public_ip=False).filter('vnics')
     if vnics is not None and 'vnics' in vnics:
         # deep copy
         vnics = [dict(x) for x in vnics['vnics']]
@@ -249,6 +249,10 @@ def daemon_main(args):
             if ignore_ts is None:
                 ignore_ts = 0
 
+        if args.refresh:
+            # run once only
+            return 0
+
         # update the metadata cache
         oci_utils.metadata().refresh(get_public_ip=False)
         new_vnics = oci_utils.metadata().filter('vnics')
@@ -260,10 +264,6 @@ def daemon_main(args):
                 update_network_config()
                 # deep copy
                 vnics = [dict(x) for x in new_vnics['vnics']]
-        
-        if args.refresh:
-            # run once only
-            return 0
 
         time.sleep(60)
 
