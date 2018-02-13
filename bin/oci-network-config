@@ -59,6 +59,9 @@ def parse_args():
     parser.add_argument('--subnet', action='store',
                         help='When used with the --create-vnic option, '
                         'connect the new VNIC to the given subnet.')
+    parser.add_argument('--vnic-name', action='store', metavar='NAME',
+                        help='When used with the --create-vnic option, '
+                        'use NAME as the display name of the new VNIC')
     parser.add_argument('--assign-public-ip', action='store_true',
                         help='When used with the --create-vnic option, '
                         'assign a public IP address to the new VNIC.')
@@ -276,7 +279,8 @@ def do_create_vnic(args):
         vnic = sess.this_instance().attach_vnic(
             private_ip=args.private_ip,
             assign_public_ip=args.assign_public_ip,
-            subnet_id=subnet_id)
+            subnet_id=subnet_id,
+            display_name=args.vnic_name)
     except oci_utils.oci_api.OCISDKError as e:
         msg_error('Failed to create VNIC: %s' % e)
         sys.exit(1)

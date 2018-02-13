@@ -45,7 +45,9 @@ oci-network-config \- configure network devices on OCI compute instances
 .I ITEM
 .B ] [-q|--quiet] [--debug] [--help]
 
-.B oci-network-config [-s|--show] [--create-vnic] [--add-private-ip] [--private-ip
+.B oci-network-config [-s|--show] [--create-vnic] [--vnic-name
+.I NAME
+.B ] [--add-private-ip] [--private-ip
 .I ADDR
 .B ] [--del-private-ip
 .I ADDR
@@ -140,6 +142,9 @@ Deconfigure all VNICs (except the primary). If a -e option is also present only 
 Create a new VNIC and attach it to this instance.  Use the --subnet option to
 choose a subnet and --private-ip to choose a specific private IP address.
 This option requires the OCI Python SDK to be installed and configured.
+.IP "--vnic-name NAME"
+When creating a new VNIC using the --create-vnic option, set the display
+name and hostname of the VNIC to NAME.
 .IP "--add-private-ip"
 Add a secondary private IP address to an existing VNIC.  When the instance has
 multiple VNICs, use the --vnic option to select the VNIC to add the secondary

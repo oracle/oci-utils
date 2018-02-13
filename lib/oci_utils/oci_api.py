@@ -725,6 +725,10 @@ class OCIInstance(OCIObject):
         Returns an OCIVNIC object on success.
         Raises OCISDKError on error
         """
+        if display_name is None and hostname_label is not None:
+            display_name = hostname_label
+        if hostname_label is None and display_name is not None:
+            hostname_label = display_name
         # step 1: choose a subnet
         if subnet_id is None:
             instance_subnets = self.all_subnets()
