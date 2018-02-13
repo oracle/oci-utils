@@ -241,7 +241,7 @@ def api_display_available_devices():
 
     for vol in vols:
         print "Volume %s" % vol.get_display_name()
-        print "   odid:        %s" % vol.get_ocid()
+        print "   OCID:        %s" % vol.get_ocid()
         if vol.is_attached():
             if vol.get_instance().get_ocid() == sess.this_instance().get_ocid():
                 instance = "this instance"
