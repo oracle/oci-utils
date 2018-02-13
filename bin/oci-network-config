@@ -423,10 +423,8 @@ def main():
                 excludes.remove(inc)
 
     if excludes and not args.quiet:
-        print "Info: Excluded from automatic configuration:"
-        for exc in excludes:
-            print "Info:    %s" % exc
-        print
+        print "Info: Addresses excluded from automatic configuration: %s" % \
+            ", ".join(excludes)
 
     if args.auto or args.create_vnic or args.add_private_ip:
         do_auto_config(args, excludes, new_priv_ip)
