@@ -131,6 +131,7 @@ def session():
         target_pattern = re.compile(r'^Target: (\S+)')
         portal_pattern = re.compile(r'(Current|Persistent) Portal: ([0-9.]+):([0-9]+),')
         disk_pattern = re.compile(r'Attached scsi disk (\S+)\s+State: (\S+)')
+        sess_state_pattern = re.compile(r'iSCSI Session State: (\S+)')
         device_info = {}
         target = None
         for line in output.split('\n'):
@@ -156,6 +157,10 @@ def session():
                 if match:
                     device_info['persistent_portal_ip'] = match.group(2)
                     device_info['persistent_portal_port'] = match.group(3)
+            if 'iSCSI Session State:' in line:
+                match = sess_state_pattern.search(line.strip())
+                if match:
+                    device_info['session_state'] = match.group(1)
             if 'Attached scsi disk' in line:
                 match = disk_pattern.search(line.strip())
                 if match:
