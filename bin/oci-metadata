@@ -154,7 +154,8 @@ def main():
     '''
     args = parse_args()
 
-    metadata = oci_utils.metadata(debug=args.debug).filter(args.keys)
+    metadata = oci_utils.metadata(debug=args.debug,
+                                  get_public_ip=False).filter(args.keys)
 
     if metadata is None:
         if args.keys:
