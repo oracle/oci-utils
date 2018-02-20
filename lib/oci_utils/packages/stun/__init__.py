@@ -132,7 +132,7 @@ def stun_test(sock, host, port, source_ip, source_port, send_data=""):
             except Exception as e:
                 log.debug("recvfrom exception: %s", e)
                 recieved = False
-                if count > 0:
+                if count > 1:
                     count -= 1
                 else:
                     retVal['Resp'] = False
@@ -196,7 +196,7 @@ def get_nat_type(s, source_ip, source_port, stun_host=None, stun_port=3478):
         ret = stun_test(s, stun_host, port, source_ip, source_port)
         resp = ret['Resp']
     else:
-        for stun_host in stun_servers_list:
+        for stun_host in random.sample(stun_servers_list, 3):
             log.debug('Trying STUN host: %s', stun_host)
             ret = stun_test(s, stun_host, port, source_ip, source_port)
             resp = ret['Resp']
@@ -251,7 +251,7 @@ def get_nat_type(s, source_ip, source_port, stun_host=None, stun_port=3478):
 def get_ip_info(source_ip="0.0.0.0", source_port=54320, stun_host=None,
                 stun_port=3478):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.settimeout(2)
+    s.settimeout(2.0)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind((source_ip, source_port))
     nat_type, nat = get_nat_type(s, source_ip, source_port,
