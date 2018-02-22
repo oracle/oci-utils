@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 
-# Oracle OCI Virtual Cloud Networks IP configuration script
+# Copyright (c) 2018, Oracle and/or its affiliates.
+# The Universal Permissive License (UPL), Version 1.0
 #
-# Copyright Oracle, Inc. All rights reserved.
+# Oracle OCI Virtual Cloud Networks IP configuration script
 #
 # 2017-10-24 initial release
 # 2017-11-21 filter out VLANs if VM
 # 2017-11-21 inhibit namespaces for ubuntu 16
+# 2018-02-12 fix sshd typo in help
+# 2018-02-20 update copyright notice
 
 declare -r THIS=$(basename "$0")
 declare -r MD_URL='http://169.254.169.254/opc/v1/vnics/'
