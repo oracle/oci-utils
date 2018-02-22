@@ -266,7 +266,10 @@ class OCISession(object):
     def this_instance(self, refresh=False):
         if self.metadata is None:
             return None
-        my_instance_id = self.metadata['instance']['id']
+        try:
+            my_instance_id = self.metadata['instance']['id']
+        except:
+            return None
 
         for i in self.this_compartment().all_instances(refresh=refresh):
             if i.get_ocid() == my_instance_id:
@@ -277,7 +280,10 @@ class OCISession(object):
     def this_compartment(self, refresh=False):
         if self.metadata is None:
             return None
-        my_compartment_id = self.metadata['instance']['compartmentId']
+        try:
+            my_compartment_id = self.metadata['instance']['compartmentId']
+        except:
+            return None
 
         for c in self.all_compartments(refresh=refresh):
             if c.get_ocid() == my_compartment_id:
@@ -293,7 +299,10 @@ class OCISession(object):
     def this_region(self):
         if self.metadata is None:
             return None
-        return self.metadata['instance']['region']
+        try:
+            return self.metadata['instance']['region']
+        except:
+            return None
 
     def get_instance(self, instance_id, refresh=False):
         for i in self.all_instances(refresh=refresh):
