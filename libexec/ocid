@@ -23,11 +23,14 @@ import lockfile
 import posixfile
 import oci_utils
 import oci_utils.iscsiadm
+import oci_utils.virt
 import subprocess
 from oci_utils.cache import load_cache, write_cache, get_timestamp
 
 __ocid_logger = logging.getLogger('ocid')
 __log_level = logging.INFO
+
+__virtual_functions = 16
 
 def setup_logging(syslog=False):
     global __ocid_logger
@@ -58,9 +61,45 @@ def parse_args():
                         help='run ocid in the foreground, useful for debugging')
     parser.add_argument('--debug', action='store_true',
                         help='display diagnostic output'),
+    parser.add_argument('--vf-net', action='store_true',
+                        help='create virtual functions for configured nics in lieu of autoconfiguring vnics')
+    parser.add_argument('--service', action='store_true',
+                        help='if ocid is running as a daemon, execute all tasks exactly once before forking')
 
     args = parser.parse_args()
     return args
+
+def create_virtual_functions():
+    interfaces = netifaces.interfaces()
+    for iface in interfaces:
+        # Check to see if there are more than zero existing
+        # virtual functions
+        try:
+            with open('/sys/class/net/{}/device/sriov_numvfs'.format(iface), 'r') as f:
+                if 0 != int(f.read()):
+                    continue
+        except IOError:
+            # If this file cannot be accessed for any reason, assume it is not
+            # a PCI device
+            continue
+
+        # Create the virtual functions
+        with open('/sys/class/net/{}/device/sriov_numvfs'.format(iface), 'w') as f:
+            f.write(str(__virtual_functions))
+
+    return 0
+
+def create_domain_vlans(vnics):
+    if len(vnics) == 0:
+        return
+
+    domains = oci_utils.virt.get_domains_no_libvirtd()
+    domain_interfaces = {d: oci_utils.virt.get_interfaces_from_domain(oci_utils.virt.get_domain_xml_no_libvirtd(d)) for d in domains}
+
+    for domain, ifaces in domain_interfaces.iteritems():
+        for mac in ifaces:
+            oci_utils.virt.construct_vlan(mac, vnics, domain_interfaces)
+
 
 def update_network_config():
     output = ""
@@ -104,7 +143,11 @@ def daemon_main(args):
     else:
         vnics = []
     __ocid_logger.info("updating VNIC configuration")
-    update_network_config()
+    if args.vf_net:
+        create_virtual_functions()
+        create_domain_vlans(vnics)
+    else:
+        update_network_config()
     if args.refresh and args.no_daemon:
         print "Scanning for iSCSI devices"
     # write cache files once on startup, even if they are empty
@@ -255,15 +298,16 @@ def daemon_main(args):
 
         # update the metadata cache
         oci_utils.metadata().refresh(get_public_ip=False)
-        new_vnics = oci_utils.metadata().filter('vnics')
-        if new_vnics is not None and 'vnics' in new_vnics:
-            if new_vnics['vnics'] != vnics:
-                # VNIC configuration changed
-                __ocid_logger.info("VNIC configuration changed, "
-                                   "updating network interfaces")
-                update_network_config()
-                # deep copy
-                vnics = [dict(x) for x in new_vnics['vnics']]
+        if not args.vf_net:
+            new_vnics = oci_utils.metadata().filter('vnics')
+            if new_vnics is not None and 'vnics' in new_vnics:
+                if new_vnics['vnics'] != vnics:
+                    # VNIC configuration changed
+                    __ocid_logger.info("VNIC configuration changed, "
+                                       "updating network interfaces")
+                    update_network_config()
+                    # deep copy
+                    vnics = [dict(x) for x in new_vnics['vnics']]
 
         time.sleep(60)
 
@@ -291,6 +335,17 @@ if args.no_daemon:
     sys.exit(daemon_main(args))
 else:
     setup_logging(syslog=True)
+    # TODO: replace this cheesy hack.
+    # To ensure that all services provided by ocid
+    # have executed at least once before a service
+    # manager thinks that ocid is ready, a --no-daemon
+    # --refresh execution is performed prior to forking
+    if args.service:
+        refresh_orig = args.refresh
+        args.no_daemon = True
+        args.refresh = True
+        daemon_main(args)
+        args.refresh = refresh_orig
     context = daemon.DaemonContext(
         pidfile=pidlock,
         umask=0o033
