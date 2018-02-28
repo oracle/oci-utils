@@ -2,7 +2,7 @@
 
 # oci-utils
 #
-# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 
 """
@@ -49,8 +49,7 @@ def list():
         DEVNULL = open(os.devnull, 'w')
         output = subprocess.check_output(['/bin/lsblk',
                                           '-P', '-n',
-                                          '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE',
-                                          '-a'],
+                                          '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE'],
                                          stderr=DEVNULL)
         devices = {}
         pattern = re.compile(r'^NAME="([^"]*)" FSTYPE="([^"]*)" MOUNTPOINT="([^"]*)" SIZE="([^"]*)"')
