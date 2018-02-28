@@ -3,10 +3,11 @@ Description=Oracle Cloud Infrastructure utilities daemon
 After=iscsid.service
 
 [Service]
-ExecStart=/usr/libexec/ocid
+ExecStart=/usr/libexec/ocid --vf-net
 Restart=always
 StandardOutput=syslog
 StandardError=syslog
 
 [Install]
 WantedBy=multi-user.target
+RequiredBy=libvirtd.service
