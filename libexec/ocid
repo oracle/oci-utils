@@ -23,6 +23,7 @@ import lockfile
 import posixfile
 import oci_utils
 import oci_utils.iscsiadm
+import oci_utils.nic
 import oci_utils.virt
 import subprocess
 from oci_utils.cache import load_cache, write_cache, get_timestamp
@@ -70,7 +71,7 @@ def parse_args():
     return args
 
 def create_virtual_functions():
-    interfaces = netifaces.interfaces()
+    interfaces = oci_utils.nic.get_interfaces()
     for iface in interfaces:
         # Check to see if there are more than zero existing
         # virtual functions

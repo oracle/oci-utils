@@ -245,7 +245,7 @@ def get_unused_block_device(devices, domain_disks):
         return '/dev/{}'.format(device)
 
     return None
-        
+
 def validate_block_device(dev_orig):
     """
     Given a path, ensure that the path actually represents
@@ -312,10 +312,10 @@ def validate_block_device(dev_orig):
         return False
     elif block_device_has_mounts(devices[dev_name]):
         print "{} is in use by the host system".format(dev_orig)
-        return
+        return False
     elif not devices[dev_name].get('size'):
         print "{} does not represent a disk".format(dev_orig)
-        return
+        return False
 
     for domain, disks in domain_disks.iteritems():
         if dev in disks:

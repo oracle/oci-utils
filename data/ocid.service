@@ -3,7 +3,7 @@ Description=Oracle Cloud Infrastructure utilities daemon
 After=iscsid.service
 
 [Service]
-ExecStart=/usr/libexec/ocid --vf-net
+ExecStart=/usr/libexec/ocid --vf-net --service
 Restart=always
 StandardOutput=syslog
 StandardError=syslog
