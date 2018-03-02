@@ -59,7 +59,7 @@ def get_domains():
     Returns the list of libvirt domain names
     """
     ret = []
-    domains = _call_output([virshcmd, 'list', '--name']).splitlines()
+    domains = _call_output([virshcmd, 'list', '--name', '--all']).splitlines()
 
     for d in domains:
         if len(d) > 0:
