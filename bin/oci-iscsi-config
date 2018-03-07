@@ -32,7 +32,16 @@ def parse_args():
     parser.add_argument('-i', '--interactive', action='store_true',
                         help='Run in interactive mode')
     parser.add_argument('-s', '--show', action='store_true',
-                        help='Display the current iscsi configuration')
+                        help='Display the current iSCSI configuration')
+    parser.add_argument('-C', '--compartment', metavar='COMP',
+                        action='append', dest='compartments',
+                        help='Display iSCSI devices in the given comparment(s)'
+                        ' or all compartments if COMP is "all".  Requires the '
+                        'OCI Python SDK')
+    parser.add_argument('-A', '--all', action='store_true',
+                        help='Display all iSCSI devices. By default only '
+                        'devices that are not attached to an instance are '
+                        'listed.  Requires the OCI Python SDK.')
     parser.add_argument('-d', '--detach', metavar='TARGET', dest='detach_iqns',
                         action='append', type=str,
                         help='Detach the iSCSI device with the specified IQN')
@@ -222,7 +231,7 @@ def do_attach(iqn, targets, user=None, passwd=None):
         % iscsiadm.error_message_from_code(retval)
     return retval
 
-def api_display_available_devices():
+def api_display_available_devices(args):
     sess = None
     # needs the OCI SDK installed and configured
     try:
@@ -231,15 +240,45 @@ def api_display_available_devices():
         sys.stderr.write("Failed to access OCI services: %s\n" % e)
         return
 
-    vols = sess.all_volumes()
+    vols = []
+    if args.compartments:
+        for cspec in args.compartments:
+            if cspec == 'all':
+                vols = sess.all_volumes()
+                break
+            if cspec.startswith('ocid1.compartment.oc1..'):
+                # compartment specified with its ocid
+                comp = sess.get_compartment(compartment_id=cspec)
+                if comp is None:
+                    sys.stderr.write("Compartment not found: %s\n" % cspec)
+                else:
+                    cvols = comp.all_volumes()
+                    vols += cvols
+            else:
+                # compartment specified with display name regexp
+                comps = sess.find_compartments(display_name=cspec)
+                if len(comps) == 0:
+                    sys.stderr.write("No compartments matching '%s' found" % \
+                                     cspec)
+                else:
+                    for comp in comps:
+                        cvols = comp.all_volumes()
+                        vols += cvols
+    else:
+        # -C/--compartment option wasn't used, default to the instance's own
+        # compartment
+        vols = sess.this_compartment().all_volumes()
+
     if len(vols) == 0:
         print "No additional storage volumes found."
         return
 
-    print "All available storage volumes:"
+    print "Other available storage volumes:"
     print
 
     for vol in vols:
+        if vol.is_attached() and not args.all:
+            continue
         print "Volume %s" % vol.get_display_name()
         print "   OCID:        %s" % vol.get_ocid()
         if vol.is_attached():
@@ -470,7 +509,7 @@ def main():
         session = iscsiadm.session()
         if args.show:
             display_current_devices(session, disks)
-            api_display_available_devices()
+            api_display_available_devices(args)
         return retval
 
     if args.detach_iqns:
@@ -569,7 +608,7 @@ def main():
     if args.show:
         display_current_devices(session, disks)
         if oci_utils.oci_api.HAVE_OCI_SDK:
-            api_display_available_devices()
+            api_display_available_devices(args)
         
     if detached:
         print

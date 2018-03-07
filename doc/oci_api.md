@@ -103,6 +103,9 @@ The get_* methods return None if no object with the given ID is found.
 
 * all_volumes(): same again for block storage OCIVolume objects
 
+* find_compartments(display_name): returns a list of OCICompartment objects
+  with a matching display name ("display_name" regular expression)
+
 * find_instances(display_name): returns a list of OCIInstance objects with a
   display name matching the regular expression "display_name".
 
