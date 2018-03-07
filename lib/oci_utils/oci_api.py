@@ -141,6 +141,18 @@ class OCISession(object):
                                                     compartment_data=c_data))
         return self.compartments
 
+    def find_compartments(self, display_name, refresh=False):
+        """
+        Return a list of OCICompartment-s with a matching display_name regexp
+        """
+        dn_re = re.compile(display_name)
+        compartments = []
+        for comp in self.all_compartments(refresh=refresh):
+            res = dn_re.search(comp.data.display_name)
+            if res is not None:
+                compartments.append(comp)
+        return compartments
+
     def all_subnets(self, refresh=False):
         """
         Return a list of OCISubnet objects.
@@ -190,7 +202,7 @@ class OCISession(object):
 
     def find_instances(self, display_name, refresh=False):
         """
-        Return a list of OCIInstance-s with matching the display_name regexp
+        Return a list of OCIInstance-s with a matching display_name regexp
         """
         dn_re = re.compile(display_name)
         instances = []
@@ -203,7 +215,7 @@ class OCISession(object):
     def find_volumes(self, display_name=None,
                      iqn=None, refresh=False):
         """
-        Return a list of OCIVolume-s with matching the display_name regexp
+        Return a list of OCIVolume-s with a matching display_name regexp
         and/or IQN
         """
         if display_name is None and iqn is None:
