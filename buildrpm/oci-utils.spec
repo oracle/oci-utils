@@ -24,6 +24,14 @@ Requires: iscsi-initiator-utils
 %description
 A package with useful scripts for querying/validating the state of OCI instances running Oracle Linux and facilitating some common configuration tasks.
      
+
+%package kvm
+Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure
+Group: Development/Tools
+Requires: %{name}%{?_isa} = %{version}-%{release}
+%description kvm
+Utilities for creating and managing KVM guests that use Oracle Cloud Infrastructure resources, such as block storage and networking, directly.
+
 %prep
 %setup -q -n %{name}-%{version}
 
@@ -46,6 +54,11 @@ rm -rf %{buildroot}
 %{_datadir}/man
 %doc LICENSE.txt PKG-INFO
 
+%files kvm
+
 %changelog
+* Wed Mar  7 2018 Daniel Krasinski <daniel.krasinski@oracle.com>
+- added empty oci-utils-kvm package to facilitate splitting oci-kvm from oci-utils
+
 * Fri Oct  6 2017 Laszlo (Laca) Peter <laszlo.peter@oracle.com>
 - initial spec file for oci-utils
