@@ -586,6 +586,10 @@ def create(name, root_disk, ip_addr, extra):
     if not root_disk:
         return 1
 
+    if '--network' in extra:
+        _print_error("--network is not a supported option. Please retry without --network option.")
+        return 1
+
     # If an ip address was not provided, pick one.
     interfaces = nic.get_interfaces()
     vnics = metadata()['vnics']
