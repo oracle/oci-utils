@@ -1,0 +1,107 @@
+#!/usr/bin/env python2.7
+
+# oci-utils
+#
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+
+"""
+Oracle Cloud Infrastructure utilities - one shot service that configures
+networking for virtual machines
+"""
+
+import os
+import sys
+import time
+import argparse
+import logging
+from logging.handlers import SysLogHandler
+import oci_utils
+import oci_utils.iscsiadm
+import oci_utils.kvm.nic
+import oci_utils.kvm.virt
+
+__logger = logging.getLogger('oci-vmnet')
+__log_level = logging.INFO
+
+__virtual_functions = 16
+
+def setup_logging(syslog=False):
+    global __logger
+    global __log_level
+    if syslog:
+        handler = SysLogHandler(address='/dev/log',
+                                facility=SysLogHandler.LOG_DAEMON)
+    else:
+        handler = logging.StreamHandler(stream=sys.stderr)
+    handler.setLevel(__log_level)
+    formatter = logging.Formatter('%(name)s - %(levelname)s '
+                                  '- %(message)s')
+    handler.setFormatter(formatter)
+    __logger.setLevel(__log_level)
+    __logger.addHandler(handler)
+
+def parse_args():
+    '''
+    Parse the command line arguments and return an object representing the
+    command line (as returned by argparse's parse_args())
+    '''
+    parser = argparse.ArgumentParser(description='oci-utils daemon')
+    parser.add_argument('--debug', action='store_true',
+                        help='display diagnostic output'),
+
+    args = parser.parse_args()
+    return args
+
+def create_virtual_functions():
+    interfaces = oci_utils.kvm.nic.get_interfaces()
+    for iface in interfaces:
+        # Check to see if there are more than zero existing
+        # virtual functions
+        try:
+            with open('/sys/class/net/{}/device/sriov_numvfs'.format(iface), 'r') as f:
+                if 0 != int(f.read()):
+                    continue
+        except IOError:
+            # If this file cannot be accessed for any reason, assume it is not
+            # a PCI device
+            continue
+
+        # Create the virtual functions
+        with open('/sys/class/net/{}/device/sriov_numvfs'.format(iface), 'w') as f:
+            f.write(str(__virtual_functions))
+
+    return 0
+
+def create_domain_vlans(vnics):
+    if len(vnics) == 0:
+        return
+
+    domains = oci_utils.kvm.virt.get_domains_no_libvirtd()
+    domain_interfaces = {d: oci_utils.kvm.virt.get_interfaces_from_domain(oci_utils.kvm.virt.get_domain_xml_no_libvirtd(d)) for d in domains}
+
+    for domain, ifaces in domain_interfaces.iteritems():
+        for mac in ifaces:
+            oci_utils.kvm.virt.construct_vlan(mac, vnics, domain_interfaces)
+
+def main(args):
+    """
+    Main program
+    """
+    create_virtual_functions()
+    create_domain_vlans(oci_utils.metadata(get_public_ip=False).filter('vnics')['vnics'])
+    return 0
+
+if os.geteuid() != 0:
+    sys.stderr.write("This program must be run as root.\n")
+    sys.exit(1)
+
+args = parse_args()
+
+oci_utils.iscsiadm.set_logger(__logger)
+
+if args.debug:
+    __log_level = logging.DEBUG
+
+setup_logging(syslog=False)
+sys.exit(main(args))
