@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.5.1kvm
+Version: 0.5.3kvm
 Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -8,9 +8,11 @@ Group: Development/Tools
 Source: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
+%{?systemd_requires}
 
 BuildArch: noarch
 
+BuildRequires: systemd
 BuildRequires: python2-devel
 BuildRequires: python-setuptools
 Requires: python2
@@ -45,6 +47,10 @@ Utilities for creating and managing KVM guests that use Oracle Cloud Infrastruct
 rm -rf %{buildroot}
 
 %files
+%exclude %dir %{python_sitelib}/oci_utils/kvm
+%exclude %{python_sitelib}/oci_utils/kvm/*
+%exclude %{_bindir}/oci-kvm
+%exclude %{_datadir}/man/man1/oci-kvm.1.gz
 %defattr(-,root,root)
 %{python_sitelib}/oci_utils*
 %{_bindir}/oci-*
@@ -55,8 +61,24 @@ rm -rf %{buildroot}
 %doc LICENSE.txt PKG-INFO
 
 %files kvm
+%{_bindir}/oci-kvm
+%{_libexecdir}/oci-vmnet
+%{python_sitelib}/oci_utils/kvm*
+%{_datadir}/man/man1/oci-kvm.1.gz
+%{_sysconfdir}/systemd/system/oci-vmnet.service
+%{_sysconfdir}/systemd/system/ocid.service.d/oci-vmnet.conf
+%{_prefix}/lib/systemd/system-preset/91-oci-utils.preset
+
+%post kvm
+%systemd_post oci-vmnet.service
+
+%preun kvm
+%systemd_preun oci-vmnet.service
 
 %changelog
+* Fri Mar 23 2018 Daniel Krasinski <daniel.krasinski@oracle.com>
+- migrated kvm-specific features into oci-utils-kvm
+
 * Wed Mar  7 2018 Daniel Krasinski <daniel.krasinski@oracle.com>
 - added empty oci-utils-kvm package to facilitate splitting oci-kvm from oci-utils
 

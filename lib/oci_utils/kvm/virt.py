@@ -18,8 +18,8 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 
-from . import lsblk
-from . import metadata
+from .. import lsblk
+from .. import metadata
 from . import nic
 
 ipcmd = '/usr/sbin/ip'

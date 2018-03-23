@@ -11,7 +11,7 @@ machines on Oracle Cloud Infrastructure instances.  See the manual
 page for more information.
 '''
 
-import oci_utils.virt
+import oci_utils.kvm.virt
 import sys
 import argparse
 
@@ -50,11 +50,10 @@ def parse_args():
     return parser.parse_args()
 
 def create_vm(args):
-    #oci_utils.virt.create(args.domain, args.cpus, args.mem, args.disk, args.net, args.install_media, args.password)
-    return oci_utils.virt.create(args.domain, args.disk, args.net, args.virt)
+    return oci_utils.kvm.virt.create(args.domain, args.disk, args.net, args.virt)
 
 def destroy_vm(args):
-    oci_utils.virt.destroy(args.domain)
+    oci_utils.kvm.virt.destroy(args.domain)
     return 0
 
 def main():
