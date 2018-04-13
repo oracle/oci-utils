@@ -182,7 +182,7 @@ def get_block_devices():
     path_prefix = '/dev/disk/by-path'
     ret = {}
     try:
-        dev_test = re.compile(r'/dev/[a-zA-Z]+')
+        dev_test = re.compile(r'/dev/[a-zA-Z]+$')
         for ent in os.listdir(path_prefix):
             path = '{}/{}'.format(path_prefix, ent)
             dev = os.path.abspath(os.path.join(path_prefix, os.readlink(path)))

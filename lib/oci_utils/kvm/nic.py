@@ -75,6 +75,19 @@ def get_interfaces():
 
         ret[n] = ifaceInfo
 
+    # Populate any potentially invalid mac addresses with
+    # the correct data
+    for n, info in ret.iteritems():
+        if not info['physical']:
+            continue
+
+        virtFns = info.get('virtfns')
+        if virtFns is None:
+            continue
+
+        for k, v in virtFns.iteritems():
+            v['mac'] = ret[pciIdToIface[v['pciId']]]['mac']
+
     # Convert the lists of pci ids to device names
     #for n in ret:
     #    info = ret[n]
