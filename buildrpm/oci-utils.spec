@@ -24,6 +24,13 @@ Requires: iscsi-initiator-utils
 %description
 A package with useful scripts for querying/validating the state of OCI instances running Oracle Linux and facilitating some common configuration tasks.
      
+%package kvm
+Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure
+Group: Development/Tools
+Requires: %{name} = %{version}-%{release}
+%description kvm
+Utilities for creating and managing KVM guests that use Oracle Cloud Infrastructure resources, such as block storage and networking, directly.
+
 %prep
 %setup -q -n %{name}-%{version}
 
@@ -41,6 +48,7 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 %{python_sitelib}/oci_utils*
 %{_bindir}/oci-*
+%exclude %{_bindir}/oci-kvm
 %{_libexecdir}/ocid
 %{_libexecdir}/oci-utils-config-helper
 %{_libexecdir}/secondary_vnic_all_configure.sh
@@ -48,9 +56,18 @@ rm -rf %{buildroot}
 %dir %attr(0755,root,root) %{_sysconfdir}/oci-utils.conf.d
 %config %{_sysconfdir}/oci-utils.conf.d/00-oci-utils.conf
 %{_datadir}/man
+%exclude %{_datadir}/man/man1/oci-kvm.1.gz
 %dir %{_localstatedir}/lib/oci-utils
 %doc LICENSE.txt PKG-INFO
 
+%files kvm
+%{_bindir}/oci-kvm
+%{_datadir}/man/man1/oci-kvm.1.gz
+%config %{_sysconfdir}/oci-utils.conf.d/10-oci-kvm.conf
+
 %changelog
+* Tue Apr 17 2018 Laszlo (Laca) Peter <laszlo.peter@oracle.com>
+- added oci-utils-kvm package
+
 * Fri Oct  6 2017 Laszlo (Laca) Peter <laszlo.peter@oracle.com>
 - initial spec file for oci-utils

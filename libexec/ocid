@@ -21,7 +21,6 @@ import argparse
 import logging
 from logging.handlers import SysLogHandler
 import lockfile
-import posixfile
 import oci_utils
 import oci_utils.iscsiadm
 import subprocess
@@ -29,10 +28,12 @@ from oci_utils.cache import load_cache, write_cache, get_timestamp
 import oci_utils.oci_api
 from oci_utils.exceptions import OCISDKError
 from oci_utils.packages.stun import get_ip_info
+import oci_utils.nic
+import oci_utils.virt
 
 __ocid_logger = logging.getLogger('ocid')
 __log_level = logging.INFO
-
+__virtual_functions = 16
 
 def setup_logging(syslog=False, debug=False):
     """
@@ -88,6 +89,48 @@ def parse_args():
     return args
 
 
+def create_virtual_functions():
+    """
+    FIXME: please add description
+    """
+    interfaces = oci_utils.nic.get_interfaces()
+    for iface in interfaces:
+        # Check to see if there are more than zero existing
+        # virtual functions
+        try:
+            with open('/sys/class/net/{}/device/sriov_numvfs'.format(iface),
+                      'r') as f:
+                if 0 != int(f.read()):
+                    continue
+        except IOError:
+            # If this file cannot be accessed for any reason, assume it is not
+            # a PCI device
+            continue
+
+        # Create the virtual functions
+        with open('/sys/class/net/{}/device/sriov_numvfs'.format(iface),
+                  'w') as f:
+            f.write(str(__virtual_functions))
+
+    return 0
+
+
+def create_domain_vlans(vnics):
+    """
+    FIXME: please add description
+    """
+    if len(vnics) == 0:
+        return
+
+    domains = oci_utils.virt.get_domains_no_libvirtd()
+    domain_interfaces = {d: oci_utils.virt.get_interfaces_from_domain(
+        oci_utils.virt.get_domain_xml_no_libvirtd(d)) for d in domains}
+
+    for domain, ifaces in domain_interfaces.iteritems():
+        for mac in ifaces:
+            oci_utils.virt.construct_vlan(mac, vnics, domain_interfaces)
+
+
 class ocidThread(threading.Thread):
     def __init__(self, name, ocidfunc, context, sleeptime, repeat=True):
         """
@@ -102,6 +145,7 @@ class ocidThread(threading.Thread):
         self.thread_name = name
         self.ocidfunc = ocidfunc
         self.context = context
+        self.debug = False
         if sleeptime < 1:
             self.sleeptime = 1
         else:
@@ -119,6 +163,9 @@ class ocidThread(threading.Thread):
 
     def getName(self):
         return self.thread_name
+
+    def set_debug(self, val):
+        self.debug = val
 
     def stop(self):
         # make sure it's not running
@@ -160,16 +207,25 @@ class ocidThread(threading.Thread):
             except Exception as e:
                 self.logger.error("Error running ocid thread '%s': %s" % \
                                     (self.thread_name, e))
+                if self.debug:
+                    self.logger.exception(e)
             self.threadLock.release()
             # ocidfunc completed at least once
             self.first_iter_done = True
             if not self.repeat:
                 # run the main function once only
                 break
-            sleepsecs = 0
-            while sleepsecs <= self.sleeptime:
-                time.sleep(1)
-                sleepsecs += 1
+            time_slept = 0
+            # sleep sleep_unit sec at a time so we can shut down cleanly in
+            # no more than that time
+            sleep_unit = 10
+            while time_slept < self.sleeptime:
+                if self.sleeptime - time_slept < sleep_unit:
+                    time.sleep(self.sleeptime - time_slept)
+                    time_slept = self.sleeptime
+                else:
+                    time.sleep(sleep_unit)
+                    time_slept += sleep_unit
                 if not self.active:
                     # shutting down
                     sys.exit(0)
@@ -407,8 +463,22 @@ def get_metadata_vnics():
 def vnic_func(context):
     """
     ocid thread function to track vnic configuration changes
-    context: {'vnic_utils': None, 'debug':debug}
+    context: {'vnic_utils': None, 'debug':debug, 'vf_net':vf_net}
     """
+    if context['vf_net']:
+        # if vf_net is True, run the virt and vlan functions once
+        # when ocid start and then do nothing
+        if 'vf_net_done' in context:
+            # already done, do nothing
+            return context
+        else:
+            # first iteration
+            __ocid_logger.info('Creating virtual functions and domain vlans')
+            create_virtual_functions()
+            create_domain_vlans(vnics)
+            context['vf_net_done'] = True
+            return context
+
     if context['vnic_utils'] is None:
         # first iteration
         oci_sess = None
@@ -490,6 +560,7 @@ def start_thread(name, repeat, debug=False):
     """
     th = None
     cfg = oci_utils.read_config()
+    TRUE = ['true', 'True', 'TRUE']
     if name == 'test':
         __log_level = logging.DEBUG
         th = ocidThread(name=name,
@@ -505,7 +576,7 @@ def start_thread(name, repeat, debug=False):
                         repeat=repeat)
     elif name == 'public_ip':
         is_enabled = cfg.get('public_ip', 'enabled')
-        if is_enabled != 'true':
+        if is_enabled not in TRUE:
             return None
         refresh_interval = cfg.get('public_ip', 'refresh_interval')
         th = ocidThread(name=name,
@@ -515,7 +586,7 @@ def start_thread(name, repeat, debug=False):
                         repeat=repeat)
     elif name == 'iscsi':
         is_enabled = cfg.get('iscsi', 'enabled')
-        if is_enabled != 'true':
+        if is_enabled not in TRUE:
             return None
         scan_interval = cfg.get('iscsi', 'scan_interval')
         th = ocidThread(name=name,
@@ -525,12 +596,14 @@ def start_thread(name, repeat, debug=False):
                         repeat=repeat)
     elif name == 'vnic':
         is_enabled = cfg.get('vnic', 'enabled')
-        if is_enabled != 'true':
+        if is_enabled not in TRUE:
             return None
         scan_interval = cfg.get('vnic', 'scan_interval')
+        vf_net = cfg.get('vnic', 'vf_net') in TRUE
         th = ocidThread(name=name,
                         ocidfunc=vnic_func,
-                        context={'vnic_utils':None, 'debug':debug},
+                        context={'vnic_utils':None, 'debug':debug,
+                                 'vf_net':vf_net},
                         sleeptime=scan_interval,
                         repeat=repeat)
     else:
@@ -538,6 +611,7 @@ def start_thread(name, repeat, debug=False):
         return None
     th.setLogger(__ocid_logger)
     th.start()
+    th.set_debug(debug)
     return th
 
 
@@ -597,6 +671,7 @@ def monitor_threads(threads, args):
 def wait_for_threads(threads):
     for th in threads.keys():
         threads[th].join()
+        __ocid_logger.debug('Thread %s finished.' % th)
     return 0
    
 
