@@ -28,7 +28,7 @@ def read(fname):
 
 setup(
     name = "oci-utils",
-    version = "0.5",
+    version = "0.6",
     author = "Laszlo Peter",
     author_email = "laszlo.peter@oracle.com",
     description = ("Oracle Cloud Infrastructure utilities"),
@@ -41,9 +41,10 @@ setup(
     long_description=read('README'),
     data_files=[(os.path.join(sys.prefix, 'libexec'),
                  ['libexec/ocid',
-                  'libexec/secondary_vnic_all_configure.sh']),
-                ("/etc/systemd/system",
-                 ['data/ocid.service']),
+                  'libexec/secondary_vnic_all_configure.sh',
+                  'libexec/oci-utils-config-helper']),
+                ("/etc/systemd/system", ['data/ocid.service']),
+                ("/etc/oci-utils.conf.d", ['data/00-oci-utils.conf']),
                 (os.path.join(sys.prefix, "share", "man", "man1"),
                  ['man/man1/oci-public-ip.1',
                   'man/man1/oci-metadata.1',

@@ -20,6 +20,7 @@ from datetime import timedelta
 from oci_utils import iscsiadm, lsblk, metadata, __ignore_file
 from oci_utils.cache import load_cache, write_cache
 import oci_utils.oci_api
+from oci_utils.exceptions import OCISDKError
 
 def parse_args():
     '''
@@ -106,17 +107,30 @@ def nvl(value, defval="Unknown"):
         return defval
     return value
 
-def ocid_refresh(wait=False):
+def ocid_refresh(wait=False, debug=False):
     """
     run ocid --refresh to update cached information
     """
+    if debug:
+        debug_opt = ['--debug']
+        wait=True
+    else:
+        debug_opt = []
+
     try:
         if wait:
-            subprocess.check_call(['/usr/libexec/ocid',
-                                   '--refresh', '--no-daemon'])
+            output = subprocess.check_output(['/usr/libexec/ocid',
+                                              '--no-daemon',
+                                              '--refresh',
+                                              'iscsi'] + debug_opt,
+                                             stderr=subprocess.STDOUT)
         else:
-            subprocess.check_call(['/usr/libexec/ocid',
-                                   '--refresh'])
+            output = subprocess.check_output(['/usr/libexec/ocid',
+                                              '--refresh',
+                                              'iscsi'] + debug_opt,
+                                             stderr=subprocess.STDOUT)
+        if debug:
+            sys.stderr.write("%s" % output)
         return True
     except subprocess.CalledProcessError as e:
         return False
@@ -124,7 +138,7 @@ def ocid_refresh(wait=False):
 
 def display_current_devices(session, disks):
     oci_sess = None
-    if oci_utils.oci_api.HAVE_OCI_SDK:
+    if USE_OCI_SDK:
         try:
             oci_sess = oci_utils.oci_api.OCISession()
         except:
@@ -202,7 +216,7 @@ def display_detached_device(iqn, targets):
     
 def do_attach(iqn, targets, user=None, passwd=None):
     oci_sess = None
-    if oci_utils.oci_api.HAVE_OCI_SDK:
+    if USE_OCI_SDK:
         try:
             oci_sess = oci_utils.oci_api.OCISession()
         except:
@@ -236,7 +250,7 @@ def api_display_available_devices(args):
     # needs the OCI SDK installed and configured
     try:
         sess = oci_utils.oci_api.OCISession()
-    except oci_utils.oci_api.OCISDKError as e:
+    except OCISDKError as e:
         sys.stderr.write("Failed to access OCI services: %s\n" % e)
         return
 
@@ -298,7 +312,7 @@ def do_attach_ocid(ocid):
     '''
     Make API calls to attach a volume with the given OCID to this instance
     '''
-    if not oci_utils.oci_api.HAVE_OCI_SDK:
+    if not USE_OCI_SDK:
         sys.stderr.write("To connect a volume using its OCID you need to "
                          "install and configure the OCI Python SDK "
                          "(python-oci-sdk)\n")
@@ -306,7 +320,7 @@ def do_attach_ocid(ocid):
     sess = None
     try:
         sess = oci_utils.oci_api.OCISession()
-    except oci_utils.oci_api.OCISDKError as e:
+    except OCISDKError as e:
         sys.stderr.write("Failed to access OCI services: %s\n" % e)
         return False
     vol = sess.get_volume(ocid)
@@ -361,7 +375,7 @@ def api_detach(iqn):
     sess = None
     try:
         sess = oci_utils.oci_api.OCISession()
-    except oci_utils.oci_api.OCISDKError as e:
+    except OCISDKError as e:
         sys.stderr.write("Failed to access OCI services: %s\n" % e)
         return False
     for v in sess.this_instance().all_volumes():
@@ -370,7 +384,7 @@ def api_detach(iqn):
                 print "Detaching volume"
                 v.detach()
                 return True
-            except oci_utils.oci_api.OCISDKError as e:
+            except OCISDKError as e:
                 sys.stderr.write("Failed to disconnect volume %s from this "
                                  "instance: %s\n" % (iqn, e))
                 return False
@@ -430,7 +444,7 @@ def do_create_volume(size, display_name, use_chap=False):
     sess = None
     try:
         sess = oci_utils.oci_api.OCISession()
-    except oci_utils.oci_api.OCISDKError as e:
+    except OCISDKError as e:
         sys.stderr.write("Failed to access OCI services: %s\n" % e)
         return False
 
@@ -440,7 +454,7 @@ def do_create_volume(size, display_name, use_chap=False):
         print "Creating a new %d GB volume" % size
         vol = sess.this_instance().create_volume(size=size,
                                                  display_name=display_name)
-    except oci_utils.oci_api.OCISDKError as e:
+    except OCISDKError as e:
         sys.stderr.write("Failed to create volume: %s\n" % e)
         return False
 
@@ -462,6 +476,31 @@ def do_create_volume(size, display_name, use_chap=False):
 
     return False
 
+def save_chap_secret(iqn, user, password):
+    """
+    Save the login information for the given iqn in the chap secrets file
+    """
+    timestamp, chap_passwords = \
+        load_cache(oci_utils.__chap_password_file)
+    if chap_passwords is None:
+        chap_passwords = {}
+    chap_passwords[iqn] = (user, password)
+    write_cache(cache_content=chap_passwords,
+                cache_fname=oci_utils.__chap_password_file,
+                mode=0o600)
+
+def get_chap_secret(iqn):
+    """
+    Look for a saved (user,password) pair for iqn in the chap secrets file
+    """
+    timestamp, chap_passwords = \
+        load_cache(oci_utils.__chap_password_file)
+    if chap_passwords is None:
+        return (None,None)
+    if iqn in chap_passwords:
+        return chap_passwords[iqn]
+    return (None,None)
+    
 def main():
     '''
     Main program.
@@ -479,7 +518,7 @@ def main():
         sys.stderr.write("    sudo systemctl start ocid.service\n")
         if os.geteuid() == 0:
             # run ocid once, to update the cache
-            ocid_refresh(wait=True)
+            ocid_refresh(wait=True, debug=args.debug)
             # now try to load again
             ocid_cache = load_cache(iscsiadm.ISCSIADM_CACHE,
                                     max_age=timedelta(minutes = 2))[1]
@@ -494,7 +533,7 @@ def main():
         detached = []
 
     if args.create_volume:
-        if not oci_utils.oci_api.HAVE_OCI_SDK:
+        if not USE_OCI_SDK:
             sys.stderr.write("You need to install and configure the "
                              "OCI Python SDK (python-oci-sdk) to use "
                              "the --create-volume option\n")
@@ -513,7 +552,7 @@ def main():
         return retval
 
     if args.detach_iqns:
-        if os.geteuid() != 0 and not oci_utils.oci_api.HAVE_OCI_SDK:
+        if os.geteuid() != 0 and not USE_OCI_SDK:
             sys.stderr.write("You must run this program with root privileges "
                              "to detach iSCSI devices.\n")
             sys.exit(1)
@@ -544,7 +583,7 @@ def main():
                 else:
                     sys.exit(1)
             api_detached = False
-            if oci_utils.oci_api.HAVE_OCI_SDK:
+            if USE_OCI_SDK:
                 api_detached = api_detach(iqn)
             if os.geteuid() != 0:
                 # can't detach with iscsiadm without root privileges,
@@ -561,10 +600,11 @@ def main():
                     write_ignore_file = True
                     do_refresh = True
         if write_ignore_file:
+            sys.stderr.write("Updating ignore file: %s\n" % detached)
             write_cache(cache_content=detached,
                         cache_fname=__ignore_file)
         if do_refresh:
-            ocid_refresh()
+            ocid_refresh(debug=args.debug)
         return retval
 
     if args.attach_iqns:
@@ -588,26 +628,32 @@ def main():
                 sys.stderr.write("Target %s not found\n" % iqn)
                 retval = 1
                 continue
+            user=args.username
+            passwd=args.password
+            if user is None or passwd is None:
+                (user,passwd) = get_chap_secret(iqn)
             if do_attach(iqn, targets,
-                         user=args.username, passwd=args.password) != 0:
+                         user=user, passwd=passwd) != 0:
                 sys.stderr.write("Failed to attach target %s\n" % iqn)
                 retval = 1
             else:
                 do_refresh = True
                 if iqn in detached:
                     detached.remove(iqn)
+                if args.username is not None:
+                    save_chap_secret(iqn, args.username, args.password)
                 write_ignore_file = True
         if write_ignore_file:
             write_cache(cache_content=detached,
                         cache_fname=__ignore_file)
         if do_refresh:
-            ocid_refresh()
+            ocid_refresh(debug=args.debug)
 
         return retval
     
     if args.show:
         display_current_devices(session, disks)
-        if oci_utils.oci_api.HAVE_OCI_SDK:
+        if USE_OCI_SDK:
             api_display_available_devices(args)
         
     if detached:
@@ -638,7 +684,7 @@ def main():
             write_cache(cache_content=detached,
                         cache_fname=__ignore_file)
         if do_refresh:
-            ocid_refresh()
+            ocid_refresh(debug=args.debug)
 
     if attach_failed:
         print
@@ -681,9 +727,14 @@ def main():
                         ans = ask_yes_no("Would you like to configure this "
                                          "device?")
                     if ans:
-                        if oci_utils.oci_api.HAVE_OCI_SDK:
+                        retval = 1
+                        if USE_OCI_SDK:
                             # try and get the user and password from the API
                             retval = do_attach(iqn, targets, None, None)
+                        else:
+                            (user,passwd) = get_chap_secret(iqn)
+                            if user is not None:
+                                retval = do_attach(iqn, targets, user, passwd)
                         if retval == 0:
                             print "Device configured automatically."
                             do_refresh = True
@@ -712,7 +763,7 @@ def main():
                                     ans = False
                                     do_refresh = True
         if do_refresh:
-            ocid_refresh()
+            ocid_refresh(debug=args.debug)
         if not args.interactive and auth_errors:
             print
             print "Use the -i or --interactive mode to configure " \
@@ -724,5 +775,12 @@ def main():
 
     return 0
 
+USE_OCI_SDK=False
+if oci_utils.oci_api.HAVE_OCI_SDK:
+    try:
+        oci_sess = oci_utils.oci_api.OCISession()
+        USE_OCI_SDK=True
+    except:
+        pass
 
 sys.exit(main())

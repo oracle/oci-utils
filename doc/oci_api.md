@@ -197,8 +197,8 @@ Use the following methods for creating/destroying OCI artifacts:
 
 ## Exceptions
 
-All oci_api methods throw and oci_utils.oci_api.OCISDKError exception
-for all error conditions.  The "value" attribute contains an error message
+All oci_api methods throw an oci_utils.exceptions.OCISDKError exception
+for any error conditions.  The "value" attribute contains an error message
 (str).
 
 ## Future Plans

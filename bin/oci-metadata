@@ -2,7 +2,7 @@
 
 # oci-utils
 #
-# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 
 '''
@@ -38,6 +38,7 @@ oci_metadata_detail = {
     'vnicId': 'VNIC OCID',
     'privateIp': 'Private IP address',
     'publicIp': 'Public IP address',
+    'faultDomain': 'Fault domain',
     'virtualRouterIp': 'Virtual router IP address',
     'vlanTag': 'VLAN tag'
     }
@@ -47,7 +48,7 @@ oci_regions = {
     'fra': 'fra (Frankfurt, Germany)'
     }
 oci_metadata_display_order = [
-    'displayName', 'region', 'availabilityDomain',
+    'displayName', 'region', 'availabilityDomain', 'faultDomain',
     'shape', 'timeCreated', 'state',
     'id',
     'privateIp', 'macAddr', 'subnetCidrBlock', 'virtualRouterIp', 'vnicId'

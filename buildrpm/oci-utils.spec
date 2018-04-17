@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.5
+Version: 0.6
 Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -32,6 +32,7 @@ A package with useful scripts for querying/validating the state of OCI instances
 
 %install
 %{__python} setup.py install -O1 --prefix=%{_prefix} --root=%{buildroot}
+mkdir -p %{buildroot}%{_localstatedir}/lib/oci-utils
 
 %clean
 rm -rf %{buildroot}
@@ -41,9 +42,13 @@ rm -rf %{buildroot}
 %{python_sitelib}/oci_utils*
 %{_bindir}/oci-*
 %{_libexecdir}/ocid
+%{_libexecdir}/oci-utils-config-helper
 %{_libexecdir}/secondary_vnic_all_configure.sh
 %{_sysconfdir}/systemd/system/ocid.service
+%dir %attr(0755,root,root) %{_sysconfdir}/oci-utils.conf.d
+%config %{_sysconfdir}/oci-utils.conf.d/00-oci-utils.conf
 %{_datadir}/man
+%dir %{_localstatedir}/lib/oci-utils
 %doc LICENSE.txt PKG-INFO
 
 %changelog
