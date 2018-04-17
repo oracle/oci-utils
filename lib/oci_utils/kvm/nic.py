@@ -86,7 +86,10 @@ def get_interfaces():
             continue
 
         for k, v in virtFns.iteritems():
-            v['mac'] = ret[pciIdToIface[v['pciId']]]['mac']
+            try:
+                v['mac'] = ret[pciIdToIface[v['pciId']]]['mac']
+            except:
+                pass
 
     # Convert the lists of pci ids to device names
     #for n in ret:

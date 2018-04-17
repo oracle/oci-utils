@@ -555,6 +555,12 @@ def create_networking(vf_device, vlan, mac):
     sysconfig.write_network_config(cfg)
     return sysconfig.interfaces_up(cfg.keys())
 
+def destroy_networking(vf_device, vlan):
+    vf_name = sysconfig.make_vf_name(vf_device)
+    vlan_name = sysconfig.make_vlan_name(vf_device, vlan)
+
+    sysconfig.delete_network_config([vf_name, vlan_name])
+
 def destroy_interface(name):
     """
     Deletes an ip link
@@ -613,7 +619,7 @@ def create(name, root_disk, ip_addr, extra):
 
     vfDev = get_interface_by_pci_id(vf, interfaces)
     if not create_networking(vfDev, vnic['vlanTag'], vnic['macAddr']):
-        destroy_interface(sysconfig.make_vlan_name(vfDev, vnic['vlanTag']))
+        destroy_networking(vfDev, vnic['vlanTag'])
         return 1
 
     args = ['sudo', '/usr/bin/virt-install',
@@ -637,7 +643,7 @@ def create(name, root_disk, ip_addr, extra):
             break
 
     if virt_install.returncode is not None and virt_install.returncode != 0:
-        destroy_interface(sysconfig.make_vlan_name(vfDev, vnic['vlanTag']))
+        destroy_networking(vfDev, vnic['vlanTag'])
         return 1
 
     return 0
