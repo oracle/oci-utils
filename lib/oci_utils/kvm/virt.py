@@ -162,7 +162,7 @@ def update_interfaces_for_domain(domain_xml, ifaces):
         if not new_name:
             continue
 
-	source = iface.find('./source')
+        source = iface.find('./source')
         source.set('dev', new_name)
 
 def validate_domain_name(domain):
@@ -539,6 +539,7 @@ def get_domain_interfaces(domain):
         # simple, take the stupid approach and just add anything to the
         # list that shares a mac address
         directly_assigned.append(iface)
+        full.append(iface)
         for i, d in nics.iteritems():
             if d['mac'] == v['macAddr'].lower():
                 full.append(i)
