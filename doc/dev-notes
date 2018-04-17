@@ -1,0 +1,45 @@
+Notes for oci-utils developers:
+
+
+How to build an oci-utils tarball:
+
+    python setup.py sdist
+
+    The tarball is created in the dist/ subdir
+
+
+How to bump the version:
+
+    update the version number in setup.py, PKG-INFO and buildrpm/oci-utils.spec
+
+
+How to build a test RPM:
+
+    I use this command:
+
+    export VER=0.6; \
+    rm -rf oci-utils-${VER}; \
+    tar xvzf oci-utils-${VER}.tar.gz; \
+    cd oci-utils-${VER}; \
+    python setup.py install --root=/tmp/foo --prefix=/usr; \
+    cd ..; \
+    cp oci-utils-${VER}.tar.gz rpmbuild/SOURCES/; \
+    rpmbuild -ba oci-utils-${VER}/buildrpm/oci-utils.spec
+
+    To install the test package:
+
+    sudo rpm --erase oci-utils; \
+    sudo rpm -i ~/rpmbuild/RPMS/noarch/oci-utils-${VER}-1.el7.noarch.rpm
+
+
+How to test ocid:
+
+    Stop the service:
+
+    sudo systemctl stop ocid.service
+
+    Run is manually, with debug messages:
+
+    sudo /usr/libexec/ocid  --no-daemon --debug
+
+
