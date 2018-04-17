@@ -202,8 +202,6 @@ class OCISession(object):
             try:
                 if self._proxy_authenticate():
                     return PROXY
-                else:
-                    return NONE
             except:
                 # ignore any errors and try a different method
                 pass
@@ -246,8 +244,13 @@ class OCISession(object):
         Return True for success, False for failure
         """
         # raises OCISDKError
-        self.oci_config = self._read_oci_config(fname=self.config_file,
-                                                profile=self.config_profile)
+        try:
+            self.oci_config = self._read_oci_config(fname=self.config_file,
+                                                    profile=self.config_profile)
+        except Exception as e:
+            self.logger.debug('Cannot read oci config file: %s' % e)
+            return False
+
         try:
             self.identity_client = oci_sdk.identity.IdentityClient(
                 self.oci_config)
@@ -948,6 +951,11 @@ class OCIInstance(OCIObject):
 
         vols = []
         for vol_id in v_att_data.keys():
+            # only include volumes that are properly attached, not
+            # attaching or detaching or anything like that
+            if v_att_data[vol_id].lifecycle_state != "ATTACHED":
+                continue
+
             try:
                 vol_data = bsc.get_volume(volume_id=vol_id).data
             except oci_sdk.exceptions.ServiceError:

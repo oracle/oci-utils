@@ -59,7 +59,7 @@ class OCIAuthProxy(object):
             line = self.helper.stdout.readline()
             resp = json.loads(line.strip())
             if resp['status'] == 'ERROR':
-                raise OCISDKError('API Proxy error: %s' % data['data'])
+                raise OCISDKError('API Proxy error: %s' % resp['data'])
         return resp
 
     def _close(self):

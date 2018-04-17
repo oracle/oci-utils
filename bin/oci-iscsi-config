@@ -469,10 +469,10 @@ def do_create_volume(size, display_name, use_chap=False):
                                  username=vol.get_user(),
                                  password=vol.get_password(),
                                  auto_startup=True)
-    print "Result: %s" \
-        % iscsiadm.error_message_from_code(retval)
-    if retval == 0:
-        return True
+        print "Result: %s" \
+            % iscsiadm.error_message_from_code(retval)
+        if retval == 0:
+            return True
 
     return False
 
@@ -506,7 +506,16 @@ def main():
     Main program.
     '''
 
+    global USE_OCI_SDK
+
     args = parse_args()
+    if oci_utils.oci_api.HAVE_OCI_SDK:
+        try:
+            oci_sess = oci_utils.oci_api.OCISession(debug=args.debug)
+            USE_OCI_SDK=True
+        except:
+            if args.debug:
+                raise
 
     ocid_cache = load_cache(iscsiadm.ISCSIADM_CACHE,
                             max_age=timedelta(minutes = 2))[1]
@@ -776,11 +785,5 @@ def main():
     return 0
 
 USE_OCI_SDK=False
-if oci_utils.oci_api.HAVE_OCI_SDK:
-    try:
-        oci_sess = oci_utils.oci_api.OCISession()
-        USE_OCI_SDK=True
-    except:
-        pass
 
 sys.exit(main())

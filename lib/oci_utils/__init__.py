@@ -38,6 +38,7 @@ scan_interval = 60
 [vnic]
 enabled = true
 scan_interval = 60
+vf_net = false
 [public_ip]
 enabled = true
 refresh_interval = 600
@@ -153,7 +154,7 @@ class VNICUtils(object):
             vnic_info_ts = \
                 cache.write_cache(cache_content=vnic_info,
                                   cache_fname=VNICUtils.__vnic_info_file)
-            return (vnic_info_ts, vnic_info)
+        return (vnic_info_ts, vnic_info)
 
     @staticmethod
     def get_vnic_info_timestamp():

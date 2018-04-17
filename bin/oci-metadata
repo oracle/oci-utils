@@ -43,10 +43,12 @@ oci_metadata_detail = {
     'vlanTag': 'VLAN tag'
     }
 oci_regions = {
-    'phx': 'phx (Phoenix, AZ, USA)',
-    'iad': 'iad (Ashburn, VA, USA)',
-    'fra': 'fra (Frankfurt, Germany)'
+    'phx': 'phx - us-phoenix-1 (Phoenix, AZ, USA)',
+    'iad': 'iad - us-ashburn-1 (Ashburn, VA, USA)',
+    'fra': 'fra - eu-frankfurt-1 (Frankfurt, Germany)',
+    'lhr': 'lhr - uk-london-1 (London, UK)'
     }
+
 oci_metadata_display_order = [
     'displayName', 'region', 'availabilityDomain', 'faultDomain',
     'shape', 'timeCreated', 'state',
