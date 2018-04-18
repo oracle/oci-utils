@@ -57,7 +57,6 @@ setup(
                  ]),
                 (os.path.join(sys.prefix, "share", "man", "man8"),
                  ['man/man8/ocid.8'])],
-    extra_files=['requirements.txt'],
     scripts=['bin/oci-public-ip',
              'bin/oci-metadata',
              'bin/oci-iscsi-config',
