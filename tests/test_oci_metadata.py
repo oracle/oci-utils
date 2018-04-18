@@ -15,10 +15,9 @@ class TestOciMetadata(unittest.TestCase):
     def test__oci_metadata__get(self):
         metadata = oci_utils.metadata().get()
         self.assertNotEqual(metadata, [])
-        print metadata
         self.assertTrue(metadata['instance'])
         self.assertIn(u'region', metadata['instance'])
-        self.assertIn(metadata['instance']['region'], ['phx','iad','fra'])
+        self.assertIn(metadata['instance']['region'], ['phx','iad','fra','lhr'])
         self.assertIn(u'state', metadata['instance'])
         self.assertEquals(metadata['instance']['state'], 'Running')
 
