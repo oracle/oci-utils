@@ -13,7 +13,6 @@ import sys
 import os
 import subprocess
 import json
-import oci as oci_sdk
 import base64
 from .exceptions import OCISDKError
 
