@@ -53,6 +53,7 @@ setup(
                   'man/man1/oci-metadata.1',
                   'man/man1/oci-iscsi-config.1',
                   'man/man1/oci-network-config.1',
+                  'man/man1/oci-image-cleanup.1',
                   'man/man1/oci-kvm.1',
                  ]),
                 (os.path.join(sys.prefix, "share", "man", "man8"),
@@ -62,6 +63,7 @@ setup(
              'bin/oci-iscsi-config',
              'bin/oci-network-config',
              'bin/oci-kvm',
+             'bin/oci-image-cleanup',
             ],
     classifiers=[
         "Development Status :: 3 - Alpha",

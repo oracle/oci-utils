@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.6
-Release: 3%{?dist}
+Release: 4%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -66,6 +66,9 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/oci-utils.conf.d/10-oci-kvm.conf
 
 %changelog
+* Fri Apr 20 2018 Qing Lin <qing.lin@oracle.com>   --4
+- added oci-image-cleanup and its manual.
+
 * Tue Apr 17 2018 Laszlo (Laca) Peter <laszlo.peter@oracle.com>
 - added oci-utils-kvm package
 
