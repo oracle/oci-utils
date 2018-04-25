@@ -24,6 +24,7 @@ if [ "$#" -gt 0 ]; then
   exit 0
 fi
 
+
 # Prompt for action confirmation
 confirm()
 {
@@ -42,9 +43,16 @@ do
 done
 }
 
-echo -e "WARNING!!! This script will clear ssh keys and root passwd.
-This means you will no longer be able to login to this instance.
-Run: $(basename "$0") -h or man $(basename "$0") for more info"
+if [ "$USER" != "root" ]; then
+    echo "Error: You must run this program with root privileges"
+    exit 1
+fi
+
+echo -e "WARNING!!! 
+    This script will clear ssh keys and root passwd.
+    This means you will no longer be able to login to this instance.
+    Run: $(basename "$0") -h or man $(basename "$0") for more info.
+    "
 
 read -n 1 -s -r -p "Press any key to continue. Or Ctrl + c to exit"
 
@@ -167,9 +175,10 @@ sed -i  's/^uuid.*/#&/' /etc/sysconfig/rhn/up2date
 
 # Clear bash history for opc and root users
 echo "Cleaning bash history"
-set -o history
-: > /home/opc/.bash_history && history -c
-: > /root/.bash_history && history -c
+ln -s -f /dev/null /home/opc/.bash_history
+ln -s -f /dev/null /root/.bash_history
+sync
 
 # El Fin
 echo "System cleaned up and ready for snapshot!"
+exit 0

@@ -6,16 +6,17 @@
 
 .TH OCI-IMAGE-CLEANUP 1 "03 Apr 2018" Linux "User Manuals"
 .SH NAME
-oci-image-cleanup.sh. \- This script runs a set of cleanup steps to prepare instance for snapshot
+oci-image-cleanup \- This script runs a set of cleanup steps to prepare instance for snapshot
 .SH SYNOPSIS
-oci-image-cleanup.sh [-h]
+/usr/libexec/oci-image-cleanup [-h]
 .SH DESCRIPTION
 This script runs a set of cleanup steps to prepare OCI OL instances for custom images
 WARNING!!! This script will clear ssh keys and root passwd.
-Upon execution of this script, if you choose to clear the ssh keys, you will no longer be able to login to
-this instance with your existing credentials.
-You will need to create a new custom image of this instance first and then create a new compute instance
-from that custom image to login.
+Upon execution of this script, if you choose to clear the ssh keys, you will no longer be able to login to this instance with your existing credentials.
+You will need to create a new custom image of this instance first and then create a new compute instance from that custom image to login.
+
+.BR oci-image-cleanup(8) 
+requires root privileges.
 
 More info on custom images can be found here:
 
@@ -24,8 +25,6 @@ https://docs.us-phoenix-1.oraclecloud.com/Content/Compute/Tasks/managingcustomim
 .SH OPTIONS
 .IP -h
 print this help message
-.SH SEE ALSO
-.SH BUGS
-No known bugs.
 .SH AUTHOR
 Sweekar Pinto (sweekar.pinto@oracle.com)
+
