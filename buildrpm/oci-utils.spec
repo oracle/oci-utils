@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.6
-Release: 4%{?dist}
+Release: 5%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -50,9 +50,7 @@ rm -rf %{buildroot}
 %{python_sitelib}/oci_utils*
 %{_bindir}/oci-*
 %exclude %{_bindir}/oci-kvm
-%{_libexecdir}/ocid
-%{_libexecdir}/oci-utils-config-helper
-%{_libexecdir}/secondary_vnic_all_configure.sh
+%{_libexecdir}/
 %{_sysconfdir}/systemd/system/ocid.service
 %dir %attr(0755,root,root) %{_sysconfdir}/oci-utils.conf.d
 %config %{_sysconfdir}/oci-utils.conf.d/00-oci-utils.conf
@@ -67,6 +65,12 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/oci-utils.conf.d/10-oci-kvm.conf
 
 %changelog
+* Thur Apr 25 2018 Qing Lin <qing.lin@oracle.com>   --5
+- fixed history not clean bug.
+- added running requirement for root privileges.
+- move oci-image-cleanup from /usr/bin to /usr/libexec/
+- move its manual from man1 to man8.
+
 * Fri Apr 20 2018 Qing Lin <qing.lin@oracle.com>   --4
 - added oci-image-cleanup and its manual.
 
