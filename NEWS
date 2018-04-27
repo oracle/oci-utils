@@ -11,3 +11,5 @@ Version 0.6:
 - support configuring the various functions of ocid individually,
   including refresh frequency or turning them off completely.
 - ocid saves state and restores all volumes and VNIC configuration after reboot
+- oci-network-config: new option: --detach-vnic
+- oci-iscsi-config: new option: --destroy-volume

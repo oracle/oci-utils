@@ -68,13 +68,17 @@ def parse_args():
                         type=str,
                         help='Use PASSWD as the password when attaching a '
                         'device that requires CHAP authentication')
+    parser.add_argument('--destroy-volume', metavar='OCID', action='store',
+                        type=str, help='Destroy the volume with the given '
+                        'OCID.  WARNING: this is irreversible.')
     parser.add_argument('--debug', action='store_true',
-                        help='display diagnostic output'),
+                        help=argparse.SUPPRESS)
     parser.add_argument('--help', action='help',
                         help='Display this help')
 
     args = parser.parse_args()
     return args
+
 
 def ask_yes_no(question):
     """
@@ -90,12 +94,14 @@ def ask_yes_no(question):
             return False
         print "Invalid answer, please answer with yes or no"
             
+
 def get_instance_ocid():
     md = metadata().filter('instance')
     if 'instance' in md and 'id' in md['instance']:
         return md['instance']['id']
     else:
         return '<instance OCID>'
+
 
 def nvl(value, defval="Unknown"):
     """
@@ -106,6 +112,7 @@ def nvl(value, defval="Unknown"):
     if not value:
         return defval
     return value
+
 
 def ocid_refresh(wait=False, debug=False):
     """
@@ -193,6 +200,7 @@ def display_current_devices(session, disks):
                             )
         print
 
+
 def display_attach_failed_device(iqn, targets, attach_failed):
     print
     print "Target %s" % iqn
@@ -201,6 +209,7 @@ def display_attach_failed_device(iqn, targets, attach_failed):
             print "              Portal:    %s:%s" % (ipaddr, 3260)
             print "               State:    %s" % \
                 iscsiadm.error_message_from_code(attach_failed[iqn])
+
 
 def display_detached_device(iqn, targets):
     print
@@ -213,7 +222,8 @@ def display_detached_device(iqn, targets):
         print "              Portal:    unknown (need ocid to determine)"
 
     print "               State:    Detached"
-    
+
+
 def do_attach(iqn, targets, user=None, passwd=None):
     oci_sess = None
     if USE_OCI_SDK:
@@ -244,6 +254,52 @@ def do_attach(iqn, targets, user=None, passwd=None):
     print "Result: %s" \
         % iscsiadm.error_message_from_code(retval)
     return retval
+
+
+def do_destroy_volume(ocid, interactive=False):
+    """
+    Destroy the volume with the given ocid.
+    The volume must be detached.  This is just an added measure to
+    prevent accidentally destroying the wrong volume.
+    """
+    sess = None
+    # needs the OCI SDK installed and configured
+    try:
+        sess = oci_utils.oci_api.OCISession()
+    except OCISDKError as e:
+        sys.stderr.write("Failed to access OCI services: %s\n" % e)
+        return 1
+
+    vol = None
+    try:
+        vol = sess.get_volume(ocid)
+    except Exception as e:
+        sys.stderr.write("Failed to retrieve Volume details: %s\n" % vol)
+        return 1
+
+    if vol is None:
+        sys.stderr.write("Volume not found: %s\n" % ocid)
+        return 1
+
+    if vol.is_attached():
+        sys.stderr.write("Volume is attached: %s\n" % ocid)
+        sys.stderr.write("You must detach this volume first.\n")
+        return 1
+
+    if interactive:
+        cont = ask_yes_no("WARNING: the volume will be destroyed.  This "
+                          "is irreversible.  Continue?")
+        if not cont:
+            return 1
+
+    try:
+        vol.destroy()
+    except Exception as e:
+        sys.stderr.write("Failed to destroy volume: %s" % e)
+        return 1
+
+    return 0
+
 
 def api_display_available_devices(args):
     sess = None
@@ -308,6 +364,7 @@ def api_display_available_devices(args):
         print "   size:        %s" % vol.get_size(format=vol.HUMAN)
         print
 
+
 def do_attach_ocid(ocid):
     '''
     Make API calls to attach a volume with the given OCID to this instance
@@ -368,6 +425,7 @@ def do_attach_ocid(ocid):
 
     return False
 
+
 def api_detach(iqn):
     '''
     Detach the given volume from the instance using OCI API calls
@@ -391,6 +449,7 @@ def api_detach(iqn):
     sys.stderr.write("Volume not found...\n")
     return False
 
+
 def do_umount(mountpoint, warn=True):
     if os.geteuid() != 0:
         if warn:
@@ -411,6 +470,7 @@ def do_umount(mountpoint, warn=True):
                          (mountpoint, e.output))
         return False
 
+
 def unmount_device(session, iqn, disks):
     '''
     Check if any partitions of the device with the given iqn are mounted
@@ -420,6 +480,9 @@ def unmount_device(session, iqn, disks):
     '''
     retval = True
     # find mountpoints
+    if iqn not in session or 'device' not in session[iqn]:
+        # the device is detaching already
+        return True
     device = session[iqn]['device']
     if device not in disks:
         return True
@@ -436,6 +499,7 @@ def unmount_device(session, iqn, disks):
                 if not do_umount(partitions[part]['mountpoint'], warn=retval):
                     retval = False
     return retval
+
 
 def do_create_volume(size, display_name, use_chap=False):
     '''
@@ -476,6 +540,7 @@ def do_create_volume(size, display_name, use_chap=False):
 
     return False
 
+
 def save_chap_secret(iqn, user, password):
     """
     Save the login information for the given iqn in the chap secrets file
@@ -489,6 +554,7 @@ def save_chap_secret(iqn, user, password):
                 cache_fname=oci_utils.__chap_password_file,
                 mode=0o600)
 
+
 def get_chap_secret(iqn):
     """
     Look for a saved (user,password) pair for iqn in the chap secrets file
@@ -501,6 +567,7 @@ def get_chap_secret(iqn):
         return chap_passwords[iqn]
     return (None,None)
     
+
 def main():
     '''
     Main program.
@@ -555,6 +622,18 @@ def main():
         retval= do_create_volume(size=args.create_volume,
                                  display_name=args.volume_name)
         session = iscsiadm.session()
+        if args.show:
+            display_current_devices(session, disks)
+            api_display_available_devices(args)
+        return retval
+
+    if args.destroy_volume:
+        if not USE_OCI_SDK:
+            sys.stderr.write("You need to install and configure the "
+                             "OCI Python SDK (python-oci-sdk) to use "
+                             "the --destroy-volume option\n")
+            sys.exit(1)
+        retval = do_destroy_volume(args.destroy_volume, args.interactive)
         if args.show:
             display_current_devices(session, disks)
             api_display_available_devices(args)

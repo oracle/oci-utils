@@ -12,10 +12,13 @@ import io
 import logging
 import urllib2
 import subprocess
+import threading
 import json
 from datetime import datetime, timedelta
+from time import sleep
 from ConfigParser import ConfigParser
 from .packages.stun import get_ip_info, log as stun_log
+from .exceptions import OCISDKError
 from cache import GLOBAL_CACHE_DIR
 import oci_utils.oci_api
 
@@ -47,6 +50,34 @@ refresh_interval = 600
 # oci-utils config file
 __oci_utils_conf_d = "/etc/oci-utils.conf.d"
 oci_utils_config = None
+
+oci_utils_thread_lock = None
+def lock_thread(timeout=30):
+    global oci_utils_thread_lock
+
+    # the oci sdk is not thread safe, so need to synchronize sdk calls
+    # each sdk call must call OCISession.lock() first and call
+    # OCISession.release() when done.
+    if oci_utils_thread_lock is None:
+        oci_utils_thread_lock = threading.Lock()
+
+    if timeout > 0:
+        max_time = datetime.now() + timedelta(seconds=timeout)
+        while True:
+            # non-blocking
+            if oci_utils_thread_lock.acquire(False):
+                break
+            if max_time < datetime.now():
+                raise OCISDKError("Timed out waiting for API thread lock")
+            else:
+                sleep(0.1)
+    else:
+        # blocking
+        oci_utils_thread_lock.acquire(True)
+
+def release_thread():
+    global oci_utils_thread_lock
+    oci_utils_thread_lock.release()
 
 def set_proxy():
     # metadata service (and instance principal auth) won't work through
@@ -84,6 +115,10 @@ def read_config():
         oci_utils_config.readfp(io.BytesIO(oci_utils.__oci_utils_defaults))
     except:
         raise
+
+    if not os.path.exists(__oci_utils_conf_d):
+        return oci_utils_config
+
     conffiles = [os.path.join(__oci_utils_conf_d, f)
                  for f in os.listdir(__oci_utils_conf_d)
                  if os.path.isfile(os.path.join(__oci_utils_conf_d, f))]
@@ -116,6 +151,7 @@ class VNICUtils(object):
 
         self.vnic_info = None
         self.vnic_info_ts = 0
+        self.config = read_config()
 
     @staticmethod
     def __new_vnic_info():
@@ -192,6 +228,11 @@ class VNICUtils(object):
         and additional details in vnic_info, which is a dict in the format
         returned by get_vnic_info().
         '''
+        TRUE = ['true', 'True', 'TRUE']
+        vf_net = self.config.get('vnic', 'vf_net') in TRUE
+        if vf_net and '-s' not in script_args:
+            self.logger.debug('Skipping execution of the secondary vnic script')
+            return (0, 'Info: vf_net is enabled in the oci-utils configuration')
         all_args = ['/usr/libexec/secondary_vnic_all_configure.sh']
         all_args += script_args
         if "-c" in script_args:
@@ -244,6 +285,19 @@ class VNICUtils(object):
     def set_private_ips(self, priv_ips):
         self.vnic_info['sec_priv_ip'] = priv_ips
         self.save_vnic_info()
+
+    def delete_all_private_ips(self, vnic_id):
+        """
+        delete all private IPs attached to a given VNIC.
+        """
+        remove_privip = []
+        for privip in self.vnic_info['sec_priv_ip']:
+            if privip[1] == vnic_id:
+                remove_privip.append(privip)
+                self.include(privip[0], save=False)
+        for pi in remove_privip:
+            self.vnic_info['sec_priv_ip'].remove(pi)
+        self.save_vnic_info()
         
     def del_private_ip(self, ipaddr, vnic_id):
         """
@@ -252,7 +306,7 @@ class VNICUtils(object):
         Run the secondary vnic script to deconfigure the secondary vnic script.
         Return the result of running the sec vnic script
         """
-        if (ipaddr,vnic_id) in self.vnic_info['sec_priv_ip']:
+        if [ipaddr,vnic_id] in self.vnic_info['sec_priv_ip']:
             self.vnic_info['sec_priv_ip'].remove([ipaddr,vnic_id])
         self.include(ipaddr, save=False)
         self.save_vnic_info()
@@ -464,23 +518,29 @@ class metadata(object):
         result = True
 
         # read the instance metadata
+        lock_thread()
         try:
             api_conn = urllib2.urlopen(self._oci_metadata_api_url +
                                        'instance/', timeout=2)
             instance_metadata = json.loads(api_conn.read().decode())
+            release_thread()
             metadata['instance'] = instance_metadata
         except IOError as e:
+            release_thread()
             self._errors.append("Error connecting to metadata server: %s\n" % \
                                 e[0])
             result = False
 
         # get the VNIC info
+        lock_thread()
         try:
             api_conn = urllib2.urlopen(self._oci_metadata_api_url +
                                        'vnics/', timeout=2)
             vnic_metadata = json.loads(api_conn.read().decode())
+            release_thread()
             metadata['vnics'] = vnic_metadata
         except IOError as e:
+            release_thread()
             self._errors.append("Error connecting to metadata server: %s\n" % \
                                 e[0])
             result = False

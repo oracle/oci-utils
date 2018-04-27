@@ -3,7 +3,10 @@ Description=Oracle Cloud Infrastructure utilities daemon
 After=iscsid.service
 
 [Service]
+Type=notify
+Environment=PYTHONUNBUFFERED=true
 ExecStart=/usr/libexec/ocid
+PIDFile=/var/run/ocid.pid
 Restart=always
 StandardOutput=syslog
 StandardError=syslog

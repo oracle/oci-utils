@@ -16,6 +16,7 @@ BuildRequires: python-setuptools
 Requires: python2
 Requires: python-daemon
 Requires: python-lockfile
+Requires: python-sdnotify
 # for lsblk
 Requires: util-linux
 # for iscsiadm

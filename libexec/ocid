@@ -16,9 +16,12 @@ import time
 import socket
 import threading
 import daemon
+import daemon.pidfile
+import sdnotify
 import json
 import argparse
 import logging
+from datetime import datetime, timedelta
 from logging.handlers import SysLogHandler
 import lockfile
 import oci_utils
@@ -86,6 +89,14 @@ def parse_args():
         if args.refresh not in ['vnic', 'iscsi', 'metadata', 'public_ip']:
             sys.stderr.write('Invalid choice for --refresh\n')
             sys.exit(1)
+    cfg = oci_utils.read_config()
+    try:
+        TRUE = ['true', 'True', 'TRUE']
+        dbg = cfg.get('ocid', 'debug') in TRUE
+        if dbg:
+            args.debug = True
+    except:
+        raise
     return args
 
 
@@ -168,14 +179,11 @@ class ocidThread(threading.Thread):
         self.debug = val
 
     def stop(self):
-        # make sure it's not running
-        self.threadLock.acquire()
+        """
+        Tell the thread to stop
+        """
         # de-activate
         self.active = False
-        # save context
-        ctx = self.context
-        self.threadLock.release()
-        return ctx
 
     def getContext(self):
         # make sure it's not running
@@ -515,6 +523,12 @@ def vnic_func(context):
 
     update_needed = False
     
+    if vnics != context['vnics']:
+        # VNIC configuration changed
+        __ocid_logger.info("VNIC configuration changed.")
+        update_needed = True
+        context['vnics'] = vnics
+
     if context['oci_sess'] is not None:
         # look for new or removed secondary private IP addresses
         p_ips = context['oci_sess'].this_instance().\
@@ -535,12 +549,6 @@ def vnic_func(context):
             # this one is used for comparing with the previous iteration
             context['vnic_info']['sec_priv_ip'] = sec_priv_ip
             context['vnic_utils'].set_private_ips(sec_priv_ip)
-
-    if vnics != context['vnics']:
-        # VNIC configuration changed
-        __ocid_logger.info("VNIC configuration changed.")
-        update_needed = True
-        context['vnics'] = vnics
 
     if update_needed:
         __ocid_logger.info("updating network interfaces")
@@ -655,15 +663,25 @@ def start_threads(args, repeat):
 
 
 def monitor_threads(threads, args):
-    # FIXME: this needs to be moved into a signal handler
-    # while monitor_threads needs to restart threads that died
-    while True:
-        try:
-            time.sleep(60)
-        except:
-            for th in threads.keys():
-                ctx = threads[th].stop()
-                print "%s thread stopped. context: %s" % (th, ctx)
+    try:
+        # exit and let systemd restart the process to avoid issues with
+        # potential memory leaks
+        time.sleep(60*60*2)
+    except:
+        # the sleep was interrupted
+        pass
+
+    for th in threads.keys():
+        threads[th].stop()
+
+    # give up to 30 seconds for threads to exit cleanly
+    timeout = datetime.now() + timedelta(seconds=30)
+    while timeout > datetime.now():
+        thread_running = False
+        for th in threads.keys():
+            if threads[th].is_alive():
+                thread_running = True
+        if not thread_running:
             break
     return 0
 
@@ -675,20 +693,7 @@ def wait_for_threads(threads):
     return 0
    
 
-def main():
-    if os.geteuid() != 0:
-        sys.stderr.write("This program must be run as root.\n")
-        sys.exit(1)
-
-    pidlock = lockfile.FileLock('/var/run/ocid.pid')
-
-    args = parse_args()
-
-    if pidlock.is_locked():
-        if not args.refresh:
-            sys.stderr.write("ocid already running.\n")
-            sys.exit(1)
-
+def daemon_main(args):
     if args.no_daemon:
         setup_logging(syslog=False, debug=args.debug)
     else:
@@ -719,22 +724,41 @@ def main():
     __ocid_logger.debug('all threads finished the first iteration')
 
     if args.no_daemon:
-        sys.exit(monitor_threads(threads, args))
-    
-    daemon_context = daemon.DaemonContext(
-        pidfile=pidlock,
-        umask=0o033
-        )
-    with daemon_context:
-        monitor_threads(threads, args)
+        os._exit(monitor_threads(threads, args))
+    else:
+        # Inform systemd that dependent services can now start
+        notifier = sdnotify.SystemdNotifier()
+        notifier.notify("READY=1")
 
-    sys.exit(0)
+    monitor_threads(threads, args)
+
+def main():
+    if os.geteuid() != 0:
+        sys.stderr.write("This program must be run as root.\n")
+        sys.exit(1)
+
+    pidlock = daemon.pidfile.PIDLockFile('/var/run/ocid.pid')
+
+    args = parse_args()
+
+    if pidlock.is_locked():
+        if not args.refresh:
+            sys.stderr.write("ocid already running.\n")
+            sys.exit(1)
+
+    if args.no_daemon:
+        daemon_main(args)
+    else:
+        daemon_context = daemon.DaemonContext(
+            pidfile=pidlock,
+            umask=0o033)
+        with daemon_context:
+            daemon_main(args)
 
 
 try:
     main()
 except Exception as e:
     print e
-    os._exit(1)
 
-sys.exit(0)
+os._exit(0)

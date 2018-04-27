@@ -73,7 +73,7 @@ def parse_args():
                         action='append', type=str.lower,
                         help='Display the value of a specific key')
     parser.add_argument('--debug', action='store_true',
-                        help='display diagnostic output'),
+                        help=argparse.SUPPRESS)
     parser.add_argument('--help', action='help',
                         help='Display this help')
 

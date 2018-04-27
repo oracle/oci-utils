@@ -17,9 +17,8 @@ def skipUnlessRoot():
 
 class TestIScsiAdm(unittest.TestCase):
     def test__can_connect(self):
-        self.assertTrue(can_connect('www.google.com', 80))
         self.assertTrue(can_connect('www.oracle.com', 443))
-        self.assertFalse(can_connect('www.google.com', 123))
+        self.assertFalse(can_connect('www.oracle.com', 123))
         self.assertFalse(can_connect('blabber', 80))
 
     @skipUnlessOCI()
