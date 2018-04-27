@@ -506,7 +506,6 @@ class OCISession(object):
             my_instance_id = self.metadata['instance']['id']
         except Exception as e:
             self.logger.debug('Cannot find my instance ID: %s' % e)
-            raise
 
         return self.get_instance(instance_id=my_instance_id,
                                  refresh=refresh)
@@ -560,7 +559,6 @@ class OCISession(object):
             return OCIInstance(self, instance_data)
         except Exception as e:
             self.logger.debug('Failed to fetch instance data: %s' % e)
-            raise
 
         return None
 

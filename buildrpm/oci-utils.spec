@@ -65,7 +65,7 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/oci-utils.conf.d/10-oci-kvm.conf
 
 %changelog
-* Thur Apr 25 2018 Qing Lin <qing.lin@oracle.com>   --5
+* Wed Apr 25 2018 Qing Lin <qing.lin@oracle.com>   --5
 - fixed history not clean bug.
 - added running requirement for root privileges.
 - move oci-image-cleanup from /usr/bin to /usr/libexec/

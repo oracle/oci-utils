@@ -96,7 +96,7 @@ def parse_args():
         if dbg:
             args.debug = True
     except:
-        raise
+        pass
     return args
 
 
