@@ -205,6 +205,9 @@ def do_detach_vnic(args, vnic_utils):
             if not vnic.is_primary():
                 vnic_utils.delete_all_private_ips(vnic.get_ocid())
                 vnic.detach()
+            else:
+                msg_error("The primary VNIC cannot be detached.")
+                sys.exit(1)
 
 def do_create_vnic(args):
     '''
@@ -420,6 +423,9 @@ def main():
     elif args.deconfigure:
         vnic_utils.auto_deconfig(quiet=args.quiet, show=args.quiet,
                                  sec_ip=args.sec_ip)
+    else:
+        # default action
+        do_show_network_config(vnic_utils)
 
     if args.show:
         do_show_network_config(vnic_utils)
