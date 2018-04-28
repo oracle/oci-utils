@@ -71,7 +71,7 @@ def parse_args():
     parser.add_argument('--refresh', nargs='?', action='store',
                         metavar='FUNC', default=False,
                         help='refresh cached data for the given function, '
-                        'or all functions if FUNC is not specified and exit. '
+                        'or all functions if FUNC is not specified, and exit. '
                         'Possible values for FUNC: vnic, iscsi, metadata, '
                         'public_ip')
     parser.add_argument('--no-daemon', action='store_true',

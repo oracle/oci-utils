@@ -4,7 +4,7 @@
 .\" Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 .\"
 
-.TH OCI-ISCSI-CONFIG 1 "FEBRUARY 2018" Linux "User Manuals"
+.TH OCI-ISCSI-CONFIG 1 "MAY 2018" Linux "User Manuals"
 .SH NAME
 oci-iscsi-config \- configure iSCSI devices on OCI compute instances
 .SH SYNOPSIS
@@ -20,7 +20,7 @@ oci-iscsi-config \- configure iSCSI devices on OCI compute instances
 .I USER
 .B ] [--password
 .I PWD
-.B ] [--debug] [--help]
+.B ] [--help]
 
 .B oci-iscsi-config [-s|--show] [-c
 .I SIZE
@@ -28,6 +28,8 @@ oci-iscsi-config \- configure iSCSI devices on OCI compute instances
 .I SIZE
 .B ] [--volume-name
 .I NAME
+.B ] [--destroy-volume
+.I OCID
 .B ]
 
 .SH DESCRIPTION
@@ -64,8 +66,9 @@ OCI Python SDK is available in the python-oci-sdk package.  When available,
 displays additional information about the iSCSI devices and can display all
 available OCI storage volumes, not just the ones already assigned to the
 instance.  The second version of the command line requires the OCI Python
-SDK.  This invocation creates a new OCI storage volume and assigns
-it to the instance without the use of the Web-based OCI Console.
+SDK.  This invocation can be used to create a new OCI storage volume and
+assign it to the instance without the use of the Web-based OCI Console,
+or to destroy a volume that is not attached to any instances.
 
 To install the OCI Python SDK, use
 .PP
@@ -86,6 +89,11 @@ oci setup config
 .PP
 See https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
 for more information.
+
+Another option for authorizing the use of OCI services from an instance is
+using Instance Principals.  The OCI SDK does not need configuration on the
+instance when the instance is part of a dynamic group that was granted access
+to OCI services.  See https://docs.us-phoenix-1.oraclecloud.com/Content/Identity/Tasks/callingservicesfrominstances.htm for further details.
 
 .SH OPTIONS
 .IP "-i, --interactive"
@@ -128,8 +136,11 @@ Use
 .B PWD
 as the CHAP password when authentication is needed for attaching a device.
 Not necessary when the OCI Python SDK is available.
-.IP --debug
-Print diagnostic messages.
+.IP "--destroy-volume OCID"
+Destroy the block storage volume with the given
+.B OCID.
+Warning: this is irreversible.  The volume must not be attached to any
+instances.
 .IP --help
 Print a summary of the command line options.
 .SH EXAMPLES
@@ -141,10 +152,9 @@ sudo oci-iscsi-config --create-volume 100 --volume-name my-storage
 .fi
 .PP
 Creates a new storage volume named my-storage and attaches it to this
-instance.  Note: since
-.BR sudo(8)
-is used, the OCI Python SDK must be configured
-in the root user's account.
+instance.  See
+.BR oci-utils.conf.d(5)
+for information about configuring oci-utils to work as the root user.
 .PP
 .nf
 .RS
@@ -174,3 +184,4 @@ Return an exit status of 0 for success or 1 if an error occured.
 .SH "SEE ALSO"
 .BR ocid (8)
 .BR sudo (8)
+.BR oci-utils.conf.d (5)

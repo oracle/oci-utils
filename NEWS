@@ -13,3 +13,5 @@ Version 0.6:
 - ocid saves state and restores all volumes and VNIC configuration after reboot
 - oci-network-config: new option: --detach-vnic
 - oci-iscsi-config: new option: --destroy-volume
+- oci-utils APIs are now thread safe
+

@@ -43,3 +43,24 @@ How to test ocid:
     sudo /usr/libexec/ocid  --no-daemon --debug
 
 
+Enabling debug information in syslogd:
+
+    create /etc/rsyslog.d/debug.conf with this line in it:
+
+    *.debug                      /var/log/debug.log
+
+    Restart rsyslogd:
+
+    sudo systemctl restart rsyslog
+
+Enabling debug messages in ocid:
+
+    create a config file in /etc/oci-utils.conf.d that says:
+
+    [ocid]
+    debug = True
+
+    Restart ocid:
+
+    sudo systemctl restart ocid.service
+

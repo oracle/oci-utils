@@ -1,9 +1,9 @@
 .\" Process this file with
 .\" groff -man -Tascii oci-metadata.1
 .\"
-.\" Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+.\" Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 .\"
-.TH OCI-METADATA 1 "DECEMBER 2017" Linux "User Manuals"
+.TH OCI-METADATA 1 "MAY 2018" Linux "User Manuals"
 .SH NAME
 oci-metadata \- display OCI compute instance metadata
 .SH SYNOPSIS
@@ -11,7 +11,7 @@ oci-metadata \- display OCI compute instance metadata
 .I KEY
 .B | --get
 .I KEY
-.B ] [--debug] [--help]
+.B ] [--help]
 .SH DESCRIPTION
 The
 .B oci-metadata
@@ -30,8 +30,6 @@ in the metadata and only display matching entries.  For example
 displays the MAC address of each VNIC interface.  Use the JSON output to see all available keys.
 .B KEY
 is not case sensitive, but it has to match the entire key.  You can use this option multiple times to display more than one key.
-.IP --debug
-Print diagnostic messages.
 .IP --help
 Print a summary of the command line options.
 .SH DIAGNOSTICS
@@ -39,3 +37,4 @@ Return an exit status of 0 for success or 1 if an error occured.
 .SH "SEE ALSO"
 .BR oci-public-ip (1),
 .BR ocid (8)
+.BR oci-utils.conf.d (5)

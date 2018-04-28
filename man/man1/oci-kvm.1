@@ -1,9 +1,9 @@
 .\" Process this file with
 .\" groff -man -Tascii oci-kvm.1
 .\"
-.\" Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+.\" Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
 .\"
-.TH OCI-ISCSI-CONFIG 1 "FEBRUARY 2018" Linux "User Manuals"
+.TH OCI-KVM 1 "MAY 2018" Linux "User Manuals"
 .SH NAME
 oci-kvm \- install and remove KVM guests on OCI instances
 .SH SYNOPSIS
@@ -39,6 +39,17 @@ is created automatically.  This includes virtual functions, VLANs, etc.  Indiviu
 block storage devices and VNICs are required for each guest.  Guests cannot share
 either a VNIC or a block storage device.
 
+When the oci-utils-kvm is installed, it changes the configuration of
+.BR ocid(8)
+setting
+.BR vf_net = true
+in
+.BR /etc/oci-utils.conf.d/10-oci-kvm.conf .
+This causes
+.BR ocid(8)
+to stop automatically configuring VNICs and instead leaving them for the kvm
+tools to manage.
+
 .SH OPTIONS
 .IP "-D NAME, --domain NAME"
 For both the
@@ -62,3 +73,7 @@ this tool executes that command.
 
 .SH DIAGNOSTICS
 Return an exit status of 0 for success or 1 if an error occured.
+
+.SH "SEE ALSO"
+.BR ocid (8)
+.BR oci-utils.conf.d (5)
