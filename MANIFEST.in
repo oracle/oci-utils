@@ -9,4 +9,4 @@ include data/*.service
 include data/00-oci-utils.conf
 include data/10-oci-kvm.conf
 include buildrpm/*.spec
-include man/man?/*.[18]
+include man/man?/*.[158]

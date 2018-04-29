@@ -1,0 +1,54 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-utils.conf.d.5
+.\"
+.\" Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
+.\"
+.TH OCI-UTILS-CONF-D 5 "MAY 2018" Linux "User Manuals"
+.SH NAME
+oci-utils.conf.d \- configuration files for the ocid service
+
+.SH DESCRIPTION
+
+oci-utils can be configured using configuration files in the
+.I /etc/oci-utils.conf.d
+directory.  The oci-utils package installs a file called
+.I 00-oci-utils.conf
+in this directory.  This file lists all configuration options and explains their use.  All setting are commented out using a semicolon at the start of the line.  You can change the oci-utils configuration by uncommenting a setting and changing its value, however, it is better practice to create a new configuration file in
+.I /etc/oci-utils.conf.d
+that contains the changed configration setting only and comments that explain why the change was made.  The new file must include the section header (e.g. [vnic]) above the changed configuration setting.
+
+Configuration files in
+.I /etc/oci-utils.conf.d
+are read in alphanumeric order and can override settings in configuration files that are read earlier in that sequence.
+
+.SH EXAMPLES
+Create a new configuration file that disables automatic VNIC configuration in
+.BR ocid(8):
+.PP
+.nf
+.RS
+cat > /etc/oci-utils.conf.d/01-disable-vnic-config.conf << EOF
+[vnic]
+; do not configure VNICs automatically on this instance
+; because in conflicts with...etc...
+enabled = False
+EOF
+.RE
+.fi
+.PP
+Increase the frequency of looking for new iSCSI devices to every 30 seconds:
+.PP
+.nf
+.RS
+cat > /etc/oci-utils.conf.d/02-iscsi-scan-interval.conf << EOF
+[iscsi]
+; scan for new iSCSI devices once an hour only
+scan_interval = 3600
+EOF
+.RE
+.fi
+.PP
+
+.SH "SEE ALSO"
+.BR ocid (8)
+
