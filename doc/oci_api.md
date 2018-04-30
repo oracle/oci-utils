@@ -4,7 +4,7 @@
 
 Oci-utils includes a high level API for using OCI services.  You are welcome
 to use this API in other projects.
-While this API is now and is subject to change, I won't break it unless it's
+While this API is new and is subject to change, I won't break it unless it's
 really necessary.
 
 This document provides an overview and examples for using oci_api.
@@ -34,12 +34,23 @@ exception is thrown:
 ```python
 import sys
 import oci_utils.oci_api
+impoer oci_utils.exceptions
 
 try:
     sess = oci_utils.oci_api.OCISession()
-except oci_utils.oci_api.OCISDKError as e:
+except oci_utils.excepions.OCISDKError as e:
     sys.stderr.write("Failed to access OCI services: %s\n" % e)
 ```
+
+OCISession uses one of 3 authentication methods:
+* OCI SDK config file and keys (~/.oci/config)
+* [when used by root] a designated user's OCI SDK config
+* Instance Principals
+
+By default, OCISession will try them in the above order and retuns an OCISession
+object when one of them succeeds.
+
+Oci_api calls are thread-safe.  A shared lock is used to ensure only one API call is made at a time as urllib2 is not thread-safe.
 
 ## Classes
 
@@ -81,8 +92,22 @@ profile:
 import oci_utils.oci_api
 
 sess = oci_utils.oci_api.OCISession(config_file='/path/to/file',
-                                    config_profile='PROFILE')
+                                    config_profile='PROFILE',
+				    auth_method=None, debug=False)
 ```
+
+Valid values for auth_method are:
+ * oci_utils.oci_api.AUTO = choose a method that works
+ * oci_utils.oci_api.DIRECT = use the OCI SDK config file
+ * oci_utils.oci_api.PROXY = use a designated user's config files; the user is defined in the OCI config files and defaults to 'opc'
+ * oci_utils.oci_api.IP = use instance principals
+
+To achieve thread safety, oci-utils makes OCI SDK calls through the
+OCISession.sdk_call(client_func, *args, **kwargs) method, which uses locking
+to ensure that only one call is made at a time.  If it cannot acquire the lock
+within a timeout (default 60sec) then an OCISDKError exception is raised.
+The set_sdk_call_timeout(timeout) method can be used to change the default
+timeout.  A timeout value of 0 means wait forever.
 
 The OCISession object allows you to list or find various OCI artifacts.
 Unless otherwise noted, these methods have an optional "refresh" argument,
@@ -159,8 +184,11 @@ Other methods:
 * get_network_client(): returns an
   oci.core.virtual_network_client.VirtualNetworkClient() object.
 
-* get_block_storage_client(): return as
+* get_block_storage_client(): return an
   oci.core.blockstorage_client.BlockstorageClient() object.
+
+* get_object_storage_client(): return an
+  oci.object_storage.object_storage_client.ObjectStorageClient() object.
 
 ## Class details
 
