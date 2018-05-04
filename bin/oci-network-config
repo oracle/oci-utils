@@ -423,7 +423,7 @@ def main():
     elif args.deconfigure:
         vnic_utils.auto_deconfig(quiet=args.quiet, show=args.quiet,
                                  sec_ip=args.sec_ip)
-    else:
+    elif not args.show:
         # default action
         do_show_network_config(vnic_utils)
 
