@@ -476,7 +476,7 @@ class metadata(object):
     _pub_ip_cache = GLOBAL_CACHE_DIR + "/public_ip-cache"
     _pub_ip_timeout = timedelta(minutes=10)
 
-    def __init__(self, get_public_ip=True, debug=False):
+    def __init__(self, get_public_ip=False, debug=False):
         self._md_user_cache = os.path.expanduser(self._md_user_cache)
         self.logger = logging.getLogger('oci-metadata')
         if debug:
@@ -503,7 +503,7 @@ class metadata(object):
         except:
             pass
             
-    def refresh(self, debug=False, get_public_ip=True):
+    def refresh(self, debug=False, get_public_ip=False):
         """
         Fetch all instance metadata from all sources
         Return True for success, False for failure

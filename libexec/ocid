@@ -83,7 +83,7 @@ def parse_args():
     args = parser.parse_args()
     # when no argument is given set to True
     if args.refresh is None:
-       args.refresh = True
+        args.refresh = True
     elif args.refresh:
         # not False and not None
         if args.refresh not in ['vnic', 'iscsi', 'metadata', 'public_ip']:
@@ -192,7 +192,7 @@ class ocidThread(threading.Thread):
         ctx = self.context
         self.threadLock.release()
         return ctx
-        
+
     def setLogger(self, logger):
         self.logger = logger
 
@@ -267,7 +267,8 @@ def public_ip_func(context):
     """
     ocid thread function for refreshing the instance metadata.
     """
-    external_ip = oci_utils.metadata().get_public_ip(refresh=True)
+    external_ip = oci_utils.metadata(get_public_ip=True).\
+                get_public_ip(refresh=True)
     return {'publicIp': external_ip}
 
 
@@ -290,7 +291,7 @@ def iscsi_func(context):
                    'chap_pw_ts': 0,
                    'chap_pws': {},
                    'oci_sess': oci_sess
-                   }
+                  }
 
     # devices currently attached
     session_devs = oci_utils.iscsiadm.session()
@@ -400,7 +401,7 @@ def iscsi_func(context):
     # (e.g. the user supplied the password using oci-iscsi-config)
     for iqn in attach_failed.keys():
         if iqn in session_devs:
-            del(attach_failed[iqn])
+            del attach_failed[iqn]
             cache_changed = True
 
     # look for disconnected devices in the current session
@@ -424,9 +425,9 @@ def iscsi_func(context):
                     ign_changed = True
                 # remove from attach_failed list if present
                 if iqn in attach_failed:
-                    del(attach_failed[iqn])
+                    del attach_failed[iqn]
                     cache_changed = True
-    
+
     # check if the devices that were previously manually detached are still
     # connected to the instance
     inst_iqns = [vol['iqn'] for vol in inst_volumes]
@@ -448,7 +449,7 @@ def iscsi_func(context):
                         mode=0o600)
     if cache_changed:
         write_cache(cache_content=[all_iqns, attach_failed],
-                        cache_fname=oci_utils.iscsiadm.ISCSIADM_CACHE)
+                    cache_fname=oci_utils.iscsiadm.ISCSIADM_CACHE)
     else:
         try:
             os.utime(oci_utils.iscsiadm.ISCSIADM_CACHE, None)
@@ -457,7 +458,7 @@ def iscsi_func(context):
 
     return context
 
-    
+
 def get_metadata_vnics():
     vnics = oci_utils.metadata(get_public_ip=False).filter('vnics')
     if vnics is not None and 'vnics' in vnics:
@@ -501,7 +502,7 @@ def vnic_func(context):
         context['vnic_info_ts'], context['vnic_info'] = \
             context['vnic_utils'].get_vnic_info()
         context['vnics'] = get_metadata_vnics()
-        (ret,out) = context['vnic_utils'].auto_config([], False, False)
+        (ret, out) = context['vnic_utils'].auto_config([], False, False)
         if ret != 0:
             __ocid_logger.warning("Failed to configure network interfaces")
         if out is not None and out != "":
@@ -518,11 +519,11 @@ def vnic_func(context):
             context['vnic_utils'].get_vnic_info()
         context['vnics'] = get_metadata_vnics()
         return context
-    
+
     vnics = get_metadata_vnics()
 
     update_needed = False
-    
+
     if vnics != context['vnics']:
         # VNIC configuration changed
         __ocid_logger.info("VNIC configuration changed.")
@@ -534,7 +535,7 @@ def vnic_func(context):
         p_ips = context['oci_sess'].this_instance().\
                 all_private_ips(refresh=True)
         sec_priv_ip = \
-            [[ip.get_address(),ip.get_vnic_ocid()] for ip in p_ips]
+            [[ip.get_address(), ip.get_vnic_ocid()] for ip in p_ips]
         for ip in sec_priv_ip:
             if ip not in context['vnic_info']['sec_priv_ip']:
                 __ocid_logger.info("New secondary private IP: %s" % \
@@ -552,7 +553,7 @@ def vnic_func(context):
 
     if update_needed:
         __ocid_logger.info("updating network interfaces")
-        (ret,out) = context['vnic_utils'].auto_config([], False, False)
+        (ret, out) = context['vnic_utils'].auto_config([], False, False)
         if ret != 0:
             __ocid_logger.warning("Failed to configure network interfaces")
         if out is not None and out != "":
@@ -575,7 +576,7 @@ def start_thread(name, repeat, debug=False):
                         ocidfunc=test_func,
                         context={'fname':'/tmp/ocid-test', 'counter':1},
                         sleeptime=10,
-                       repeat=repeat)
+                        repeat=repeat)
     elif name == 'metadata':
         th = ocidThread(name=name,
                         ocidfunc=metadata_func,
@@ -658,7 +659,7 @@ def start_threads(args, repeat):
         if th:
             threads[args.refresh] = th
         return threads
-    
+
     return threads
 
 
@@ -691,7 +692,7 @@ def wait_for_threads(threads):
         threads[th].join()
         __ocid_logger.debug('Thread %s finished.' % th)
     return 0
-   
+
 
 def daemon_main(args):
     if args.no_daemon:
@@ -720,7 +721,7 @@ def daemon_main(args):
                 __ocid_logger.debug('waiting for thread %s to finish the '
                                     'first iteration' % th)
                 time.sleep(1)
-    
+
     __ocid_logger.debug('all threads finished the first iteration')
 
     if args.no_daemon:

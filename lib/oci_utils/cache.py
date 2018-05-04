@@ -117,8 +117,6 @@ def write_cache(cache_content, cache_fname, fallback_fname=None, mode=None):
     except (OSError, IOError):
         # can't write to cache_fname, try fallback_fname
         if not fallback_fname:
-            sys.stderr.write("Warning: failed to open %s for writing.\n" % \
-                             fname)
             return None
         cachedir = os.path.dirname(fallback_fname)
         try:
@@ -149,7 +147,6 @@ def write_cache(cache_content, cache_fname, fallback_fname=None, mode=None):
         fcntl.lockf(cache_fd, fcntl.LOCK_UN)
         cache_file.close()
     except:
-        sys.stderr.write("Warning: failed to write file %s\n" % fname)
         fcntl.lockf(cache_fd, fcntl.LOCK_UN)
         cache_file.close()
         return None
