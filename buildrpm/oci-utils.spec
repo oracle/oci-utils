@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.6
-Release: 5%{?dist}
+Release: 8%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -54,6 +54,7 @@ rm -rf %{buildroot}
 %{_sysconfdir}/systemd/system/ocid.service
 %dir %attr(0755,root,root) %{_sysconfdir}/oci-utils.conf.d
 %config %{_sysconfdir}/oci-utils.conf.d/00-oci-utils.conf
+%config %{_sysconfdir}/oci-utils.conf.d/oci-image-cleanup.conf
 %{_datadir}/man
 %exclude %{_datadir}/man/man1/oci-kvm.1.gz
 %dir %{_localstatedir}/lib/oci-utils
@@ -65,6 +66,12 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/oci-utils.conf.d/10-oci-kvm.conf
 
 %changelog
+* Thu May 03 2018 Qing Lin <qing.lin@oracle.com>   --8
+- merged changes from Sweekar: force,restore, backup-dir option.
+- enhanced force option with value support: y for delete all; n for dryrun.
+- added configuration file support for oci-image-cleanup
+- fixed history cleanup bug.
+
 * Wed Apr 25 2018 Qing Lin <qing.lin@oracle.com>   --5
 - fixed history not clean bug.
 - added running requirement for root privileges.
