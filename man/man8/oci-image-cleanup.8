@@ -4,11 +4,42 @@
 .\" Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
 .\"
 
-.TH OCI-IMAGE-CLEANUP 1 "03 Apr 2018" Linux "User Manuals"
+.TH OCI-IMAGE-CLEANUP 1 "03 May 2018" Linux "User Manuals"
 .SH NAME
 oci-image-cleanup \- This script runs a set of cleanup steps to prepare instance for snapshot
+
 .SH SYNOPSIS
-/usr/libexec/oci-image-cleanup [-h]
+.B /usr/libexec/oci-image-cleanup [-h|--help]
+
+.B /usr/libexec/oci-image-cleanup [-f
+[y|n]
+.B |--force=
+[y|n]
+.B ][-d
+.I BACKUP_DIR
+.B | --backup-dir=
+.I BACKUP_DIR
+.B ]
+
+.B /usr/libexec/oci-image-cleanup [-c
+.I CONFIG_FILE
+.B |--config-file=
+.I CONFIG_FILE
+.B ] [-d
+.I BACKUP_DIR
+.B | --backup-dir
+.I BACKUP_DIR
+.B ]
+
+.B /usr/libexec/oci-image-cleanup [-r
+.I BACKUP_DIR
+.B |--restore=
+.I BACKUP_DIR
+.B ][-f
+[y|n]
+.B |--force=
+[y|n]
+
 .SH DESCRIPTION
 This script runs a set of cleanup steps to prepare OCI OL instances for custom images
 WARNING!!! This script will clear ssh keys and root passwd.
@@ -23,8 +54,23 @@ More info on custom images can be found here:
 https://docs.us-phoenix-1.oraclecloud.com/Content/Compute/Tasks/managingcustomimages.htm
 
 .SH OPTIONS
-.IP -h
+
+.IP  "-f [y|n] | --force=[y|n]"
+No prompt for confirmation. Use the value you provide as the answer.
+"y" for cleanup all, "n" for dry run, delete nothing.
+
+.IP  "-r <BACKUP_DIR> | --restore=<BACKUP_DIR>"
+Restore files from BACKUP_DIR
+
+.IP  "-d <BACKUP_DIR> | --backup-dir=<BACKUP_DIR>"
+Specify dir to backup deleted files.
+Default backup dir is /opt/image-cleanup-backup.<pid>
+
+.IP  "-c <CONFIG_FILE> | --config-file=<CONFIG_FILE>"
+Specify config file.
+Sample config file is /etc/oci-utils.conf.d/oci-image-cleanup.conf.
+
+.IP  "-h | --help"
 print this help message
-.SH AUTHOR
-Sweekar Pinto (sweekar.pinto@oracle.com)
+
 
