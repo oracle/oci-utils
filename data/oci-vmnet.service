@@ -4,6 +4,7 @@ Requires=ocid.service
 Requires=network.service
 After=ocid.service
 After=network.service
+Before=libvirtd.service
 
 [Service]
 ExecStart=/usr/libexec/oci-vmnet

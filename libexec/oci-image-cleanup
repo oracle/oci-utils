@@ -1,0 +1,184 @@
+#!/bin/bash
+
+# This script runs a set of cleanup steps to prepare instance for snapshot
+
+# Print usage message
+usage()
+{
+cat <<EOF
+Usage: $(basename "$0") [-h]
+This script runs a set of cleanup steps to prepare OCI OL instances for custom images
+WARNING!!! This script will clear ssh keys and root passwd.
+Upon execution of this script, if you choose to clear the ssh keys, you will no longer be able to login to this instance with your existing credentials.
+You will need to create a new custom image of this instance first and then create a new compute instance from that custom image to login.
+
+More info on custom images can be found here:
+https://docs.us-phoenix-1.oraclecloud.com/Content/Compute/Tasks/managingcustomimages.htm
+
+EOF
+}
+
+if [ "$#" -gt 0 ]; then
+  #echo -e $usage
+  usage
+  exit 0
+fi
+
+
+# Prompt for action confirmation
+confirm()
+{
+while true
+do
+ read -r -p "Confirm? [y/n]: " input
+
+ case $input in
+     [yY][eE][sS]|[yY])
+   return 0;;
+
+     [nN][oO]|[nN])
+   return 1;;
+     *)
+ esac
+done
+}
+
+if [ "$USER" != "root" ]; then
+    echo "Error: You must run this program with root privileges"
+    exit 1
+fi
+
+echo -e "WARNING!!! 
+    This script will clear ssh keys and root passwd.
+    This means you will no longer be able to login to this instance.
+    Run: $(basename "$0") -h or man $(basename "$0") for more info.
+    "
+
+read -n 1 -s -r -p "Press any key to continue. Or Ctrl + c to exit"
+
+# Begin
+echo -e "\n\nPreparing instance for OCI custom image."
+# Cleanup network config files
+echo -e "Clearing network config files."
+for file in `find /etc/sysconfig/network-scripts/ -name "ifcfg-*" -not -name ifcfg-lo` ; do
+    echo -n "Deleting $file. "
+    confirm
+    [ $? -eq 0 ] && rm -f $file
+done
+
+# clear /etc/hosts
+echo -n "Clearing the contents of /etc/hosts. "
+confirm
+if [ $? -eq 0 ]; then
+echo -e "127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6" > /etc/hosts
+fi
+
+# clear ssh keys
+echo -n "Clearing SSH host keys in /etc/ssh/. "
+confirm
+[ $? -eq 0 ] && rm -f /etc/ssh/ssh_host*
+for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
+do
+    [ -d $user/.ssh ] &&  echo -n "Clearing SSH keys in $user/.ssh/ "
+    confirm
+    [ $? -eq 0 ] && rm -f /etc/ssh/ssh_host*  && rm -f $user/.ssh/*
+done
+
+
+# Lock root account and clear root passwd
+echo -n  "Locking root account and clearing root passwd. "
+confirm
+[ $? -eq 0 ] && passwd -l root && sed -i 's/^root:[^:]*:/root:*:/I' /etc/shadow
+
+echo -n "The next steps will clean up various other files such as machine-id, var-logs, resolv.conf, yum cache, dhcp lease files, cloud-init data etc "
+confirm
+[ $? -eq 1 ] && exit 1
+# Remove persistent network rules
+echo "Removing persistent network rules."
+/bin/rm -v -f /etc/udev/rules.d/70*
+
+# Remove iSCSI nodes
+echo "Removing iSCSI nodes"
+/bin/rm -v -fr /var/lib/iscsi/nodes/*
+
+# Scrub machine-id
+echo "Scrubbing /etc/machine-id"
+: > /etc/machine-id
+
+# Scrub Log Files
+echo "Scrubbing log files in /var/log"
+for SCRUB_FILE in $(find /var/log/ -type f);
+do
+echo "Scrubbing file: $SCRUB_FILE";
+: > $SCRUB_FILE;
+done
+
+# Scrub Resolv.conf
+echo "Scrubbing /etc/resolv.conf"
+:> /etc/resolv.conf
+
+# Scrub Chrony Cleanup
+echo "Scrubbing /etc/chrony.keys"
+: > /etc/chrony.keys
+
+# Clean tmp
+echo "Cleaning /tmp"
+rm -rf /tmp/*
+
+# Clean Leases
+echo "Removing dhcp lease files"
+rm -f /var/lib/dhclient/*
+rm -f /var/lib/NetworkManager/*
+
+# Clean starting seed
+echo "Cleaning starting seed"
+rm -f /var/lib/random-seed /var/lib/systemd/random-seed
+
+# Clean LVM cache
+echo "Cleaning lvm cache"
+rm -f /etc/lvm/cache/.cache
+
+# Clean Yum UUID
+echo "Removing Yum UUID"
+rm -f /var/lib/yum/uuid
+
+# Cleaning up cache 
+echo "Clean cache oci-utils"
+rm -rf /var/cache/oci-utils
+rm -rf /home/opc/.cache/oci-utils
+rm -rf /root/.cache/oci-utils
+
+
+# Purge cloud-init data
+echo "Clearing cloud-init data"
+rm -rf /var/lib/cloud/*
+
+# Remove stale iscsi configuration data
+echo "Clearing stale iscsi configuration data"
+rm -rf /var/lib/iscsi/nodes/* /var/lib/iscsi/send_targets/* /var/lib/iscsi/ifaces/*
+
+# Remove static cloud network config
+echo "Removeing static cloud network config"
+rm -f /etc/network/interfaces.d/50-cloud-init.cfg
+
+# Clear uln stuff
+echo "Clearing ULN data"
+rm -f /etc/sysconfig/rhn/systemid
+sed -i  's/^uuid.*/#&/' /etc/sysconfig/rhn/up2date
+
+# Zero free space.  This'll take a while
+#for
+# i in $( df|grep -Ev "(cgmfs|tmpfs|Mounted|^udev)"|awk '{ print $6}' );
+#do echo $i; dd if=/dev/zero of=$i/zero_file bs=4M; sync; rm -f
+#$i/zero_file; done
+
+# Clear bash history for opc and root users
+echo "Cleaning bash history"
+ln -s -f /dev/null /home/opc/.bash_history
+ln -s -f /dev/null /root/.bash_history
+sync
+
+# El Fin
+echo "System cleaned up and ready for snapshot!"
+exit 0

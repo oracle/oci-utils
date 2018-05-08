@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.5.4kvm
-Release: 1%{?dist}
+Version: 0.6
+Release: 5%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -18,6 +18,7 @@ BuildRequires: python-setuptools
 Requires: python2
 Requires: python-daemon
 Requires: python-lockfile
+Requires: python-sdnotify
 # for lsblk
 Requires: util-linux
 # for iscsiadm
@@ -26,7 +27,6 @@ Requires: iscsi-initiator-utils
 %description
 A package with useful scripts for querying/validating the state of OCI instances running Oracle Linux and facilitating some common configuration tasks.
      
-
 %package kvm
 Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure
 Group: Development/Tools
@@ -42,6 +42,7 @@ Utilities for creating and managing KVM guests that use Oracle Cloud Infrastruct
 
 %install
 %{__python} setup.py install -O1 --prefix=%{_prefix} --root=%{buildroot}
+mkdir -p %{buildroot}%{_localstatedir}/lib/oci-utils
 
 %clean
 rm -rf %{buildroot}
@@ -54,10 +55,14 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 %{python_sitelib}/oci_utils*
 %{_bindir}/oci-*
-%{_libexecdir}/ocid
-%{_libexecdir}/secondary_vnic_all_configure.sh
+%exclude %{_bindir}/oci-kvm
+%{_libexecdir}/
 %{_sysconfdir}/systemd/system/ocid.service
+%dir %attr(0755,root,root) %{_sysconfdir}/oci-utils.conf.d
+%config %{_sysconfdir}/oci-utils.conf.d/00-oci-utils.conf
 %{_datadir}/man
+%exclude %{_datadir}/man/man1/oci-kvm.1.gz
+%dir %{_localstatedir}/lib/oci-utils
 %doc LICENSE.txt PKG-INFO
 
 %files kvm
@@ -66,8 +71,9 @@ rm -rf %{buildroot}
 %{python_sitelib}/oci_utils/kvm*
 %{_datadir}/man/man1/oci-kvm.1.gz
 %{_sysconfdir}/systemd/system/oci-vmnet.service
-%{_sysconfdir}/systemd/system/ocid.service.d/oci-vmnet.conf
 %{_prefix}/lib/systemd/system-preset/91-oci-utils.preset
+%{_datadir}/man/man1/oci-kvm.1.gz
+%config %{_sysconfdir}/oci-utils.conf.d/10-oci-kvm.conf
 
 %post kvm
 %systemd_post oci-vmnet.service
@@ -76,6 +82,18 @@ rm -rf %{buildroot}
 %systemd_preun oci-vmnet.service
 
 %changelog
+* Wed Apr 25 2018 Qing Lin <qing.lin@oracle.com>   --5
+- fixed history not clean bug.
+- added running requirement for root privileges.
+- move oci-image-cleanup from /usr/bin to /usr/libexec/
+- move its manual from man1 to man8.
+
+* Fri Apr 20 2018 Qing Lin <qing.lin@oracle.com>   --4
+- added oci-image-cleanup and its manual.
+
+* Tue Apr 17 2018 Laszlo (Laca) Peter <laszlo.peter@oracle.com>
+- added oci-utils-kvm package
+
 * Fri Mar 23 2018 Daniel Krasinski <daniel.krasinski@oracle.com>
 - migrated kvm-specific features into oci-utils-kvm
 
