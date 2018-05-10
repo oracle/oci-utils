@@ -10,6 +10,7 @@ PIDFile=/var/run/ocid.pid
 Restart=always
 StandardOutput=syslog
 StandardError=syslog
+TimeoutStartSec=300
 
 [Install]
 WantedBy=multi-user.target
