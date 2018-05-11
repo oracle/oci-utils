@@ -69,19 +69,19 @@ rm -rf %{buildroot}
 
 %files kvm
 %{_bindir}/oci-kvm
-%{_libexecdir}/oci-vmnet
+%{_libexecdir}/oci-kvm-config.sh
 %{python_sitelib}/oci_utils/kvm*
 %{_datadir}/man/man1/oci-kvm.1.gz
-%{_sysconfdir}/systemd/system/oci-vmnet.service
+%{_sysconfdir}/systemd/system/oci-kvm-config.service
 %{_prefix}/lib/systemd/system-preset/91-oci-utils.preset
 %{_datadir}/man/man1/oci-kvm.1.gz
 %config %{_sysconfdir}/oci-utils.conf.d/10-oci-kvm.conf
 
 %post kvm
-%systemd_post oci-vmnet.service
+%systemd_post oci-kvm-config.service
 
 %preun kvm
-%systemd_preun oci-vmnet.service
+%systemd_preun oci-kvm-config.service
 
 %changelog
 * Thu May 10 2018 Daniel Krasinski <daniel.krasinski@oracle.com>

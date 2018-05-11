@@ -141,17 +141,21 @@ def make_vf(name, mac):
             {'DEVICE': name,
              'MACADDR': mac,
              'NM_CONTROLLED': 'no',
-             'ONBOOT': 'no',
+             'BOOTPROTO': 'none',
+             'ONBOOT': 'yes',
              'MTU': '9000'
             }
            )
 
-def make_vlan(parent, vlan_id):
+def make_vlan(parent, vlan_id, mac):
     name = make_vlan_name(parent, vlan_id)
     return (name,
             {'DEVICE': name,
+             'MACADDR': mac,
+             'PHYSDEV': parent,
              'NM_CONTROLLED': 'no',
-             'ONBOOT': 'no',
+             'BOOTPROTO': 'none',
+             'ONBOOT': 'yes',
              'MTU': '9000',
              'VLAN': 'yes'
             }
