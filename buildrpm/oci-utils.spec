@@ -84,7 +84,7 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
-* Thu May 10 2018 Daniel Krasinski <daniel.krasinski@oracle.com>
+* Thu May 10 2018 Daniel Krasinski <daniel.krasinski@oracle.com>  --16
 - merged latest oci-kvm code into mainline version
 
 * Wed May 09 2018 Qing Lin <qing.lin@oracle.com>   --11
