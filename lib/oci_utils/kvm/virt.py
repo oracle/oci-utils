@@ -554,7 +554,7 @@ def create_networking(vf_device, vlan, mac):
            vlan_cfg[0]: vlan_cfg[1]
           }
     sysconfig.write_network_config(cfg)
-    return sysconfig.interfaces_up(cfg.keys())
+    return sysconfig.interfaces_up([vf_cfg[0], vlan_cfg[0]])
 
 def destroy_networking(vf_device, vlan):
     vf_name = sysconfig.make_vf_name(vf_device)
