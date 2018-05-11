@@ -23,6 +23,7 @@ from .. import metadata
 from . import nic
 from . import sysconfig
 from . import utils
+from . import virt_check
 
 ipcmd = '/usr/sbin/ip'
 virshcmd = '/usr/bin/virsh'
@@ -589,6 +590,10 @@ def create(name, root_disk, ip_addr, extra):
     OCI resources.  Performs sanity checks to ensure that requested
     resources actually exist and are not assigned to other domains.
     """
+    if not virt_check.validate_kvm_env():
+        _print_error("Server does not have supported environment for guest creation")
+        return 1
+
     if not validate_domain_name(name):
         _print_error("Domain name \"{}\" is already in use.".format(name))
         return 1
