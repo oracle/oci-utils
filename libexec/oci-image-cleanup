@@ -21,28 +21,29 @@ usage()
 cat <<EOF
 Usage: $0" [OPTION]
   
-  -f [y|n]
-  --force=[y|n]                No prompt for confirmation, use the value you provide as the answer.
-                               "y" for cleanup all, "n" for dry run, delete nothing.
+  -f
+  --force                      Force to cleanup all. No prompt for confirmation.
+
+  --dryrun                     dry run, no cleanup. Just show what this script can do.
+
   -r <BACKUP_DIR>
-  --restore=<BACKUP_DIR>       Restore files from BACKUP_DIR
+  --restore-dir=<BACKUP_DIR>   Restore files from BACKUP_DIR
 
   -d <BACKUP_DIR>
-  --backup-dir=<BACKUP_DIR>    Specify dir to backup deleted files.
+  --backup-dir=<BACKUP_DIR>    Specify backup dir to store deleted files.
                                Default backup dir is /opt/image-cleanup-backup.<pid>
   -c <CONFIG_FILE>
-  --config-file=<CONFIG_FILE>  Specify config file. 
+  --config-file=<CONFIG_FILE>  Specify config file as input for confirmation.
                                Sample config file is /etc/oci-utils/oci-image-cleanup.conf.
 
   -h
   --help                       print this message.
 
 This script runs a set of cleanup steps to prepare OCI OL instances for custom images
+
 WARNING!!! This script will clear ssh keys and root passwd.
-Upon execution of this script, if you choose to clear the ssh keys, you will no longer be able to login to
-this instance with your existing credentials.
-You will need to create a new custom image of this instance first and then create a new compute instance
-from that custom image to login. More info on custom images can be found here:
+Upon execution of this script, if you choose to clear the ssh keys, you will no longer be able to login to this instance with your existing credentials.
+You will need to create a new custom image of this instance first and then create a new compute instance from that custom image to login. More info on custom images can be found here:
      
 https://docs.us-phoenix-1.oraclecloud.com/Content/Compute/Tasks/managingcustomimages.htm
  
@@ -250,15 +251,14 @@ cleanup()
   # Clear bash history for opc and root users
   echo "Cleaning bash history..."
   set -o history
-  backup_and_delete "/home/opc/.bash_history" && ln -s -f /dev/null /home/opc/.bash_history
-  update_bashrc_history /home/opc
-  backup_and_delete "/root/.bash_history" && ln -s -f /dev/null /root/.bash_history
-  update_bashrc_history /root
-      
-  
+  for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
+  do
+     backup_and_delete "$user/.bash_history" && ln -s -f /dev/null $user/.bash_history
+     update_bashrc_history $user
+  done
+
   print_and_exit 0
-      
-  # El Fin
+
   }
     
 update_bashrc_history() {
@@ -272,12 +272,24 @@ update_bashrc_history() {
 }
 restore()
 {
-  backup_dir=$1
-  cd $backup_dir
-  echo  "Restoring all files from $backup_dir"
-  echo  'If file to be restored already exists, it will be restored with a ~ suffix'
-  confirm && tar -cvz .|tar --backup=simple -xvz -C /
-  
+    backup_dir=$1
+    if [ -d $1 ] && [[ $1 =~ "image-cleanup-backup" ]] ; then
+        cd $1
+        echo  "Restoring all files from $backup_dir"
+        echo  'If file to be restored already exists, it will be restored with a ~ suffix'
+        if confirm; then
+            for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
+            do
+                rm -f $user/.bash_history*
+            done
+            tar -cvz .|tar --backup=simple -xvz -C /
+         fi
+        exit 0
+    else
+        echo -e '\n' ${1} 'does not appear to be a valid backup dir\n'
+        usage
+        exit 1
+    fi
 }
   
 # Main
@@ -289,37 +301,19 @@ fi
        
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    -f)
+    -f|--force)
         FORCE=true
-        if [[ $2 =~ ^[y|Y|n|N]$ ]]; then
-            F_VALUE=$2
-            shift 2
-        else
-            echo -e '\nError: -f need a "y" or "n" after it.\n'
-            usage
-            exit 1
-        fi
+        F_VALUE=y
+        shift 1
         ;;
-    --force=*)
+    --dryrun)
+        echo "The script can do the following actions:"
+        echo "=============================================="
         FORCE=true
-        F_VALUE=${1#*=}
-        if [[ $F_VALUE =~ ^[y|Y|n|N]$ ]]; then
-            shift 1
-        else
-            echo -e '\nError: --force should equal to a "y" or "n".\n'
-            usage
-            exit 1
-        fi
+        F_VALUE=n
+        break
         ;;
-    -r)
-        if [ -d $2 ] && [[ $2 =~ "image-cleanup-backup" ]] ; then
-            restore $2; exit
-        else
-            echo -e '\n' ${2} 'does not appear to be a valid backup dir\n'
-            usage
-            exit 1
-        fi
-        ;;
+
     -c)
         if [ -f $2 ] && [ -s $2 ]; then
             source $2
@@ -341,6 +335,17 @@ while [ "$#" -gt 0 ]; do
             exit 1
         fi
         ;;
+    -r)
+        RESTORE=true
+        restore_dir=$2
+        shift 2
+        ;;
+    --restore-dir=*)
+        restore_dir="${1#*=}"
+        RESTORE=true
+        shift 1
+        ;;
+
     -d)
         if [ -d $2 ] && [ ! -z  $2 ] ;then
             BACKUP_LOC=$2/image-cleanup-backup.$$; shift 2
@@ -350,20 +355,12 @@ while [ "$#" -gt 0 ]; do
             exit 1
         fi
         ;;
-    --restore=*)
-        restore_dir="${1#*=}"
-        if [ -d $restore_dir ] && [[ $restore_dir =~ "image-cleanup-backup" ]] ; then
-            restore $restore_dir; exit
-        else
-            echo -e '\n' ${2} 'does not appear to be a valid backup dir\n'
-            usage
-            exit 1
-        fi
-        ;;
+
     --backup-dir=*)
         backup_dir="${1#*=}"
         if [ -d $backup_dir ] && [ ! -z  $backup_dir ] ;then
-            BACKUP_LOC=$backup_dir/image-cleanup-backup.$$; shift 1
+            BACKUP_LOC=$backup_dir/image-cleanup-backup.$$
+            shift 1
         else
             echo -e '\n' $backup_dir 'does not appear to be a valid backup dir\n'
             usage
@@ -379,6 +376,8 @@ while [ "$#" -gt 0 ]; do
         echo "unknown option: $1" >&2;  usage; exit 1;;
     esac
 done
- 
+
+[[ $RESTORE = true ]] && restore $restore_dir
+
 cleanup
 
