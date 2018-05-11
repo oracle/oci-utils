@@ -31,12 +31,9 @@ from oci_utils.cache import load_cache, write_cache, get_timestamp
 import oci_utils.oci_api
 from oci_utils.exceptions import OCISDKError
 from oci_utils.packages.stun import get_ip_info
-import oci_utils.nic
-import oci_utils.virt
 
 __ocid_logger = logging.getLogger('ocid')
 __log_level = logging.INFO
-__virtual_functions = 16
 
 def setup_logging(syslog=False, debug=False):
     """
@@ -98,49 +95,6 @@ def parse_args():
     except:
         pass
     return args
-
-
-def create_virtual_functions():
-    """
-    FIXME: please add description
-    """
-    interfaces = oci_utils.nic.get_interfaces()
-    for iface in interfaces:
-        # Check to see if there are more than zero existing
-        # virtual functions
-        try:
-            with open('/sys/class/net/{}/device/sriov_numvfs'.format(iface),
-                      'r') as f:
-                if 0 != int(f.read()):
-                    continue
-        except IOError:
-            # If this file cannot be accessed for any reason, assume it is not
-            # a PCI device
-            continue
-
-        # Create the virtual functions
-        with open('/sys/class/net/{}/device/sriov_numvfs'.format(iface),
-                  'w') as f:
-            f.write(str(__virtual_functions))
-
-    return 0
-
-
-def create_domain_vlans(vnics):
-    """
-    FIXME: please add description
-    """
-    if len(vnics) == 0:
-        return
-
-    domains = oci_utils.virt.get_domains_no_libvirtd()
-    domain_interfaces = {d: oci_utils.virt.get_interfaces_from_domain(
-        oci_utils.virt.get_domain_xml_no_libvirtd(d)) for d in domains}
-
-    for domain, ifaces in domain_interfaces.iteritems():
-        for mac in ifaces:
-            oci_utils.virt.construct_vlan(mac, vnics, domain_interfaces)
-
 
 class ocidThread(threading.Thread):
     def __init__(self, name, ocidfunc, context, sleeptime, repeat=True):

@@ -548,7 +548,7 @@ def get_domain_interfaces(domain):
 
 def create_networking(vf_device, vlan, mac):
     vf_cfg = sysconfig.make_vf(vf_device, mac)
-    vlan_cfg = sysconfig.make_vlan(vf_device, vlan)
+    vlan_cfg = sysconfig.make_vlan(vf_device, vlan, mac)
 
     cfg = {vf_cfg[0]: vf_cfg[1],
            vlan_cfg[0]: vlan_cfg[1]

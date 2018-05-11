@@ -21,10 +21,8 @@ import oci_utils.iscsiadm
 import oci_utils.kvm.nic
 import oci_utils.kvm.virt
 
-__logger = logging.getLogger('oci-vmnet')
+__logger = logging.getLogger('oci-upgrade')
 __log_level = logging.INFO
-
-__virtual_functions = 16
 
 def setup_logging(syslog=False):
     global __logger
@@ -53,66 +51,6 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def create_virtual_functions():
-    # Find all interfaces that support sr-iov and imbue them with virtual functions.
-    interfaces = oci_utils.kvm.nic.get_interfaces()
-    for iface in interfaces:
-        # Check to see if there are more than zero existing
-        # virtual functions
-        try:
-            with open('/sys/class/net/{}/device/sriov_numvfs'.format(iface), 'r') as f:
-                if 0 != int(f.read()):
-                    continue
-        except IOError:
-            # If this file cannot be accessed for any reason, assume it is not
-            # a PCI device
-            continue
-
-        # Create the virtual functions
-        with open('/sys/class/net/{}/device/sriov_numvfs'.format(iface), 'w') as f:
-            f.write(str(__virtual_functions))
-
-    return 0
-
-def wait_for_virtual_functions():
-    interfaces = oci_utils.kvm.nic.get_interfaces()
-
-    # Wait for all vfs to be instantiated
-    vf_map = {}
-    for iface in interfaces:
-        try:
-            with open('/sys/class/net/{}/devices/sriov_numvfs', 'r') as f:
-                vf_map[iface] = int(f.read())
-        except IOError:
-            # If it's not possible to configure the virtual functions for
-            # an interface, then it's not necessary to worry about them
-            # changing
-            continue
-
-    for iface, vfs in vf_map.iteritems():
-        while True:
-            interfaces = oci_utils.kvm.nic.get_interfaces()
-            if len(interfaces[iface]['virtfns']) == vfs:
-                # Once all vfs are present, move on to the next
-                # interface
-                break
-
-    # At this point, all vfs have been instantiated.  This does not mean that
-    # udevd has had time to apply the appropriate device names.  By default,
-    # all interfaces are going to be created as ethX and then mapped to a less
-    # useless device name.  To keep things simple while maintaining a good
-    # level of robustness, just wait for there to be no devices named 'eth' something.
-    while True:
-        dirs = os.listdir('/sys/class/net')
-        done = True
-        for d in dirs:
-            if d.startswith('eth'):
-                done = False
-                break
-        if not done:
-            time.sleep(.5)
-        else:
-            break
 
 def upgrade_v1_domains():
     vnics = oci_utils.metadata(get_public_ip=False).filter('vnics')['vnics']
@@ -154,39 +92,52 @@ def upgrade_v1_domains():
 
     oci_utils.kvm.sysconfig.write_network_config(config)
 
-def start_networking():
+def upgrade_v2_domains():
+    config = oci_utils.kvm.sysconfig.read_network_config()
     domains = oci_utils.kvm.virt.get_domains_no_libvirtd()
     domain_xml = {d: oci_utils.kvm.virt.get_domain_xml_no_libvirtd(d) for d in domains}
     domain_interfaces = {d: oci_utils.kvm.virt.get_interfaces_from_domain(domain_xml[d]) for d in domains}
 
-    # Gather all the interfaces that need to be brought up.  This includes all
-    # interfaces for defined domains and all the intermediate plumbing interfaces.
-    vlan_ifaces = []
-    for d in domains:
-        ifaces = domain_interfaces[d]
-        for i in ifaces.values():
-            try:
-                # The only interface listed in the domain is the vlan
-                # interface.  However, the interface for the VF that
-                # supports the vlan must come up as well.  The vlan
-                # interface name is <vf_name>.<tag>, so take everything
-                # before the dot.
-                vf, tag = i.split('.')
-                vlan_ifaces.append(vf)
-                vlan_ifaces.append(i)
-            except:
-                pass
+    targets = []
+    for d, ifaces in domain_interfaces.iteritems():
+        for mac, name in ifaces.iteritems():
+            targets.append(mac.lower())
+            targets.append(name)
 
-    oci_utils.kvm.sysconfig.interfaces_up(vlan_ifaces)
+    targets = set(targets)
+
+    new_config = {}
+    for name, conf in config.iteritems():
+        mac = conf.get('MACADDR', "").lower()
+        onboot = conf.get('ONBOOT', "")
+
+        # Don't muck with interfaces that are either already
+        # up to date or are controlled by another entity
+        if onboot != 'no':
+            continue
+
+        # Check if this is a macvlan interface
+        if mac in targets:
+            n, c = oci_utils.kvm.sysconfig.make_vf(name, mac)
+            new_config[n] = c
+            continue
+
+        # Check if this is a vlan interface
+        if name in targets:
+            parent, vlan_id = name.split('.')
+            n, c = oci_utils.kvm.sysconfig.make_vlan(parent, vlan_id, config[parent]['MACADDR'])
+            new_config[n] = c
+
+    oci_utils.kvm.sysconfig.write_network_config(new_config)
+
+
 
 def main(args):
     """
     Main program
     """
-    create_virtual_functions()
-    wait_for_virtual_functions()
     upgrade_v1_domains()
-    start_networking()
+    upgrade_v2_domains()
     return 0
 
 if os.geteuid() != 0:
