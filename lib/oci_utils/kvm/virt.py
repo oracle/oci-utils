@@ -18,9 +18,12 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 
-from . import lsblk
-from . import metadata
+from .. import lsblk
+from .. import metadata
 from . import nic
+from . import sysconfig
+from . import utils
+from . import virt_check
 
 ipcmd = '/usr/sbin/ip'
 virshcmd = '/usr/bin/virsh'
@@ -44,42 +47,12 @@ def _print_available_vnics(vnics):
     else:
         _print_choices("Available VNICs:", vnics)
 
-def _call(cmd, log_output=True):
-    """
-    Executes a comand and returns the exit code
-    """
-    cmd.insert(0, 'sudo')
-    try:
-        subprocess.check_call(cmd, stderr=subprocess.STDOUT)
-    except OSError as e:
-        return 404
-    except subprocess.CalledProcessError as e:
-        if log_output:
-            print "Error executing {}: {}\n{}\n".format(cmd, e.returncode, e.output)
-        return e.returncode
-    return 0
-
-def _call_output(cmd, log_output=True):
-    """
-    Executes a command and returns stdout and stderr in a single string
-    """
-    cmd.insert(0, 'sudo')
-    try:
-        return subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-    except OSError as e:
-        return 404
-    except subprocess.CalledProcessError as e:
-        if log_output:
-            print "Error execeuting {}: {}\n{}\n".format(cmd, e.returncode, e.output)
-        return None
-    return None
-
 def get_domains():
     """
     Returns the list of libvirt domain names
     """
     ret = []
-    domains = _call_output([virshcmd, 'list', '--name', '--all']).splitlines()
+    domains = utils._call_output([virshcmd, 'list', '--name', '--all']).splitlines()
 
     for d in domains:
         if len(d) > 0:
@@ -91,10 +64,10 @@ def get_domain_xml(domain):
     """
     Retrieves the XML representation of a libvirt domain as an ElementTree
     """
-    return ET.fromstring(_call_output([virshcmd, 'dumpxml', domain]))
+    return ET.fromstring(utils._call_output([virshcmd, 'dumpxml', domain]))
 
 def get_domain_state(domain):
-    r = _call_output([virshcmd, 'domstate', domain], False)
+    r = utils._call_output([virshcmd, 'domstate', domain], False)
     if not r:
         return None
     return r.strip()
@@ -121,16 +94,30 @@ def get_domain_xml_no_libvirtd(domain):
     Functions when libvirtd is not running.  If libvirtd *is* running,
     prefer get_domain_xml(domain).
     """
-    return ET.parse('/etc/libvirt/qemu/{}.xml'.format(domain))
+    try:
+        return ET.parse('/etc/libvirt/qemu/{}.xml'.format(domain))
+    except ET.ParseError:
+        return None
+
+def save_domain_xml(domain, domain_xml):
+    """
+    Writes the contents of domain_xml to the appropriate location,
+    effectively updating the definition of the domain.  It would be unwise
+    to invoked this method while libvirtd is running.
+    """
+    domain_xml.write('/etc/libvirt/qemu/{}.xml'.format(domain))
 
 def get_interfaces_from_domain(domain_xml):
     """
     From the ElementTree of a domain, return a map of all network interfaces
     with the format {mac_address: device_name}
     """
+    if domain_xml is None:
+        return {}
+
     devices = domain_xml.find('./devices')
     if devices is None:
-        return None
+        return {}
 
     ifaces = {}
     for iface in devices.findall('./interface'):
@@ -158,6 +145,27 @@ def get_disks_from_domain(domain_xml):
             pass
     return set(disks)
 
+def update_interfaces_for_domain(domain_xml, ifaces):
+    """
+    Updates the ElementTree for a domain, assigning a new interface
+    name for an interface with a particular mac address for all
+    provided interfaces.
+    """
+    devices = domain_xml.find('./devices')
+    if devices is None:
+        return
+
+    for iface in devices.findall('./interface'):
+        mac = iface.find('./mac').attrib['address']
+        new_name = ifaces.get(mac.lower())
+
+        # Skip interfaces that aren't in the changeset
+        if not new_name:
+            continue
+
+        source = iface.find('./source')
+        source.set('dev', new_name)
+
 def validate_domain_name(domain):
     """
     Checks if a domain name is already in use.  Returns False
@@ -175,7 +183,7 @@ def get_block_devices():
     path_prefix = '/dev/disk/by-path'
     ret = {}
     try:
-        dev_test = re.compile(r'/dev/[a-zA-Z]+')
+        dev_test = re.compile(r'/dev/[a-zA-Z]+$')
         for ent in os.listdir(path_prefix):
             path = '{}/{}'.format(path_prefix, ent)
             dev = os.path.abspath(os.path.join(path_prefix, os.readlink(path)))
@@ -337,6 +345,19 @@ def find_vnic_by_ip(ip_addr, vnics):
 
     return vnic
 
+def find_vnic_by_mac(mac, vnics):
+    """
+    Given a mac address and a list of vnics, find the vnic that is assigned that mac
+    """
+    vnic = None
+    for v in vnics:
+        m = v['macAddr'].lower()
+        if mac == m:
+            vnic = v
+            break
+
+    return vnic
+
 def find_domain_by_mac(mac, domain_interfaces):
     """
     Given a mac address and a collection of domains and their
@@ -355,10 +376,27 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
     re-use a virtual function if it is already assigned the appropriate mac
     address and is not in use by a domain.
     """
+    configured = sysconfig.read_network_config()
     ifaces = nic.get_interfaces()
     virtFns = ifaces[phys]['virtfns']
     vfs = {virtFns[v]['mac']: (virtFns[v]['pciId'], v) for v in virtFns}
 
+    # First, remove entries where the mac address is configured via sysconfig
+    for c in configured:
+        i = ifaces.get(c)
+        if not i:
+            continue
+        mac = i['mac']
+        if mac == "00:00:00:00:00:00":
+            # Configured interfaces with zero as a mac address are almost
+            # certainly loopback interfaces of some variety.  Not suitable
+            # for a VM to use.
+            continue
+        vf = vfs.get(mac)
+        if vf:
+            del vfs[mac]
+
+    # Next, remove entries where the mac address is already in use manually
     for d, i in domain_interfaces.iteritems():
         for mac in i:
             vf = vfs.get(mac)
@@ -463,7 +501,7 @@ def disable_spoof_check(device, vf, mac):
     """
     Turns spoofchk off for a specific virtual function
     """
-    return _call([ipcmd, 'link', 'set', device, 'vf', vf, 'mac', mac, 'spoofchk', 'off'])
+    return utils._call([ipcmd, 'link', 'set', device, 'vf', vf, 'mac', mac, 'spoofchk', 'off'])
 
 def find_vlan(domain):
     """
@@ -476,54 +514,69 @@ def find_vlan(domain):
         for v in vnics:
             if m == v['macAddr'].lower():
                 return int(v['vlanTag'])
+
     return 0
 
-def create_vlan(vf_device, vlan):
+def get_domain_interfaces(domain):
     """
-    Creates a VLAN network interface parented by a virtual function.  In addition to that,
-    sets the MTU for both interfaces to 9000, thus matching the physical interface.
+    Returns the list of all network interfaces that are assigned
+    to the provided domain.
     """
-    # Do the hokey-pokey
-    if _call([ipcmd, 'link', 'set', vf_device, 'down']):
-        return 1
-    if _call([ipcmd, 'link', 'set', vf_device, 'up']):
-        return 1
-    if _call([ipcmd, 'link', 'set', vf_device, 'down']):
-        return 1
-    if _call([ipcmd, 'link', 'set', vf_device, 'up']):
-        return 1
+    domain_ifaces = get_interfaces_from_domain(get_domain_xml(domain))
+    vnics = metadata()['vnics']
+    nics = nic.get_interfaces()
 
-    # MTU must match that of the parent device
-    if _call([ipcmd, 'link', 'set', 'dev', vf_device, 'mtu', '9000']):
-        return 1
+    ret = []
+    directly_assigned = []
+    full = []
+    for v in vnics:
+        iface = domain_ifaces.get(v['macAddr'].lower())
+        if not iface:
+            continue
 
-    # Create VLAN, make sure its MTU matches that of the hardware, and bring the whole mess up
-    if _call([ipcmd, 'link', 'add', 'link', vf_device, 'name', 'vlan{}'.format(vlan), 'type', 'vlan', 'id', str(vlan)]) != 0:
-        return 1
+        # Found an assigned interface.  This interface should be a vlan
+        # that is ultimately parented by some virtual function.  The
+        # virtual function must be returned as well.  To keep things
+        # simple, take the stupid approach and just add anything to the
+        # list that shares a mac address
+        directly_assigned.append(iface)
+        full.append(iface)
+        for i, d in nics.iteritems():
+            if d['mac'] == v['macAddr'].lower():
+                full.append(i)
 
-    if _call([ipcmd, 'link', 'set', vf_device, 'up']):
-        return 1
+    return (set(directly_assigned), set(full))
 
-    if _call([ipcmd, 'link', 'set', 'dev', 'vlan{}'.format(vlan), 'mtu', '9000']):
-        return 1
+def create_networking(vf_device, vlan, mac):
+    vf_cfg = sysconfig.make_vf(vf_device, mac)
+    vlan_cfg = sysconfig.make_vlan(vf_device, vlan, mac)
 
-    return _call([ipcmd, 'link', 'set', 'vlan{}'.format(vlan), 'up'])
+    cfg = {vf_cfg[0]: vf_cfg[1],
+           vlan_cfg[0]: vlan_cfg[1]
+          }
+    sysconfig.write_network_config(cfg)
+    return sysconfig.interfaces_up([vf_cfg[0], vlan_cfg[0]])
 
-def destroy_vlan(vlan):
+def destroy_networking(vf_device, vlan):
+    vf_name = sysconfig.make_vf_name(vf_device)
+    vlan_name = sysconfig.make_vlan_name(vf_device, vlan)
+
+    sysconfig.delete_network_config([vf_name, vlan_name])
+
+def destroy_interface(name):
     """
-    Deletes a VLAN network interface.
+    Deletes an ip link
     """
-    return _call([ipcmd, 'link', 'delete', 'vlan{}'.format(vlan)])
+    return utils._call([ipcmd, 'link', 'delete', name])
 
 def destroy_domain_vlan(domain):
     """
-    Deletes the VLAN network interface assigned to a domain
+    Deletes the virtual network infrastructure for a domain
     """
-    v = find_vlan(domain)
-    if not v:
-        return
-
-    return destroy_vlan(v)
+    ifaces, all_ifaces = get_domain_interfaces(domain)
+    sysconfig.delete_network_config(all_ifaces)
+    #for i in ifaces:
+    #    destroy_interface(i)
 
 def get_interface_by_pci_id(pci_id, interfaces):
     for i, d in interfaces.iteritems():
@@ -531,53 +584,16 @@ def get_interface_by_pci_id(pci_id, interfaces):
             return i
     return None
 
-def construct_vlan(mac, vnics, domain_interfaces):
-    interfaces = nic.get_interfaces()
-    mac = mac.lower()
-
-    # First find the vnic that has this mac address
-    vnic = None
-    for v in vnics:
-        if v['macAddr'].lower() == mac:
-            vnic = v
-            break
-    if not vnic:
-        return False
-
-    # Make sure a vlan doesn't already exist with the appropriate
-    # mac and name
-    vlanName = 'vlan{}'.format(str(vnic['vlanTag']))
-    for i, d in interfaces.iteritems():
-        if i == vlanName and mac == d['mac']:
-            return True
-
-    # Find the physical nic that the vnic is attached to
-    physNic = get_phys_by_index(vnic, vnics, nic.get_interfaces())
-
-    # Find a free vf to use
-    vf_pci_id, vf_num = find_unassigned_vf_by_phys(physNic, domain_interfaces, mac)
-    if vf_pci_id is None:
-        # This shouldn't ever happen.  There are always at least as many virtual
-        # functions as there are potential creatable vnics.
-        _print_error("Could not find an unassigned virtual function on {}." +
-                     "  Try using a VNIC on an alternate physical interface.",
-                     physNic)
-        return False
-
-    # Disable spoof check
-    if disable_spoof_check(physNic, str(vf_num), mac):
-        return False
-
-    # Create the vlan
-    vfDev = get_interface_by_pci_id(vf_pci_id, interfaces)
-    return create_vlan(vfDev, str(vnic['vlanTag']))
-
 def create(name, root_disk, ip_addr, extra):
     """
     Creates a libvirt domain with the appropriate configuration and
     OCI resources.  Performs sanity checks to ensure that requested
     resources actually exist and are not assigned to other domains.
     """
+    if not virt_check.validate_kvm_env():
+        _print_error("Server does not have supported environment for guest creation")
+        return 1
+
     if not validate_domain_name(name):
         _print_error("Domain name \"{}\" is already in use.".format(name))
         return 1
@@ -597,7 +613,7 @@ def create(name, root_disk, ip_addr, extra):
     if not ip_addr:
         try:
             ip_addr = free_vnics.pop()
-        except OSError:
+        except KeyError:
             _print_available_vnics(free_vnics)
             return 1
         else:
@@ -607,13 +623,9 @@ def create(name, root_disk, ip_addr, extra):
     if not vnic:
         return 1
 
-    physNic = get_phys_by_index(vnic, vnics, interfaces)
-
-    if disable_spoof_check(physNic, str(vf_num), vnic['macAddr']):
-        return 1
-
     vfDev = get_interface_by_pci_id(vf, interfaces)
-    if create_vlan(vfDev, str(vnic['vlanTag'])):
+    if not create_networking(vfDev, vnic['vlanTag'], vnic['macAddr']):
+        destroy_networking(vfDev, vnic['vlanTag'])
         return 1
 
     args = ['sudo', '/usr/bin/virt-install',
@@ -621,7 +633,7 @@ def create(name, root_disk, ip_addr, extra):
             '--name', name,
             '--cpu', 'host',
             '--disk', root_disk,
-            '--network', 'type=direct,source=vlan{},source_mode=passthrough,mac={},model=e1000'.format(vnic['vlanTag'], vnic['macAddr'])] + extra
+            '--network', 'type=direct,source={}.{},source_mode=passthrough,mac={},model=e1000'.format(vfDev, vnic['vlanTag'], vnic['macAddr'])] + extra
 
     if '--console' in extra:
         args.append('--noautoconsole')
@@ -637,7 +649,7 @@ def create(name, root_disk, ip_addr, extra):
             break
 
     if virt_install.returncode is not None and virt_install.returncode != 0:
-        destroy_vlan(str(vnic['vlanTag']))
+        destroy_networking(vfDev, vnic['vlanTag'])
         return 1
 
     return 0
@@ -660,4 +672,5 @@ def destroy(name):
         return 1
 
     destroy_domain_vlan(name)
+
     return subprocess.call(['sudo', '/usr/bin/virsh', 'undefine', name])

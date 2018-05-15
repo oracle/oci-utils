@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.6
-Release: 11%{?dist}
+Release: 16%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -8,9 +8,11 @@ Group: Development/Tools
 Source: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
+%{?systemd_requires}
 
 BuildArch: noarch
 
+BuildRequires: systemd
 BuildRequires: python2-devel
 BuildRequires: python-setuptools
 Requires: python2
@@ -46,12 +48,17 @@ mkdir -p %{buildroot}%{_localstatedir}/lib/oci-utils
 rm -rf %{buildroot}
 
 %files
+%exclude %dir %{python_sitelib}/oci_utils/kvm
+%exclude %{python_sitelib}/oci_utils/kvm/*
+%exclude %{_bindir}/oci-kvm
+%exclude %{_datadir}/man/man1/oci-kvm.1.gz
 %defattr(-,root,root)
 %{python_sitelib}/oci_utils*
 %{_bindir}/oci-*
 %exclude %{_bindir}/oci-kvm
 %{_libexecdir}/
 %{_sysconfdir}/systemd/system/ocid.service
+%{_prefix}/lib/systemd/system-preset/91-oci-utils.preset
 %dir %attr(0755,root,root) %{_sysconfdir}/oci-utils.conf.d
 %config %{_sysconfdir}/oci-utils.conf.d/00-oci-utils.conf
 %dir %attr(0755,root,root) %{_sysconfdir}/oci-utils
@@ -63,11 +70,25 @@ rm -rf %{buildroot}
 
 %files kvm
 %{_bindir}/oci-kvm
+%{_libexecdir}/oci-kvm-config.sh
+%{python_sitelib}/oci_utils/kvm*
+%{_datadir}/man/man1/oci-kvm.1.gz
+%{_sysconfdir}/systemd/system/oci-kvm-config.service
+%{_prefix}/lib/systemd/system-preset/91-oci-kvm.preset
 %{_datadir}/man/man1/oci-kvm.1.gz
 %config %{_sysconfdir}/oci-utils.conf.d/10-oci-kvm.conf
 
+%post kvm
+%systemd_post oci-kvm-config.service
+
+%preun kvm
+%systemd_preun oci-kvm-config.service
+
 %changelog
-* Thu May 10 2018 Qing Lin <qing.lin@oracle.com>   --11
+* Thu May 10 2018 Daniel Krasinski <daniel.krasinski@oracle.com>  --16
+- merged latest oci-kvm code into mainline version
+
+* Wed May 09 2018 Qing Lin <qing.lin@oracle.com>   --11
 - move the oci-image-cleanup.conf to /etc/oci-utils/.
 
 * Thu May 03 2018 Qing Lin <qing.lin@oracle.com>   --8
@@ -87,6 +108,12 @@ rm -rf %{buildroot}
 
 * Tue Apr 17 2018 Laszlo (Laca) Peter <laszlo.peter@oracle.com>
 - added oci-utils-kvm package
+
+* Fri Mar 23 2018 Daniel Krasinski <daniel.krasinski@oracle.com>
+- migrated kvm-specific features into oci-utils-kvm
+
+* Wed Mar  7 2018 Daniel Krasinski <daniel.krasinski@oracle.com>
+- added empty oci-utils-kvm package to facilitate splitting oci-kvm from oci-utils
 
 * Fri Oct  6 2017 Laszlo (Laca) Peter <laszlo.peter@oracle.com>
 - initial spec file for oci-utils

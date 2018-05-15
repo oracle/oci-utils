@@ -1,0 +1,18 @@
+[Unit]
+Description=Oracle Cloud Infrastructure virtual machine setup
+Requires=ocid.service
+Requires=network.service
+After=ocid.service
+After=network.service
+Before=libvirtd.service
+
+[Service]
+ExecStart=/usr/libexec/oci-vmnet
+Type=oneshot
+Restart=no
+StandardOutput=syslog
+StandardError=syslog
+
+[Install]
+WantedBy=multi-user.target
+RequiredBy=libvirtd.service
