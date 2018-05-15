@@ -67,7 +67,7 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/oci-utils.conf.d/10-oci-kvm.conf
 
 %changelog
-* Thu May 09 2018 Qing Lin <qing.lin@oracle.com>   --11
+* Thu May 10 2018 Qing Lin <qing.lin@oracle.com>   --11
 - move the oci-image-cleanup.conf to /etc/oci-utils/.
 
 * Thu May 03 2018 Qing Lin <qing.lin@oracle.com>   --8
