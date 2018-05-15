@@ -327,7 +327,7 @@ def iscsi_func(context):
                 all_iqns[v.get_portal_ip()] = [v.get_iqn()]
     else:
         # fall back to scanning
-        for r in range(20):
+        for r in range(33):
             ipaddr = "169.254.2.%d" % (r+1)
             iqns = oci_utils.iscsiadm.discovery(ipaddr)
             all_iqns[ipaddr] = iqns
