@@ -5,9 +5,23 @@
 # Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 
-defaultNumVFs=16
 defaultMTU=9000
 defaultMaxWait=240
+
+# To get the default number of VFs we use the number of CPU siblings which
+# corresponds to the BM model
+#   BM.Standard1.36 have 36 siblings: 1 + 35 = 36 total allowable vNics
+#   BM.Standard1.52 have 52 siblings: 2 + 25 = 52 total allowable vNics
+#   (NOTE: Above is PhysicalNics + vNics)
+# Since we do not support assigning the vNic on the physical Nic to guests
+# the number of VFs end up being 35 on 1.36 and 50 on 2.52
+declare -i siblings=$(head -11 /proc/cpuinfo \
+                      | grep 'siblings' \
+                      | awk -F: '{print $2}' \
+                      | sed 's/ //g')
+defaultNumVFs=$((siblings - 1))
+((siblings > 36)) && defaultNumVFs=$((siblings / 2 - 1))
+[[ -z "${defaultNumVFs}" ]] && defaultNumVFs=16
 
 declare -i numVFs=${NUM_VFS:-${defaultNumVFs}}
 ((numVFs == 0)) && numVFs=${defaultNumVFs}
