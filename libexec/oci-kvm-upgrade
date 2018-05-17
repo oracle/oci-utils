@@ -17,7 +17,6 @@ import argparse
 import logging
 from logging.handlers import SysLogHandler
 import oci_utils
-import oci_utils.iscsiadm
 import oci_utils.kvm.nic
 import oci_utils.kvm.virt
 
@@ -50,47 +49,6 @@ def parse_args():
 
     args = parser.parse_args()
     return args
-
-
-def upgrade_v1_domains():
-    vnics = oci_utils.metadata(get_public_ip=False).filter('vnics')['vnics']
-    nics = oci_utils.kvm.nic.get_interfaces()
-    domains = oci_utils.kvm.virt.get_domains_no_libvirtd()
-    domain_xml = {d: oci_utils.kvm.virt.get_domain_xml_no_libvirtd(d) for d in domains}
-    domain_interfaces = {d: oci_utils.kvm.virt.get_interfaces_from_domain(domain_xml[d]) for d in domains}
-
-    # Find all domains that still use the v1.0 networking model and naming standard.
-    # These domains need to be modified to use the v1.1 naming convention, and the supporting
-    # network configuration must be written and brought up.
-    config = {}
-    for domain, ifaces in domain_interfaces.iteritems():
-        interface_updates = {}
-        for mac, name in ifaces.iteritems():
-            if not name.startswith('vlan'):
-                continue
-
-            # Find a free vf to assign
-            vnic = oci_utils.kvm.virt.find_vnic_by_mac(mac, vnics)
-            phys_nic = oci_utils.kvm.virt.get_phys_by_index(vnic, vnics, nics)
-            vf_pci_id, vf_num = oci_utils.kvm.virt.find_unassigned_vf_by_phys(phys_nic, domain_interfaces, mac)
-            vf_dev = oci_utils.kvm.virt.get_interface_by_pci_id(vf_pci_id, nics)
-
-            vf_cfg = oci_utils.kvm.sysconfig.make_vf(vf_dev, mac)
-            vlan_cfg = oci_utils.kvm.sysconfig.make_vlan(vf_dev, vnic['vlanTag'])
-
-            # Collect this configuration to write to the filesystem after the loop
-            config[vf_cfg[0]] = vf_cfg[1]
-            config[vlan_cfg[0]] = vlan_cfg[1]
-
-            # Cache the new interface name.  These changes are applied
-            # after this loop
-            interface_updates[mac] = vlan_cfg[0]
-
-        if len(interface_updates) > 0:
-            oci_utils.kvm.virt.update_interfaces_for_domain(domain_xml[domain], interface_updates)
-            oci_utils.kvm.virt.save_domain_xml(domain, domain_xml[domain])
-
-    oci_utils.kvm.sysconfig.write_network_config(config)
 
 def upgrade_v2_domains():
     config = oci_utils.kvm.sysconfig.read_network_config()
@@ -139,7 +97,6 @@ def main(args):
     """
     Main program
     """
-    upgrade_v1_domains()
     upgrade_v2_domains()
     return 0
 
@@ -148,8 +105,6 @@ if os.geteuid() != 0:
     sys.exit(1)
 
 args = parse_args()
-
-oci_utils.iscsiadm.set_logger(__logger)
 
 if args.debug:
     __log_level = logging.DEBUG
