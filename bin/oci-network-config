@@ -110,6 +110,35 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+def get_oci_api_session(opt_name=None, require=True):
+    """
+    Ensure the OCI SDK is available and return an OCISession or exit(1)
+    """
+    sess = None
+    sdk_error = ""
+    if oci_utils.oci_api.HAVE_OCI_SDK:
+        try:
+            sess = oci_utils.oci_api.OCISession()
+        except Exception as e:
+            sdk_error = str(e)
+            msg_debug("Failed to access OCI services: %s\n" % e)
+    if sess is None:
+        if not require:
+            return None
+        if opt_name is not None:
+            msg_error("To use the %s option, you need to "
+                      "install and configure the OCI Python SDK "
+                      "(python-oci-sdk)\n" % opt_name)
+            if sdk_error:
+                msg_error(sdk_error)
+        else:
+            if sdk_error:
+                msg_error("Failed to access OCI services: %s" % sdk_error)
+            else:
+                msg_error("Failed to access OCI services.")
+        sys.exit(1)
+
+    return sess
 
 def api_show_network_config():
     '''
@@ -117,12 +146,7 @@ def api_show_network_config():
     information obtained through OCI API calls, if the OCI SDK is
     configured.
     '''
-    sess = None
-    if oci_utils.oci_api.HAVE_OCI_SDK:
-        try:
-            sess = oci_utils.oci_api.OCISession()
-        except Exception as e:
-            msg_debug("Failed to access OCI services: %s\n" % e)
+    sess = get_oci_api_session(require=False)
     if sess is None:
         return
     inst = sess.this_instance()
@@ -187,17 +211,7 @@ def do_detach_vnic(args, vnic_utils):
     Detach and delete the VNIC with the given ocid or primary ip address
     '''
     # needs the OCI SDK installed and configured
-    sess = None
-    if oci_utils.oci_api.HAVE_OCI_SDK:
-        try:
-            sess = oci_utils.oci_api.OCISession()
-        except Exception as e:
-            msg_debug("Failed to access OCI services: %s\n" % e)
-    if sess is None:
-        msg_error("To use the --detach-vnic option, you need to "
-                  "install and configure the OCI Python SDK "
-                  "(python-oci-sdk)\n")
-        sys.exit(1)
+    sess = get_oci_api_session(opt_name="--detach-vnic")
     vnics = sess.this_instance().all_vnics()
     for vnic in vnics:
         if vnic.get_ocid() == args.detach_vnic or \
@@ -214,18 +228,7 @@ def do_create_vnic(args):
     create and attach a VNIC to this instance
     '''
     # needs the OCI SDK installed and configured
-    sess = None
-    if oci_utils.oci_api.HAVE_OCI_SDK:
-        try:
-            sess = oci_utils.oci_api.OCISession()
-        except Exception as e:
-            msg_debug("Failed to access OCI services: %s\n" % e)
-    if sess is None:
-        msg_error("To use the --create-vnic option, you need to "
-                  "install and configure the OCI Python SDK "
-                  "(python-oci-sdk)\n")
-        sys.exit(1)
-
+    sess = get_oci_api_session(opt_name="--create-vnic")
     subnet_id = None
     vnic = None
     if args.subnet:
@@ -271,17 +274,7 @@ def do_add_private_ip(vnic_utils, args):
     Return (private_IP,vnic_ocid) for the new IP
     '''
     # needs the OCI SDK installed and configured
-    sess = None
-    if oci_utils.oci_api.HAVE_OCI_SDK:
-        try:
-            sess = oci_utils.oci_api.OCISession()
-        except Exception as e:
-            msg_debug("Failed to access OCI services: %s\n" % e)
-    if sess is None:
-        msg_error("To use the --add-private-ip option, you need to "
-                  "install and configure the OCI Python SDK "
-                  "(python-oci-sdk)\n")
-        sys.exit(1)
+    sess = get_oci_api_session(opt_name="--add-private-ip")
 
     vnic_id = None
     vnic = None
@@ -323,17 +316,7 @@ def do_del_private_ip(vnic_utils, args):
     Delete a secondary private IP
     '''
     # needs the OCI SDK installed and configured
-    sess = None
-    if oci_utils.oci_api.HAVE_OCI_SDK:
-        try:
-            sess = oci_utils.oci_api.OCISession()
-        except Exception as e:
-            msg_debug("Failed to access OCI services: %s\n" % e)
-    if sess is None:
-        msg_error("To use the --del-private-ip option, you need to "
-                  "install and configure the OCI Python SDK "
-                  "(python-oci-sdk)\n")
-        sys.exit(1)
+    sess = get_oci_api_session(opt_name="--del-private-ip")
     # find the private IP
     priv_ip = sess.this_instance().find_private_ip(args.del_private_ip)
     if priv_ip is None:

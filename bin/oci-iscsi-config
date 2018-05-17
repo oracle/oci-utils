@@ -574,13 +574,15 @@ def main():
     '''
 
     global USE_OCI_SDK
+    oci_sdk_error = None
 
     args = parse_args()
     if oci_utils.oci_api.HAVE_OCI_SDK:
         try:
             oci_sess = oci_utils.oci_api.OCISession(debug=args.debug)
             USE_OCI_SDK=True
-        except:
+        except Exception as e:
+            oci_sdk_error=str(e)
             if args.debug:
                 raise
 
@@ -613,6 +615,9 @@ def main():
             sys.stderr.write("You need to install and configure the "
                              "OCI Python SDK (python-oci-sdk) to use "
                              "the --create-volume option\n")
+            if oci_sdk_error is not None:
+                sys.stderr.write("OCI SDK error:\n")
+                sys.stderr.write(oci_sdk_error)
             sys.exit(1)
 
         if args.create_volume < 50:
@@ -632,6 +637,8 @@ def main():
             sys.stderr.write("You need to install and configure the "
                              "OCI Python SDK (python-oci-sdk) to use "
                              "the --destroy-volume option\n")
+            if oci_sdk_error is not None:
+                sys.stderr.write("OCI SDK error: %s\n" % oci_sdk_error)
             sys.exit(1)
         retval = do_destroy_volume(args.destroy_volume, args.interactive)
         if args.show:

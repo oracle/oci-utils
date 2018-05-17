@@ -75,7 +75,6 @@ rm -rf %{buildroot}
 %{_datadir}/man/man1/oci-kvm.1.gz
 %{_sysconfdir}/systemd/system/oci-kvm-config.service
 %{_prefix}/lib/systemd/system-preset/91-oci-kvm.preset
-%{_datadir}/man/man1/oci-kvm.1.gz
 %config %{_sysconfdir}/oci-utils.conf.d/10-oci-kvm.conf
 
 %post kvm

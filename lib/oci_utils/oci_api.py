@@ -103,6 +103,7 @@ class OCISession(object):
         self.oci_config = {}
         self.signer = None
         self.auth_method = auth_method
+        self.auth_status = ""
         try:
             # see if auth_method was set in oci-utils.conf
             self.auth_method = self.oci_utils_config.get('auth',
@@ -116,6 +117,8 @@ class OCISession(object):
         else:
             self.auth_method = self._get_auth_method(auth_method)
         if self.auth_method == NONE:
+            if self.auth_status:
+                raise OCISDKError(self.auth_status)
             raise OCISDKError('Failed to authenticate with the OCI service')
         self.tenancy_ocid = None
         if 'tenancy' in self.oci_config :
@@ -165,8 +168,7 @@ class OCISession(object):
             except oci_sdk.exceptions.ConfigFileNotFound as e:
                 raise OCISDKError("Unable to read OCI config file: %s" % e)
         else:
-            raise OCISDKError("Config file %s not found, please configure" \
-                              " OCI." % fname)
+            raise OCISDKError("Config file %s not found" % full_fname)
 
     def set_sdk_call_timeout(timeout):
         if int(timeout) < 0:
@@ -258,11 +260,13 @@ class OCISession(object):
         Use the auth helper to get config settings and keys
         Return True for success, False for failure
         """
+        sdk_user = self.oci_utils_config.get('auth', 'oci_sdk_user')
         try:
-            proxy = OCIAuthProxy(self.oci_utils_config.get('auth',
-                                                           'oci_sdk_user'))
+            proxy = OCIAuthProxy(sdk_user)
             self.oci_config = proxy.get_config()
         except Exception as e:
+            self.auth_status += "Authentication as user %s failed: %s\n" \
+                                % (sdk_user, e)
             self.logger.debug('Proxy auth failed: %s' % e)
             return False
         try:
@@ -270,20 +274,26 @@ class OCISession(object):
                 oci_sdk.identity.IdentityClient,
                 self.oci_config)
         except Exception as e:
+            self.auth_status += "Cannot create identity client as user %s\n" \
+                                % sdk_user
             self.logger.debug('ID client with proxy auth failed: %s' % e)
             return False
+        self.auth_status += "Authentication as user %s succeeded\n" % sdk_user
         return True
         
     def _direct_authenticate(self):
         """
         Authenticate with the OCI SDK.
         Return True for success, False for failure
+        Raises an exception when it appears to work but API calls fail
+        (indicates misconfiguration)
         """
         # raises OCISDKError
         try:
             self.oci_config = self._read_oci_config(fname=self.config_file,
                                                     profile=self.config_profile)
         except Exception as e:
+            self.auth_status += "Config file authentication failed: %s\n" % e
             self.logger.debug('Cannot read oci config file: %s' % e)
             return False
 
@@ -292,9 +302,20 @@ class OCISession(object):
                 oci_sdk.identity.IdentityClient,
                 self.oci_config)
         except Exception as e:
+            self.auth_status += "Cannot create identity client: %s\n" % e
             self.logger.debug('Direct auth failed: %s' % e)
             return False
 
+        # test that it works
+        try:
+            inst_id = self.metadata['instance']['id']
+            cc = self.get_compute_client()
+            inst = self.sdk_call(cc.get_instance, instance_id=inst_id)
+        except oci_sdk.exceptions.ServiceError as e:
+            self.auth_status += "Cannot make OCI API calls: %s\n" % e
+            raise OCISDKError('Cannot make OCI API calls: %s' % e.message)
+
+        self.auth_status += "Config file (direct) authentication succeeded\n"
         return True
 
     def _ip_authenticate(self):
@@ -310,11 +331,13 @@ class OCISession(object):
         try:
             inst = self.this_instance()
         except Exception as e:
+            self.auth_status += "Instance Principals authentication: %s\n" % e
             self.logger.debug('IP auth failed: %s' % e)
             # reset compute client set by this_instance()
             self.compute_client = None
             return False
         if inst is not None:
+            self.auth_status += "Instance Principals (IP) authentication succeeded\n"
             return True
         
         return False
