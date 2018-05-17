@@ -107,6 +107,7 @@ def upgrade_v2_domains():
     targets = set(targets)
 
     new_config = {}
+    to_remove = []
     for name, conf in config.iteritems():
         mac = conf.get('MACADDR', "").lower()
         onboot = conf.get('ONBOOT', "")
@@ -120,6 +121,7 @@ def upgrade_v2_domains():
         if mac in targets:
             n, c = oci_utils.kvm.sysconfig.make_vf(name, mac)
             new_config[n] = c
+            to_remove.append(name)
             continue
 
         # Check if this is a vlan interface
@@ -127,9 +129,10 @@ def upgrade_v2_domains():
             parent, vlan_id = name.split('.')
             n, c = oci_utils.kvm.sysconfig.make_vlan(parent, vlan_id, config[parent]['MACADDR'])
             new_config[n] = c
+            to_remove.append(name)
 
     oci_utils.kvm.sysconfig.write_network_config(new_config)
-
+    oci_utils.kvm.sysconfig.delete_network_config(to_remove)
 
 
 def main(args):

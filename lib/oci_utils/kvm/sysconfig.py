@@ -137,7 +137,7 @@ def make_vlan_name(parent, vlan_id):
 
 def make_vf(name, mac):
     name = make_vf_name(name)
-    return (name,
+    return ('vm-{}'.format(name),
             {'DEVICE': name,
              'MACADDR': mac,
              'NM_CONTROLLED': 'no',
@@ -149,7 +149,7 @@ def make_vf(name, mac):
 
 def make_vlan(parent, vlan_id, mac):
     name = make_vlan_name(parent, vlan_id)
-    return (name,
+    return ('vm-{}'.format(name),
             {'DEVICE': name,
              'MACADDR': mac,
              'PHYSDEV': parent,
