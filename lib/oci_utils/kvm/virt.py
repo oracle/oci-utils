@@ -558,8 +558,11 @@ def create_networking(vf_device, vlan, mac):
     return sysconfig.interfaces_up([vf_cfg[0], vlan_cfg[0]])
 
 def destroy_networking(vf_device, vlan):
-    vf_name = sysconfig.make_vf_name(vf_device)
-    vlan_name = sysconfig.make_vlan_name(vf_device, vlan)
+    # These configs are created just to harvest the interface
+    # name.  The config itself is not relevant, and neither is
+    # the final argument as that is the mac address.
+    vf_name = sysconfig.make_vf(vf_device, '')[0]
+    vlan_name = sysconfig.make_vlan(vf_device, vlan, '')[0]
 
     sysconfig.delete_network_config([vf_name, vlan_name])
 
