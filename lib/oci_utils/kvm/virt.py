@@ -574,9 +574,14 @@ def destroy_domain_vlan(domain):
     Deletes the virtual network infrastructure for a domain
     """
     ifaces, all_ifaces = get_domain_interfaces(domain)
-    sysconfig.delete_network_config(all_ifaces)
-    #for i in ifaces:
-    #    destroy_interface(i)
+
+    to_del = []
+    conf = sysconfig.read_network_config()
+    for n, c in conf.iteritems():
+        if c.get('DEVICE', '') in all_ifaces:
+            to_del.append(n)
+
+    sysconfig.delete_network_config(to_del)
 
 def get_interface_by_pci_id(pci_id, interfaces):
     for i, d in interfaces.iteritems():
