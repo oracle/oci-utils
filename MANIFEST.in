@@ -14,5 +14,6 @@ include data/00-oci-utils.conf
 include data/10-oci-kvm.conf
 include data/91-oci-kvm.preset
 include data/91-oci-utils.preset
+include data/oci-image-cleanup.conf
 include buildrpm/*.spec
 include man/man?/*.[158]

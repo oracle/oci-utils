@@ -5,7 +5,14 @@
   
 # Globals
 FORCE=false
-BACKUP_LOC=/opt/image-cleanup-backup.$$
+DRYRUN=false
+DEBUG=true
+dateTime=`date '+%Y-%m-%d:%H:%M'`
+BACKUP_LOC=/opt/image-cleanup-backup.$dateTime
+PLANFILE=/opt/image-cleanup-plan
+LOGFILE=/opt/image-cleanup-log.$dateTime
+CONFLOG=/opt/image-cleanup.conf
+
 
 #cleanup configs
 CLEAN_ETC_HOSTS=
@@ -22,9 +29,10 @@ cat <<EOF
 Usage: $0" [OPTION]
   
   -f
-  --force                      Force to cleanup all. No prompt for confirmation.
+  --force                      Force to cleanup or recovery. No prompt for confirmation.
+			       If config parameter is not set to no, it will force to delete. 
 
-  --dryrun                     dry run, no cleanup. Just show what this script can do.
+  --dryrun                     dry run, no cleanup or restore. Just show what the command with options can do.
 
   -r <BACKUP_DIR>
   --restore-dir=<BACKUP_DIR>   Restore files from BACKUP_DIR
@@ -53,14 +61,15 @@ EOF
 # Prompt for action confirmation
 confirm()
 {
+    [ $# -eq 1 ] && input=$1 || input=
+
     while true
     do
         if [[ $FORCE = true ]]; then
-            [[ $F_VALUE =~ ^[y|Y] ]] && return 0
-            [[ $F_VALUE =~ ^[n|N] ]] && return 1
+            [[ "$input" =~ ^[nN] ]] && return 1 || return 0
         fi
-        [ $# -eq 1 ] && input=$1 ||read -r -p "Confirm? [y/n]: " input
-     
+
+        [ -z "$input" ] &&  read -r -p "Confirm? [y/n]: " input
         case $input in
             [yY][eE][sS]|[yY])
                 return 0;;
@@ -68,196 +77,249 @@ confirm()
             [nN][oO]|[nN])
                 return 1;;
             *)
+		input=
         esac
     done
 }
 
+clean_and_abort()
+{
+    echo -e '\n*******************************************'
+    echo "Action aborted!"
+    [ `cat $PLANFILE | wc -l` -le 2 ] && rm -f  $LOGFILE && exit 1
+    echo "Please check $PLANFILE for what you want to do."
+    echo "and check $LOGFILE for what you have done."
+    stty echo 
+    exit 1
+}
+
 print_and_exit()
 {
-  if [ $1 -eq 0 ]; then
-    echo -e '\n*********************************************************************************************************************************'
-    echo "Cleanup finished. All deleted files backed up at $BACKUP_LOC . Please review and delete at your own descretion"
-    echo "In cause you change your mind, you can restore the cleaned up files by running: $0 -r $BACKUP_LOC"
-  else
-    echo -e '\n*********************************************************************************************************************************'
-    echo "WARNING!!! Script may not have run completely. All deleted files backed up at $BACKUP_LOC ."
-    echo "To restore the cleaned up files run: $0 -r $BACKUP_LOC"
-  fi
-  exit $1
+    echo -e '\n********************************************'
+    [[ $RESTORE = true ]] && echo "Restore is done from $restore_dir"  || echo "Cleanup is done. All deleted files are stored in $BACKUP_LOC"
+    echo "Please check $PLANFILE for what you want to do."
+    echo "and check $LOGFILE for what you have done."
+    stty echo 
+    exit 0
 }
   
 backup_and_delete()
 {
   if [ $# != 1 ]; then
-    print_and_exit 1
+     echo "Internal Error: need one parameter only ($@). Abort."
+     exit 1
   fi
   backup_item=$1
-  echo -n "Clearing $backup_item..."
-  backup_dir=$(dirname $1|head -1)
-  [ ! -d $BACKUP_LOC/$backup_dir ] && mkdir -p $BACKUP_LOC/$backup_dir &>/dev/null
-  mv $backup_item $BACKUP_LOC/$backup_dir/ &>/dev/null
-  echo "Done!"
+  plan echo -n "=== Clearing $backup_item..."
+  backup_dir=$(dirname "$1"|head -1)
+  [ ! -d $BACKUP_LOC/$backup_dir ] && plan mkdir -p $BACKUP_LOC/$backup_dir 
+  plan "mv -f $backup_item $BACKUP_LOC/$backup_dir/ >>$LOGFILE 2>&1"
+  plan 'echo " Done!"'
 }
   
+print_agreement(){
+   echo -e "#This is what you want me to do:"
+   echo -e "#---------------------------------
+CLEAN_ETC_HOSTS=$CLEAN_ETC_HOSTS
+CLEAN_NET_CONFIG_FILES=$CLEAN_NET_CONFIG_FILES
+CLEAN_HOST_SSH_KEYS=$CLEAN_HOST_SSH_KEYS
+CLEAN_ROOT_PASSWD=$CLEAN_ROOT_PASSWD
+CLEAN_USER_SSH_KEYS=$CLEAN_USER_SSH_KEYS
+CLEAN_HISTORY_DATA_LOG=$CLEAN_HISTORY_DATA_LOG
+#-------------------------------------
+"
+}
+
 warn()
 {
-  echo -e "WARNING!!! This script will clear ssh keys and root passwd.
-This means you will no longer be able to login to this instance.
-Run: $(basename "$0") -h or man $(basename "$0") for more info"
-      
+    [[ $FORCE == true ]] || [[ $RESTORE == true ]] && return 0
+    
+    if grep "=YES" $CONFLOG |grep -E "_SSH_|_ROOT_" &>/dev/null; then 
+        echo -e "\n\nWARNING!!! 
+You will NOT be able to login to this instance if ssh keys and root passwd get removed!!!
+However, you can restore the information by running 
+    $0 -r $BACKUP_LOC
+for more information, run
+    $(basename "$0") -h or man $(basename "$0")
+"
+    fi
   read -n 1 -s -r -p "Press any key to continue. Or Ctrl + c to exit"
 }
   
 mk_backup_dir()
 {
   # Create backup dir
-  mkdir -p $BACKUP_LOC &>/dev/null
-  if [ $? -ne 0 ]; then
-    echo "Unable to create backup folder $BACKUP_LOC . Exiting"
-    exit 1
-  fi
+  plan "mkdir -p $BACKUP_LOC || (echo \"Unable to create backup folder $BACKUP_LOC . Exiting\" && exit 1)"
 }
     
   
 cleanup()
 {
-  [[ $FORCE == true ]] || warn
   mk_backup_dir
-  trap 'print_and_exit 1' SIGINT
-  echo -e "\n\nPreparing instance for OCI custom image. All deleted files will be backed up at $BACKUP_LOC"
+
   # Cleanup network config files
-  echo "Deleting network config files... "
+  echo -e "\n\nDeleting network config files... "
   for file in `find /etc/sysconfig/network-scripts/ -name "ifcfg-*" -not -name ifcfg-lo` ; do
-      confirm $CLEAN_NET_CONFIG_FILES && backup_and_delete $file
+      echo -e "Deleting $file... "
+      if confirm $CLEAN_NET_CONFIG_FILES; then 
+          CLEAN_NET_CONFIG_FILES=YES 
+          backup_and_delete $file
+      else
+          CLEAN_NET_CONFIG_FILES=NO 
+      fi
   done
          
   # clear /etc/hosts
-  echo "Deleting the contents of /etc/hosts and /etc/resolv.conf... "
-  confirm $CLEAN_ETC_HOSTS
+  echo -e "\nDeleting /etc/hosts and /etc/resolv.conf... "
+  confirm $CLEAN_ETC_HOSTS 
   if [ $? -eq 0 ]; then
-  backup_and_delete "/etc/hosts"
-  echo -e "127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
-  ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6" > /etc/hosts
-  # Scrub Resolv.conf
-  echo "Scrubbing /etc/resolv.conf..."
-  backup_and_delete "/etc/resolv.conf"
-  :> /etc/resolv.conf
+    CLEAN_ETC_HOSTS=YES
+    backup_and_delete "/etc/hosts"
+    plan 'echo -e "127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6" > /etc/hosts'
+    # Scrub Resolv.conf
+    plan chattr -ai /etc/resolv.conf
+    backup_and_delete "/etc/resolv.conf"
+    plan ':> /etc/resolv.conf'
+  else
+     CLEAN_ETC_HOSTS=NO
   fi
        
   # clear ssh keys
-  echo "Deleting SSH host keys in /etc/ssh/ ...."
-  confirm $CLEAN_HOST_SSH_KEYS && backup_and_delete "/etc/ssh/ssh_host*"
+  echo -e "\nDeleting SSH host keys in /etc/ssh/ ...."
+  confirm $CLEAN_HOST_SSH_KEYS 
+  if [ $? -eq 0 ]; then  
+	CLEAN_HOST_SSH_KEYS=YES 
+        backup_and_delete "/etc/ssh/ssh_host*" 
+   else
+	CLEAN_HOST_SSH_KEYS=NO
+   fi
   for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
   do
-      [ -d $user/.ssh ] &&  echo "Deleting SSH keys in $user/.ssh/ "
-      confirm $CLEAN_USER_SSH_KEYS && backup_and_delete "$user/.ssh/*"
+      [ -d $user/.ssh ] &&  echo -e "Deleting SSH keys in $user/.ssh/ ..."
+      confirm $CLEAN_USER_SSH_KEYS  
+      if [ $? -eq 0 ]; then
+          CLEAN_USER_SSH_KEYS=YES
+          backup_and_delete "$user/.ssh/*"
+      else
+          CLEAN_USER_SSH_KEYS=NO
+      fi
   done
        
        
   # Lock root account and clear root passwd
-  echo "Locking root account and clearing root passwd... "
+  echo -e "\nLocking root account and clearing root passwd... "
   confirm $CLEAN_ROOT_PASSWD
   if [ $? -eq 0 ]; then
-      mkdir $BACKUP_LOC/etc/ &>/dev/null
-      cp /etc/shadow $BACKUP_LOC/etc/
-      passwd -l root && sed -i 's/^root:[^:]*:/root:*:/I' /etc/shadow
+      CLEAN_ROOT_PASSWD=YES
+      plan mkdir -p $BACKUP_LOC/etc/
+      plan cp -p /etc/shadow $BACKUP_LOC/etc/
+      plan "passwd -l root && sed -i 's/^root:[^:]*:/root:*:/I' /etc/shadow"
+  else
+      CLEAN_ROOT_PASSWD=NO
   fi 
-  echo -e "The next steps will clean up the following files:
-      /etc/udev/rules.d/70*, 
-      /etc/ machine-id, 
-      /var/logs/*, 
-      /etc/chrony.key,  
-      /var/cache/yum, 
+  echo -e "\n\nThe next steps will clean up the following files:
+      /etc/udev/rules.d/70*,  
+      /etc/ machine-id,  
+      /var/logs/*,  
+      /etc/chrony.key, 
+      /var/cache/yum,  
       /tmp/*,
       /var/lib/dhclient/*, 
-      /var/lib/random-seed, 
+      /var/lib/random-seed,
       /var/lib/systemd/random-seed, 
       /etc/lvm/cache/.cache, 
-      /var/lib/yum/uuid,
+      /var/lib/yum/uuid, 
       /var/lib/cloud/*, 
-      /var/lib/iscsi/*, 
+      /var/lib/iscsi/*,
       /etc/sysconfig/rhn/systemid, 
       /etc/sysconfig/rhn/up2date,
       .bash_history
   "
       
-  confirm $CLEAN_HISTORY_DATA_LOG || print_and_exit 1
+  if confirm $CLEAN_HISTORY_DATA_LOG; then
+      CLEAN_HISTORY_DATA_LOG=YES 
+  else
+      CLEAN_HISTORY_DATA_LOG=NO 
+      return 0 
+  fi
   # Remove persistent network rules
-  echo "Removing persistent network rules..."
+  plan 'echo -e "\nRemoving persistent network rules..."'
   backup_and_delete "/etc/udev/rules.d/70*"
          
   # Scrub machine-id
-  echo "Scrubbing /etc/machine-id..."
+  plan 'echo -e "\nScrubbing /etc/machine-id..."'
   backup_and_delete "/etc/machine-id"
-  : > /etc/machine-id
+  plan ": \> /etc/machine-id"
         
   # Scrub Log Files
-  echo "Scrubbing log files in /var/log..."
+  plan 'echo -e "\nScrubbing log files in /var/log..."'
   for SCRUB_FILE in $(find /var/log/ -type f);
   do
       backup_and_delete $SCRUB_FILE
-      : > $SCRUB_FILE;
+      plan ": \> $SCRUB_FILE;"
   done
        
          
   # Scrub Chrony Cleanup
-  echo "Scrubbing /etc/chrony.keys..."
+  plan 'echo -e "\nScrubbing /etc/chrony.keys..."'
   backup_and_delete "/etc/chrony.keys"
-  : > /etc/chrony.keys
+  plan ': > /etc/chrony.keys'
          
   # Clean tmp
-  echo "Cleaning /tmp..."
+  plan 'echo -e -n "\nCleaning /tmp..."'
   # Sorry tmp, no backup love for you
-  rm -rf /tmp/*
+  plan rm -rf /tmp/*
+  plan 'echo "Done!"'
          
   # Clean Leases
-  echo "Removing dhcp lease files..."
+  plan 'echo -e "\nRemoving dhcp lease files..."'
   backup_and_delete "/var/lib/dhclient/*"
          
   # Clean starting seed
-  echo "Cleaning starting seed..."
+  plan 'echo -e "\nCleaning starting seed..."'
   backup_and_delete "/var/lib/random-seed"
   backup_and_delete "/var/lib/systemd/random-seed"
          
   # Clean LVM cache
-  echo "Cleaning lvm cache..."
+  plan 'echo -e "\nCleaning lvm cache..."'
   backup_and_delete "/etc/lvm/cache/.cache"
          
   # Clean Yum UUID
-  echo "Removing Yum UUID..."
+  plan 'echo -e "\nRemoving Yum UUID..."'
   backup_and_delete "/var/lib/yum/uuid"
        
   # Cleaning up Yum metadata
-  echo "Clean yum metadata..."
-  yum clean all >/dev/null
-  rm -rf /var/cache/yum
+  plan 'echo -e -n "\nClean yum metadata..."'
+  plan "yum clean all >>$LOGFILE 2>&1"
+  plan rm -rf /var/cache/yum
+  plan 'echo "Done!"'
          
   # Purge cloud-init data
-  echo "Clearing cloud-init data..."
+  plan 'echo -e "\nClearing cloud-init data..."'
   backup_and_delete "/var/lib/cloud/*"
        
   # Remove stale iscsi configuration data
-  echo "Clearing stale iscsi configuration data..."
+  plan 'echo -e "\nClearing stale iscsi configuration data..."'
   backup_and_delete "/var/lib/iscsi/nodes/*"
   backup_and_delete "/var/lib/iscsi/send_targets/*"
   backup_and_delete "/var/lib/iscsi/ifaces/*"
          
   # Clear uln stuff
-  echo "Clearing ULN data..."
+  plan 'echo -e "\nClearing ULN data..."'
   backup_and_delete "/etc/sysconfig/rhn/systemid"
-  cp /etc/sysconfig/rhn/up2date $BACKUP_LOC/etc/sysconfig/rhn/
-  sed -i  's/^uuid.*/#&/' /etc/sysconfig/rhn/up2date
+  plan cp -p /etc/sysconfig/rhn/up2date $BACKUP_LOC/etc/sysconfig/rhn/
+  plan "sed -i  \"s/^uuid.*/#&/\" /etc/sysconfig/rhn/up2date"
        
   # Clear bash history for opc and root users
-  echo "Cleaning bash history..."
+  plan 'echo -e "\nCleaning bash history..."'
   set -o history
   for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
   do
-     backup_and_delete "$user/.bash_history" && ln -s -f /dev/null $user/.bash_history
+     backup_and_delete "$user/.bash_history"
+     plan ln -s -f /dev/null $user/.bash_history
      update_bashrc_history $user
   done
-
-  print_and_exit 0
 
   }
     
@@ -265,26 +327,52 @@ update_bashrc_history() {
   hist_file=$1/.bash_history
 
   grep bash_history $1/.bashrc >/dev/null 2>&1 && return 0
-  echo -e " 
-  [ -f $hist_file ] || rm -f $hist_file && touch $hist_file 
-  " >>$1/.bashrc
+  plan "cp -p $1/.bashrc $1/.bashrc-orig -f"
+  plan "echo -e \"[ -f $hist_file ] || rm -f $hist_file && touch $hist_file \" >>$1/.bashrc"
   return 0
 }
+
+restore_bashrc(){
+    for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
+    do
+        grep ".bash_history"  $user/.bashrc &>/dev/null && [ -f "$user/.bashrc-orig" ] && plan "mv -f $user/.bashrc-orig $user/.bashrc"
+    done
+
+}
+
+plan(){
+    echo -e "$@" >> $PLANFILE
+}
+print_plan(){
+   [[ $DEBUG = false ]] && return 0
+   echo -e "\n\nThe following commands will be run:"
+   echo -e "========================================="
+   cat $PLANFILE 
+   echo -e "========================================="
+}
+
 restore()
 {
     backup_dir=$1
     if [ -d $1 ] && [[ $1 =~ "image-cleanup-backup" ]] ; then
         cd $1
-        echo  "Restoring all files from $backup_dir"
-        echo  'If file to be restored already exists, it will be restored with a ~ suffix'
+        echo -e "\nRestoring all files from $backup_dir..."  | tee -a $LOGFILE
+        echo -e 'If file to be restored already exists, it will be restored with a ~ suffix\n' | tee -a $LOGFILE
+        echo -e "Files to be restored: \n======================================================" | tee -a $LOGFILE
+	find $backup_dir | tee -a $LOGFILE
+        echo -e -n "======================================================\n Above files will be restored. " | tee -a $LOGFILE
+
         if confirm; then
             for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
             do
-                rm -f $user/.bash_history*
+                plan rm -f $user/.bash_history*
             done
-            tar -cvz .|tar --backup=simple -xvz -C /
+            plan 'tar -cvzp . --exclude=*~  |tar --backup=simple --no-overwrite-dir --same-owner -xvzp -C /'
+            restore_bashrc
+            plan rm -rf $1
+	 else 
+            clean_and_abort
          fi
-        exit 0
     else
         echo -e '\n' ${1} 'does not appear to be a valid backup dir\n'
         usage
@@ -299,6 +387,13 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
        
+#trap 'clean_and_abort' SIGINT 
+
+echo "#!/bin/bash" >$PLANFILE
+echo "Running start..." > $LOGFILE
+echo "" >$CONFLOG
+[ ! -z "$SUDO_USER" ] && chown $SUDO_USER:$SUDO_USER $PLANFILE $LOGFILE 
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -f|--force)
@@ -307,11 +402,8 @@ while [ "$#" -gt 0 ]; do
         shift 1
         ;;
     --dryrun)
-        echo "The script can do the following actions:"
-        echo "=============================================="
-        FORCE=true
-        F_VALUE=n
-        break
+        DRYRUN=true
+        shift 1
         ;;
 
     -c)
@@ -319,7 +411,7 @@ while [ "$#" -gt 0 ]; do
             source $2
             shift 2
         else
-            echo  "Error: ${config_file} does not appear to be a valid file."
+            echo  "Error: ${config_file} does not appear to be a valid file." | tee -a $LOGFILE
             usage
             exit 1
         fi
@@ -348,7 +440,7 @@ while [ "$#" -gt 0 ]; do
 
     -d)
         if [ -d $2 ] && [ ! -z  $2 ] ;then
-            BACKUP_LOC=$2/image-cleanup-backup.$$; shift 2
+            BACKUP_LOC=$2/image-cleanup-backup.$dateTime; shift 2
         else
             echo -e '\n' ${2} 'does not appear to be a valid backup dir\n'
             usage
@@ -359,7 +451,7 @@ while [ "$#" -gt 0 ]; do
     --backup-dir=*)
         backup_dir="${1#*=}"
         if [ -d $backup_dir ] && [ ! -z  $backup_dir ] ;then
-            BACKUP_LOC=$backup_dir/image-cleanup-backup.$$
+            BACKUP_LOC=$backup_dir/image-cleanup-backup.$dateTime
             shift 1
         else
             echo -e '\n' $backup_dir 'does not appear to be a valid backup dir\n'
@@ -377,7 +469,20 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-[[ $RESTORE = true ]] && restore $restore_dir
+if [[ $RESTORE = true ]]; then
+   restore $restore_dir 
+else
+   cleanup
 
-cleanup
+   print_agreement |tee -a $LOGFILE $CONFLOG
+   print_plan |tee -a $LOGFILE 
+   warn
+fi
+   
+[[ $DRYRUN = true ]] && echo -e "\n\nDRYRUN. Nothing get affected. \nCheck $CONFLOG and $PLANFILE for consistence." && exit 0
 
+chmod a+x $PLANFILE
+$PLANFILE |tee -a $LOGFILE
+print_and_exit | tee -a $LOGFILE
+
+#end
