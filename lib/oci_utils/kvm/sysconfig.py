@@ -143,7 +143,8 @@ def make_vf(name, mac):
              'NM_CONTROLLED': 'no',
              'BOOTPROTO': 'none',
              'ONBOOT': 'yes',
-             'MTU': '9000'
+             'MTU': '9000',
+             'NOZEROCONF': 'yes'
             }
            )
 
@@ -157,6 +158,7 @@ def make_vlan(parent, vlan_id, mac):
              'BOOTPROTO': 'none',
              'ONBOOT': 'yes',
              'MTU': '9000',
+             'NOZEROCONF': 'yes',
              'VLAN': 'yes'
             }
            )
