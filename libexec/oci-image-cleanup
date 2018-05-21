@@ -15,8 +15,8 @@ CONFLOG=/opt/image-cleanup.conf
 
 
 #cleanup configs
-CLEAN_ETC_HOSTS=
 CLEAN_NET_CONFIG_FILES=
+CLEAN_ETC_HOSTS=
 CLEAN_HOST_SSH_KEYS=
 CLEAN_ROOT_PASSWD=
 CLEAN_USER_SSH_KEYS=
@@ -30,7 +30,7 @@ Usage: $0" [OPTION]
   
   -f
   --force                      Force to cleanup or recovery. No prompt for confirmation.
-			       If config parameter is not set to no, it will force to delete. 
+                               Force to delete an item unless the corresponding parameter in the config file is set to NO.
 
   --dryrun                     dry run, no cleanup or restore. Just show what the command with options can do.
 
@@ -63,12 +63,12 @@ confirm()
 {
     [ $# -eq 1 ] && input=$1 || input=
 
+    if [[ $FORCE = true ]]; then
+        [[ "$input" =~ ^[nN] ]] && return 1 || return 0
+    fi
+
     while true
     do
-        if [[ $FORCE = true ]]; then
-            [[ "$input" =~ ^[nN] ]] && return 1 || return 0
-        fi
-
         [ -z "$input" ] &&  read -r -p "Confirm? [y/n]: " input
         case $input in
             [yY][eE][sS]|[yY])
@@ -77,7 +77,7 @@ confirm()
             [nN][oO]|[nN])
                 return 1;;
             *)
-		input=
+                input=
         esac
     done
 }
@@ -89,7 +89,7 @@ clean_and_abort()
     [ `cat $PLANFILE | wc -l` -le 2 ] && rm -f  $LOGFILE && exit 1
     echo "Please check $PLANFILE for what you want to do."
     echo "and check $LOGFILE for what you have done."
-    stty echo 
+    #stty echo
     exit 1
 }
 
@@ -99,29 +99,28 @@ print_and_exit()
     [[ $RESTORE = true ]] && echo "Restore is done from $restore_dir"  || echo "Cleanup is done. All deleted files are stored in $BACKUP_LOC"
     echo "Please check $PLANFILE for what you want to do."
     echo "and check $LOGFILE for what you have done."
-    stty echo 
     exit 0
 }
   
 backup_and_delete()
 {
-  if [ $# != 1 ]; then
-     echo "Internal Error: need one parameter only ($@). Abort."
-     exit 1
-  fi
-  backup_item=$1
-  plan echo -n "=== Clearing $backup_item..."
-  backup_dir=$(dirname "$1"|head -1)
-  [ ! -d $BACKUP_LOC/$backup_dir ] && plan mkdir -p $BACKUP_LOC/$backup_dir 
-  plan "mv -f $backup_item $BACKUP_LOC/$backup_dir/ >>$LOGFILE 2>&1"
-  plan 'echo " Done!"'
+    if [ $# != 1 ]; then
+        echo "Internal Error: need one parameter only ($@). Abort."
+        exit 1
+    fi
+    backup_item=$1
+    plan echo -n "=== Clearing $backup_item..."
+    backup_dir=$(dirname "$1"|head -1)
+    [ ! -d $BACKUP_LOC/$backup_dir ] && plan mkdir -p $BACKUP_LOC/$backup_dir
+    plan "mv -f $backup_item $BACKUP_LOC/$backup_dir/ >>$LOGFILE 2>&1"
+    plan 'echo " Done!"'
 }
   
 print_agreement(){
-   echo -e "#This is what you want me to do:"
-   echo -e "#---------------------------------
-CLEAN_ETC_HOSTS=$CLEAN_ETC_HOSTS
+    echo -e "#This is what you want me to do:
+#---------------------------------
 CLEAN_NET_CONFIG_FILES=$CLEAN_NET_CONFIG_FILES
+CLEAN_ETC_HOSTS=$CLEAN_ETC_HOSTS
 CLEAN_HOST_SSH_KEYS=$CLEAN_HOST_SSH_KEYS
 CLEAN_ROOT_PASSWD=$CLEAN_ROOT_PASSWD
 CLEAN_USER_SSH_KEYS=$CLEAN_USER_SSH_KEYS
@@ -135,65 +134,66 @@ warn()
     [[ $FORCE == true ]] || [[ $RESTORE == true ]] && return 0
     
     if grep "=YES" $CONFLOG |grep -E "_SSH_|_ROOT_" &>/dev/null; then 
-        echo -e "\n\nWARNING!!! 
-You will NOT be able to login to this instance if ssh keys and root passwd get removed!!!
+        echo -e "\n\nWARNING!!!
+You will NOT be able to login to this instance once ssh keys and root passwd get removed!!!
 However, you can restore the information by running 
     $0 -r $BACKUP_LOC
 for more information, run
     $(basename "$0") -h or man $(basename "$0")
 "
     fi
-  read -n 1 -s -r -p "Press any key to continue. Or Ctrl + c to exit"
+    read -n 1 -s -r -p "Press any key to continue. Or Ctrl + c to exit"
 }
   
 mk_backup_dir()
 {
-  # Create backup dir
-  plan "mkdir -p $BACKUP_LOC || (echo \"Unable to create backup folder $BACKUP_LOC . Exiting\" && exit 1)"
+    # Create backup dir
+    plan "mkdir -p $BACKUP_LOC || (echo \"Unable to create backup folder $BACKUP_LOC . Exiting\" && exit 1)"
 }
     
   
 cleanup()
 {
-  mk_backup_dir
+    mk_backup_dir
 
-  # Cleanup network config files
-  echo -e "\n\nDeleting network config files... "
-  for file in `find /etc/sysconfig/network-scripts/ -name "ifcfg-*" -not -name ifcfg-lo` ; do
-      echo -e "Deleting $file... "
-      if confirm $CLEAN_NET_CONFIG_FILES; then 
-          CLEAN_NET_CONFIG_FILES=YES 
-          backup_and_delete $file
-      else
-          CLEAN_NET_CONFIG_FILES=NO 
-      fi
-  done
+    # Cleanup network config files
+    echo -e "\n\nDeleting network config files... "
+    for file in `find /etc/sysconfig/network-scripts/ -name "ifcfg-*" -not -name ifcfg-lo` ; do
+        echo -e "Deleting $file... "
+        if confirm $CLEAN_NET_CONFIG_FILES; then
+            CLEAN_NET_CONFIG_FILES=YES
+            backup_and_delete $file
+        else
+            CLEAN_NET_CONFIG_FILES=NO
+        fi
+    done
          
-  # clear /etc/hosts
-  echo -e "\nDeleting /etc/hosts and /etc/resolv.conf... "
-  confirm $CLEAN_ETC_HOSTS 
-  if [ $? -eq 0 ]; then
-    CLEAN_ETC_HOSTS=YES
-    backup_and_delete "/etc/hosts"
-    plan 'echo -e "127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+    # clear /etc/hosts
+    echo -e "\nDeleting /etc/hosts and /etc/resolv.conf... "
+    confirm $CLEAN_ETC_HOSTS
+    if [ $? -eq 0 ]; then
+        CLEAN_ETC_HOSTS=YES
+        backup_and_delete "/etc/hosts"
+        plan 'echo -e "127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
 ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6" > /etc/hosts'
-    # Scrub Resolv.conf
-    plan chattr -ai /etc/resolv.conf
-    backup_and_delete "/etc/resolv.conf"
-    plan ':> /etc/resolv.conf'
-  else
-     CLEAN_ETC_HOSTS=NO
-  fi
+
+        # Scrub Resolv.conf
+        plan chattr -ai /etc/resolv.conf
+        backup_and_delete "/etc/resolv.conf"
+        plan ':> /etc/resolv.conf'
+    else
+        CLEAN_ETC_HOSTS=NO
+    fi
        
-  # clear ssh keys
-  echo -e "\nDeleting SSH host keys in /etc/ssh/ ...."
-  confirm $CLEAN_HOST_SSH_KEYS 
-  if [ $? -eq 0 ]; then  
-	CLEAN_HOST_SSH_KEYS=YES 
+    # clear ssh keys
+    echo -e "\nDeleting SSH host keys in /etc/ssh/ ...."
+    confirm $CLEAN_HOST_SSH_KEYS
+    if [ $? -eq 0 ]; then
+        CLEAN_HOST_SSH_KEYS=YES
         backup_and_delete "/etc/ssh/ssh_host*" 
-   else
-	CLEAN_HOST_SSH_KEYS=NO
-   fi
+    else
+        CLEAN_HOST_SSH_KEYS=NO
+    fi
   for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
   do
       [ -d $user/.ssh ] &&  echo -e "Deleting SSH keys in $user/.ssh/ ..."
@@ -321,15 +321,15 @@ cleanup()
      update_bashrc_history $user
   done
 
-  }
+}
     
 update_bashrc_history() {
-  hist_file=$1/.bash_history
+    hist_file=$1/.bash_history
 
-  grep bash_history $1/.bashrc >/dev/null 2>&1 && return 0
-  plan "cp -p $1/.bashrc $1/.bashrc-orig -f"
-  plan "echo -e \"[ -f $hist_file ] || rm -f $hist_file && touch $hist_file \" >>$1/.bashrc"
-  return 0
+    grep bash_history $1/.bashrc >/dev/null 2>&1 && return 0
+    plan "cp -p $1/.bashrc $1/.bashrc-orig -f"
+    plan "echo -e \"[ -f $hist_file ] || rm -f $hist_file && touch $hist_file \" >>$1/.bashrc"
+    return 0
 }
 
 restore_bashrc(){
@@ -343,36 +343,47 @@ restore_bashrc(){
 plan(){
     echo -e "$@" >> $PLANFILE
 }
-print_plan(){
-   [[ $DEBUG = false ]] && return 0
-   echo -e "\n\nThe following commands will be run:"
-   echo -e "========================================="
-   cat $PLANFILE 
-   echo -e "========================================="
+
+log(){
+    echo -e "$@" | tee -a $LOGFILE
 }
+print_plan(){
+    [[ $DEBUG = false ]] && return 0
+    echo -e "\n\nThe following commands will be run:"
+    echo -e "========================================="
+    cat $PLANFILE
+    echo -e "========================================="
+}
+
+list_restore_files(){
+    log "\nRestoring all files from $backup_dir..."
+    log "======================================================" 
+    pushd $backup_dir &>/dev/null
+    find .| tee -a $LOGFILE
+    popd &>/dev/null
+    log "======================================================" 
+    log "Above files will be restored. "
+}
+
 
 restore()
 {
     backup_dir=$1
     if [ -d $1 ] && [[ $1 =~ "image-cleanup-backup" ]] ; then
         cd $1
-        echo -e "\nRestoring all files from $backup_dir..."  | tee -a $LOGFILE
-        echo -e 'If file to be restored already exists, it will be restored with a ~ suffix\n' | tee -a $LOGFILE
-        echo -e "Files to be restored: \n======================================================" | tee -a $LOGFILE
-	find $backup_dir | tee -a $LOGFILE
-        echo -e -n "======================================================\n Above files will be restored. " | tee -a $LOGFILE
-
+        list_restore_files
+        log 'If file to be restored already exists, it will be restored with a ~ suffix\n' 
         if confirm; then
             for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
             do
                 plan rm -f $user/.bash_history*
             done
-            plan 'tar -cvzp . --exclude=*~  |tar --backup=simple --no-overwrite-dir --same-owner -xvzp -C /'
+            plan 'tar -cpvz . --exclude=*~  |tar --backup=simple --no-overwrite-dir -xpvz -C /'
             restore_bashrc
             plan rm -rf $1
-	 else 
+        else
             clean_and_abort
-         fi
+        fi
     else
         echo -e '\n' ${1} 'does not appear to be a valid backup dir\n'
         usage
@@ -390,12 +401,12 @@ fi
 #trap 'clean_and_abort' SIGINT 
 
 echo "#!/bin/bash" >$PLANFILE
-echo "Running start..." > $LOGFILE
+echo -e "oci image-cleanup $@ \n" > $LOGFILE
 echo "" >$CONFLOG
 [ ! -z "$SUDO_USER" ] && chown $SUDO_USER:$SUDO_USER $PLANFILE $LOGFILE 
 
 while [ "$#" -gt 0 ]; do
-  case "$1" in
+    case "$1" in
     -f|--force)
         FORCE=true
         F_VALUE=y
@@ -411,7 +422,7 @@ while [ "$#" -gt 0 ]; do
             source $2
             shift 2
         else
-            echo  "Error: ${config_file} does not appear to be a valid file." | tee -a $LOGFILE
+            log "Error: ${config_file} does not appear to be a valid file." 
             usage
             exit 1
         fi
@@ -470,16 +481,19 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [[ $RESTORE = true ]]; then
-   restore $restore_dir 
+    restore $restore_dir
 else
-   cleanup
-
-   print_agreement |tee -a $LOGFILE $CONFLOG
-   print_plan |tee -a $LOGFILE 
-   warn
+    cleanup
+    print_agreement |tee -a $LOGFILE $CONFLOG
+    warn
 fi
    
-[[ $DRYRUN = true ]] && echo -e "\n\nDRYRUN. Nothing get affected. \nCheck $CONFLOG and $PLANFILE for consistence." && exit 0
+if [[ $DRYRUN = true ]]; then
+    print_plan |tee -a $LOGFILE
+    echo -e "\n\nDRYRUN. Nothing get affected.
+Check $CONFLOG and $PLANFILE for consistence."
+    exit 0
+fi
 
 chmod a+x $PLANFILE
 $PLANFILE |tee -a $LOGFILE
