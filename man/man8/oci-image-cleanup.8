@@ -19,13 +19,13 @@ oci-image-cleanup \- This script runs a set of cleanup steps to prepare instance
 .I BACKUP_DIR
 .B | --backup-dir
 .I BACKUP_DIR
-.B ][-f|--force ] [--dryrun]
+.B ][-f|--force ] [--dry-run]
 
 .B /usr/libexec/oci-image-cleanup [-r
 .I BACKUP_DIR
 .B |--restore-dir=
 .I BACKUP_DIR
-.B ][-f|--force ] [--dryrun]
+.B ][-f|--force ] [--dry-run]
 
 .SH DESCRIPTION
 This script runs a set of cleanup steps to prepare OCI OL instances for custom images
@@ -46,7 +46,7 @@ https://docs.us-phoenix-1.oraclecloud.com/Content/Compute/Tasks/managingcustomim
 No prompt for confirmation. force to cleanup or restore. 
 When work with a config file, force will cleanup an item unless it is configured as No.
 
-.IP "--dryrun"
+.IP "--dry-run"
 for dry run, no real action is done. but show what the command with options will do.
 If no options are provided, it will run cleanup in interactive mode.
 

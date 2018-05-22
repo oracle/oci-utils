@@ -6,7 +6,7 @@
 # Globals
 FORCE=false
 DRYRUN=false
-DEBUG=true
+PLAN_PRINT=0
 dateTime=`date '+%Y-%m-%d:%H:%M'`
 BACKUP_LOC=/opt/image-cleanup-backup.$dateTime
 PLANFILE=/opt/image-cleanup-plan
@@ -32,7 +32,7 @@ Usage: $0" [OPTION]
   --force                      Force to cleanup or recovery. No prompt for confirmation.
                                Force to delete an item unless the corresponding parameter in the config file is set to NO.
 
-  --dryrun                     dry run, no cleanup or restore. Just show what the command with options can do.
+  --dry-run                    Dry run, no cleanup or restore. Just show what the command with options can do.
 
   -r <BACKUP_DIR>
   --restore-dir=<BACKUP_DIR>   Restore files from BACKUP_DIR
@@ -45,7 +45,7 @@ Usage: $0" [OPTION]
                                Sample config file is /etc/oci-utils/oci-image-cleanup.conf.
 
   -h
-  --help                       print this message.
+  --help                       Print this message.
 
 This script runs a set of cleanup steps to prepare OCI OL instances for custom images
 
@@ -85,10 +85,10 @@ confirm()
 clean_and_abort()
 {
     echo -e '\n*******************************************'
-    echo "Action aborted!"
+    echo "Action aborted!" |tee -a $LOGFILE
     [ `cat $PLANFILE | wc -l` -le 2 ] && rm -f  $LOGFILE && exit 1
-    echo "Please check $PLANFILE for what you want to do."
-    echo "and check $LOGFILE for what you have done."
+    echo "Please check $CONFLOG for what you want to do."
+    echo "and check $LOGFILE for result."
     #stty echo
     exit 1
 }
@@ -97,8 +97,8 @@ print_and_exit()
 {
     echo -e '\n********************************************'
     [[ $RESTORE = true ]] && echo "Restore is done from $restore_dir"  || echo "Cleanup is done. All deleted files are stored in $BACKUP_LOC"
-    echo "Please check $PLANFILE for what you want to do."
-    echo "and check $LOGFILE for what you have done."
+    echo "Please check $CONFLOG for what you want to do."
+    echo "and check $LOGFILE for result."
     exit 0
 }
   
@@ -142,7 +142,12 @@ for more information, run
     $(basename "$0") -h or man $(basename "$0")
 "
     fi
-    read -n 1 -s -r -p "Press any key to continue. Or Ctrl + c to exit"
+    read -n 1 -s -r -p "Press 'R' to review plan or any other key to execute." input
+    if [[ "$input" = "R" ]]; then
+        print_plan |tee -a $LOGFILE
+        PLAN_PRINT=1
+        confirm || clean_and_abort 
+    fi
 }
   
 mk_backup_dir()
@@ -348,7 +353,7 @@ log(){
     echo -e "$@" | tee -a $LOGFILE
 }
 print_plan(){
-    [[ $DEBUG = false ]] && return 0
+    [ $PLAN_PRINT -gt 0 ] && return $PLAN_PRINT
     echo -e "\n\nThe following commands will be run:"
     echo -e "========================================="
     cat $PLANFILE
@@ -412,14 +417,14 @@ while [ "$#" -gt 0 ]; do
         F_VALUE=y
         shift 1
         ;;
-    --dryrun)
+    --dry-run)
         DRYRUN=true
         shift 1
         ;;
 
     -c)
-        if [ -f $2 ] && [ -s $2 ]; then
-            source $2
+        if [ -e $2 ] && [ -s $2 ]; then
+            source $(dirname $2)/$(basename $2)
             shift 2
         else
             log "Error: ${config_file} does not appear to be a valid file." 
@@ -429,8 +434,8 @@ while [ "$#" -gt 0 ]; do
         ;;
     --config-file=*)
         config_file="${1#*=}"
-        if [ -f $config_file ] && [ -s $config_file ] ; then
-            source $config_file
+        if [ -e $config_file ] && [ -s $config_file ] ; then
+            source $(dirname $config_file)/$(basename $config_file)
             shift 1
         else
             echo  "Error: ${config_file} does not appear to be a valid file."
@@ -490,6 +495,7 @@ fi
    
 if [[ $DRYRUN = true ]]; then
     print_plan |tee -a $LOGFILE
+    PLAN_PRINT=1
     echo -e "\n\nDRYRUN. Nothing get affected.
 Check $CONFLOG and $PLANFILE for consistence."
     exit 0
