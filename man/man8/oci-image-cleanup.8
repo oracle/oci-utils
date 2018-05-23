@@ -33,7 +33,7 @@ WARNING!!! This script will clear ssh keys and root passwd.
 Upon execution of this script, if you choose to clear the ssh keys, you will no longer be able to login to this instance with your existing credentials.
 You will need to create a new custom image of this instance first and then create a new compute instance from that custom image to login.
 
-.BR oci-image-cleanup(8) 
+.BR oci-image-cleanup(8)
 requires root privileges.
 
 More info on custom images can be found here:
@@ -55,7 +55,7 @@ Restore files from BACKUP_DIR
 
 .IP  "-d <BACKUP_DIR> | --backup-dir=<BACKUP_DIR>"
 Specify dir to backup deleted files.
-Default backup dir is /opt/image-cleanup-backup.<pid>
+Default backup dir is /dev/shm/oci-utils/image-cleanup-backup
 
 .IP  "-c <CONFIG_FILE> | --config-file=<CONFIG_FILE>"
 Specify config file.

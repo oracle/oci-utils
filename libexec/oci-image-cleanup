@@ -7,13 +7,13 @@
 FORCE=false
 DRYRUN=false
 PLAN_PRINT=0
-dateTime=`date '+%Y-%m-%d:%H:%M'`
-BACKUP_LOC=/opt/image-cleanup-backup.$dateTime
-PLANFILE=/opt/image-cleanup-plan
-LOGFILE=/opt/image-cleanup-log.$dateTime
-CONFLOG=/opt/image-cleanup.conf
-
-
+BASE_DIR=/dev/shm/oci-utils
+BACKUP_LOC=$BASE_DIR/image-cleanup-backup
+PLANFILE=$BASE_DIR/image-cleanup.plan
+LOGFILE=$BASE_DIR/image-cleanup.log
+CONFLOG=$BASE_DIR/image-cleanup.conf
+LAST_BACKUP_LOC_FILE=$BASE_DIR/image-cleanup.loc
+LAST_BACKUP_LOC=$(cat ${LAST_BACKUP_LOC_FILE} 2>/dev/null)
 #cleanup configs
 CLEAN_NET_CONFIG_FILES=
 CLEAN_ETC_HOSTS=
@@ -26,7 +26,7 @@ CLEAN_HISTORY_DADA_LOG=
 usage()
 {
 cat <<EOF
-Usage: $0" [OPTION]
+Usage: $0 [OPTION]
   
   -f
   --force                      Force to cleanup or recovery. No prompt for confirmation.
@@ -39,7 +39,7 @@ Usage: $0" [OPTION]
 
   -d <BACKUP_DIR>
   --backup-dir=<BACKUP_DIR>    Specify backup dir to store deleted files.
-                               Default backup dir is /opt/image-cleanup-backup.<pid>
+                               Default backup dir is /dev/shm/oci-utils/image-cleanup-backup
   -c <CONFIG_FILE>
   --config-file=<CONFIG_FILE>  Specify config file as input for confirmation.
                                Sample config file is /etc/oci-utils/oci-image-cleanup.conf.
@@ -139,7 +139,7 @@ You will NOT be able to login to this instance once ssh keys and root passwd get
 However, you can restore the information by running 
     $0 -r $BACKUP_LOC
 for more information, run
-    $(basename "$0") -h or man $(basename "$0")
+    $(basename "$0") -h or man 8 $(basename "$0")
 "
     fi
     read -n 1 -s -r -p "Press 'R' to review plan or any other key to execute." input
@@ -153,6 +153,13 @@ for more information, run
 mk_backup_dir()
 {
     # Create backup dir
+    if [ ! -z "${LAST_BACKUP_LOC}" ] && [ -d ${LAST_BACKUP_LOC} ]; then
+        echo "Warning: The last backup exists at ${LAST_BACKUP_LOC}. Please restore before another backup!"
+        exit 1
+    elif [ ! -z "${BACKUP_LOC}" ] && [ -d ${BACKUP_LOC} ]; then
+        echo "Warning: The backup dir exists. Please restore or remove it before backup!"
+        exit 1
+    fi
     plan "mkdir -p $BACKUP_LOC || (echo \"Unable to create backup folder $BACKUP_LOC . Exiting\" && exit 1)"
 }
     
@@ -160,7 +167,9 @@ mk_backup_dir()
 cleanup()
 {
     mk_backup_dir
-
+    
+    echo "" >$CONFLOG
+    plan 'echo -e "\nCleanup Start\n"'
     # Cleanup network config files
     echo -e "\n\nDeleting network config files... "
     for file in `find /etc/sysconfig/network-scripts/ -name "ifcfg-*" -not -name ifcfg-lo` ; do
@@ -325,7 +334,7 @@ cleanup()
      plan ln -s -f /dev/null $user/.bash_history
      update_bashrc_history $user
   done
-
+  plan "echo \"$BACKUP_LOC\" >$LAST_BACKUP_LOC_FILE"
 }
     
 update_bashrc_history() {
@@ -341,6 +350,8 @@ restore_bashrc(){
     for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
     do
         grep ".bash_history"  $user/.bashrc &>/dev/null && [ -f "$user/.bashrc-orig" ] && plan "mv -f $user/.bashrc-orig $user/.bashrc"
+        owner=$(basename $user)
+        plan "chown $owner:$owner $user -R"
     done
 
 }
@@ -385,12 +396,12 @@ restore()
             done
             plan 'tar -cpvz . --exclude=*~  |tar --backup=simple --no-overwrite-dir -xpvz -C /'
             restore_bashrc
-            plan rm -rf $1
+            plan "rm -rf $1"
         else
             clean_and_abort
         fi
     else
-        echo -e '\n' ${1} 'does not appear to be a valid backup dir\n'
+        echo -e "\nError: ${1} does not appear to be a valid backup dir!\n"
         usage
         exit 1
     fi
@@ -404,11 +415,6 @@ if [ "$EUID" -ne 0 ]; then
 fi
        
 #trap 'clean_and_abort' SIGINT 
-
-echo "#!/bin/bash" >$PLANFILE
-echo -e "oci image-cleanup $@ \n" > $LOGFILE
-echo "" >$CONFLOG
-[ ! -z "$SUDO_USER" ] && chown $SUDO_USER:$SUDO_USER $PLANFILE $LOGFILE 
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -456,7 +462,7 @@ while [ "$#" -gt 0 ]; do
 
     -d)
         if [ -d $2 ] && [ ! -z  $2 ] ;then
-            BACKUP_LOC=$2/image-cleanup-backup.$dateTime; shift 2
+            BACKUP_LOC=$2/image-cleanup-backup; shift 2
         else
             echo -e '\n' ${2} 'does not appear to be a valid backup dir\n'
             usage
@@ -467,7 +473,7 @@ while [ "$#" -gt 0 ]; do
     --backup-dir=*)
         backup_dir="${1#*=}"
         if [ -d $backup_dir ] && [ ! -z  $backup_dir ] ;then
-            BACKUP_LOC=$backup_dir/image-cleanup-backup.$dateTime
+            BACKUP_LOC=$backup_dir/image-cleanup-backup
             shift 1
         else
             echo -e '\n' $backup_dir 'does not appear to be a valid backup dir\n'
@@ -484,6 +490,13 @@ while [ "$#" -gt 0 ]; do
         echo "unknown option: $1" >&2;  usage; exit 1;;
     esac
 done
+
+mkdir -p $BASE_DIR
+
+echo "#!/bin/bash" >$PLANFILE
+echo -e "oci image-cleanup $@ \n" > $LOGFILE
+[ ! -z "$SUDO_USER" ] && chown $SUDO_USER:$SUDO_USER $PLANFILE $LOGFILE
+
 
 if [[ $RESTORE = true ]]; then
     restore $restore_dir
