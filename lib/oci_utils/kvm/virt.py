@@ -564,7 +564,7 @@ def destroy_networking(vf_device, vlan):
     vf_name = sysconfig.make_vf(vf_device, '')[0]
     vlan_name = sysconfig.make_vlan(vf_device, vlan, '')[0]
 
-    sysconfig.delete_network_config([vf_name, vlan_name])
+    sysconfig.delete_network_config([vlan_name, vf_name])
 
 def destroy_interface(name):
     """

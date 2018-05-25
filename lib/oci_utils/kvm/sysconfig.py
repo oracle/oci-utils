@@ -115,15 +115,8 @@ def delete_directory_files(path, files, fmt=None):
         delete_file('{}/{}'.format(path, fmt(name)))
 
 def delete_virtual_interfaces(data):
-    ifaces = nic.get_interfaces()
-
     for name in data:
-        info = ifaces.get(name)
-        if not info:
-            continue
-        if info['physical']:
-            continue
-        utils._call(['/usr/sbin/ip', 'link', 'delete', name])
+        utils._call(['/usr/sbin/ifdown', name])
 
 def delete_network_config(data):
     delete_directory_files(__netscripts, data, lambda x: __iface_prefix + x)
