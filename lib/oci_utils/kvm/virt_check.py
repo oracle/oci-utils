@@ -13,10 +13,10 @@ from .. import metadata
 # at boot time and the IOMMU subsystem creates 'dmar' device nodes under /sys/class/iommu
 # directory. This functions check for both to confirm that the IOMMU is enabled.
 def iommu_check():
-    iommu_enabled_str = "IOMMU: enabled"
+    iommu_enabled_exp = "IOMMU.*enabled"
     dmar_file_path = "/sys/class/iommu/dmar0"
-    output = utils._call_popen_output(['/bin/dmesg', '|', 'grep', '"{}"'.format(iommu_enabled_str)])
-    if iommu_enabled_str in output and os.path.exists(dmar_file_path):
+    output = utils._call_popen_output(['/bin/dmesg', '|', 'egrep', '"{}"'.format(iommu_enabled_exp)])
+    if output and os.path.exists(dmar_file_path):
         return True 
     else:
         return False
