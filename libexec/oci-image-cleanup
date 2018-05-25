@@ -194,7 +194,7 @@ cleanup()
         # Scrub Resolv.conf
         plan chattr -ai /etc/resolv.conf
         backup_and_delete "/etc/resolv.conf"
-        plan ':> /etc/resolv.conf'
+        plan 'touch /etc/resolv.conf'
     else
         CLEAN_ETC_HOSTS=NO
     fi
@@ -234,7 +234,7 @@ cleanup()
   fi 
   echo -e "\n\nThe next steps will clean up the following files:
       /etc/udev/rules.d/70*,  
-      /etc/ machine-id,  
+      /etc/machine-id,  
       /var/logs/*,  
       /etc/chrony.key, 
       /var/cache/yum,  
@@ -264,21 +264,21 @@ cleanup()
   # Scrub machine-id
   plan 'echo -e "\nScrubbing /etc/machine-id..."'
   backup_and_delete "/etc/machine-id"
-  plan ": \> /etc/machine-id"
+  plan "touch /etc/machine-id"
         
   # Scrub Log Files
   plan 'echo -e "\nScrubbing log files in /var/log..."'
   for SCRUB_FILE in $(find /var/log/ -type f);
   do
       backup_and_delete $SCRUB_FILE
-      plan ": \> $SCRUB_FILE;"
+      plan "touch $SCRUB_FILE"
   done
        
          
   # Scrub Chrony Cleanup
   plan 'echo -e "\nScrubbing /etc/chrony.keys..."'
   backup_and_delete "/etc/chrony.keys"
-  plan ': > /etc/chrony.keys'
+  plan 'touch /etc/chrony.keys'
          
   # Clean tmp
   plan 'echo -e -n "\nCleaning /tmp..."'
