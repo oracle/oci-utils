@@ -119,8 +119,8 @@ def delete_virtual_interfaces(data):
         utils._call(['/usr/sbin/ifdown', name])
 
 def delete_network_config(data):
-    delete_directory_files(__netscripts, data, lambda x: __iface_prefix + x)
     delete_virtual_interfaces(data)
+    delete_directory_files(__netscripts, data, lambda x: __iface_prefix + x)
 
 def make_vf_name(name):
     return name
