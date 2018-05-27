@@ -2,4 +2,4 @@
 # https://fedoraproject.org/wiki/Starting_services_by_default
 
 # ocid
-enable oci-utils.service
+enable ocid.service
