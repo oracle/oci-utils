@@ -38,6 +38,7 @@ oci_sdk_user = opc
 [iscsi]
 enabled = true
 scan_interval = 60
+max_volumes = 8
 [vnic]
 enabled = true
 scan_interval = 60

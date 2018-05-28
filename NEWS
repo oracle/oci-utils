@@ -14,4 +14,7 @@ Version 0.6:
 - oci-network-config: new option: --detach-vnic
 - oci-iscsi-config: new option: --destroy-volume
 - oci-utils APIs are now thread safe
-
+- NEW tool: oci-image-cleanup - a script that runs a set of cleanup steps to
+  prepare the instance for snapshot
+- oci-kvm utility rejects attempts to create guests if the required
+  virtualization support is not enabled in the image it is being executed on

@@ -230,21 +230,29 @@ def iscsi_func(context):
     """
     ocid thread function for discovering and attaching/detaching
     block volumes.
-    context may be an empty dict
+    context must include 'max_volumes'
     """
-    if context == {}:
+    if 'oci_sess' not in context:
         oci_sess = None
         if oci_utils.oci_api.HAVE_OCI_SDK:
             try:
                 oci_sess = oci_utils.oci_api.OCISession()
             except:
                 pass
+        max_volumes = 8
+        try:
+            max_volumes = int(context['max_volumes'])
+        except:
+            pass
+        if max_volumes > 32:
+            max_volumes = 32
         context = {'ignore_file_ts': 0,
                    'ignore_iqns': [],
                    'attach_failed': {},
                    'chap_pw_ts': 0,
                    'chap_pws': {},
-                   'oci_sess': oci_sess
+                   'oci_sess': oci_sess,
+                   'max_volumes': max_volumes
                   }
 
     # devices currently attached
@@ -281,7 +289,7 @@ def iscsi_func(context):
                 all_iqns[v.get_portal_ip()] = [v.get_iqn()]
     else:
         # fall back to scanning
-        for r in range(33):
+        for r in range(context['max_volumes'] + 1):
             ipaddr = "169.254.2.%d" % (r+1)
             iqns = oci_utils.iscsiadm.discovery(ipaddr)
             all_iqns[ipaddr] = iqns
@@ -401,7 +409,7 @@ def iscsi_func(context):
             write_cache(cache_content=chap_passwords,
                         cache_fname=oci_utils.__chap_password_file,
                         mode=0o600)
-    if cache_changed:
+    if cache_changed or not os.path.exists(oci_utils.iscsiadm.ISCSIADM_CACHE):
         write_cache(cache_content=[all_iqns, attach_failed],
                     cache_fname=oci_utils.iscsiadm.ISCSIADM_CACHE)
     else:
@@ -539,13 +547,14 @@ def start_thread(name, repeat, debug=False):
                         sleeptime=refresh_interval,
                         repeat=repeat)
     elif name == 'iscsi':
+        max_volumes = cfg.get('iscsi', 'max_volumes')
         is_enabled = cfg.get('iscsi', 'enabled')
         if is_enabled not in TRUE:
             return None
         scan_interval = cfg.get('iscsi', 'scan_interval')
         th = ocidThread(name=name,
                         ocidfunc=iscsi_func,
-                        context={},
+                        context={'max_volumes':max_volumes},
                         sleeptime=scan_interval,
                         repeat=repeat)
     elif name == 'vnic':
