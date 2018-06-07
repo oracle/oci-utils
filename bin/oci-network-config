@@ -331,7 +331,7 @@ def do_del_private_ip(vnic_utils, args):
         msg_info('deleting secondary private IP %s' % args.del_private_ip)
         # delete from vnic_info and de-configure the interface
         (res, out) = vnic_utils.del_private_ip(args.del_private_ip, vnic_id)
-        if out != 0:
+        if res != 0:
             msg_error('failed to de-configure private IP %s:\n%s' % \
                       (args.del_private_ip, out))
     else:
@@ -372,7 +372,7 @@ def main():
         vnic_utils.set_namespace(args.ns)
 
     if args.sshd:
-        vnic_utils.set_sshd(sshd)
+        vnic_utils.set_sshd(args.sshd)
 
     excludes = vnic_info['exclude']
     if excludes is None:

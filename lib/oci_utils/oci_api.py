@@ -13,6 +13,7 @@ import sys
 import os
 import re
 import logging
+from logging.handlers import SysLogHandler
 from time import sleep
 import six
 import oci_utils
@@ -134,15 +135,13 @@ class OCISession(object):
 
     def _setup_logging(self, debug=False, syslog=False):
         self.logger = logging.getLogger('oci_utils.oci_api')
-        if debug:
-            self.logger.setLevel(logging.DEBUG)
-        else:
-            self.logger.setLevel(logging.INFO)
+
         if syslog:
             handler = SysLogHandler(address='/dev/log',
                                 facility=SysLogHandler.LOG_DAEMON)
         else:
             handler = logging.StreamHandler(stream=sys.stderr)
+
         if debug:
             self.logger.setLevel(logging.DEBUG)
             handler.setLevel(logging.DEBUG)
@@ -170,7 +169,7 @@ class OCISession(object):
         else:
             raise OCISDKError("Config file %s not found" % full_fname)
 
-    def set_sdk_call_timeout(timeout):
+    def set_sdk_call_timeout(self,timeout):
         if int(timeout) < 0:
             raise OCISDKError("Invalid value for timeout in sdk_call()")
         self.sdk_lock_timeout = int(timeout)
@@ -190,9 +189,12 @@ class OCISession(object):
             call_name=client_func.__name__
         except:
             pass
-
         try:
             result = client_func(*args, **kwargs)
+            next = result
+            while hasattr(next, 'data') and next.has_next_page:
+                next = client_func(*args, page=next.next_page,**kwargs)
+                result.data.extend(next.data);
         except Exception as e:
             oci_utils.release_thread()
             self.logger.debug("API call %s failed: %s" % (call_name, e))
@@ -247,8 +249,6 @@ class OCISession(object):
         try:
             if self._ip_authenticate():
                 return IP
-            else:
-                return NONE
         except:
             pass
 
@@ -506,9 +506,9 @@ class OCISession(object):
         for compartment in self.all_compartments(refresh=refresh):
             comp_vcns = compartment.all_vncs()
             if comp_vcns is not None:
-                vncs += comp_vcns
-        self.vncs = vncs
-        return vncs
+                vcns += comp_vcns
+        self.vcns = vcns
+        return vcns
 
     def all_volumes(self, refresh=False):
         if self.volumes is not None and not refresh:
@@ -529,6 +529,7 @@ class OCISession(object):
             my_instance_id = self.metadata['instance']['id']
         except Exception as e:
             self.logger.debug('Cannot find my instance ID: %s' % e)
+            return None
 
         return self.get_instance(instance_id=my_instance_id,
                                  refresh=refresh)
@@ -544,7 +545,7 @@ class OCISession(object):
         try:
             comp_data = self.identity_client.get_compartment(
                 compartment_id=my_compartment_id).data
-        except oci_api.exceptions.ServiceError:
+        except oci_sdk.exceptions.ServiceError:
             return None
         
         return OCICompartment(session=self,
@@ -1701,7 +1702,7 @@ class OCISubnet(OCIAPIObject):
                        2)
         return ((ipint & cidrmask) == cidripint)
 
-    def all_private_ips(self):
+    def all_private_ips(self, refresh=False):
         '''
         return a list of secondary private IPs in this Subnet
         '''
