@@ -1,24 +1,21 @@
 #!/usr/bin/python
 
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+
 import unittest
 import oci_utils
 import oci_utils.iscsiadm
-
-# skip tests that require an OCI instance if not running on an OCI instance
-def skipUnlessOCI():
-    if not oci_utils.iscsiadm.__can_connect('169.254.169.254', 80):
-        return unittest.skip("must be run on an OCI instance")
-    return lambda func: func
+from decorators import *
 
 class TestOciMetadata(unittest.TestCase):
     @skipUnlessOCI()
     def test__oci_metadata__get(self):
         metadata = oci_utils.metadata().get()
         self.assertNotEqual(metadata, [])
-        print metadata
         self.assertTrue(metadata['instance'])
         self.assertIn(u'region', metadata['instance'])
-        self.assertIn(metadata['instance']['region'], ['phx','iad','fra'])
+        self.assertIn(metadata['instance']['region'], ['phx','iad','fra','lhr'])
         self.assertIn(u'state', metadata['instance'])
         self.assertEquals(metadata['instance']['state'], 'Running')
 

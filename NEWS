@@ -1,0 +1,20 @@
+Version 0.6:
+
+- bump version for 0.6
+- add support for API access through Instance Principals
+- add support for root using a designated user's OCI config files and keys
+- oci_utils API automatically detects authentication method to be used
+- ocid can discover secondary IP addresses and CHAP user/password using
+  OCI API calls, if the Python SDK is configured or Instance Principals used
+- network proxy support for making SDK calls
+- configuration files for ocid: /etc/oci-utils.d/*
+- support configuring the various functions of ocid individually,
+  including refresh frequency or turning them off completely.
+- ocid saves state and restores all volumes and VNIC configuration after reboot
+- oci-network-config: new option: --detach-vnic
+- oci-iscsi-config: new option: --destroy-volume
+- oci-utils APIs are now thread safe
+- NEW tool: oci-image-cleanup - a script that runs a set of cleanup steps to
+  prepare the instance for snapshot
+- oci-kvm utility rejects attempts to create guests if the required
+  virtualization support is not enabled in the image it is being executed on

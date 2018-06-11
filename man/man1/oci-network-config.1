@@ -3,7 +3,7 @@
 .\"
 .\" Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 .\"
-.TH OCI-NETWORK-CONFIG 1 "FEBRUARY 2018" Linux "User Manuals"
+.TH OCI-NETWORK-CONFIG 1 "MAY 2018" Linux "User Manuals"
 .SH NAME
 oci-network-config \- configure network devices on OCI compute instances
 .SH SYNOPSIS
@@ -15,7 +15,7 @@ oci-network-config \- configure network devices on OCI compute instances
 .I ITEM
 .B | --include
 .I ITEM
-.B ] [-q|--quiet] [--debug] [--help]
+.B ] [-q|--quiet] [--help]
 
 .B oci-network-config [-s|--show] [-a|--auto|-c|--configure] [-e
 .I IP_ADDR VNIC_OCID
@@ -31,7 +31,7 @@ oci-network-config \- configure network devices on OCI compute instances
 .I ITEM
 .B | --include
 .I ITEM
-.B ] [-q|--quiet] [--debug] [--help]
+.B ] [-q|--quiet] [--help]
 
 .B oci-network-config [-s|--show] [-d|--deconfigure] [-e
 .I IP_ADDR VNIC_OCID
@@ -43,10 +43,12 @@ oci-network-config \- configure network devices on OCI compute instances
 .I ITEM
 .B | --include
 .I ITEM
-.B ] [-q|--quiet] [--debug] [--help]
+.B ] [-q|--quiet] [--help]
 
 .B oci-network-config [-s|--show] [--create-vnic] [--vnic-name
 .I NAME
+.B ] [--detach-vnic
+.I VNIC
 .B ] [--add-private-ip] [--private-ip
 .I ADDR
 .B ] [--del-private-ip
@@ -63,7 +65,7 @@ oci-network-config \- configure network devices on OCI compute instances
 .I ITEM
 .B | --include
 .I ITEM
-.B ] [-q|--quiet] [--debug] [--help]
+.B ] [-q|--quiet] [--help]
 
 .SH DESCRIPTION
 
@@ -83,8 +85,8 @@ The third version, -d (or --deconfigure), deletes all IP configuration for provi
 
 The fourth version requires the OCI Python SDK to be installed and configured.
 The OCI Python SDK is available in the python-oci-sdk package.  This version
-allows creating a new VNIC for the instance or adding/removing private IP
-addresses to/from an existing VNIC.
+allows creating a new VNIC for the instance, detaching a VNIC from the instance,
+or adding/removing private IP addresses to/from an existing VNIC.
 
 To install the OCI Python SDK, use
 .PP
@@ -106,9 +108,14 @@ oci setup config
 See https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
 for more information.
 
+Another option for authorizing the use of OCI services from an instance is
+using Instance Principals.  The OCI SDK does not need configuration on the
+instance when the instance is part of a dynamic group that was granted access
+to OCI services.  See https://docs.us-phoenix-1.oraclecloud.com/Content/Identity/Tasks/callingservicesfrominstances.htm for further details.
+
 When
 .BR ocid(8)
-is enabled, it runs this utility each time the VNIC configuration metadata of the instance changes.  If
+is enabled, it runs this utility each time the VNIC configuration metadata of the instance changes.  It also restores the VNIC configuration after rebooting the system.  If
 .BR ocid(8)
 is not enabled this script must be run periodically to pick up changes in VNIC provisioning (whether adding or deleting). Note that these IP configuration changes are not persistent, the script must, at a minimum, be run on each startup.
 
@@ -145,6 +152,11 @@ This option requires the OCI Python SDK to be installed and configured.
 .IP "--vnic-name NAME"
 When creating a new VNIC using the --create-vnic option, set the display
 name and hostname of the VNIC to NAME.
+.IP "--detach-vnic VNIC"
+Detach and delete the VNIC with the given OCID or IP address.  The primary
+VNIC cannot be detached.  Any secondary private IP addresses attached to the
+VNIC are also deleted.
+This option requires the OCI Python SDK to be installed and configured.
 .IP "--add-private-ip"
 Add a secondary private IP address to an existing VNIC.  When the instance has
 multiple VNICs, use the --vnic option to select the VNIC to add the secondary
@@ -203,10 +215,9 @@ sudo oci-network-config --add-private-ip --private-ip 10.0.1.200
 .fi
 .PP
 Attaches and configures a new secondary private IP address, 10.0.1.200 on the
-primary VNIC.  Note: since
-.BR sudo(8)
-is used, the OCI Python SDK must be configured
-in the root user's account.
+primary VNIC.  See
+.BR oci-utils.conf.d(5)
+for information about configuring oci-utils to work as the root user.
 .PP
 .nf
 .RS
@@ -232,4 +243,5 @@ The new network interface configuration is displayed after creating the VNIC.
 Return an exit status of 0 for success or 1 if an error occured.
 .SH "SEE ALSO"
 .BR ocid (8)
+.BR oci-utils.conf.d (5)
 .BR sudo (8)

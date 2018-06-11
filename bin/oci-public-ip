@@ -20,6 +20,7 @@ except ImportError:
     import simplejson as json
 from oci_utils.packages.stun import get_ip_info, STUN_SERVERS, log as stun_log
 import oci_utils.oci_api
+from oci_utils.exceptions import OCISDKError
 
 def parse_args():
     '''
@@ -46,7 +47,7 @@ def parse_args():
                         'instance instead of the current one.  Requires '
                         'the OCI Python SDK to be installed and configured')
     parser.add_argument('--debug', action='store_true',
-                        help='Display diagnostic output'),
+                        help=argparse.SUPPRESS)
     parser.add_argument('--help', action='help',
                         help='Display this help')
 
@@ -72,7 +73,14 @@ def main():
         sys.exit(0)
 
     external_ip = None
-    if oci_utils.oci_api.HAVE_OCI_SDK or args.instance_id is not None:
+
+    # simplest case without any command line arguments: look for cached result
+    if args.instance_id is None and args.sourceip == '0.0.0.0' and \
+       args.stun_server is None:
+        external_ip = oci_utils.metadata(get_public_ip=True).get_public_ip()
+
+    if external_ip is None and \
+       (oci_utils.oci_api.HAVE_OCI_SDK or args.instance_id is not None):
         # try the OCI APIs first
         try:
             sess = oci_utils.oci_api.OCISession()
@@ -89,7 +97,7 @@ def main():
                 if vnic.get_public_ip() is not None:
                     external_ip = vnic.get_public_ip()
                     break
-        except oci_utils.oci_api.OCISDKError:
+        except OCISDKError:
             if args.instance_id is not None:
                 sys.stderr.write("The OCI Python SDK must be installed and "
                                  "configured when using the --instance-id "

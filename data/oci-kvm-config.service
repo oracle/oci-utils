@@ -1,0 +1,12 @@
+[Unit]
+Description=OCI KVM config
+Before=network-pre.target
+
+[Service]
+Type=oneshot
+TimeoutStartSec=120
+RemainAfterExit=yes
+ExecStart=/usr/libexec/oci-kvm-config.sh
+
+[Install]
+WantedBy=network-pre.target

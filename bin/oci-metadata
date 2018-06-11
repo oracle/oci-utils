@@ -2,7 +2,7 @@
 
 # oci-utils
 #
-# Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 
 '''
@@ -38,16 +38,19 @@ oci_metadata_detail = {
     'vnicId': 'VNIC OCID',
     'privateIp': 'Private IP address',
     'publicIp': 'Public IP address',
+    'faultDomain': 'Fault domain',
     'virtualRouterIp': 'Virtual router IP address',
     'vlanTag': 'VLAN tag'
     }
 oci_regions = {
-    'phx': 'phx (Phoenix, AZ, USA)',
-    'iad': 'iad (Ashburn, VA, USA)',
-    'fra': 'fra (Frankfurt, Germany)'
+    'phx': 'phx - us-phoenix-1 (Phoenix, AZ, USA)',
+    'iad': 'iad - us-ashburn-1 (Ashburn, VA, USA)',
+    'fra': 'fra - eu-frankfurt-1 (Frankfurt, Germany)',
+    'lhr': 'lhr - uk-london-1 (London, UK)'
     }
+
 oci_metadata_display_order = [
-    'displayName', 'region', 'availabilityDomain',
+    'displayName', 'region', 'availabilityDomain', 'faultDomain',
     'shape', 'timeCreated', 'state',
     'id',
     'privateIp', 'macAddr', 'subnetCidrBlock', 'virtualRouterIp', 'vnicId'
@@ -70,7 +73,7 @@ def parse_args():
                         action='append', type=str.lower,
                         help='Display the value of a specific key')
     parser.add_argument('--debug', action='store_true',
-                        help='display diagnostic output'),
+                        help=argparse.SUPPRESS)
     parser.add_argument('--help', action='help',
                         help='Display this help')
 

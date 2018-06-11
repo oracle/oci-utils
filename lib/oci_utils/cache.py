@@ -10,9 +10,10 @@ Common cache file utils for oci_utils
 """
 
 import os
+import sys
+import fcntl
 from os.path import getmtime, exists
 from datetime import datetime, timedelta
-import posixfile
 import json
 
 GLOBAL_CACHE_DIR = "/var/cache/oci-utils"
@@ -73,29 +74,27 @@ def load_cache(global_file, user_file=None, max_age=None):
             return (0, None)
 
     try:
-        cache_file = posixfile.open(cache_fname, "r")
-        # acquire read lock
-        cache_file.lock("r|")
+        cache_fd = os.open(cache_fname, os.O_RDONLY)
+        cache_file = os.fdopen(cache_fd, 'r')
+        # acquire a shared lock
+        fcntl.lockf(cache_fd, fcntl.LOCK_SH)
     except IOError:
         # can't access file
         return (0, None)
 
     try:
         cache_content = json.load(cache_file)
-        cache_file.lock("u")
-        cache_file.close()
     except IOError, ValueError:
         # can't read file
-        try:
-            cache_file.lock("u")
-            cache_file.close()
-        except:
-            pass
-        return (0, None)
+        cache_timestamp = 0
+        cache_content = None
+
+    fcntl.lockf(cache_fd, fcntl.LOCK_UN)
+    cache_file.close()
 
     return (cache_timestamp, cache_content)
 
-def write_cache(cache_content, cache_fname, fallback_fname=None):
+def write_cache(cache_content, cache_fname, fallback_fname=None, mode=None):
     """
     Save the cache_content as JSON data in cache_fname, or
     in fallback_fname if cache_fname is not writeable
@@ -109,10 +108,12 @@ def write_cache(cache_content, cache_fname, fallback_fname=None):
         cachedir = os.path.dirname(cache_fname)
         if not os.path.exists(cachedir):
             os.makedirs(cachedir)
-        if not os.path.exists(cache_fname):
-            cache_file = posixfile.open(cache_fname, 'w+')
+        if mode is not None:
+            cache_fd = os.open(cache_fname, os.O_WRONLY|os.O_CREAT,
+                               mode)
         else:
-            cache_file = posixfile.open(cache_fname, 'r+')
+            cache_fd = os.open(cache_fname, os.O_WRONLY|os.O_CREAT)
+        cache_file = os.fdopen(cache_fd, 'w')
     except (OSError, IOError):
         # can't write to cache_fname, try fallback_fname
         if not fallback_fname:
@@ -121,27 +122,33 @@ def write_cache(cache_content, cache_fname, fallback_fname=None):
         try:
             if not os.path.exists(cachedir):
                 os.makedirs(cachedir)
-            if not os.path.exists(fallback_fname):
-                cache_file = posixfile.open(fallback_fname, 'w+')
+            if mode is not None:
+                cache_fd = os.open(fallback_fname,
+                                   os.O_WRONLY|os.O_CREAT, mode)
             else:
-                cache_file = posixfile.open(fallback_fname, 'r+')
+                cache_fd = os.open(fallback_fname,
+                                   os.O_WRONLY|os.O_CREAT)
+            cache_file = os.fdopen(cache_fd, 'w')
             fname = fallback_fname
         except (OSError, IOError) as e:
             # can't write to fallback file either, give up
             return None
     try:
-        cache_file.lock("w|")
-        cache_file.write(json.dumps(cache_content))
+        json_content = json.dumps(cache_content)
+    except:
+        sys.stderr.write("Internal error: invalid content for %s\n" % fname)
+
+    try:
+        # acquire exclusive lock
+        fcntl.lockf(cache_fd, fcntl.LOCK_EX)
+        cache_file.write(json_content)
         cache_file.truncate()
         cache_timestamp = get_timestamp(fname)
-        cache_file.lock("u")
+        fcntl.lockf(cache_fd, fcntl.LOCK_UN)
         cache_file.close()
     except:
-        try:
-            cache_file.lock("u")
-            cache_file.close()
-        except:
-            pass
+        fcntl.lockf(cache_fd, fcntl.LOCK_UN)
+        cache_file.close()
         return None
 
     return cache_timestamp

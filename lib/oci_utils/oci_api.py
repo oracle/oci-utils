@@ -9,11 +9,15 @@
 High level wrapper around the OCI Python SDK
 """
 
+import sys
 import os
 import re
+import logging
 from time import sleep
 import six
 import oci_utils
+from .auth_helper import OCIAuthProxy
+from .exceptions import OCISDKError
 
 HAVE_OCI_SDK = True
 try:
@@ -21,19 +25,18 @@ try:
 except ImportError:
     HAVE_OCI_SDK = False
 
-class OCISDKError(Exception):
-    """
-    Exception raised for various OCI API problems
-    """
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
+# authentication methods
+DIRECT = 'direct'
+PROXY = 'proxy'
+IP = 'ip'
+AUTO = 'auto'
+NONE = 'None'
 
 
-class OCIObject(object):
+
+class OCIAPIObject(object):
     """
-    Base class for most OCI objects
+    Ancestor class for most OCI objects
     """
     def __init__(self):
         pass
@@ -74,14 +77,19 @@ class OCISession(object):
     """
     High level OCI Cloud API operations
     """
-    def __init__(self, config_file='~/.oci/config', config_profile='DEFAULT'):
+    def __init__(self, config_file='~/.oci/config', config_profile='DEFAULT',
+                 auth_method=None, debug=False):
         global HAVE_OCI_SDK
         if not HAVE_OCI_SDK:
             raise OCISDKError('OCI Python SDK not installed')
+        self.debug = debug
+        self._setup_logging(debug=debug, syslog=False)
         self.config_file = config_file
         self.config_profile = config_profile
         self.compartments = None
         self.instances = None
+        # max time spent waiting for the sdk thread lock
+        self.sdk_lock_timeout = int(60)
         self.vcns = None
         self.subnets = None
         self.volumes = None
@@ -89,8 +97,63 @@ class OCISession(object):
         self.compute_client = None
         self.network_client = None
         self.block_storage_client = None
-        self.authenticate()
+        self.object_storage_client = None
+        self.oci_utils_config = oci_utils.read_config()
         self.metadata = oci_utils.metadata(get_public_ip=False)
+        self.oci_config = {}
+        self.signer = None
+        self.auth_method = auth_method
+        self.auth_status = ""
+        try:
+            # see if auth_method was set in oci-utils.conf
+            self.auth_method = self.oci_utils_config.get('auth',
+                                                         'auth_method')
+        except:
+            if self.auth_method is None:
+                self.auth_method = AUTO
+        if not self.metadata:
+            # code is running outside OCI, must have direct auth:
+            self.auth_method = self._get_auth_method(auth_method=DIRECT)
+        else:
+            self.auth_method = self._get_auth_method(auth_method)
+        if self.auth_method == NONE:
+            if self.auth_status:
+                raise OCISDKError(self.auth_status)
+            raise OCISDKError('Failed to authenticate with the OCI service')
+        self.tenancy_ocid = None
+        if 'tenancy' in self.oci_config :
+            # DIRECT or PROXY auth
+            self.tenancy_ocid = self.oci_config['tenancy']
+        elif self.signer is not None:
+            # IP auth
+            self.tenancy_ocid = self.signer.tenancy_id
+        else:
+            # fall back to the instance's own compartment_id
+            # We will only see the current compartment, but better than nothing
+            self.tenancy_ocid = oci_utils.metadata['instance']['compartmentId']
+
+    def _setup_logging(self, debug=False, syslog=False):
+        self.logger = logging.getLogger('oci_utils.oci_api')
+        if debug:
+            self.logger.setLevel(logging.DEBUG)
+        else:
+            self.logger.setLevel(logging.INFO)
+        if syslog:
+            handler = SysLogHandler(address='/dev/log',
+                                facility=SysLogHandler.LOG_DAEMON)
+        else:
+            handler = logging.StreamHandler(stream=sys.stderr)
+        if debug:
+            self.logger.setLevel(logging.DEBUG)
+            handler.setLevel(logging.DEBUG)
+        else:
+            self.logger.setLevel(logging.INFO)
+            handler.setLevel(logging.INFO)
+            
+        formatter = logging.Formatter('%(name)s - %(levelname)s '
+                                          '- %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
     @staticmethod
     def _read_oci_config(fname, profile='DEFAULT'):
@@ -105,22 +168,180 @@ class OCISession(object):
             except oci_sdk.exceptions.ConfigFileNotFound as e:
                 raise OCISDKError("Unable to read OCI config file: %s" % e)
         else:
-            raise OCISDKError("Config file %s not found, please configure" \
-                              " OCI." % fname)
+            raise OCISDKError("Config file %s not found" % full_fname)
 
-    def authenticate(self):
+    def set_sdk_call_timeout(timeout):
+        if int(timeout) < 0:
+            raise OCISDKError("Invalid value for timeout in sdk_call()")
+        self.sdk_lock_timeout = int(timeout)
+
+    def sdk_call(self, client_func, *args, **kwargs):
+        """
+        Make an SDK call in a thread-safe way.
+        Give up acquiring the thread lokc after timeout seconds.
+        OCISDKError is raised if the timeout is reached.
+        timeout=0 means wait forever.
+        """
+        timeout = self.sdk_lock_timeout
+        oci_utils.lock_thread(timeout=timeout)
+        # for loggin purposes
+        call_name = str(client_func)
+        try:
+            call_name=client_func.__name__
+        except:
+            pass
+
+        try:
+            result = client_func(*args, **kwargs)
+        except Exception as e:
+            oci_utils.release_thread()
+            self.logger.debug("API call %s failed: %s" % (call_name, e))
+            raise
+        oci_utils.release_thread()
+        return result
+            
+    def _get_auth_method(self, auth_method=None):
+        """
+        Determine how (or if) we can authenticate.
+        If auth_method is provided, and is not AUTO then test if the given
+        auth_method works.
+        return one of oci_api.DIRECT, oci_api.PROXY, oci_api.IP or oci_api.NONE
+        (IP is instance principals)
+        """
+        if auth_method is not None:
+            # testing a specific auth method
+            if auth_method == DIRECT:
+                if self._direct_authenticate():
+                    return DIRECT
+                else:
+                    return NONE
+            elif auth_method == PROXY:
+                if self._proxy_authenticate():
+                    return PROXY
+                else:
+                    return NONE
+            elif auth_method == IP:
+                if self._ip_authenticate():
+                    return IP
+                else:
+                    return NONE
+
+        # Try the direct method first
+        try:
+            if self._direct_authenticate():
+                return DIRECT
+        except:
+            # ignore any errors and try a different method
+            pass
+
+        # If we are root, we can try proxy call through the oci_sdk_user user
+        if os.geteuid() == 0:
+            try:
+                if self._proxy_authenticate():
+                    return PROXY
+            except:
+                # ignore any errors and try a different method
+                pass
+
+        # finally, try instance principals
+        try:
+            if self._ip_authenticate():
+                return IP
+            else:
+                return NONE
+        except:
+            pass
+
+        # no options left
+        return NONE
+
+    def _proxy_authenticate(self):
+        """
+        Use the auth helper to get config settings and keys
+        Return True for success, False for failure
+        """
+        sdk_user = self.oci_utils_config.get('auth', 'oci_sdk_user')
+        try:
+            proxy = OCIAuthProxy(sdk_user)
+            self.oci_config = proxy.get_config()
+        except Exception as e:
+            self.auth_status += "Authentication as user %s failed: %s\n" \
+                                % (sdk_user, e)
+            self.logger.debug('Proxy auth failed: %s' % e)
+            return False
+        try:
+            self.identity_client = self.sdk_call(
+                oci_sdk.identity.IdentityClient,
+                self.oci_config)
+        except Exception as e:
+            self.auth_status += "Cannot create identity client as user %s\n" \
+                                % sdk_user
+            self.logger.debug('ID client with proxy auth failed: %s' % e)
+            return False
+        self.auth_status += "Authentication as user %s succeeded\n" % sdk_user
+        return True
+        
+    def _direct_authenticate(self):
+        """
+        Authenticate with the OCI SDK.
+        Return True for success, False for failure
+        Raises an exception when it appears to work but API calls fail
+        (indicates misconfiguration)
+        """
+        # raises OCISDKError
+        try:
+            self.oci_config = self._read_oci_config(fname=self.config_file,
+                                                    profile=self.config_profile)
+        except Exception as e:
+            self.auth_status += "Config file authentication failed: %s\n" % e
+            self.logger.debug('Cannot read oci config file: %s' % e)
+            return False
+
+        try:
+            self.identity_client = self.sdk_call(
+                oci_sdk.identity.IdentityClient,
+                self.oci_config)
+        except Exception as e:
+            self.auth_status += "Cannot create identity client: %s\n" % e
+            self.logger.debug('Direct auth failed: %s' % e)
+            return False
+
+        # test that it works
+        try:
+            inst_id = self.metadata['instance']['id']
+            cc = self.get_compute_client()
+            inst = self.sdk_call(cc.get_instance, instance_id=inst_id)
+        except oci_sdk.exceptions.ServiceError as e:
+            self.auth_status += "Cannot make OCI API calls: %s\n" % e
+            raise OCISDKError('Cannot make OCI API calls: %s' % e.message)
+
+        self.auth_status += "Config file (direct) authentication succeeded\n"
+        return True
+
+    def _ip_authenticate(self):
         """
         Authenticate with the OCI SDK.
         raise OCISDKError if failed.
         """
-        # raises OCISDKError
-        self.oci_config = self._read_oci_config(fname=self.config_file,
-                                                profile=self.config_profile)
+        self.signer = \
+            oci_sdk.auth.signers.InstancePrincipalsSecurityTokenSigner()
+        self.identity_client = self.sdk_call(
+            oci_sdk.identity.IdentityClient,
+            config={}, signer=self.signer)
         try:
-            self.identity_client = oci_sdk.identity.IdentityClient(
-                self.oci_config)
+            inst = self.this_instance()
         except Exception as e:
-            raise OCISDKError("Authentication error: %s" % e)
+            self.auth_status += "Instance Principals authentication: %s\n" % e
+            self.logger.debug('IP auth failed: %s' % e)
+            # reset compute client set by this_instance()
+            self.compute_client = None
+            return False
+        if inst is not None:
+            self.auth_status += "Instance Principals (IP) authentication succeeded\n"
+            return True
+        
+        return False
+
 
     def all_compartments(self, refresh=False):
         """
@@ -129,17 +350,25 @@ class OCISession(object):
         if self.compartments is not None and not refresh:
             return self.compartments
 
-        assert self.oci_config is not None
-        assert 'tenancy' in self.oci_config
-        assert self.identity_client is not None
-
         compartments_data = self.identity_client.list_compartments(
-            compartment_id=self.oci_config['tenancy']).data
+            compartment_id=self.tenancy_ocid).data
         self.compartments = []
         for c_data in compartments_data:
             self.compartments.append(OCICompartment(session=self,
                                                     compartment_data=c_data))
         return self.compartments
+
+    def find_compartments(self, display_name, refresh=False):
+        """
+        Return a list of OCICompartment-s with a matching display_name regexp
+        """
+        dn_re = re.compile(display_name)
+        compartments = []
+        for comp in self.all_compartments(refresh=refresh):
+            res = dn_re.search(comp.data.display_name)
+            if res is not None:
+                compartments.append(comp)
+        return compartments
 
     def all_subnets(self, refresh=False):
         """
@@ -158,23 +387,53 @@ class OCISession(object):
 
     def get_compute_client(self):
         if self.compute_client is None:
-            self.compute_client = oci_sdk.core.compute_client.ComputeClient(
-                self.oci_config)
+            if self.signer is not None:
+                self.compute_client = \
+                    oci_sdk.core.compute_client.ComputeClient(
+                        config=self.oci_config, signer=self.signer)
+            else:
+                self.compute_client = \
+                    oci_sdk.core.compute_client.ComputeClient(
+                        config=self.oci_config)
         return self.compute_client
     
     def get_network_client(self):
         if self.network_client is None:
-            self.network_client = \
-                oci_sdk.core.virtual_network_client.VirtualNetworkClient(
-                    self.oci_config)
+            if self.signer is not None:
+                self.network_client = \
+                    oci_sdk.core.virtual_network_client.VirtualNetworkClient(
+                        config=self.oci_config, signer=self.signer)
+            else:
+                self.network_client = \
+                    oci_sdk.core.virtual_network_client.VirtualNetworkClient(
+                        config=self.oci_config)
         return self.network_client
     
     def get_block_storage_client(self):
         if self.block_storage_client is None:
-            self.block_storage_client = \
-                oci_sdk.core.blockstorage_client.BlockstorageClient(
-                    self.oci_config)
+            if self.signer is not None:
+                self.block_storage_client = \
+                    oci_sdk.core.blockstorage_client.BlockstorageClient(
+                        config=self.oci_config, signer=self.signer)
+            else:
+                self.block_storage_client = \
+                    oci_sdk.core.blockstorage_client.BlockstorageClient(
+                        config=self.oci_config)
         return self.block_storage_client
+    
+    def get_object_storage_client(self):
+        if self.object_storage_client is None:
+            if self.signer is not None:
+                self.object_storage_client = \
+                    oci_sdk.object_storage.object_storage_client.\
+                    ObjectStorageClient(
+                        config=self.oci_config, signer=self.signer)
+            else:
+                self.object_storage_client = \
+                    oci_sdk.object_storage.object_storage_client.\
+                    ObjectStorageClient(
+                        config=self.oci_config)
+        return self.object_storage_client
     
     def all_instances(self, refresh=False):
         if self.instances is not None and not refresh:
@@ -190,7 +449,7 @@ class OCISession(object):
 
     def find_instances(self, display_name, refresh=False):
         """
-        Return a list of OCIInstance-s with matching the display_name regexp
+        Return a list of OCIInstance-s with a matching display_name regexp
         """
         dn_re = re.compile(display_name)
         instances = []
@@ -203,7 +462,7 @@ class OCISession(object):
     def find_volumes(self, display_name=None,
                      iqn=None, refresh=False):
         """
-        Return a list of OCIVolume-s with matching the display_name regexp
+        Return a list of OCIVolume-s with a matching display_name regexp
         and/or IQN
         """
         if display_name is None and iqn is None:
@@ -266,60 +525,126 @@ class OCISession(object):
     def this_instance(self, refresh=False):
         if self.metadata is None:
             return None
-        my_instance_id = self.metadata['instance']['id']
+        try:
+            my_instance_id = self.metadata['instance']['id']
+        except Exception as e:
+            self.logger.debug('Cannot find my instance ID: %s' % e)
 
-        for i in self.this_compartment().all_instances(refresh=refresh):
-            if i.get_ocid() == my_instance_id:
-                return i
-
-        return None
+        return self.get_instance(instance_id=my_instance_id,
+                                 refresh=refresh)
 
     def this_compartment(self, refresh=False):
         if self.metadata is None:
             return None
-        my_compartment_id = self.metadata['instance']['compartmentId']
+        try:
+            my_compartment_id = self.metadata['instance']['compartmentId']
+        except:
+            return None
 
-        for c in self.all_compartments(refresh=refresh):
-            if c.get_ocid() == my_compartment_id:
-                return c
-
-        return None
+        try:
+            comp_data = self.identity_client.get_compartment(
+                compartment_id=my_compartment_id).data
+        except oci_api.exceptions.ServiceError:
+            return None
+        
+        return OCICompartment(session=self,
+                              compartment_data=comp_data)
 
     def this_availability_domain(self):
         if self.metadata is None:
             return None
         return self.metadata['instance']['availabilityDomain']
 
+    def get_tenancy_ocid(self):
+        """
+        return the ocid of the tenancy
+        """
+        return self.tenancy_ocid
+    
     def this_region(self):
         if self.metadata is None:
             return None
-        return self.metadata['instance']['region']
+        try:
+            return self.metadata['instance']['region']
+        except:
+            return None
 
     def get_instance(self, instance_id, refresh=False):
-        for i in self.all_instances(refresh=refresh):
-            if i.get_ocid() == instance_id:
-                return i
+        cc = self.get_compute_client()
+        if not refresh and self.instances:
+            # return from cache
+            for i in self.instances:
+                if i.get_ocid() == instance_id:
+                    return i
+        try:
+            instance_data = self.sdk_call(cc.get_instance,
+                                          instance_id=instance_id).data
+            return OCIInstance(self, instance_data)
+        except Exception as e:
+            self.logger.debug('Failed to fetch instance data: %s' % e)
+
         return None
 
     def get_subnet(self, subnet_id, refresh=False):
+        # FIXME: use virtual_network_client.get_subnet directly
         for sn in self.all_subnets(refresh=refresh):
             if sn.get_ocid() == subnet_id:
                 return sn
         return None
 
-    def get_volume(self, subnet_id, refresh=False):
-        for v in self.all_volumes(refresh=refresh):
-            if v.get_ocid() == subnet_id:
-                return v
-        return None
+    def get_volume(self, volume_id, refresh=False):
+        """
+        Return an OCIVolume object representing the volume with the given
+        ocid, or None if the volume is not found.
+        """
+        # FIXME: return from self.volumes if exists and refresh==False
 
-    def get_compartment(self, compartment_id, refresh=False):
+        bsc = self.get_block_storage_client()
+        cc = self.get_compute_client()
+
+        try:
+            vol_data = self.sdk_call(bsc.get_volume,
+                                     volume_id=volume_id).data
+        except oci_sdk.exceptions.ServiceError:
+            return None
+
+        if vol_data.lifecycle_state == "TERMINATED":
+            return None
+
+        try:
+            v_att_list = self.sdk_call(cc.list_volume_attachments,
+                compartment_id=vol_data.compartment_id,
+                volume_id=vol_data.id).data
+        except:
+            # can't find any attachments for this volume
+            return OCIVolume(self, volume_data=vol_data)
+
+        # find the latest attachment entry for this volume
+        v_att_data = None
+        for v_att in v_att_list:
+            if v_att_data is None:
+                v_att_data = v_att
+                continue
+            if v_att.time_created > v_att_data.time_created:
+                v_att_data = v_att
+
+        return OCIVolume(self,
+                         volume_data=vol_data,
+                         attachment_data=v_att_data)
+
+    def get_compartment(self, compartment_id, refresh=False): 
+        if not refresh and self.compartments:
+            # return from cache
+            for i in self.compartments:
+                if i.get_ocid() == compartment_id:
+                    return i
         for c in self.all_compartments(refresh=refresh):
             if c.get_ocid() == compartment_id:
                 return c
         return None
 
     def get_vnic(self, vnic_id, refresh=False):
+        # FIXME: use list_vnic_attachments and get_vnic directly
         for c in self.all_compartments(refresh=refresh):
             for v in c.all_vnics(refresh=refresh):
                 if v.get_ocid() == vnic_id:
@@ -341,16 +666,18 @@ class OCISession(object):
             size_in_gbs=size,
             display_name=display_name)
         try:
-            vol_data = bsc.create_volume(create_volume_details=cvds)
+            vol_data = self.sdk_call(bsc.create_volume,
+                                     create_volume_details=cvds)
             if wait:
                 while vol_data.data.lifecycle_state != 'AVAILABLE':
                     sleep(2)
-                    vol_data = bsc.get_volume(volume_id=vol_data.data.id)
+                    vol_data = self.sdk_call(bsc.get_volume,
+                                             volume_id=vol_data.data.id)
             return OCIVolume(self, vol_data.data)
         except oci_sdk.exceptions.ServiceError as e:
             raise OCISDKError('Failed to create volume: %s' % e.message)
 
-class OCICompartment(OCIObject):
+class OCICompartment(OCIAPIObject):
     def __init__(self, session, compartment_data):
         """
         compartment_data:
@@ -412,9 +739,12 @@ class OCICompartment(OCIObject):
         # in this compartment, so ignoring ServiceError exceptions
         instances = []
         try:
-            instances_data = cc.list_instances(
+            instances_data = self.oci_session.sdk_call(
+                cc.list_instances,
                 compartment_id=self.compartment_ocid)
             for i_data in instances_data.data:
+                if i_data.lifecycle_state == 'TERMINATED':
+                    continue
                 instances.append(OCIInstance(self.oci_session, i_data))
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
@@ -463,9 +793,11 @@ class OCICompartment(OCIObject):
         # in this compartment, so ignoring ServiceError exceptions
         vcns = []
         try:
-            vcns_data = nc.list_vcns(
+            vcns_data = self.oci_session.sdk_call(nc.list_vcns,
                 compartment_id=self.compartment_ocid)
             for v_data in vcns_data.data:
+                if v_data.lifecycle_state != 'AVAILABLE':
+                    continue
                 vcns.append(OCIVCN(self.oci_session, v_data))
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
@@ -483,14 +815,17 @@ class OCICompartment(OCIObject):
         bsc = self.oci_session.get_block_storage_client()
         cc = self.oci_session.get_compute_client()
 
-        # Note: the user may not have permission to list vcns
+        # Note: the user may not have permission to list volumes
         # in this compartment, so ignoring ServiceError exceptions
         bs = []
         try:
-            bs_data = bsc.list_volumes(
+            bs_data = self.oci_session.sdk_call(bsc.list_volumes,
                 compartment_id=self.compartment_ocid)
             for v_data in bs_data.data:
-                v_att_list = cc.list_volume_attachments(
+                if v_data.lifecycle_state != 'AVAILABLE':
+                    continue
+                v_att_list = self.oci_session.sdk_call(
+                    cc.list_volume_attachments,
                     compartment_id=self.compartment_ocid,
                     volume_id=v_data.id).data
                 v_att_data = None
@@ -505,7 +840,7 @@ class OCICompartment(OCIObject):
                                     attachment_data=v_att_data))
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
-            # permission to list the vcns in the compartment
+            # permission to list the volumes in the compartment
             pass
         self.volumes = bs
         return bs
@@ -522,7 +857,7 @@ class OCICompartment(OCIObject):
             display_name=display_name,
             wait=wait)
 
-class OCIInstance(OCIObject):
+class OCIInstance(OCIAPIObject):
     def __init__(self, session, instance_data):
         """
         instance_data:
@@ -620,12 +955,18 @@ class OCIInstance(OCIObject):
         vnics = []
         cc = self.oci_session.get_compute_client()
         nc = self.oci_session.get_network_client()
-        vnic_atts = cc.list_vnic_attachments(
-            compartment_id=self.data.compartment_id,
-            instance_id=self.instance_ocid)
+        try:
+            vnic_atts = self.oci_session.sdk_call(cc.list_vnic_attachments,
+                compartment_id=self.data.compartment_id,
+                instance_id=self.instance_ocid)
+        except Exception as e:
+            return []
         for v_a_data in vnic_atts.data:
+            if v_a_data.lifecycle_state != 'ATTACHED':
+                continue
             try:
-                vnic_data = nc.get_vnic(v_a_data.vnic_id).data
+                vnic_data = self.oci_session.sdk_call(nc.get_vnic,
+                    v_a_data.vnic_id).data
                 vnics.append(OCIVNIC(self.oci_session, vnic_data=vnic_data,
                                      attachment_data=v_a_data))
             except oci_sdk.exceptions.ServiceError:
@@ -677,15 +1018,53 @@ class OCIInstance(OCIObject):
     def all_volumes(self, refresh=False):
         if self.volumes is not None and not refresh:
             return self.volumes
-        volumes = []
-        for vol in self.get_compartment().all_volumes(
-                refresh=refresh):
-            if not vol.is_attached():
+        
+        bsc = self.oci_session.get_block_storage_client()
+        cc = self.oci_session.get_compute_client()
+
+        # Note: the user may not have permission to list volumes
+        # so ignoring ServiceError exceptions
+        try:
+            v_att_list = self.oci_session.sdk_call(
+                cc.list_volume_attachments,
+                compartment_id=self.data.compartment_id,
+                instance_id=self.instance_ocid).data
+        except oci_sdk.exceptions.ServiceError:
+            # the user has no permission to list volumes
+            self.volumes = []
+            return self.volumes
+
+        # multiple volume attachments may exist for the same
+        # volume and instance.  For each one, we need to find
+        # the most recent one
+        v_att_data = {}
+        for v_att in v_att_list:
+            if v_att.volume_id not in v_att_data:
+                v_att_data[v_att.volume_id] = v_att
                 continue
-            if vol.get_instance().get_ocid() == self.get_ocid():
-                volumes.append(vol)
-        self.volumes = volumes
-        return volumes
+            if v_att_data[v_att.volume_id].time_created < \
+               v_att.time_created:
+                v_att_data[v_att.volume_id] = v_att
+
+        vols = []
+        for vol_id in v_att_data.keys():
+            # only include volumes that are properly attached, not
+            # attaching or detaching or anything like that
+            if v_att_data[vol_id].lifecycle_state != "ATTACHED":
+                continue
+
+            try:
+                vol_data = self.oci_session.sdk_call(
+                    bsc.get_volume,
+                    volume_id=vol_id).data
+            except oci_sdk.exceptions.ServiceError:
+                continue
+            vols.append(OCIVolume(self.oci_session,
+                                  volume_data=vol_data,
+                                  attachment_data=v_att_data[vol_id]))
+
+        self.volumes = vols
+        return vols
         
     def attach_volume(self, volume_id, use_chap=False,
                       display_name=None, wait=True):
@@ -699,13 +1078,15 @@ class OCIInstance(OCIObject):
             instance_id=self.get_ocid(),
             display_name=display_name
             )
-        cc = oci_session.get_compute_client()
+        cc = self.oci_session.get_compute_client()
         try:
-            vol_att = cc.attach_volume(av_det)
+            vol_att = self.oci_session.sdk_call(cc.attach_volume, av_det)
             if wait:
                 while vol_att.data.lifecycle_state != "ATTACHED":
                     sleep(2)
-                    vol_att = cc.get_volume_attachment(vol_att.data.id)
+                    vol_att = self.oci_session.sdk_call(
+                        cc.get_volume_attachment,
+                        vol_att.data.id)
             return self.oci_session.get_volume(vol_att.data.volume_id,
                                                refresh=True)
         except oci_sdk.exceptions.ServiceError as e:
@@ -728,7 +1109,14 @@ class OCIInstance(OCIObject):
         if display_name is None and hostname_label is not None:
             display_name = hostname_label
         if hostname_label is None and display_name is not None:
-            hostname_label = display_name
+            hostname = os.popen("/usr/bin/hostname").read().strip()
+            hostname_label = hostname + "-" + display_name
+            # list of acceptable chars in a host name
+            hostname_chars = 'abcdefghijklmnopqrstuvwxyz' \
+                             'ABCDEFGHIJKLMNOPQRSTUVWXYZ' \
+                             '0123456789-'
+            hostname_label = \
+                ''.join([c for c in hostname_label if c in hostname_chars])
         # step 1: choose a subnet
         if subnet_id is None:
             instance_subnets = self.all_subnets()
@@ -762,12 +1150,15 @@ class OCIInstance(OCIObject):
             display_name=display_name,
             instance_id=self.get_ocid())
         try:
-            resp = cc.attach_vnic(attach_vnic_details)
-            v_att = cc.get_vnic_attachment(resp.data.id)
+            resp = self.oci_session.sdk_call(cc.attach_vnic,
+                                             attach_vnic_details)
+            v_att = self.oci_session.sdk_call(cc.get_vnic_attachment,
+                                              resp.data.id)
             if wait:
                 while v_att.data.lifecycle_state != "ATTACHED":
                     sleep(2)
-                    v_att = cc.get_vnic_attachment(resp.data.id)
+                    v_att = self.oci_session.sdk_call(cc.get_vnic_attachment,
+                                                      resp.data.id)
             return self.oci_session.get_vnic(v_att.data.vnic_id, refresh=True)
         except oci_sdk.exceptions.ServiceError as e:
             raise OCISDKError('Failed to attach new VNIC: %s' % e.message)
@@ -785,7 +1176,7 @@ class OCIInstance(OCIObject):
         vol = vol.attach_to(instance_id=self.get_ocid())
         return vol
 
-class OCIVCN(OCIObject):
+class OCIVCN(OCIAPIObject):
     def __init__(self, session, vcn_data):
         """
         vcn_data:
@@ -849,7 +1240,8 @@ class OCIVCN(OCIObject):
         # in this compartment, so ignoring ServiceError exceptions
         subnets = []
         try:
-            subnets_data = nc.list_subnets(
+            subnets_data = self.oci_session.sdk_call(
+                nc.list_subnets,
                 compartment_id=self.data.compartment_id,
                 vcn_id=self.vcn_ocid)
             for s_data in subnets_data.data:
@@ -861,7 +1253,7 @@ class OCIVCN(OCIObject):
         self.subnets = subnets
         return subnets
 
-class OCIVNIC(OCIObject):
+class OCIVNIC(OCIAPIObject):
     def __init__(self, session, vnic_data, attachment_data):
         """
         vnic_data:
@@ -959,9 +1351,15 @@ class OCIVNIC(OCIObject):
     def refresh(self):
         nc = self.oci_session.get_network_client()
         cc = self.oci_session.get_compute_client()
-        self.data = nc.get_vnic(vnic_id=self.vnic_ocid).data
-        self.att_data = cc.get_vnic_attachment(vnic_attachment_id=
-                                               self.att_data.id)
+        try:
+            self.data = self.oci_session.sdk_call(
+                nc.get_vnic,
+                vnic_id=self.vnic_ocid).data
+            self.att_data = self.oci_session.sdk_call(
+                cc.get_vnic_attachment,
+                vnic_attachment_id=self.att_data.id)
+        except:
+            pass
 
     def get_private_ip(self):
         return self.data.private_ip
@@ -992,12 +1390,14 @@ class OCIVNIC(OCIObject):
             vnic_id=self.get_ocid())
         nc = self.oci_session.get_network_client()
         try:
-            privateIp = nc.create_private_ip(cpid)
+            privateIp = self.oci_session.sdk_call(
+                nc.create_private_ip,
+                cpid)
             return OCIPrivateIP(session=self.oci_session,
                                 private_ip_data=privateIp.data)
         except oci_sdk.exceptions.ServiceError as e:
             raise OCISDKError("Failed to add private IP: %s" % e.message)
-
+        # FIXME: wait not implemented!
         return None
 
     def find_private_ip(self, ip_address, refresh=False):
@@ -1018,14 +1418,50 @@ class OCIVNIC(OCIObject):
 
         nc = self.oci_session.get_network_client()
         all_privips = []
-        privips = nc.list_private_ips(vnic_id=self.get_ocid()).data
+        try:
+            privips = self.oci_session.sdk_call(
+                nc.list_private_ips,
+                vnic_id=self.get_ocid()).data
+        except:
+            return []
         for privip in privips:
+            if privip.is_primary:
+                continue
             all_privips.append(OCIPrivateIP(session=self.oci_session,
                                             private_ip_data=privip))
         self.secondary_private_ips = all_privips
         return all_privips
 
-class OCIPrivateIP(OCIObject):
+    def detach(self, wait=True):
+        """
+        detach and delete the given VNIC
+        """
+        if self.is_primary():
+            raise OCISDKError("Cannot detach the primary VNIC.")
+
+        cc = self.oci_session.get_compute_client()
+        try:
+            self.oci_session.sdk_call(cc.detach_vnic,
+                vnic_attachment_id=self.att_data.id)
+        except Exception as e:
+            raise OCISDKError("Failed to detach VNIC: %s" % e)
+
+        if wait:
+            try:
+                vnic_att = self.oci_session.sdk_call(cc.get_vnic_attachment,
+                                self.att_data.id).data
+                self.att_data = vnic_att
+                while vnic_att.lifecycle_state != "DETACHED":
+                    sleep(2)
+                    vnic_att = self.oci_session.sdk_call(cc.get_vnic_attachment,
+                        self.att_data.id).data
+                    self.att_data = vnic_att
+            except:
+                # best effort
+                sleep(5)
+
+        return True
+class OCIPrivateIP(OCIAPIObject):
     def __init__(self, session, private_ip_data):
         """
         private_ip_data:
@@ -1109,13 +1545,18 @@ class OCIPrivateIP(OCIObject):
         '''
         nc = self.oci_session.get_network_client()
         try:
-            nc.delete_private_ip(self.get_ocid())
+            self.oci_session.sdk_call(
+                nc.delete_private_ip,
+                self.get_ocid())
             return True
         except:
             return False
 
     def get_vnic(self):
         return self.oci_session.get_vnic(self.data.vnic_id)
+
+    def get_vnic_ocid(self):
+        return self.data.vnic_id
 
     def get_address(self):
         return self.data.ip_address
@@ -1132,7 +1573,7 @@ class OCIPrivateIP(OCIObject):
     def get_ocid(self):
         return self.private_ip_ocid
 
-class OCISubnet(OCIObject):
+class OCISubnet(OCIAPIObject):
     def __init__(self, session, subnet_data):
         """
         subnet_data:
@@ -1269,14 +1710,21 @@ class OCISubnet(OCIObject):
 
         nc = self.oci_session.get_network_client()
         all_privips = []
-        privips = nc.list_private_ips(subnet_id=self.get_ocid()).data
+        try:
+            privips = self.oci_session.sdk_call(
+                nc.list_private_ips,
+                subnet_id=self.get_ocid()).data
+        except:
+            return []
         for privip in privips:
+            if privip.is_primary:
+                continue
             all_privips.append(OCIPrivateIP(session=self.oci_session,
                                             private_ip_data=privip))
         self.secondary_private_ips = all_privips
         return all_privips
 
-class OCIVolume(OCIObject):
+class OCIVolume(OCIAPIObject):
     def __init__(self, session, volume_data, attachment_data=None):
         """
         volume_data:
@@ -1478,25 +1926,65 @@ class OCIVolume(OCIObject):
             )
         cc = self.oci_session.get_compute_client()
         try:
-            vol_att = cc.attach_volume(av_det)
+            vol_att = self.oci_session.sdk_call(
+                cc.attach_volume,
+                av_det)
             if wait:
                 while vol_att.data.lifecycle_state != "ATTACHED":
                     sleep(2)
-                    vol_att = cc.get_volume_attachment(vol_att.data.id)
+                    vol_att = self.oci_session.sdk_call(
+                        cc.get_volume_attachment,
+                        vol_att.data.id)
             return self.oci_session.get_volume(vol_att.data.volume_id,
                                                refresh=True)
         except oci_sdk.exceptions.ServiceError as e:
             raise OCISDKError('Failed to attach volume: %s' % e.message)
 
-    def detach(self):
+    def detach(self, wait=True):
         if not self.is_attached():
             return True
 
         cc = self.oci_session.get_compute_client()
         
         try:
-            cc.detach_volume(volume_attachment_id=self.att_data.id)
+            self.oci_session.sdk_call(
+                cc.detach_volume,
+                volume_attachment_id=self.att_data.id)
         except oci_sdk.exceptions.ServiceError as e:
             raise OCISDKError('Failed to detach volume: %s' % e.message)
 
+        if wait:
+            try:
+                vol_att = self.oci_session.sdk_call(
+                    cc.get_volume_attachment,
+                    self.att_data.id).data
+            except:
+                # can't verify if detachment finished for some reason
+                # best effort: sleep a bit and return
+                sleep(10)
+                return True
+            while vol_att.lifecycle_state != "DETACHED":
+                sleep(2)
+                try:
+                    vol_att = self.oci_session.sdk_call(
+                        cc.get_volume_attachment,
+                        self.att_data.id).data
+                    self.att_data = vol_att
+                except:
+                    sleep(10)
+                    return True
         return True
+
+    def destroy(self):
+        """
+        Destroy the volume.
+        """
+        if self.is_attached():
+            raise OCISDKError("Volume is currently attached, cannot destroy.")
+
+        bsc = self.oci_session.get_block_storage_client()
+        try:
+            self.oci_session.sdk_call(bsc.delete_volume,
+                volume_id=self.volume_ocid)
+        except Exception as e:
+            raise OCISDKError("Failed to destroy volume: %s" % e)

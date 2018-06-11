@@ -81,55 +81,7 @@ declare -a SEC_ADDRS
 declare -a SEC_VNICS
 declare -a EXCLUDES
 
-declare -r IFACE_AWK_SCRIPT='/tmp/oci_vcn_iface.awk'
-cat >$IFACE_AWK_SCRIPT <<'EOF'
-function prtiface(mac, iface, addr, sbits, state, vlan, vltag, secad) {
-    if (iface != "") printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", mac, iface, addr, sbits, state, vlan, vltag, secad
-}
-BEGIN { iface = ""; addr = "-" }
-/^[0-9]/ {
-    if (addr == "-") prtiface(mac, iface, addr, sbits, state, vlan, vltag, secad)
-    addr = "-"
-    sbits = "-"
-    state = "-"
-    macvlan = "-"
-    vlan = "-"
-    vltag = "-"
-    secad = "-"
-    if ($0 ~ /BROADCAST/ && $0 !~ /UNKNOWN/ && $0 !~ /NO-CARRIER/) {
-        i = index($2, "@")
-        if (1 < i) {
-            j = index($2, ".")
-            if (j < i) { # mac vlan (not used, no addrs)
-                macvlan = substr($2, 1, i - 1)
-                iface = substr($2, i + 1, length($2) - i - 1) # skip : at end
-            } else { # vlan
-                vlan = substr($2, 1, i - 1)
-                # extract iface/vltag from macvlan
-                iface = substr($2, i + 1, j - i - 1)
-                vltag = substr($2, j + 1, length($2) - j - 1) # skip : at end
-            }
-        } else {
-            i = index($2, ":")
-            if (i <= 1) { print "cannot find interface name"; exit 1 }
-            iface = substr($2, 1, i - 1)
-        }
-        if ($0 ~ /LOWER_UP/) state = "UP"
-        else state = "DOWN"
-    } else iface = ""
-    next
-}
-/ link\/ether / { mac = tolower($2) }
-/ inet [0-9]/ {
-    i = index($2, "/")
-    if (i <= 1) { print "cannot find interface inet address"; exit 1 }
-    if (addr != "-") secad = "YES"
-    addr = substr($2, 0, i - 1)
-    sbits = substr($2, i + 1, length($2) - i)
-    prtiface(mac, iface, addr, sbits, state, vlan, vltag, secad)
-}
-END { if (addr == "-") prtiface(mac, iface, addr, sbits, state, vlan, vltag, secad) }
-EOF
+declare -r IFACE_AWK_SCRIPT='/usr/libexec/oci_vcn_iface.awk'
 
 oci_vcn_err() {
     echo "Error: $1" >&2
@@ -978,13 +930,14 @@ oci_vcn_read() {
 		    fi
                 else
                     # vm iface mac w/o addr and w/o md mac: assume random mac
-                    ([ $attempt -eq 1 ] && [ "${IP_STATES[$ip_i]}" = 'DOWN' ]) || oci_vcn_err "interface $iface with MAC $mac does not have corresponding metadata"
-                    # assume vm case 1st since less likely addr was deleted
-                    # attempt mac fix by turning iface up, then retry
-                    # this is probably an Intel driver problem
-                    # could look at /sys/class/net/<iface>/addr_assign_type
-                    $IP link set dev $iface up || oci_vcn_err "cannot set interface $iface up"
-                    retry='t'
+                    if [ $attempt -eq 1 -a "${IP_STATES[$ip_i]}" = 'DOWN' ]; then
+                        # assume vm case 1st since less likely addr was deleted
+                        # attempt mac fix by turning iface up, then retry
+                        # this is probably an Intel driver problem
+                        # could look at /sys/class/net/<iface>/addr_assign_type
+                        $IP link set dev $iface up
+                        retry='t'
+                    fi
                 fi
                 if [ -z "${new_macs[$mac]}" ]; then
                     new_macs[$mac]='t'
