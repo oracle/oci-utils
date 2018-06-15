@@ -301,6 +301,8 @@ class OCISession(object):
             self.identity_client = self.sdk_call(
                 oci_sdk.identity.IdentityClient,
                 self.oci_config)
+            self.auth_status += "Config file (direct) authentication succeeded\n"
+            return True
         except Exception as e:
             self.auth_status += "Cannot create identity client: %s\n" % e
             self.logger.debug('Direct auth failed: %s' % e)
@@ -369,6 +371,18 @@ class OCISession(object):
             if res is not None:
                 compartments.append(comp)
         return compartments
+
+    def find_vcns(self, display_name, refresh=False):
+        """
+        Return a list of OCIVCN-s with a matching display_name regexp
+        """
+        dn_re = re.compile(display_name)
+        vcns = []
+        for vcn in self.all_vcns(refresh=refresh):
+            res = dn_re.search(vcn.data.display_name)
+            if res is not None:
+                vcns.append(vcn)
+        return vcns
 
     def all_subnets(self, refresh=False):
         """
@@ -504,7 +518,7 @@ class OCISession(object):
 
         vcns = []
         for compartment in self.all_compartments(refresh=refresh):
-            comp_vcns = compartment.all_vncs()
+            comp_vcns = compartment.all_vcns()
             if comp_vcns is not None:
                 vcns += comp_vcns
         self.vcns = vcns
@@ -641,6 +655,17 @@ class OCISession(object):
                     return i
         for c in self.all_compartments(refresh=refresh):
             if c.get_ocid() == compartment_id:
+                return c
+        return None
+
+    def get_vcn(self, vcn_id, refresh=False):
+        if not refresh and self.vcns:
+            # return from cache
+            for i in self.vcns:
+                if i.get_ocid() == vcn_id:
+                    return i
+        for c in self.all_vcns(refresh=refresh):
+            if c.get_ocid() == vcn_id:
                 return c
         return None
 
@@ -1223,6 +1248,7 @@ class OCIVCN(OCIAPIObject):
         self.data = vcn_data
         self.vcn_ocid = vcn_data.id
         self.subnets = None
+        self.security_lists = None
 
     def __str__(self):
         return "VCN '%s' (%s)" % (self.data.display_name,
@@ -1253,6 +1279,30 @@ class OCIVCN(OCIAPIObject):
             pass
         self.subnets = subnets
         return subnets
+
+    def all_security_lists(self, refresh=False):
+        if self.security_lists is not None and not refresh:
+            return self.security_lists
+
+        nc = self.oci_session.get_network_client()
+
+        # Note: the user may not have permission to list instances
+        # in this compartment, so ignoring ServiceError exceptions
+        security_lists = dict()
+        try:
+            security_list_data = self.oci_session.sdk_call(
+                nc.list_security_lists,
+                compartment_id=self.data.compartment_id,
+                vcn_id=self.vcn_ocid)
+            for s_data in security_list_data.data:
+                security_lists.setdefault(s_data.id, OCISecurityList(self.oci_session, s_data))
+        except oci_sdk.exceptions.ServiceError:
+            # ignore these, it means the current user has no
+            # permission to list the instances in the compartment
+            pass
+        self.security_lists = security_lists
+        return security_lists
+
 
 class OCIVNIC(OCIAPIObject):
     def __init__(self, session, vnic_data, attachment_data):
@@ -1574,6 +1624,158 @@ class OCIPrivateIP(OCIAPIObject):
     def get_ocid(self):
         return self.private_ip_ocid
 
+class OCISecurityList(OCIAPIObject):
+    protocol = { '1' : 'icmp',
+                 '4' : 'ipv4',
+                 '6' : 'tcp',
+                 '17' :'udp' }
+    def __init__(self, session, security_list_data):
+        """
+
+        :param session:
+        :param security_list_data:
+
+        compartment-id (str)    -- compartment ocid
+        defined-tags ()         --
+        display-name (str)      -- name assigned to the list
+
+        egress-security-rules[]   -- list of egress rules, each has the following properties:
+
+            protocol(all)
+            destination("0.0.0.0/0")
+            icmp-options(null)
+            is-stateless(bool)
+            tcp-options(null),
+            udp-options(null)
+
+        freeform-tags{dict(str, str)}
+
+        id                         -- ocid1.securitylist.oc1...,
+
+        ingress-security-rules[]   -- list of ingress rules, each has the follwoing properties:
+            protocol(all)          -- choice of all, 17(UDP),6(TCP), 1(ICMP), etc
+            source("0.0.0.0/0")
+            icmp-options(
+                code: null,
+                type: 3
+            )
+            is-stateless(bool)
+            tcp-options(
+                destination-port-range: {
+                max: 22,
+              \ min: 22
+            }
+            "source-port-range": null
+          },
+
+            udp-options(null)
+
+        lifecycle-state (str)       -- choice"PROVISIONING",
+                                        "AVAILABLE", "TERMINATING",
+                                        "TERMINATED", 'UNKNOWN_ENUM_VALUE'.
+                                        Any unrecognized values returned
+
+        time-created(datetime)      -- 2018-01-12T17:44:05.706000+00:00
+
+        vcn-id              -- ocid1.vcn.oc1...
+
+        """
+        self.security_list_ocid = security_list_data.id
+        self.oci_session = session
+        self.data = security_list_data
+
+    def get_display_name(self):
+        return self.data.display_name
+
+    def get_ingress_rules(self):
+        return self.data.ingress_security_rules
+
+    def get_egress_rules(self):
+        return self.data.egress_security_rules
+
+    def print_security_list(self, indent):
+        print "%sSecurity List: %s" % (indent, self.get_display_name())
+        for rule in self.get_ingress_rules():
+            prot = OCISecurityList.protocol.get(rule.protocol, rule.protocol)
+            src = rule.source
+            des = "---"
+            desport = "-"
+            srcport = "-"
+            if rule.protocol == "6" or rule.protocol == "17":
+                if rule.protocol == "6":
+                    option = rule.tcp_options
+                else:
+                    option = rule.udp_options
+
+                try:
+                    if option.destination_port_range.min != option.destination_port_range.max:
+                        desport = "%s-%s" % (option.destination_port_range.min, option.destination_port_range.max)
+                    else:
+                        desport = option.destination_port_range.min
+                except:
+                    pass
+
+                try:
+                    if option.source_port_range.min != option.source_port_range.max:
+                        srcport = "%s-%s" % (option.source_port_range.min, option.source_port_range.max)
+                    else:
+                        srcport = option.source_port_range.min
+                except:
+                    pass
+            elif rule.protocol == "1":
+                srcport = "-"
+                option = rule.icmp_options
+                desport = "type--"
+                try:
+                    desport = "type-%s" %  option.type
+                except:
+                    pass
+                try:
+                    des = "code-%s" %  option.code
+                except:
+                    des = "code--"
+            print "%s  Ingress: %-5s %20s:%-6s %20s:%s" % (indent, prot, src, srcport, des, desport)
+
+        for rule in self.get_egress_rules():
+            prot = OCISecurityList.protocol.get(rule.protocol, rule.protocol)
+            des = rule.destination
+            src = "---"
+            if rule.protocol == 6 or rule.protocol == 17:
+                if rule.protocol == 6:
+                    option = rule.tcp_options
+                else:
+                    option = rule.udp_options
+
+                try:
+                    if option.destination_port_range.min != option.destination_port_range.max:
+                        desport = "%s-%s" % (option.destination_port_range.min,option.destination_port_range.max)
+                    else:
+                        desport = option.destination_port_range.min
+                except:
+                    desport = "-"
+
+                try:
+                    if option.source_port_range.min != option.source_port_range.max:
+                        srcport = "%s-%s" % (option.source_port_range.min,option.source_port_range.max)
+                    else:
+                        srcport = option.source_port_range.min
+
+                except:
+                    srcport = "-"
+            elif rule.protocol == 1:
+                srcport = "-"
+                option = rule.icmp_options
+                try:
+                    desport = "type-%s" %  option.type
+                except:
+                    desport = "type--"
+                try:
+                    des = "code-%s" %  option.code
+                except:
+                    des = "code--"
+            print "%s  Egress : %-5s %20s:%-6s %20s:%s" % (indent, prot, src, srcport, des, desport)
+
+
 class OCISubnet(OCIAPIObject):
     def __init__(self, session, subnet_data):
         """
@@ -1652,11 +1854,18 @@ class OCISubnet(OCIAPIObject):
     def get_cidr_block(self):
         return self.data.cidr_block
 
+    def get_vcn_id(self):
+        return self.data.vcn_id
+
+    def get_security_list_ids(self):
+        return self.data.security_list_ids
+
+
     def all_vnics(self, refresh=False):
         """
         return a list of all OCIVNIC objects that are in this subnet
         """
-        if self.vnics is not None and not refresh:
+        if self.vnics is not None and len(self.vnics) > 0 and not refresh:
             return self.vnics
         compartment = self.oci_session.get_compartment(self.data.compartment_id)
         if compartment is None:
@@ -1720,6 +1929,27 @@ class OCISubnet(OCIAPIObject):
         for privip in privips:
             if privip.is_primary:
                 continue
+            all_privips.append(OCIPrivateIP(session=self.oci_session,
+                                            private_ip_data=privip))
+        self.secondary_private_ips = all_privips
+        return all_privips
+
+    def all_private_ips_with_primary(self, refresh=False):
+        '''
+        return a list of secondary private IPs in this Subnet
+        '''
+        if self.secondary_private_ips is not None and not refresh:
+            return self.secondary_private_ips
+
+        nc = self.oci_session.get_network_client()
+        all_privips = []
+        try:
+            privips = self.oci_session.sdk_call(
+                nc.list_private_ips,
+                subnet_id=self.get_ocid()).data
+        except:
+            return []
+        for privip in privips:
             all_privips.append(OCIPrivateIP(session=self.oci_session,
                                             private_ip_data=privip))
         self.secondary_private_ips = all_privips

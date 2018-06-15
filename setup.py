@@ -74,6 +74,7 @@ setup(
              'bin/oci-metadata',
              'bin/oci-iscsi-config',
              'bin/oci-network-config',
+             'bin/oci-network-inspector',
              'bin/oci-kvm',
             ],
     classifiers=[

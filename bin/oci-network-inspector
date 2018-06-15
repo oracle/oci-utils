@@ -1,0 +1,158 @@
+#!/usr/bin/env python2.7
+
+# oci-utils
+#
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+
+'''
+Script for collecting the cloud network, its subnets, and ip allocation details.
+It need oci-sdk installed.
+'''
+
+import os
+import sys
+import argparse
+import logging
+import pdb
+try:
+    import json
+except ImportError:
+    import simplejson as json
+import oci_utils.oci_api
+from oci_utils.exceptions import OCISDKError
+
+
+__print_info = True
+def msg_info(msg):
+    if __print_info:
+        print "Info: " + msg
+
+__print_debug = False
+def msg_debug(msg):
+    if __print_debug:
+        print "DEBUG: " + msg
+
+def msg_error(msg):
+    sys.stderr.write("%s\n" % msg)
+
+def parse_args():
+    '''
+    Parse the command line arguments and return an object representing the
+    command line (as returned by argparse's parse_args())
+    '''
+    parser = argparse.ArgumentParser(description='Utility for exploring the '
+                                     'network, its subnets and ips assigned for a given '
+                                     'compartment or network.', add_help=False)
+    parser.add_argument('-C','--compartment', metavar='OCID', action='store',
+                        help='ocid of a compartment you like to explore ')
+    parser.add_argument('-N','--vcn', metavar='OCID', action='store',
+                        help='ocid of a given Virtual Cloud Network')
+    parser.add_argument('--debug', action='store_true',
+                        help=argparse.SUPPRESS)
+    parser.add_argument('--help', action='help',
+                        help='Display this help')
+
+    args = parser.parse_args()
+    return args
+
+
+def main():
+    '''
+    Main program
+    '''
+    args = parse_args()
+
+    if args.debug:
+        global __print_debug
+        __print_debug = True
+    '''
+    if os.geteuid() != 0:
+        msg_error("You must run this program with root privileges")
+        sys.exit(1)
+    '''
+    sess = None
+    # needs the OCI SDK installed and configured
+    try:
+        sess = oci_utils.oci_api.OCISession()
+    except OCISDKError as e:
+        sys.stderr.write("Failed to access OCI services: %s\n" % e)
+        exit(1)
+
+    comp = None
+    if args.compartment:
+        if args.compartment.startswith('ocid1.compartment.oc1..'):
+            comp = sess.get_compartment(compartment_id=args.compartment)
+        else:
+            comp = sess.find_compartments(args.compartment)
+    else:
+        comp = sess.this_compartment()
+
+    if comp is None:
+        sys.stderr.write("Compartment not found: %s\n" % args.compartment)
+        exit(2)
+
+    vcns = []
+    if args.vcn:
+        if args.vcn.startswith('ocid1.vcn.oc1.'):
+            vcn = sess.get_vcn(args.vcn)
+            vcns.append(vcn)
+        else:
+            vcn = sess.find_vcns(args.vcn)
+            vcns.extend(vcn)
+
+    else:
+        # get all vcns for the compartment.
+        nc = sess.get_network_client()
+        vcns.extend(nc.list_vcns(comp))
+
+    if len(vcns) == 0:
+        sys.stderr.write("VCN not found: %s\n" % args.vcn)
+        exit(2)
+
+    print ""
+    print "Compartment: %s" % comp.data.name
+    for vcn in vcns:
+        print ""
+        print "  vcn: %s " % vcn.data.display_name
+        sll = vcn.all_security_lists()
+        for key,value in sll.items():
+            value.print_security_list("    ")
+
+        for subnet in vcn.all_subnets():
+            print ""
+            print "     Subnet: %s Avalibility domain: %s" % (subnet.data.display_name, subnet.data.availability_domain)
+            print "         Cidr_block: %s Domain name: %s" % (subnet.data.cidr_block, subnet.data.subnet_domain_name)
+
+            for id in subnet.get_security_list_ids():
+                try:
+                    sll.get(id).print_security_list("       ")
+                except Exception as e:
+                    msg_error("The security list %s is not in the VCN's list. \nException:%s" % (id,e))
+
+            vnics = subnet.all_vnics()
+            for vnic in vnics:
+                primary = "sec"
+                if vnic.is_primary():
+                    primary = "primary"
+                print "      Vnic: %s : %s : %s" % (vnic.data.display_name, vnic.get_instance_id(), primary)
+                if subnet.data.prohibit_public_ip_on_vnic == False:
+                    print "        Public IP: %s" % vnic.get_public_ip()
+                print "        Private IP: %s (primary)" % vnic.get_private_ip()
+                for ip in vnic.all_private_ips():
+                    print "        Private IP: %s" % ip
+
+
+            # subnet ips
+            if subnet.data.prohibit_public_ip_on_vnic == False:
+                print "       Public IP: %s" % vnic.get_public_ip()
+
+            for ip in subnet.all_private_ips_with_primary():
+                primary = ""
+                if ip.is_primary():
+                    primary = "primary"
+                print "       Private IP: %s(%s) Host: %s" % (ip.get_address(), primary, ip.get_hostname())
+                print "         Vnic: %s" % (ip.get_vnic_ocid())
+
+
+sys.exit(main())
