@@ -612,7 +612,10 @@ class OCISession(object):
         Return an OCIVolume object representing the volume with the given
         ocid, or None if the volume is not found.
         """
-        # FIXME: return from self.volumes if exists and refresh==False
+
+        for vol in self.all_volumes(refresh):
+            if vol.volume_ocid == volume_id:
+                return vol
 
         bsc = self.get_block_storage_client()
         cc = self.get_compute_client()
@@ -884,6 +887,7 @@ class OCICompartment(OCIAPIObject):
             wait=wait)
 
 class OCIInstance(OCIAPIObject):
+
     def __init__(self, session, instance_data):
         """
         instance_data:
@@ -1097,6 +1101,9 @@ class OCIInstance(OCIAPIObject):
         """
         attach the given volume to this instance
         """
+        if self.max_volumes_reached():
+            raise OCISDKError('This instance reached its max_volumes.')
+	    
         av_det = oci_sdk.core.models.AttachIScsiVolumeDetails(
             type="iscsi",
             use_chap=use_chap,
@@ -1188,18 +1195,32 @@ class OCIInstance(OCIAPIObject):
             return self.oci_session.get_vnic(v_att.data.vnic_id, refresh=True)
         except oci_sdk.exceptions.ServiceError as e:
             raise OCISDKError('Failed to attach new VNIC: %s' % e.message)
-        
+         
+    def max_volumes_reached(self):
+        max_volumes = int(self.oci_session.oci_utils_config.get('iscsi','max_volumes'))
+        if len(self.all_volumes()) >= max_volumes:
+            return True
+        return False
+
     def create_volume(self, size, display_name=None):
         '''
         create a new OCI Storage Volume and attach it to this instance
         '''
+        if self.max_volumes_reached():
+            raise OCISDKError('This instance reached its max_volumes.')
+
         vol = self.oci_session.create_volume(
             compartment_id=self.get_compartment().get_ocid(),
             availability_domain=self.data.availability_domain,
             size=size,
             display_name=display_name,
             wait=True)
-        vol = vol.attach_to(instance_id=self.get_ocid())
+
+        try:
+            vol = vol.attach_to(instance_id=self.get_ocid())
+        except Exception as e:
+            vol.destroy()
+            return None
         return vol
 
 class OCIVCN(OCIAPIObject):

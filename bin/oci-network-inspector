@@ -14,7 +14,7 @@ import os
 import sys
 import argparse
 import logging
-import pdb
+
 try:
     import json
 except ImportError:
