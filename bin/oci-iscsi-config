@@ -422,7 +422,9 @@ def api_detach(sess, iqn):
     Detach the given volume from the instance using OCI API calls
     '''
     if sess is None:
-        sys.stderr.write("Need OCI services. Please install and config python-oci-sdk.\n")
+        sys.stderr.write("Need OCI Service to detach volume.\n"
+                         "Make sure to install and configure "
+                         "OCI Python SDK (python-oci-sdk)\n")
         return False
 
     for v in sess.this_instance().all_volumes():
