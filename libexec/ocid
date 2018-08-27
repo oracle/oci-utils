@@ -245,7 +245,7 @@ def iscsi_func(context):
         except:
             pass
         if max_volumes > oci_utils.oci_api.MAX_VOLUMES_LIMIT:
-            __ocid_logger.warn("Your configureed max_volumes(%s) is over the limit(%s)\n"
+            __ocid_logger.warn("Your configured max_volumes(%s) is over the limit(%s)\n"
                          % (max_volumes,  oci_utils.oci_api.MAX_VOLUMES_LIMIT))
             max_volumes = oci_utils.oci_api.MAX_VOLUMES_LIMIT
         context = {'ignore_file_ts': 0,
