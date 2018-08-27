@@ -605,6 +605,10 @@ def main():
 
     oci_utils_config = oci_utils.read_config()
     max_volumes = int(oci_utils_config.get('iscsi','max_volumes'))
+    if max_volumes > oci_utils.oci_api.MAX_VOLUMES_LIMIT:
+        sys.stderr.write("Your configureed max_volumes(%s) is over the limit(%s)\n" 
+                         % (max_volumes,  oci_utils.oci_api.MAX_VOLUMES_LIMIT))
+        max_volumes = oci_utils.oci_api.MAX_VOLUMES_LIMIT
 
     ocid_cache = load_cache(iscsiadm.ISCSIADM_CACHE,
                             max_age=timedelta(minutes = 2))[1]

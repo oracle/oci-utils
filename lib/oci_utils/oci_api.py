@@ -33,6 +33,7 @@ IP = 'ip'
 AUTO = 'auto'
 NONE = 'None'
 
+MAX_VOLUMES_LIMIT = 32
 
 
 class OCIAPIObject(object):
@@ -613,9 +614,10 @@ class OCISession(object):
         ocid, or None if the volume is not found.
         """
 
-        for vol in self.all_volumes(refresh):
-            if vol.volume_ocid == volume_id:
-                return vol
+        if self.volumes is not None and not refresh:
+            for vol in self.volumes:
+                if vol.volume_ocid == volume_id:
+                    return vol
 
         bsc = self.get_block_storage_client()
         cc = self.get_compute_client()
@@ -1198,6 +1200,8 @@ class OCIInstance(OCIAPIObject):
          
     def max_volumes_reached(self):
         max_volumes = int(self.oci_session.oci_utils_config.get('iscsi','max_volumes'))
+        if max_volumes > MAX_VOLUMES_LIMIT:
+            max_volumes = MAX_VOLUMES_LIMIT
         if len(self.all_volumes()) >= max_volumes:
             return True
         return False
