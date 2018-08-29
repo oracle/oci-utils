@@ -1,11 +1,11 @@
 .\" Process this file with
 .\" groff -man -Tascii oci-network-inspector.1
 .\"
-.\" Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
+.\" Copyright(c) 2018 Oracle and/or its affiliates. All rights reserved.
 .\"
 .TH OCI-NETWORK_INSPECTOR 1 "AUG 2018" Linux "User Manuals"
 .SH NAME
-oci-network-inspector \- display all the networking information for a specified VCN, or for all VCNs in the specified compartment, or for all VCNs in all compartments for the tenancy if no parameters are provided.
+oci-network-inspector \- display Oracle Cloud Infrastructure networking information.
 .SH SYNOPSIS
 .B oci-network-inspector [--help] [-C 
 .I COMPARTMENT-OCID
@@ -19,8 +19,9 @@ oci-network-inspector \- display all the networking information for a specified 
 .SH DESCRIPTION
 The purpuse of the
 .B oci-network-inspector
-utility is used for administrator to monitor the network for a VCN, or for a compartment or for the current Oracle Cloud Infrastructure(OCI) tenancy.
-It works on any system that has python-oci-sdk installed and has tenancy configured to connect to an OCI server.
+utility is used for administrators to monitor the network for a given VCN, or for a given compartment or for the current tenancy of the Oracle Cloud Infrastructure configured in your system.
+It lists the detailed networking information including security list, ip addresses and associated vnic and instance in all of the subnets of a given VCN, compartment or tenancy. 
+It works on any system that has python-oci-sdk installed and has tenancy configured to connect to an Oracle Cloud Infrastructure server.
 .SH OPTIONS
 .IP "-C COMPARTMENT-OCID, --compartment COMPARTMENT-OCID"
 Specify which compartment you are going to inspect.
