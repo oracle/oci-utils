@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.6
-Release: 16%{?dist}
+Version: 0.7
+Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -25,7 +25,7 @@ Requires: util-linux
 Requires: iscsi-initiator-utils
 
 %description
-A package with useful scripts for querying/validating the state of OCI instances running Oracle Linux and facilitating some common configuration tasks.
+A package with useful scripts for querying/validating the state of Oracle Cloud Infrastructure instances running Oracle Linux and facilitating some common configuration tasks.
      
 %package kvm
 Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure

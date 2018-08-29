@@ -5,7 +5,7 @@
 .\"
 .TH OCI-NETWORK-CONFIG 1 "MAY 2018" Linux "User Manuals"
 .SH NAME
-oci-network-config \- configure network devices on OCI compute instances
+oci-network-config \- configure network devices on Oracle Cloud Infrastructure compute instances
 .SH SYNOPSIS
 .B oci-network-config [-s|--show] [-X
 .I ITEM
@@ -71,11 +71,14 @@ oci-network-config \- configure network devices on OCI compute instances
 
 The
 .B oci-network-config
-utility shows the current OCI Virtual interface Cards provisioned in the cloud and configured on this instance. When a secondary VNIC is provisioned in OCI it must be explicitly configured on the instance using this script or similar commands.
+utility shows the current 
+Virtual interface Cards provisioned in the 
+Oracle Cloud Infrastructure 
+and configured on this instance. When a secondary VNIC is provisioned in Oracle Cloud Infrastructure it must be explicitly configured on the instance using this script or similar commands.
 
 The first version of this command displays the currently provisioned VNICs and the current IP configuration for this instance. VNICs that are not yet configured are marked with '$ADD' and IP configurations that no longer have an associated VNIC are marked with '$DELETE'.
 
-The second version, with -c (or --configure or -a or --auto), configures VNICs that do not have an IP configuration and deletes the IP configurations of VNICs that are not currently provisioned. This puts the instance IP configuration in sync with current OCI provisioning.  If one or more optional -e options are present the secondary IP addresses are configured on the same interfaces as the corresponding VNIC.
+The second version, with -c (or --configure or -a or --auto), configures VNICs that do not have an IP configuration and deletes the IP configurations of VNICs that are not currently provisioned. This puts the instance IP configuration in sync with current Oracle Cloud Infrastructure provisioning.  If one or more optional -e options are present the secondary IP addresses are configured on the same interfaces as the corresponding VNIC.
 
 The configuring interfaces can optionally be placed inside separate network namespaces. This is necessary when VNICs are in subnets (different VCNs) with overlapping address blocks and the network applications are not bound directly to interfaces. Network namespaces require applications to be launched in them explicitly (via 'ip netns exec <ns>') in order to establish association with the interface. When namespaces are not used, policy-based routing is configured to provide a default route to the secondary VNIC\'s virtual router (default gateway) when the VNIC\'s address is the source address.
 
@@ -83,12 +86,12 @@ Bare Metal secondary VNICs are configured using VLANs (where there is no corresp
 
 The third version, -d (or --deconfigure), deletes all IP configuration for provisioned secondary VNICs as long as there is no -e option. If one or more optional -e options are present only the given secondary IP addresses are deconfigured and the remaining configuration is left as is.
 
-The fourth version requires the OCI Python SDK to be installed and configured.
-The OCI Python SDK is available in the python-oci-sdk package.  This version
+The fourth version requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
+The Oracle Cloud Infrastructure Python SDK is available in the python-oci-sdk package.  This version
 allows creating a new VNIC for the instance, detaching a VNIC from the instance,
 or adding/removing private IP addresses to/from an existing VNIC.
 
-To install the OCI Python SDK, use
+To install the Oracle Cloud Infrastructure Python SDK, use
 .PP
 .nf
 .RS
@@ -97,7 +100,7 @@ yum install python-oci-sdk python-oci-cli
 .fi
 .PP
 The python-oci-cli package contains the oci command line utility.  You can
-use the oci utility for configuring the OCI Python SDK:
+use the oci utility for configuring the Oracle Cloud Infrastructure Python SDK:
 .PP
 .nf
 .RS
@@ -108,10 +111,10 @@ oci setup config
 See https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
 for more information.
 
-Another option for authorizing the use of OCI services from an instance is
-using Instance Principals.  The OCI SDK does not need configuration on the
+Another option for authorizing the use of Oracle Cloud Infrastructure services from an instance is
+using Instance Principals.  The Oracle Cloud Infrastructure SDK does not need configuration on the
 instance when the instance is part of a dynamic group that was granted access
-to OCI services.  See https://docs.us-phoenix-1.oraclecloud.com/Content/Identity/Tasks/callingservicesfrominstances.htm for further details.
+to Oracle Cloud Infrastructure services.  See https://docs.us-phoenix-1.oraclecloud.com/Content/Identity/Tasks/callingservicesfrominstances.htm for further details.
 
 When
 .BR ocid(8)
@@ -148,7 +151,7 @@ Deconfigure all VNICs (except the primary). If a -e option is also present only 
 .IP "--create-vnic"
 Create a new VNIC and attach it to this instance.  Use the --subnet option to
 choose a subnet and --private-ip to choose a specific private IP address.
-This option requires the OCI Python SDK to be installed and configured.
+This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
 .IP "--vnic-name NAME"
 When creating a new VNIC using the --create-vnic option, set the display
 name and hostname of the VNIC to NAME.
@@ -156,15 +159,15 @@ name and hostname of the VNIC to NAME.
 Detach and delete the VNIC with the given OCID or IP address.  The primary
 VNIC cannot be detached.  Any secondary private IP addresses attached to the
 VNIC are also deleted.
-This option requires the OCI Python SDK to be installed and configured.
+This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
 .IP "--add-private-ip"
 Add a secondary private IP address to an existing VNIC.  When the instance has
 multiple VNICs, use the --vnic option to select the VNIC to add the secondary
 private IP address to.
-This option requires the OCI Python SDK to be installed and configured.
+This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
 .IP "--del-private-ip ADDR"
 Delete the given secondary private IP.
-This option requires the OCI Python SDK to be installed and configured.
+This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
 .IP "--private-ip ADDR"
 When used with --create-vnic or --add-private-ip, assign the given private IP
 address.  Without this option an unused IP address from the subnet will be

@@ -167,12 +167,7 @@ def api_show_network_config():
         print "     Subnet: %s (%s)" % (vnic.get_subnet().get_display_name(),
                                         vnic.get_subnet().get_cidr_block())
         privips = vnic.all_private_ips()
-        if len(privips) == 1:
-            print "     Private IP address: %s (%s)" \
-                % (privips[0].get_address(),
-                   privips[0].get_hostname())
-            print
-        elif len(privips) > 1:
+        if len(privips) > 0:
             print "     Private IP addresses:"
             for privip in privips:
                 primary = ""

@@ -353,8 +353,12 @@ class OCISession(object):
         if self.compartments is not None and not refresh:
             return self.compartments
 
-        compartments_data = self.identity_client.list_compartments(
+        compartments_data = oci_sdk.pagination.list_call_get_all_results(
+            self.identity_client.list_compartments,
             compartment_id=self.tenancy_ocid).data
+
+        #compartments_data = self.identity_client.list_compartments(
+        #    compartment_id=self.tenancy_ocid).data
         self.compartments = []
         for c_data in compartments_data:
             self.compartments.append(OCICompartment(session=self,
@@ -959,6 +963,11 @@ class OCIInstance(OCIAPIObject):
     def get_ocid(self):
         return self.instance_ocid
 
+    def get_hostname(self):
+        return self.data.display_name
+
+    def get_state(self):
+        return self.data.lifecycle_state
 
     def get_public_ip(self):
         '''
@@ -1269,6 +1278,7 @@ class OCIVCN(OCIAPIObject):
                                       vcn_domain_name property of this Vcn.
 
         """
+        self.compartment_name = None
         self.oci_session = session
         self.data = vcn_data
         self.vcn_ocid = vcn_data.id
@@ -1278,6 +1288,9 @@ class OCIVCN(OCIAPIObject):
     def __str__(self):
         return "VCN '%s' (%s)" % (self.data.display_name,
                                   self.vcn_ocid)
+
+    def set_compartment_name(self, name):
+         self.compartment_name = name
 
     def get_ocid(self):
         return self.vcn_ocid
@@ -1423,6 +1436,12 @@ class OCIVNIC(OCIAPIObject):
 
     def get_ocid(self):
         return self.vnic_ocid
+
+    def get_state(self):
+        return "%s-%s" % (self.data.lifecycle_state, self.att_data.lifecycle_state)
+
+    def get_instance(self):
+        return self.oci_session.get_instance(self.att_data.instance_id)
 
     def refresh(self):
         nc = self.oci_session.get_network_client()
@@ -1639,6 +1658,9 @@ class OCIPrivateIP(OCIAPIObject):
 
     def is_primary(self):
         return self.data.is_primary
+
+    def get_name(self):
+        return self.data.display_name
 
     def get_hostname(self):
         return self.data.hostname_label

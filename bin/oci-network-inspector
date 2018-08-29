@@ -26,7 +26,7 @@ from oci_utils.exceptions import OCISDKError
 __print_info = True
 def msg_info(msg):
     if __print_info:
-        print "Info: " + msg
+        print "INFO: " + msg
 
 __print_debug = False
 def msg_debug(msg):
@@ -76,21 +76,22 @@ def main():
     try:
         sess = oci_utils.oci_api.OCISession()
     except OCISDKError as e:
-        sys.stderr.write("Failed to access OCI services: %s\n" % e)
-        exit(1)
+        msg_error("Need OCI Service to inspect the networks.\n"
+                  "Make sure to install and configure "
+                  "OCI Python SDK (python-oci-sdk)\n")
+        sys.exit(1)
 
-    comp = None
+    comps = []
     if args.compartment:
         if args.compartment.startswith('ocid1.compartment.oc1..'):
             comp = sess.get_compartment(compartment_id=args.compartment)
+            comps.append(comp)
         else:
             comp = sess.find_compartments(args.compartment)
+            comps += comp
     else:
-        comp = sess.this_compartment()
-
-    if comp is None:
-        sys.stderr.write("Compartment not found: %s\n" % args.compartment)
-        exit(2)
+        comp = sess.all_compartments()
+        comps += comp
 
     vcns = []
     if args.vcn:
@@ -99,20 +100,25 @@ def main():
             vcns.append(vcn)
         else:
             vcn = sess.find_vcns(args.vcn)
-            vcns.extend(vcn)
-
+            vcns += vcn
     else:
         # get all vcns for the compartment.
-        nc = sess.get_network_client()
-        vcns.extend(nc.list_vcns(comp))
+        for comp in comps:
+            comp_vcns = comp.all_vcns()
+            for vcn in comp_vcns:
+                vcn.set_compartment_name(comp.data.name)
+            vcns += comp_vcns
 
     if len(vcns) == 0:
-        sys.stderr.write("VCN not found: %s\n" % args.vcn)
-        exit(2)
+        msg_error("VCN not found: %s\n" % args.vcn)
+        sys.exit(1)
 
-    print ""
-    print "Compartment: %s" % comp.data.name
+    comp_ocid = None
     for vcn in vcns:
+        if vcn.data.compartment_id != comp_ocid:
+            print ""
+            print "Compartment: %s (%s)" % (vcn.compartment_name,vcn.data.compartment_id)
+            comp_ocid =  vcn.data.compartment_id
         print ""
         print "  vcn: %s " % vcn.data.display_name
         sll = vcn.all_security_lists()
@@ -130,29 +136,35 @@ def main():
                 except Exception as e:
                     msg_error("The security list %s is not in the VCN's list. \nException:%s" % (id,e))
 
+            '''
             vnics = subnet.all_vnics()
             for vnic in vnics:
                 primary = "sec"
                 if vnic.is_primary():
                     primary = "primary"
-                print "      Vnic: %s : %s : %s" % (vnic.data.display_name, vnic.get_instance_id(), primary)
+                print "      Vnic: %s(%s)(%s)" % (vnic.data.display_name, primary, vnic.get_ocid())
                 if subnet.data.prohibit_public_ip_on_vnic == False:
                     print "        Public IP: %s" % vnic.get_public_ip()
                 print "        Private IP: %s (primary)" % vnic.get_private_ip()
                 for ip in vnic.all_private_ips():
                     print "        Private IP: %s" % ip
-
-
-            # subnet ips
-            if subnet.data.prohibit_public_ip_on_vnic == False:
-                print "       Public IP: %s" % vnic.get_public_ip()
-
+            '''
             for ip in subnet.all_private_ips_with_primary():
                 primary = ""
                 if ip.is_primary():
                     primary = "primary"
                 print "       Private IP: %s(%s) Host: %s" % (ip.get_address(), primary, ip.get_hostname())
-                print "         Vnic: %s" % (ip.get_vnic_ocid())
-
+                vnic = ip.get_vnic()
+                if vnic:
+                    print "         Vnic: %s (%s)" % (vnic.get_ocid(),vnic.get_state())
+                    # subnet ips
+                    if subnet.data.prohibit_public_ip_on_vnic == False:
+                        print "         Vnic PublicIP: %s" % vnic.get_public_ip()
+                    instance = vnic.get_instance()
+                    print "         Instance: %s(%s)" % (instance.get_hostname(),instance.get_state())
+                else:
+                    vnic_id = ip.get_vnic_ocid()
+                    print "         Vnic: %s(%s)" % (vnic_id, "NotFound")
+                    print "         Instance: (maybe)%s(%s)" % (ip.get_name(),"NotFound")
 
 sys.exit(main())

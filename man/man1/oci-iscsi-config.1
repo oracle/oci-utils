@@ -6,7 +6,7 @@
 
 .TH OCI-ISCSI-CONFIG 1 "MAY 2018" Linux "User Manuals"
 .SH NAME
-oci-iscsi-config \- configure iSCSI devices on OCI compute instances
+oci-iscsi-config \- configure iSCSI devices on Oracle Cloud Infrastructure compute instances
 .SH SYNOPSIS
 .B oci-iscsi-config [-i|--interactive] [-s|--show] [-a
 .I IQN
@@ -36,7 +36,7 @@ oci-iscsi-config \- configure iSCSI devices on OCI compute instances
 The
 .B oci-iscsi-config
 utility is used to display and/or configure iSCSI devices attached to a
-compute instance running in the Oracle Cloud Infrastructure (OCI).
+compute instance running in the Oracle Cloud Infrastructure.
 Without any command line options,
 .B oci-iscsi-config
 lists devices that need attention.
@@ -60,17 +60,17 @@ manual interaction.
 
 Additional features of
 .B oci-iscsi-config
-are available when the OCI Python SDK is installed and configured.  The
-OCI Python SDK is available in the python-oci-sdk package.  When available,
+are available when the Oracle Cloud Infrastructure Python SDK is installed and configured.  The
+Oracle Cloud Infrastructure Python SDK is available in the python-oci-sdk package.  When available,
 .B oci-iscsi-config
 displays additional information about the iSCSI devices and can display all
-available OCI storage volumes, not just the ones already assigned to the
-instance.  The second version of the command line requires the OCI Python
-SDK.  This invocation can be used to create a new OCI storage volume and
-assign it to the instance without the use of the Web-based OCI Console,
+available Oracle Cloud Infrastructure storage volumes, not just the ones already assigned to the
+instance.  The second version of the command line requires the Oracle Cloud Infrastructure Python
+SDK.  This invocation can be used to create a new Oracle Cloud Infrastructure storage volume and
+assign it to the instance without the use of the Web-based Oracle Cloud Infrastructure Console,
 or to destroy a volume that is not attached to any instances.
 
-To install the OCI Python SDK, use
+To install the Oracle Cloud Infrastructure Python SDK, use
 .PP
 .nf
 .RS
@@ -79,7 +79,7 @@ yum install python-oci-sdk python-oci-cli
 .fi
 .PP
 The python-oci-cli package contains the oci command line utility.  You can
-use the oci utility for configuring the OCI Python SDK:
+use the oci utility for configuring the Oracle Cloud Infrastructure Python SDK:
 .PP
 .nf
 .RS
@@ -90,10 +90,10 @@ oci setup config
 See https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
 for more information.
 
-Another option for authorizing the use of OCI services from an instance is
-using Instance Principals.  The OCI SDK does not need configuration on the
+Another option for authorizing the use of Oracle Cloud Infrastructure services from an instance is
+using Instance Principals.  The Oracle Cloud Infrastructure SDK does not need configuration on the
 instance when the instance is part of a dynamic group that was granted access
-to OCI services.  See https://docs.us-phoenix-1.oraclecloud.com/Content/Identity/Tasks/callingservicesfrominstances.htm for further details.
+to Oracle Cloud Infrastructure services.  See https://docs.us-phoenix-1.oraclecloud.com/Content/Identity/Tasks/callingservicesfrominstances.htm for further details.
 
 .SH OPTIONS
 .IP "-i, --interactive"
@@ -106,7 +106,7 @@ is not running then root privileges are needed.
 .IP "-a TARGET, --attach TARGET"
 Attempt to attach the device with the given IQN or OCID.  When using an
 IQN, the volume must already be attached (assigned) to the instance in
-the OCI Console.  The OCI Python SDK is required for selecting
+the Oracle Cloud Infrastructure Console.  The Oracle Cloud Infrastructure Python SDK is required for selecting
 volumes using their OCID.
 This option can be used multiple times to attach multiple devices at the
 same time.  Requires root privileges.
@@ -121,7 +121,7 @@ same time.  Requires root privileges.
 Create a new volume of
 .B SIZE
 gigabytes and attach it to the current instance.
-This option requires the OCI Python SDK to be installed and configured.
+This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
 .IP "--volume-name NAME"
 When using with the --create-volume option, set the display name of the
 new volume to
@@ -130,12 +130,12 @@ new volume to
 Use
 .B USER
 as the CHAP username when authentication is needed for attaching a device.
-Not necessary when the OCI Python SDK is available.
+Not necessary when the Oracle Cloud Infrastructure Python SDK is available.
 .IP "--password PWD"
 Use
 .B PWD
 as the CHAP password when authentication is needed for attaching a device.
-Not necessary when the OCI Python SDK is available.
+Not necessary when the Oracle Cloud Infrastructure Python SDK is available.
 .IP "--destroy-volume OCID"
 Destroy the block storage volume with the given
 .B OCID.

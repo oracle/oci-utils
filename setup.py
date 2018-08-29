@@ -28,7 +28,7 @@ def read(fname):
 
 setup(
     name = "oci-utils",
-    version = "0.6",
+    version = "0.7",
     author = "Laszlo Peter",
     author_email = "laszlo.peter@oracle.com",
     description = ("Oracle Cloud Infrastructure utilities"),
@@ -62,6 +62,7 @@ setup(
                 (os.path.join(sys.prefix, "share", "man", "man1"),
                  ['man/man1/oci-public-ip.1',
                   'man/man1/oci-metadata.1',
+                  'man/man1/oci-network-inspector.1',
                   'man/man1/oci-iscsi-config.1',
                   'man/man1/oci-network-config.1',
                   'man/man1/oci-kvm.1',
