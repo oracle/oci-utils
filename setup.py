@@ -65,6 +65,7 @@ setup(
                   'man/man1/oci-network-inspector.1',
                   'man/man1/oci-iscsi-config.1',
                   'man/man1/oci-network-config.1',
+                  'man/man1/oci-growfs.1',
                   'man/man1/oci-kvm.1',
                  ]),
                 (os.path.join(sys.prefix, "share", "man", "man8"),
@@ -76,6 +77,7 @@ setup(
              'bin/oci-iscsi-config',
              'bin/oci-network-config',
              'bin/oci-network-inspector',
+             'bin/oci-growfs',
              'bin/oci-kvm',
             ],
     classifiers=[

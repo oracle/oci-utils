@@ -19,6 +19,7 @@ Requires: python2
 Requires: python-daemon
 Requires: python-lockfile
 Requires: python-sdnotify
+Requires: cloud-utils-growpart
 # for lsblk
 Requires: util-linux
 # for iscsiadm
