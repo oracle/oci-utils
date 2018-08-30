@@ -3,43 +3,45 @@
 .\"
 .\" Copyright(c) 2018 Oracle and/or its affiliates. All rights reserved.
 .\"
-.TH OCI-NETWORK_INSPECTOR 1 "AUG 2018" Linux "User Manuals"
+.TH OCI-NETWORK-INSPECTOR 1 "AUG 2018" Linux "User Manuals"
 .SH NAME
 oci-network-inspector \- display Oracle Cloud Infrastructure networking information.
 .SH SYNOPSIS
 .B oci-network-inspector [--help] [-C 
-.I COMPARTMENT-OCID
+.I COMPARTMENT_OCID
 .B | --compartment 
-.I COMPARTMENT-OCID
+.I COMPARTMENT_OCID
 .B ] [-N
-.I VCN-OCID
+.I VCN_OCID
 .B | --vcn
-.I VCN-OCID
+.I VCN_OCID
 .B ] [--help]
 .SH DESCRIPTION
-The purpuse of the
+The
 .B oci-network-inspector
-utility is used for administrators to monitor the network for a given VCN, or for a given compartment or for the current tenancy of the Oracle Cloud Infrastructure configured in your system.
-It lists the detailed networking information including security list, ip addresses and associated vnic and instance in all of the subnets of a given VCN, compartment or tenancy. 
-It works on any system that has python-oci-sdk installed and has tenancy configured to connect to an Oracle Cloud Infrastructure server.
+utility is used to display networking information for a given VCN or compartment, or for the configured tenancy in the Oracle Cloud Infrastructure.  By default, all VCNs in all compartments accessible by the user will be displayed.
+
+It lists detailed information including security list, IP addresses and associated VNICs and instances in all of the subnets of a given VCN, compartment or the tenancy. 
+
+It works on any system that has python-oci-sdk installed and configured to authenticate with an Oracle Cloud Infrastructure API server.
 .SH OPTIONS
-.IP "-C COMPARTMENT-OCID, --compartment COMPARTMENT-OCID"
-Specify which compartment you are going to inspect.
+.IP "-C COMPARTMENT_OCID, --compartment COMPARTMENT_OCID"
+Specify the compartment you wish to inspect.
 .IP "-N VCN_OCID, --vcn VCN_OCID"
-Specify which VCN you are going to inspect.
+Specify the VCN you wish to inspect.
 .IP --debug
 Print diagnostic messages.
 .IP --help
 Print a summary of the command line options.
-.SH USAGES
+.SH EXAMPLES
 .IP "oci-network-inspector"
-List all the VCNs in all compartments in the tenancy you configured for the oci sdk.
+List all VCNs in all compartments that the user has access to, in the tenancy you configured for the Oracle Cloud Infrastructure SDK.
 
-.IP "oci-network-inspector -N <vcn-id>"
+.IP "oci-network-inspector\ -N\ ocid1.vcn.oc1.iad.aaaaaaaaadkljfasljw3lkj4lkdlkdkj34lkjfkj34jh4kjh3knkjbkjhvoa"
 List the network information for the specified VCN.
 
-.IP "oci-network-inspector  -C <comp-id>"
+.IP "oci-network-inspector\ -C\ ocid1.tenancy.oc1..aaaaaaaasdlkjsdlkj34ljclkjcsjcslsc93,kjskdjhfskh3hjskchskjdq"
 List the network information for all the VCNs in the specified compartment.
 
 .SH DIAGNOSTICS
-Return an exit status of 0 for success or 1 if the network is not able to be inspected.
+Return an exit status of 0 for success or 1 if an error occurred.
