@@ -5,7 +5,7 @@
 .\"
 .TH OCI-GROWFS 8 "AUG 2018" Linux "User Manuals"
 .SH NAME
-/usr/libexec/oci-growfs \- grow the boot volume to its configured size in a compute instance in the Oracle Cloud Infrastructure. 
+/usr/libexec/oci-growfs \- expand the filesystem on a mounted volume  to its configured size in a compute instance in the Oracle Cloud Infrastructure. 
 .SH SYNOPSIS
 .B oci-growfs [-h] [-y|-n]
 .SH DESCRIPTION
@@ -14,6 +14,7 @@ The purpuse of the
 .B oci-growfs
 utility is to extend the current "/" root partition to fully utilize the allocated boot volume size. 
 Running inside a compute instance in the Oracle Cloud Infrastructure, it requires root privilege. 
+Notes this command supports only  / partition growth for this release. We will add more support later.
 .SH OPTIONS
 .IP -h 
 print the usage help information.
