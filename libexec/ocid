@@ -553,6 +553,15 @@ def start_thread(name, repeat, debug=False):
         is_enabled = cfg.get('iscsi', 'enabled')
         if is_enabled not in TRUE:
             return None
+        #oci-growfs
+        auto_resize = cfg.get('iscsi', 'auto_resize')
+        if auto_resize in TRUE:
+            try:
+                output = subprocess.check_output(['/usr/libexec/oci-growfs',
+                    '-y'], stderr=subprocess.STDOUT)
+            except:
+                pass
+
         scan_interval = cfg.get('iscsi', 'scan_interval')
         th = ocidThread(name=name,
                         ocidfunc=iscsi_func,
