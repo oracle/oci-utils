@@ -85,6 +85,24 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+* Fri Aug 31 2018 Qing Lin <qing.lin@oracle.com>  --0.7.1
+
+- bump version to 0.7
+- added oci-network-inspector to listing networking information.(OLOCITOOLS-5)
+- added oci-growfs to support to grow filesystems (OLOCITOOLS-7)
+  Currently only / boot volume is expendable.
+- fixed bugs in oci-iscsi-config:
+  1. fixed: mis-list sdaa.. as partition of sda. It should be a seperate volume.(bug-28433320)
+  2. fixed: max_volumes usage in create and attach.
+  3. fixed: should not create a volume if it failed to attach (bug-28513898)
+  4. privilege adjustment for create and destroy(root+oci), attach and detach(root)
+  5. some code cleanup.
+- fixed bug oci-network-config
+  1. fixed secondary ips on secondary VNICs not reachable issue.(bug-28498139)
+- expanded 'OCI' to 'Oracle Cloud Infrastructure' in man pages, specfiles (OLOCITOOLS-8)
+
+
+
 * Thu May 10 2018 Daniel Krasinski <daniel.krasinski@oracle.com>  --16
 - merged latest oci-kvm code into mainline version
 
