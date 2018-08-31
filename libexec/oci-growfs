@@ -13,13 +13,13 @@ usage()
 cat <<EOF
 Usage: $0 [OPTION]
 
+Expand the root filesystem to its configured size.
+
 Option:
   -y                           Answer to "y" to all questions.
   -n                           Answer to "n" to all questions.
   -h                           Print this message.
 
-This script is used to expend the boot volume usage
-from the default minimum size to the configured size.
 EOF
 
 }
