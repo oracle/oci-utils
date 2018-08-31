@@ -154,7 +154,10 @@ oci_vcn_md_read() {
     [ ${#MD_MACS[@]} -eq ${#MD_VIRTRTS[@]} ] || oci_vcn_err "invalid metadata: MAC or virtual router addresses are missing"
     [ ${#MD_MACS[@]} -eq ${#MD_SPREFIXS[@]} ] || oci_vcn_err "invalid metadata: MAC or subnets are missing"
     [ ${#MD_MACS[@]} -eq ${#MD_VNICS[@]} ] || oci_vcn_err "invalid metadata: MAC or VNIC ids are missing"
+
+    echo " MD_MACS, MD_ADDRS, MD_VLTAGS, MD_VIRTRTS, MD_SPREFIXS, MD_VNICS "
     for i in $(seq 0 $((${#MD_MACS[@]} - 1))); do
+        echo " ${MD_MACS[i]},${MD_ADDRS[$i]},${MD_VLTAGS[$i]}, ${MD_VIRTRTS[$i]}, ${MD_SPREFIXS[$i]}, ${MD_VNICS[$i]} "
         [[ ${MD_ADDRS[$i]} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || oci_vcn_err "invalid metadata: address IP format incorrect: ${MD_ADDRS[$i]}"
         [[ ${MD_VLTAGS[$i]} =~ ^[0-9]+$ ]] || oci_vcn_err "invalid metadata: VLAN tag incorrect: ${MD_VLTAGS[$i]}"
         [[ ${MD_VIRTRTS[$i]} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || oci_vcn_err "invalid metadata: virtual router address format incorrect: ${MD_VIRTRTS[$i]}"
@@ -313,9 +316,25 @@ oci_vcn_ip_routing_add() {
 
         # create source-based rule to use table
         oci_vcn_debug "src rule add"
+        ( $IP rule | grep -qsw "$addr" ) && oci_vcn_debug "rule exist" && return
         $IP rule add from $addr lookup $rt_name || oci_vcn_err "cannot add rule from $addr use table $rt_name"
         oci_vcn_info "added rule for routing from $addr lookup $rt_name with default via $virtrt"
     fi
+}
+
+oci_ip_rule_delete(){
+    [ $# -lt 1 ] &&  echo "please provide a rt_name or sec_ip_address for cleanup " && return 1 
+    rt_name=$1
+    IP=ip
+
+    rules=`$IP rule | grep $rt_name |cut -d: -f2`
+    rulesA=${rules// from/,from}
+    while IFS=',' read -ra ruleList; do
+        for i in "${ruleList[@]}"; do
+            $IP rule del $i || oci_vcn_warn "cannot delete rule for $i "
+        done
+    done <<< "$rulesA"
+    return 0
 }
 
 oci_vcn_ip_routing_del() {
@@ -327,10 +346,9 @@ oci_vcn_ip_routing_del() {
     if [ -z "$ns" ]; then
         # delete rule
         local -r rt_name=$(oci_vcn_ip_route_table_name_ip_i $ip_i)
-        if $IP rule | grep -qsw $rt_name; then # rule exists
-            oci_vcn_debug "rule del"
-            $IP rule del lookup $rt_name || oci_vcn_warn "cannot delete rule to table $rt_name"
-        fi
+        oci_vcn_debug "rule del"
+        # $IP rule del lookup $rt_name || oci_vcn_warn "cannot delete rule to table $rt_name"
+        oci_ip_rule_delete $rt_name
 
         # delete route table (deletes default route)
         oci_vcn_ip_route_table_del $rt_name
@@ -577,6 +595,7 @@ oci_vcn_ip_addr_del_iface() {
         [ "$secad" != "$YES" ] || bits=32
         oci_vcn_debug "addr $addr del ns '$ns' dev $dev"
         $IP $nscmd addr del $addr/$bits dev $dev || oci_vcn_err "cannot remove IP address $addr/$bits from interface $dev"
+        oci_ip_rule_delete $addr
         oci_vcn_info "removed IP address $addr from interface $dev"
     fi
 }
@@ -660,6 +679,7 @@ oci_vcn_ip_sec_addr_add() {
     local -r vlan="${IP_VLANS[$ip_i]#$NA}"
     local -r dev="${vlan:-$iface}"
     local -r ns="${IP_NSS[$ip_i]#$NA}"
+    local -r rt_name=$(oci_vcn_ip_route_table_name_ip_i $ip_i)
     local nscmd=''
     local nsinfo=''
 
@@ -669,6 +689,10 @@ oci_vcn_ip_sec_addr_add() {
     fi
     oci_vcn_info "adding secondary IP address $addr to interface (or VLAN) $dev$nsinfo"
     $IP $nscmd addr add $addr/32 dev $dev || oci_vcn_err "cannot add secondary IP address $addr on interface $dev$nsinfo"
+    local table_exist=$( oci_vcn_ip_route_table_exists $rt_name )
+    [ -n "$table_exist" ] || return 
+    ( $IP rule | grep -qsw "$addr" ) && oci_vcn_debug "rule exist" && return
+    $IP $nscmd rule add from  $addr lookup $rt_name || oci_vcn_err "cannot add rule for the $addr to table $rt_name"
 }
 
 oci_vcn_ip_sec_addr_del() {
@@ -679,6 +703,7 @@ oci_vcn_ip_sec_addr_del() {
     local -r vlan="${IP_VLANS[$ip_i]#$NA}"
     local -r dev="${vlan:-$iface}"
     local -r ns="${IP_NSS[$ip_i]#$NA}"
+    local -r rt_name=$(oci_vcn_ip_route_table_name_ip_i $ip_i)
     local nscmd=''
     local nsinfo=''
 
@@ -690,6 +715,9 @@ oci_vcn_ip_sec_addr_del() {
     fi
 
     oci_vcn_info "removing secondary IP address $addr from interface (or VLAN) $dev$nsinfo"
+    local table_exist=$( oci_vcn_ip_route_table_exists $rt_name ) 
+    [ -n "$table_exist" ] || return 
+    oci_ip_rule_delete $addr 
     $IP $nscmd addr del $addr/32 dev $dev || oci_vcn_err "cannot remove IP address $addr on interface $dev"
 }
 

@@ -557,7 +557,7 @@ def start_thread(name, repeat, debug=False):
         auto_resize = cfg.get('iscsi', 'auto_resize')
         if auto_resize in TRUE:
             try:
-                output = subprocess.check_output(['/bin/oci-growfs',
+                output = subprocess.check_output(['/usr/libexec/oci-growfs',
                     '-y'], stderr=subprocess.STDOUT)
             except:
                 pass
