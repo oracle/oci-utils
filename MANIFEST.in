@@ -1,6 +1,7 @@
 include LICENSE.txt
 include *.txt
 include libexec/ocid
+include libexec/oci-growfs
 include libexec/oci_vcn_iface.awk
 include libexec/oci-image-cleanup
 include libexec/oci-utils-config-helper
