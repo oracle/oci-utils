@@ -5,13 +5,16 @@ Version 0.7:
 - added oci-growfs to support to grow filesystems (OLOCITOOLS-7)
   Currently only / boot volume is expendable.
 - fixed bugs in oci-iscsi-config:
-  1. fixed: mis-list sdaa.. as partition of sda. It should be a seperate volume.(bug-28433320)
-  2. fixed: max_volumes usage in create and attach.
-  3. fixed: should not create a volume if it failed to attach (bug-28513898)
+  1. bug-28493320: mis-list sdaa.. as partition of sda. It should be a seperate volume.
+  2. bug 28615235 - different behavior for max_volumes setting for 32 or less than 32
+  3. bug-28513898 - should not create a volume if it failed to attach                
   4. privilege adjustment for create and destroy(root+oci), attach and detach(root) 
-  5. some code cleanup.
+  5. Bug 27835953 - objects can't be shown due to pagination issue.              
+  6. Bug 28612818 - A detached volume can't be reattached to the instance saying max limit reached 
 - fixed bug oci-network-config
-  1. fixed secondary ips on secondary VNICs not reachable issue.(bug-28498139)
+  1. bug-28498139 - secondary ips on secondary VNICs not reachable issue.        (fixed)
+  2. Bug 28080064 - oci-network-config -s can't list all secondary private ip    (fixed)
+  3. Bug 28188853 - oci-network-config report error message when detach vnic     (fixed)
 - expanded 'OCI' to 'Oracle Cloud Infrastructure' in man pages, specfiles (OLOCITOOLS-8)
 
 Version 0.6:

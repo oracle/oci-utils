@@ -631,7 +631,7 @@ def main():
         detached = []
 
     if args.create_volume:
-        if len(disks) >= max_volumes:
+        if len(disks) > max_volumes:
             sys.stderr.write("This instance reached the max_volumes(%s)\n" % max_volumes)
             sys.exit(1)
 
@@ -707,7 +707,7 @@ def main():
                                  "privileges to attach iSCSI devices.\n")
             sys.exit(1)
 
-        if len(disks) >= max_volumes:
+        if len(disks) > max_volumes:
             sys.stderr.write("This instance reached the max_volumes(%s)\n" % max_volumes)
             sys.exit(1)
 

@@ -155,9 +155,9 @@ oci_vcn_md_read() {
     [ ${#MD_MACS[@]} -eq ${#MD_SPREFIXS[@]} ] || oci_vcn_err "invalid metadata: MAC or subnets are missing"
     [ ${#MD_MACS[@]} -eq ${#MD_VNICS[@]} ] || oci_vcn_err "invalid metadata: MAC or VNIC ids are missing"
 
-    echo " MD_MACS, MD_ADDRS, MD_VLTAGS, MD_VIRTRTS, MD_SPREFIXS, MD_VNICS "
+    oci_vcn_debug " MD_MACS, MD_ADDRS, MD_VLTAGS, MD_VIRTRTS, MD_SPREFIXS, MD_VNICS "
     for i in $(seq 0 $((${#MD_MACS[@]} - 1))); do
-        echo " ${MD_MACS[i]},${MD_ADDRS[$i]},${MD_VLTAGS[$i]}, ${MD_VIRTRTS[$i]}, ${MD_SPREFIXS[$i]}, ${MD_VNICS[$i]} "
+        oci_vcn_debug "${MD_MACS[i]}, ${MD_ADDRS[$i]}, ${MD_VLTAGS[$i]}, ${MD_VIRTRTS[$i]}, ${MD_SPREFIXS[$i]}, ${MD_VNICS[$i]} "
         [[ ${MD_ADDRS[$i]} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || oci_vcn_err "invalid metadata: address IP format incorrect: ${MD_ADDRS[$i]}"
         [[ ${MD_VLTAGS[$i]} =~ ^[0-9]+$ ]] || oci_vcn_err "invalid metadata: VLAN tag incorrect: ${MD_VLTAGS[$i]}"
         [[ ${MD_VIRTRTS[$i]} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || oci_vcn_err "invalid metadata: virtual router address format incorrect: ${MD_VIRTRTS[$i]}"
@@ -254,7 +254,8 @@ oci_vcn_ip_route_table_create() {
     local rt_exists
     rt_exists=$(oci_vcn_ip_route_table_exists $rt_name) || exit $?
     if [ -n "$rt_exists" ]; then # already exists
-        oci_vcn_warn "route table $rt_name already exists, reusing"
+        oci_vcn_warn "route table $rt_name already exists, cleanup and reusing"
+        oci_ip_rule_delete $rt_name
     else # create
         local -i rt_id
         rt_id=$(oci_vcn_ip_route_table_find_unused_id) || exit $?
@@ -313,6 +314,7 @@ oci_vcn_ip_routing_add() {
         rt_name=$(oci_vcn_ip_route_table_create $nic_i $vltag) || exit $?
         oci_vcn_debug "default route add"
         $IP route add default via $virtrt dev $iface table $rt_name || oci_vcn_err "cannot add default route via $virtrt on $iface to table $rt_name"
+        oci_vcn_info " added default via $virtrt dev $iface table $rt_name"
 
         # create source-based rule to use table
         oci_vcn_debug "src rule add"
@@ -324,10 +326,9 @@ oci_vcn_ip_routing_add() {
 
 oci_ip_rule_delete(){
     [ $# -lt 1 ] &&  echo "please provide a rt_name or sec_ip_address for cleanup " && return 1 
-    rt_name=$1
-    IP=ip
+    rtname=$1
 
-    rules=`$IP rule | grep $rt_name |cut -d: -f2`
+    rules=`$IP rule | grep $rtname |cut -d: -f2`
     rulesA=${rules// from/,from}
     while IFS=',' read -ra ruleList; do
         for i in "${ruleList[@]}"; do
@@ -715,8 +716,6 @@ oci_vcn_ip_sec_addr_del() {
     fi
 
     oci_vcn_info "removing secondary IP address $addr from interface (or VLAN) $dev$nsinfo"
-    local table_exist=$( oci_vcn_ip_route_table_exists $rt_name ) 
-    [ -n "$table_exist" ] || return 
     oci_ip_rule_delete $addr 
     $IP $nscmd addr del $addr/32 dev $dev || oci_vcn_err "cannot remove IP address $addr on interface $dev"
 }
@@ -1360,6 +1359,7 @@ EOF
 
 # TODO secondary private IPs in metadata
 
+oci_vcn_debug "running $@ ..."
 declare show=''
 declare config=''
 declare deconfig=''
