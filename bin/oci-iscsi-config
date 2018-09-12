@@ -584,6 +584,7 @@ def main():
     global USE_OCI_SDK
     global oci_sdk_error
     oci_sdk_error = None
+    oci_sess = None
 
     args = parse_args()
     if oci_utils.oci_api.HAVE_OCI_SDK:
@@ -592,7 +593,6 @@ def main():
             USE_OCI_SDK=True
         except Exception as e:
             oci_sdk_error=str(e)
-            oci_sess = None
             USE_OCI_SDK = False
             if args.debug:
                 raise
