@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.7
+Version: 0.7.1
 Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -85,8 +85,10 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
-* Fri Aug 31 2018 Qing Lin <qing.lin@oracle.com>  --0.7.1
+* Wed Sep 19 2018 Laszlo (Laca) Peter <laszlo.peter@oracle.com> --0.7.1-1
+- fix bug 28668447 - ocid needs to allow time for iSCSI connection to recover
 
+* Fri Aug 31 2018 Qing Lin <qing.lin@oracle.com>  --0.7
 - bump version to 0.7
 - added oci-network-inspector to listing networking information.(OLOCITOOLS-5)
 - added oci-growfs to support to grow filesystems (OLOCITOOLS-7)
@@ -100,8 +102,6 @@ rm -rf %{buildroot}
 - fixed bug oci-network-config
   1. fixed secondary ips on secondary VNICs not reachable issue.(bug-28498139)
 - expanded 'OCI' to 'Oracle Cloud Infrastructure' in man pages, specfiles (OLOCITOOLS-8)
-
-
 
 * Thu May 10 2018 Daniel Krasinski <daniel.krasinski@oracle.com>  --16
 - merged latest oci-kvm code into mainline version
