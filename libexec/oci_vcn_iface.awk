@@ -18,6 +18,7 @@ BEGIN { iface = ""; addr = "-" }
             if (j < i) { # mac vlan (not used, no addrs)
                 macvlan = substr($2, 1, i - 1)
                 iface = substr($2, i + 1, length($2) - i - 1) # skip : at end
+                 addr = ""
             } else { # vlan
                 vlan = substr($2, 1, i - 1)
                 # extract iface/vltag from macvlan
