@@ -55,7 +55,9 @@ def error_message_from_code(errorcode):
         24:'login failed due to authorization failure',
         25:'iSNS query failure',
         26:'iSNS registration/deregistration failed',
-        404:'cound not execute /usr/bin/iscsiadm'}
+        403:'attempt to detach the boot volume',
+        404:'could not execute /usr/bin/iscsiadm',
+    }
 
     if errorcode in ERROR_CODES:
         return ERROR_CODES[errorcode]
@@ -264,6 +266,11 @@ def detach(ipaddr, port, iqn):
     """
     Detach the iSCSI device with the given IP address, port and IQN
     """
+    if iqn.endswith('boot:uefi'):
+        # refuse to detach the boot volume
+        __iscsi_logger.error('Stubbornly refusing to detach the boot volume: ' \
+                             '%s' % iqn)
+        return 403
     DEVNULL = open(os.devnull, 'w')
     try:
         retval = subprocess.check_call(['/usr/sbin/iscsiadm',

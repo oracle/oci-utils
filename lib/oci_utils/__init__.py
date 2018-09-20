@@ -40,6 +40,8 @@ enabled = true
 scan_interval = 60
 max_volumes = 8
 auto_resize = true
+auto_detach = true
+detach_retry = 5
 [vnic]
 enabled = true
 scan_interval = 60

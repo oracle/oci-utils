@@ -1,3 +1,7 @@
+Version 0.7.1:
+
+- fix bug 28668447 - ocid needs to allow time for iSCSI connection to recover
+
 Version 0.7:
 
 - bump version for 0.7
