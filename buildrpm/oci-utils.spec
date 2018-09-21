@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.7.1
-Release: 1%{?dist}
+Release: 2%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -85,8 +85,12 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+
 * Wed Sep 19 2018 Laszlo (Laca) Peter <laszlo.peter@oracle.com> --0.7.1-1
 - fix bug 28668447 - ocid needs to allow time for iSCSI connection to recover
+
+* Wed Sep 19 2018  Qing Lin <qing.lin@oracle.com> --0.7-4
+- fix bug 28653583 - private ips assigned on wrong vnic.
 
 * Fri Aug 31 2018 Qing Lin <qing.lin@oracle.com>  --0.7
 - bump version to 0.7
