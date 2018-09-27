@@ -121,8 +121,8 @@ def get_oci_api_session(opt_name=None, require=True):
             sess = oci_utils.oci_api.OCISession()
         except Exception as e:
             sdk_error = str(e)
-            msg_debug("Failed to access OCI services: %s\n" % e)
-    if sess is None:
+
+    if sess is None or sdk_error != "":
         if not require:
             return None
         if opt_name is not None:
@@ -150,6 +150,9 @@ def api_show_network_config():
     if sess is None:
         return
     inst = sess.this_instance()
+    if inst is None:
+        msg_error("Failed to get information from OCI.")
+        return
     vnics = inst.all_vnics()
     priv_ips = inst.all_private_ips()
     i = 1
@@ -181,9 +184,6 @@ def api_show_network_config():
         else:
             print
         i += 1
-    print
-    print "Operating System level network configuration"
-    print
 
 def do_show_network_config(vnic_utils):
     '''
@@ -192,11 +192,14 @@ def do_show_network_config(vnic_utils):
     '''
     if oci_utils.oci_api.HAVE_OCI_SDK:
         api_show_network_config()
+     
+    print
+    print "Operating System level network configuration"
+    print
     (ret, out) = vnic_utils.get_network_config()
     if ret:
         msg_error("Failed to execute the VNIC configuration script.")
-    else:
-        print "%s" % out
+    print "%s" % out
 
 def do_detach_vnic(args, vnic_utils):
     '''
@@ -353,9 +356,12 @@ def main():
                       "same time")
             sys.exit(1)
         do_create_vnic(args)
-
-    vnic_utils = VNICUtils(debug=args.debug)
-    vnic_info = vnic_utils.get_vnic_info()[1]
+    try:
+        vnic_utils = VNICUtils(debug=args.debug)
+        vnic_info = vnic_utils.get_vnic_info()[1]
+    except Exception as e:
+         sys.stderr.write(str(e))
+         sys.exit(1)
 
     if args.detach_vnic:
         do_detach_vnic(args, vnic_utils)
@@ -391,16 +397,22 @@ def main():
         print "Info: Addresses excluded from automatic configuration: %s" % \
             ", ".join(excludes)
 
+    ret = 0 
+    out = ""
     if args.auto or args.create_vnic or args.add_private_ip or \
        args.detach_vnic:
-        vnic_utils.auto_config(quiet=args.quiet, show=args.show,
+        (ret, out) = vnic_utils.auto_config(quiet=args.quiet, show=args.show,
                                sec_ip=args.sec_ip)
     elif args.deconfigure:
-        vnic_utils.auto_deconfig(quiet=args.quiet, show=args.quiet,
+        (ret, out) = vnic_utils.auto_deconfig(quiet=args.quiet, show=args.quiet,
                                  sec_ip=args.sec_ip)
     elif not args.show:
         # default action
         do_show_network_config(vnic_utils)
+
+    if ret:
+        msg_error("Failed to execute the VNIC configuration script.")
+    print "%s" % out
 
     if args.show:
         do_show_network_config(vnic_utils)

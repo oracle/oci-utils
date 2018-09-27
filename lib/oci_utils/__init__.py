@@ -258,11 +258,11 @@ class VNICUtils(object):
         try:
             output = subprocess.check_output(all_args, stderr=subprocess.STDOUT)
         except OSError as e:
-            self.logger.error('failed to execute '
+            self.logger.debug('failed to execute '
                               '/usr/libexec/secondary_vnic_all_configure.sh')
             return (404, 'failed to execute secondary VNIC script')
         except subprocess.CalledProcessError as e:
-            self.logger.error('Error running command "%s":' % ' '.
+            self.logger.debug('Error running command "%s":' % ' '.
                               join(all_args))
             self.logger.error(e.output)
             return (e.returncode, e.output)
@@ -575,18 +575,22 @@ class metadata(object):
         public_ip = None
         if oci_utils.oci_api.HAVE_OCI_SDK:
             # try the OCI APIs first
+            inst = None
             try:
                 sess = oci_utils.oci_api.OCISession()
                 inst = sess.this_instance()    
-                for vnic in inst.all_vnics():
-                    if vnic.get_public_ip() is not None:
+                if inst is not None:
+                    for vnic in inst.all_vnics():
                         public_ip = vnic.get_public_ip()
-                        break
-            except oci_utils.oci_api.OCISDKError:
+                        if public_ip is not None:
+                            break
+            except Exception as e:
+                sys.stderr.debug(str(e))
                 pass
         if public_ip is None:
             # fall back to STUN:
             public_ip = get_ip_info(source_ip='0.0.0.0')[1]
+
         if public_ip is not None:
             # write cache
             cache.write_cache(cache_content={'publicIp':public_ip},
@@ -600,7 +604,7 @@ class metadata(object):
         if self._metadata is None:
             if not self.refresh():
                 for e in self._errors:
-                    sys.stderr.write(e)
+                    self.logger.error(e)
 
         return self._metadata
 

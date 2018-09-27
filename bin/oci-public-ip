@@ -73,11 +73,13 @@ def main():
         sys.exit(0)
 
     external_ip = None
-
     # simplest case without any command line arguments: look for cached result
     if args.instance_id is None and args.sourceip == '0.0.0.0' and \
        args.stun_server is None:
-        external_ip = oci_utils.metadata(get_public_ip=True).get_public_ip()
+        try:        
+            external_ip = oci_utils.metadata(get_public_ip=True).get_public_ip()
+        except Exception as e:
+            sys.stderr.write("Error: %s\n" % e)
 
     if external_ip is None and \
        (oci_utils.oci_api.HAVE_OCI_SDK or args.instance_id is not None):
@@ -87,15 +89,16 @@ def main():
             inst = None
             if args.instance_id is not None:
                 inst = sess.get_instance(args.instance_id)
-                if inst is None:
-                    sys.stderr.write("Instance not found: %s\n" \
-                                     % args.instance_id)
-                    sys.exit(1)
             else:
                 inst = sess.this_instance()    
+
+            if inst is None:
+                sys.stderr.write("\nOCI SDK Error: Instance not found: %s\n" \
+                                 % args.instance_id)
+                sys.exit(1)
             for vnic in inst.all_vnics():
-                if vnic.get_public_ip() is not None:
-                    external_ip = vnic.get_public_ip()
+                external_ip = vnic.get_public_ip()
+                if external_ip is not None:
                     break
         except OCISDKError:
             if args.instance_id is not None:
