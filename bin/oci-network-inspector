@@ -79,6 +79,7 @@ def main():
         msg_error("Need OCI Service to inspect the networks.\n"
                   "Make sure to install and configure "
                   "OCI Python SDK (python-oci-sdk)\n")
+        msg_error(str(e))
         sys.exit(1)
 
     comps = []

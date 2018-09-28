@@ -148,15 +148,17 @@ def display_current_devices(oci_sess, session, disks):
         print "Currently attached iSCSI devices:"
         for iqn in session.keys():
             oci_vol = None
-            if oci_sess is not None:
+            if oci_sess is not None and oci_sdk_error is None:
                 oci_vols = oci_sess.find_volumes(iqn=iqn)
                 if len(oci_vols) == 1:
                     oci_vol = oci_vols[0]
+                        
             print
             print "Target %s" % iqn
             if oci_vol is not None:
                 print "         Volume name:    %s" % oci_vol.get_display_name()
                 print "         Volume OCID:    %s" % oci_vol.get_ocid()
+
             print "   Persistent portal:    %s:%s" % \
                 (session[iqn]['persistent_portal_ip'],
                  session[iqn]['persistent_portal_port'])
@@ -263,8 +265,7 @@ def do_destroy_volume(sess, ocid, interactive=False):
                          "Make sure to install and configure "
                          "OCI Python SDK (python-oci-sdk)\n")
         if oci_sdk_error is not None:
-            sys.stderr.write("OCI SDK error:\n")
-            sys.stderr.write(oci_sdk_error)
+            sys.stderr.write("OCI SDK error: %s\n" % oci_sdk_error)
         sys.exit(1)
 
     vol = None
@@ -299,8 +300,10 @@ def do_destroy_volume(sess, ocid, interactive=False):
 
 
 def api_display_available_devices(sess, args):
-    if sess is None:
+    if sess is None or not USE_OCI_SDK:
         sys.stderr.write("Need OCI services to display available devices.\n")
+        if oci_sdk_error is not None:
+            sys.stderr.write("OCI SDK error: %s\n" % oci_sdk_error)
         return
 
     vols = []
@@ -313,7 +316,7 @@ def api_display_available_devices(sess, args):
                 # compartment specified with its ocid
                 comp = sess.get_compartment(compartment_id=cspec)
                 if comp is None:
-                    sys.stderr.write("Compartment not found: %s\n" % cspec)
+                    sys.stderr.write("OCI SDK Error:Compartment not found: %s\n" % cspec)
                 else:
                     cvols = comp.all_volumes()
                     vols += cvols
@@ -321,7 +324,7 @@ def api_display_available_devices(sess, args):
                 # compartment specified with display name regexp
                 comps = sess.find_compartments(display_name=cspec)
                 if len(comps) == 0:
-                    sys.stderr.write("No compartments matching '%s' found" % \
+                    sys.stderr.write("OCI SDK Error:No compartments matching '%s' found\n" % \
                                      cspec)
                 else:
                     for comp in comps:
@@ -330,7 +333,11 @@ def api_display_available_devices(sess, args):
     else:
         # -C/--compartment option wasn't used, default to the instance's own
         # compartment
-        vols = sess.this_compartment().all_volumes()
+        comp = sess.this_compartment()
+        if comp is not None:
+            vols = comp.all_volumes()
+        else:
+            sys.stderr.write("OCI SDK Error:Compartment for this instance not found\n")
 
     if len(vols) == 0:
         print "No additional storage volumes found."
@@ -367,8 +374,7 @@ def do_attach_ocid(sess, ocid):
                          "Make sure to install and configure "
                          "OCI Python SDK (python-oci-sdk)\n")
         if oci_sdk_error is not None:
-            sys.stderr.write("OCI SDK error:\n")
-            sys.stderr.write(oci_sdk_error)
+            sys.stderr.write("OCI SDK error: %s\n" % oci_sdk_error)
         sys.exit(1)
 
     vol = sess.get_volume(ocid)
@@ -504,8 +510,7 @@ def do_create_volume(sess, size, display_name, use_chap=False):
                          "Make sure to install and configure "
                          "OCI Python SDK (python-oci-sdk)\n")
         if oci_sdk_error is not None:
-            sys.stderr.write("OCI SDK error:\n")
-            sys.stderr.write(oci_sdk_error)
+            sys.stderr.write("OCI SDK error: %s\n" % oci_sdk_error)
         sys.exit(1)
 
     if size < 50:
@@ -514,11 +519,17 @@ def do_create_volume(sess, size, display_name, use_chap=False):
 
     # FIXME: use_chap
     vol = None
+    inst = None
     try:
         print "Creating a new %d GB volume" % size
-        vol = sess.this_instance().create_volume(size=size,
-                                                 display_name=display_name)
-    except OCISDKError as e:
+        inst = sess.this_instance()
+        if inst is None:
+            sys.stderr.write("OCI SDK error: couldn't get instance info. \n")
+            return False
+           
+        vol = inst.create_volume(size=size,
+                                 display_name=display_name)
+    except Exception as e:
         sys.stderr.write("Failed to create volume: %s\n" % e)
         return False
 

@@ -353,13 +353,18 @@ class OCISession(object):
         if self.compartments is not None and not refresh:
             return self.compartments
 
-        compartments_data = oci_sdk.pagination.list_call_get_all_results(
-            self.identity_client.list_compartments,
-            compartment_id=self.tenancy_ocid).data
+        self.compartments = []
+        try: 
+            compartments_data = oci_sdk.pagination.list_call_get_all_results(
+                self.identity_client.list_compartments,
+                compartment_id=self.tenancy_ocid).data
+        except Exception as e:
+            self.logger.error('%s' % e)
+            return self.compartments
+
 
         #compartments_data = self.identity_client.list_compartments(
         #    compartment_id=self.tenancy_ocid).data
-        self.compartments = []
         for c_data in compartments_data:
             self.compartments.append(OCICompartment(session=self,
                                                     compartment_data=c_data))
@@ -564,7 +569,8 @@ class OCISession(object):
         try:
             comp_data = self.identity_client.get_compartment(
                 compartment_id=my_compartment_id).data
-        except oci_sdk.exceptions.ServiceError:
+        except Exception as e:
+            self.logger.error(str(e))
             return None
         
         return OCICompartment(session=self,
