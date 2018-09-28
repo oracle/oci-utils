@@ -360,7 +360,9 @@ def main():
         vnic_utils = VNICUtils(debug=args.debug)
         vnic_info = vnic_utils.get_vnic_info()[1]
     except Exception as e:
-         sys.stderr.write(str(e))
+         sys.stderr.write("OCI SDK Error: %s \n" % e)
+         if args.debug:
+             raise e
          sys.exit(1)
 
     if args.detach_vnic:
@@ -404,7 +406,7 @@ def main():
         (ret, out) = vnic_utils.auto_config(quiet=args.quiet, show=args.show,
                                sec_ip=args.sec_ip)
     elif args.deconfigure:
-        (ret, out) = vnic_utils.auto_deconfig(quiet=args.quiet, show=args.quiet,
+        (ret, out) = vnic_utils.auto_deconfig(quiet=args.quiet, show=args.show,
                                  sec_ip=args.sec_ip)
     elif not args.show:
         # default action
