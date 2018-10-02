@@ -45,7 +45,9 @@ oci-network-config \- configure network devices on Oracle Cloud Infrastructure c
 .I ITEM
 .B ] [-q|--quiet] [--help]
 
-.B oci-network-config [-s|--show] [--create-vnic] [--vnic-name
+.B oci-network-config [-s|--show] [--create-vnic] [--nic-index
+.I IND
+.B ] [--vnic-name
 .I NAME
 .B ] [--detach-vnic
 .I VNIC
@@ -152,6 +154,9 @@ Deconfigure all VNICs (except the primary). If a -e option is also present only 
 Create a new VNIC and attach it to this instance.  Use the --subnet option to
 choose a subnet and --private-ip to choose a specific private IP address.
 This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
+.IP "--nic-index IND"
+Physical nic card index. When creating a new VNIC using the --create-vnic option, assign the vnic to this physical nic card.
+Default value is 0.
 .IP "--vnic-name NAME"
 When creating a new VNIC using the --create-vnic option, set the display
 name and hostname of the VNIC to NAME.

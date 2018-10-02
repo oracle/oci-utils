@@ -1,6 +1,14 @@
+<Not released>
+- fixed bug-28048699 - Needs to handle multiple physical NICs when creating secondary vnics
+                       Added option "--nic-index" "to specify which physical NIC the vnic is assigned to.
+- fixed bug-28599902 - oci-public-ip returns any public ip it found first.
+                       Added an option [-a |--all] to list all public ips for this instance.
+- fixed bug-28643343 - fixed most exceptions for oci config error.
+
+
 Version 0.7.1:
 
-- fix bug 28668447 - ocid needs to allow time for iSCSI connection to recover
+- fixed bug 28668447 - ocid needs to allow time for iSCSI connection to recover
 
 Version 0.7:
 
@@ -16,9 +24,9 @@ Version 0.7:
   5. Bug 27835953 - objects can't be shown due to pagination issue.              
   6. Bug 28612818 - A detached volume can't be reattached to the instance saying max limit reached 
 - fixed bug oci-network-config
-  1. bug-28498139 - secondary ips on secondary VNICs not reachable issue.        (fixed)
-  2. Bug 28080064 - oci-network-config -s can't list all secondary private ip    (fixed)
-  3. Bug 28188853 - oci-network-config report error message when detach vnic     (fixed)
+  1. bug-28498139 - secondary ips on secondary VNICs not reachable issue.        
+  2. Bug 28080064 - oci-network-config -s can't list all secondary private ip    
+  3. Bug 28188853 - oci-network-config report error message when detach vnic     
 - expanded 'OCI' to 'Oracle Cloud Infrastructure' in man pages, specfiles (OLOCITOOLS-8)
 
 Version 0.6:
