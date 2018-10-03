@@ -36,6 +36,8 @@ def parse_args():
                         help='Display json output')
     parser.add_argument('-g', '--get', action='store_true',
                         help='Print the IP address only')
+    parser.add_argument('-a', '--all', action='store_true',
+                        help='list all of the public IP addresses for the instance.')
     parser.add_argument('-s', '--sourceip', action='store', default="0.0.0.0",
                         help='Specify the source IP address to use'),
     parser.add_argument('-S', '--stun-server', action='store',
@@ -73,17 +75,20 @@ def main():
         sys.exit(0)
 
     external_ip = None
+    external_ips = []
     # simplest case without any command line arguments: look for cached result
     if args.instance_id is None and args.sourceip == '0.0.0.0' and \
        args.stun_server is None:
         try:        
             external_ip = oci_utils.metadata(get_public_ip=True).get_public_ip()
+            external_ips.append(external_ip)
         except Exception as e:
             sys.stderr.write("Error: %s\n" % e)
 
-    if external_ip is None and \
+    if (external_ip is None or args.all) and \
        (oci_utils.oci_api.HAVE_OCI_SDK or args.instance_id is not None):
         # try the OCI APIs first
+
         try:
             sess = oci_utils.oci_api.OCISession()
             inst = None
@@ -98,8 +103,17 @@ def main():
                 sys.exit(1)
             for vnic in inst.all_vnics():
                 external_ip = vnic.get_public_ip()
-                if external_ip is not None:
-                    break
+                if vnic.is_primary() and external_ip not in external_ips:
+                    external_ips.insert(0, external_ip)
+                else:
+                    if external_ip is None:
+                        continue
+                    if  args.all:
+                        if external_ip in external_ips:
+                            continue;
+             		external_ips.append(external_ip)
+                    else:
+                        break
         except OCISDKError:
             if args.instance_id is not None:
                 sys.stderr.write("The OCI Python SDK must be installed and "
@@ -107,12 +121,30 @@ def main():
                                  "option.\n")
                 sys.exit(1)
 
-    if external_ip is None:
+    if external_ip is None or args.all:
         # fall back to pystun
         external_ip = get_ip_info(source_ip=args.sourceip,
                                   stun_host=args.stun_server)[1]
 
-    if external_ip is not None:
+        if args.all and external_ip not in external_ips:
+             external_ips.append(external_ip)
+        
+    if args.all:
+        if args.json:
+            print json.dumps({'publicIps': external_ips})
+        elif args.get:
+            print external_ips
+        else:
+            print "Public IP addresses: "  
+            print "  Primary public IP: %s " % external_ips[0]
+            if len(external_ips) < 2:
+            	print "  Other public IP(s): None"  
+                return 0
+            print "  Other public IP(s):" 
+            for ip in external_ips[1:]:
+                print "    %s" % ip
+        return 0
+    elif external_ip is not None:
         if args.json:
             print json.dumps({'publicIp': external_ip})
         elif args.get:

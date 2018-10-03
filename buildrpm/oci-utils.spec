@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.7.1
-Release: 2%{?dist}
+Release: 3%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -85,6 +85,11 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+
+* Tue Oct 02 2018  Qing Lin <qing.lin@oracle.com> --0.7.1-3
+- bug-28643343 - fixed most of the exceptions for oci config error.
+- bug-28599902 - enhanced oci-public-ip to return all public ips with new option "-a|--all".
+- bug-28048699 - oci-utils needs to handle multiple physical NICs when creating secondary vnics
 
 * Wed Sep 19 2018 Laszlo (Laca) Peter <laszlo.peter@oracle.com> --0.7.1-1
 - fix bug 28668447 - ocid needs to allow time for iSCSI connection to recover

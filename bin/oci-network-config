@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/python
 
 # oci-utils
 #
@@ -48,6 +48,11 @@ def parse_args():
                         'if no options are given.')
     parser.add_argument('--create-vnic', action='store_true',
                         help='Create a new VNIC and attach it to this instance')
+    parser.add_argument('--nic-index', action='store', metavar='INDEX',
+                        type=int, default=0,
+                        help='physical NIC card index. '
+                        'When used with the --create-vnic option, '
+                        'assign the new VNIC to the specified physical NIC card.')
     parser.add_argument('--detach-vnic', action='store', metavar='VNIC',
                         help='Detach and delete the VNIC with the given OCID'
                         ' or primary IP address')
@@ -251,6 +256,7 @@ def do_create_vnic(args):
             private_ip=args.private_ip,
             assign_public_ip=args.assign_public_ip,
             subnet_id=subnet_id,
+            nic_index=args.nic_index,
             display_name=args.vnic_name)
     except OCISDKError as e:
         msg_error('Failed to create VNIC: %s' % e)

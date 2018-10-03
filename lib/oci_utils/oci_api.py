@@ -1143,7 +1143,7 @@ class OCIInstance(OCIAPIObject):
             raise OCISDKError('Failed to attach volume: %s' % e.message)
         
 
-    def attach_vnic(self, private_ip=None, subnet_id=None,
+    def attach_vnic(self, private_ip=None, subnet_id=None, nic_index=0,
                     display_name=None, assign_public_ip=False,
                     hostname_label=None, skip_source_dest_check=False,
                     wait=True):
@@ -1198,6 +1198,7 @@ class OCIInstance(OCIAPIObject):
         attach_vnic_details = oci_sdk.core.models.AttachVnicDetails(
             create_vnic_details=create_vnic_details,
             display_name=display_name,
+            nic_index=nic_index,
             instance_id=self.get_ocid())
         try:
             resp = self.oci_session.sdk_call(cc.attach_vnic,
