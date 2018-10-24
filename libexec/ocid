@@ -26,6 +26,7 @@ from logging.handlers import SysLogHandler
 import lockfile
 import oci_utils
 import oci_utils.iscsiadm
+import oci_utils.metadata
 import subprocess
 from oci_utils.cache import load_cache, write_cache, get_timestamp
 import oci_utils.oci_api
@@ -213,7 +214,7 @@ def metadata_func(context):
     ocid thread function for refreshing the instance metadata.
     """
     # updates the cache
-    oci_utils.metadata().refresh(get_public_ip=False)
+    oci_utils.metadata.metadata().refresh(get_public_ip=False)
     return {}
 
 
@@ -221,7 +222,7 @@ def public_ip_func(context):
     """
     ocid thread function for refreshing the instance metadata.
     """
-    external_ip = oci_utils.metadata(get_public_ip=True).\
+    external_ip = oci_utils.metadata.metadata(get_public_ip=True).\
                 get_public_ip(refresh=True)
     return {'publicIp': external_ip}
 
@@ -482,7 +483,7 @@ def iscsi_func(context):
 
 
 def get_metadata_vnics():
-    vnics = oci_utils.metadata(get_public_ip=False).filter('vnics')
+    vnics = oci_utils.metadata.metadata(get_public_ip=False).filter('vnics')
     if vnics is not None and 'vnics' in vnics:
         # deep copy
         vnics_copy = [dict(x) for x in vnics['vnics']]

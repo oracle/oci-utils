@@ -163,6 +163,7 @@ def main():
                         print "         Vnic PublicIP: %s" % vnic.get_public_ip()
                     instance = vnic.get_instance()
                     print "         Instance: %s(%s)" % (instance.get_hostname(),instance.get_state())
+                    print "         Instance ocid: %s" % (instance.get_ocid())
                 else:
                     vnic_id = ip.get_vnic_ocid()
                     print "         Vnic: %s(%s)" % (vnic_id, "NotFound")

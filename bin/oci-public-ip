@@ -20,6 +20,7 @@ except ImportError:
     import simplejson as json
 from oci_utils.packages.stun import get_ip_info, STUN_SERVERS, log as stun_log
 import oci_utils.oci_api
+import oci_utils.metadata
 from oci_utils.exceptions import OCISDKError
 
 def parse_args():
@@ -80,7 +81,7 @@ def main():
     if args.instance_id is None and args.sourceip == '0.0.0.0' and \
        args.stun_server is None:
         try:        
-            external_ip = oci_utils.metadata(get_public_ip=True).get_public_ip()
+            external_ip = oci_utils.metadata.metadata(get_public_ip=True).get_public_ip()
             external_ips.append(external_ip)
         except Exception as e:
             sys.stderr.write("Error: %s\n" % e)

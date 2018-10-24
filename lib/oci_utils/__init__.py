@@ -9,27 +9,22 @@ import os
 import os.path
 import sys
 import io
-import logging
-import urllib2
-import subprocess
 import threading
-import json
+import logging
+import oci_utils
+import cache
+import subprocess
 from datetime import datetime, timedelta
 from time import sleep
 from ConfigParser import ConfigParser
-from .packages.stun import get_ip_info, log as stun_log
 from .exceptions import OCISDKError
-from cache import GLOBAL_CACHE_DIR
-import oci_utils.oci_api
 
 # file with a list IQNs to ignore
 __ignore_file = "/var/lib/oci-utils/ignore_iqns"
 # file with chap user names and passwords
 __chap_password_file = "/var/lib/oci-utils/chap_secrets"
 
-# endpoint of the metadata service
 METADATA_ENDPOINT = '169.254.169.254'
-
 # oci-utils configuration defaults
 __oci_utils_defaults = """
 [auth]
@@ -54,12 +49,12 @@ refresh_interval = 600
 # oci-utils config file
 __oci_utils_conf_d = "/etc/oci-utils.conf.d"
 oci_utils_config = None
-
 oci_utils_thread_lock = None
+
 def lock_thread(timeout=30):
     global oci_utils_thread_lock
 
-    # the oci sdk is not thread safe, so need to synchronize sdk calls
+    # the oci sdk is not thread safe, so need to synceronize sdk calls
     # each sdk call must call OCISession.lock() first and call
     # OCISession.release() when done.
     if oci_utils_thread_lock is None:
@@ -116,7 +111,7 @@ def read_config():
         return oci_utils_config
     oci_utils_config = ConfigParser()
     try:
-        oci_utils_config.readfp(io.BytesIO(oci_utils.__oci_utils_defaults))
+        oci_utils_config.readfp(io.BytesIO(__oci_utils_defaults))
     except:
         raise
 
@@ -129,6 +124,7 @@ def read_config():
     oci_utils_config.read(conffiles)
     return oci_utils_config
 
+
 class VNICUtils(object):
     """
     Class for managing VNICs
@@ -138,7 +134,7 @@ class VNICUtils(object):
     # OBSOLETE: file with VNICs and stuff to exclude from automatic
     # configuration
     __net_exclude_file = "/var/lib/oci-utils/net_exclude"
-    
+
     def __init__(self, debug=False, logger=None):
         if logger is not None:
             self.logger = logger
@@ -189,8 +185,8 @@ class VNICUtils(object):
         if oci_sess is not None:
             p_ips = oci_sess.this_instance().all_private_ips(refresh=True)
             sec_priv_ip = \
-                [[ip.get_address(),ip.get_vnic_ocid()] for ip in p_ips]
-            vnic_info['sec_priv_ip']=sec_priv_ip
+                [[ip.get_address(), ip.get_vnic_ocid()] for ip in p_ips]
+            vnic_info['sec_priv_ip'] = sec_priv_ip
             vnic_info_ts = \
                 cache.write_cache(cache_content=vnic_info,
                                   cache_fname=VNICUtils.__vnic_info_file)
@@ -225,7 +221,7 @@ class VNICUtils(object):
             self.logger.warn("Failed to save VNIC info to %s" % \
                              VNICUtils.__vnic_info_file)
         return vnic_info_ts
-        
+
     def __run_sec_vnic_script(self, script_args):
         '''
         Run the secondary_vnic_all_configure.sh script with the given arguments
@@ -253,7 +249,7 @@ class VNICUtils(object):
             if 'sec_priv_ip' in self.vnic_info:
                 for ipaddr, vnic_id in self.vnic_info['sec_priv_ip']:
                     all_args += ['-e', ipaddr, vnic_id]
-    
+
         self.logger.debug('Executing "%s"' % " ".join(all_args))
         try:
             output = subprocess.check_output(all_args, stderr=subprocess.STDOUT)
@@ -282,8 +278,8 @@ class VNICUtils(object):
         Add the given secondary private IP to vnic_info and save
         vnic info to the vnic_info file
         """
-        if [ipaddr,vnic_id] not in self.vnic_info['sec_priv_ip']:
-            self.vnic_info['sec_priv_ip'].append([ipaddr,vnic_id])
+        if [ipaddr, vnic_id] not in self.vnic_info['sec_priv_ip']:
+            self.vnic_info['sec_priv_ip'].append([ipaddr, vnic_id])
         self.save_vnic_info()
 
     def set_private_ips(self, priv_ips):
@@ -302,7 +298,7 @@ class VNICUtils(object):
         for pi in remove_privip:
             self.vnic_info['sec_priv_ip'].remove(pi)
         self.save_vnic_info()
-        
+
     def del_private_ip(self, ipaddr, vnic_id):
         """
         Delete the given secondary private IP from vnic_info and save
@@ -310,8 +306,8 @@ class VNICUtils(object):
         Run the secondary vnic script to deconfigure the secondary vnic script.
         Return the result of running the sec vnic script
         """
-        if [ipaddr,vnic_id] in self.vnic_info['sec_priv_ip']:
-            self.vnic_info['sec_priv_ip'].remove([ipaddr,vnic_id])
+        if [ipaddr, vnic_id] in self.vnic_info['sec_priv_ip']:
+            self.vnic_info['sec_priv_ip'].remove([ipaddr, vnic_id])
         self.include(ipaddr, save=False)
         self.save_vnic_info()
         return self.__run_sec_vnic_script(['-d', '-e', ipaddr, vnic_id])
@@ -350,8 +346,8 @@ class VNICUtils(object):
         if sec_ip:
             for si in sec_ip:
                 args += ['-e', si[0], si[1]]
-                if [si[0],si[1]] not in self.vnic_info['sec_priv_ip']:
-                    self.vnic_info['sec_priv_ip'].append((si[0],si[1]))
+                if [si[0], si[1]] not in self.vnic_info['sec_priv_ip']:
+                    self.vnic_info['sec_priv_ip'].append((si[0], si[1]))
                 self.include(si[0], save=False)
                 self.save_vnic_info()
 
@@ -369,8 +365,8 @@ class VNICUtils(object):
         if sec_ip:
             for si in sec_ip:
                 args += ['-e', si[0], si[1]]
-                if [si[0],si[1]] in self.vnic_info['sec_priv_ip']:
-                    self.vnic_info['sec_priv_ip'].remove([si[0],si[1]])
+                if [si[0], si[1]] in self.vnic_info['sec_priv_ip']:
+                    self.vnic_info['sec_priv_ip'].remove([si[0], si[1]])
                 self.exclude(si[0], save=False)
                 self.save_vnic_info()
         return self.__run_sec_vnic_script(args)
@@ -381,244 +377,6 @@ class VNICUtils(object):
         """
         return self.__run_sec_vnic_script(['-s'])
 
-class OCIMetadata(dict):
-    """
-    a class representing all OCI metadata
-    """
-    _metadata = None
-
-    def __init__(self, metadata):
-        assert type(metadata) is dict, "metadata must by a dict"
-        self._metadata = metadata
-        self._fix_metadata()
-        
-    def _filter(self, metadata, keys):
-        """
-        filter metadata return only the selected keys
-        """
-        if type(metadata) is list:
-            new_metadata = []
-            for m in metadata:
-                filtered_list = self._filter(m, keys)
-                if filtered_list is not None:
-                    new_metadata.append(filtered_list)
-            if new_metadata == []:
-                return None
-            return new_metadata
-        elif type(metadata) is dict:
-            new_metadata = {}
-            for k in metadata.keys():
-                if k.lower() in keys:
-                    new_metadata[k] = metadata[k]
-                else:
-                    filtered_dict = self._filter(metadata[k], keys)
-                    if filtered_dict is not None:
-                        new_metadata[k] = filtered_dict
-            if new_metadata == {}:
-                return None
-            return new_metadata
-        elif type(metadata) is tuple:
-            filtered_tuple = map(lambda x: filter_results(x, keys), metadata)
-            for x in filtered_tuple:
-                if x is not None:
-                    return tuple(filtered_tuple)
-            return None
-        else:
-            return None
-        
-    def filter(self, keys):
-        """
-        filter all metadata, return only the selected keys
-        """
-        if keys is None or len(keys) == 0:
-            return self._metadata
-
-        return self._filter(self._metadata, keys)
-
-    def _fix_metadata(self):
-        """
-        Apply workarounds where the data returned is incorrect.
-        At present, the metadata API always returns "Provisioning" for state
-        """
-        if 'instance' in self._metadata:
-            if 'state' in self._metadata['instance']:
-                self._metadata['instance']['state'] = 'Running'
-
-    def get(self):
-        return self._metadata
-
-    def __repr__(self):
-        return self._metadata.__str__()
-
-    def __str__(self):
-        return self._metadata.__str__()
-
-    def __getitem__(self, item):
-        return self._metadata[item]
-    
-class metadata(object):
-    """
-    class for querying OCI instance metadata
-    """
-
-    # all metadata
-    _metadata = None
-
-    # metadata service URL
-    _oci_metadata_api_url = 'http://%s/opc/v1/' % METADATA_ENDPOINT
-
-    # error log
-    _errors = []
-
-    # time of last metadata update
-    _metadata_update_time = None
-
-    # cache files
-    _md_global_cache = GLOBAL_CACHE_DIR + "/metadata-cache"
-    _md_user_cache = "~/.cache/oci-utils/metadata-cache"
-    _md_cache_timeout = timedelta(minutes=2)
-    _pub_ip_cache = GLOBAL_CACHE_DIR + "/public_ip-cache"
-    _pub_ip_timeout = timedelta(minutes=10)
-
-    def __init__(self, get_public_ip=False, debug=False):
-        self._md_user_cache = os.path.expanduser(self._md_user_cache)
-        self.logger = logging.getLogger('oci-metadata')
-        if debug:
-            self.logger.setLevel(logging.DEBUG)
-        else:
-            self.logger.setLevel(logging.INFO)
-        handler = logging.StreamHandler()
-        handler.setLevel(logging.DEBUG)
-        self.logger.addHandler(handler)
-        (cache_timestamp, cache_content) = cache.load_cache(
-            self._md_global_cache, self._md_user_cache, self._md_cache_timeout)
-        if cache_content is None:
-            self.logger.debug("Cache not found or not usable, "
-                              "refreshing metadata")
-            self.refresh(get_public_ip=get_public_ip, debug=debug)
-        else:
-            self._metadata = OCIMetadata(cache_content)
-            self._metadata_update_time = datetime.fromtimestamp(
-                cache_timestamp)
-        cfg = read_config()
-        try:
-            secs = int(cfg.get('public_ip', 'refresh_interval'))
-            _pub_ip_timeout = timedelta(seconds=secs)
-        except:
-            pass
-            
-    def refresh(self, debug=False, get_public_ip=False):
-        """
-        Fetch all instance metadata from all sources
-        Return True for success, False for failure
-        """
-        if debug:
-            debug_handler = logging.StreamHandler(stream=sys.stderr)
-            stun_log.addHandler(debug_handler)
-            stun_log.setLevel(logging.DEBUG)
-            self.logger.setLevel(logging.DEBUG)
-
-        metadata = {}
-        result = True
-
-        # read the instance metadata
-        lock_thread()
-        try:
-            api_conn = urllib2.urlopen(self._oci_metadata_api_url +
-                                       'instance/', timeout=2)
-            instance_metadata = json.loads(api_conn.read().decode())
-            release_thread()
-            metadata['instance'] = instance_metadata
-        except IOError as e:
-            release_thread()
-            self._errors.append("Error connecting to metadata server: %s\n" % \
-                                e[0])
-            result = False
-
-        # get the VNIC info
-        lock_thread()
-        try:
-            api_conn = urllib2.urlopen(self._oci_metadata_api_url +
-                                       'vnics/', timeout=2)
-            vnic_metadata = json.loads(api_conn.read().decode())
-            release_thread()
-            metadata['vnics'] = vnic_metadata
-        except IOError as e:
-            release_thread()
-            self._errors.append("Error connecting to metadata server: %s\n" % \
-                                e[0])
-            result = False
-
-        if get_public_ip:
-            public_ip = self.get_public_ip()
-            if public_ip is None:
-                self._errors.append("Failed to determine public IP address.\n")
-                result = False
-            else:
-                metadata['publicIp']=public_ip
-
-        if metadata:
-            self._metadata = OCIMetadata(metadata)
-
-            cache.write_cache(cache_content=self._metadata.get(),
-                              cache_fname=self._md_global_cache,
-                              fallback_fname=self._md_user_cache)
-        return result
-
-    def get_public_ip(self, refresh=False):
-        if not refresh:
-            # look for a valid cache
-            (cache_timestamp, cache_content) = cache.load_cache(
-                self._pub_ip_cache, max_age=self._pub_ip_timeout)
-            if cache_content is not None and 'publicIp' in cache_content:
-                return cache_content['publicIp']
-        public_ip = None
-        if oci_utils.oci_api.HAVE_OCI_SDK:
-            # try the OCI APIs first
-            inst = None
-            try:
-                sess = oci_utils.oci_api.OCISession()
-                inst = sess.this_instance()    
-                if inst is not None:
-                    for vnic in inst.all_vnics():
-                        public_ip = vnic.get_public_ip()
-                        if public_ip is not None:
-                            break
-            except Exception as e:
-                sys.stderr.debug(str(e))
-                pass
-        if public_ip is None:
-            # fall back to STUN:
-            public_ip = get_ip_info(source_ip='0.0.0.0')[1]
-
-        if public_ip is not None:
-            # write cache
-            cache.write_cache(cache_content={'publicIp':public_ip},
-                              cache_fname=self._pub_ip_cache)
-        return public_ip
-
-    def filter(self, keys):
-        return self._metadata.filter(keys)
-
-    def get(self):
-        if self._metadata is None:
-            if not self.refresh():
-                for e in self._errors:
-                    self.logger.error(e)
-
-        return self._metadata
-
-    def __repr__(self):
-        return self._metadata.__str__()
-
-    def __str__(self):
-        if self._metadata is None:
-            return "None"
-        else:
-            return self._metadata.__str__()
-
-    def __getitem__(self, item):
-        return self._metadata[item]
 
 set_proxy()
 
