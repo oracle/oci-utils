@@ -7,7 +7,7 @@ import posixfile
 import json
 import utils
 
-from .. import metadata
+from ..metadata import metadata
 
 # Verify if the IOMMU is enabled. Linux kernel logs the message "IOMMU: enabled"
 # at boot time and the IOMMU subsystem creates 'dmar' device nodes under /sys/class/iommu

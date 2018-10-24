@@ -17,7 +17,8 @@ import argparse
 import json
 import subprocess
 from datetime import timedelta
-from oci_utils import iscsiadm, lsblk, metadata, __ignore_file
+from oci_utils import iscsiadm, lsblk, __ignore_file
+from oci_utils.metadata import metadata
 from oci_utils.cache import load_cache, write_cache
 import oci_utils.oci_api
 from oci_utils.exceptions import OCISDKError

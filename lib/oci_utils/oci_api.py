@@ -17,6 +17,8 @@ from logging.handlers import SysLogHandler
 from time import sleep
 import six
 import oci_utils
+import oci_utils.metadata
+import json
 from .auth_helper import OCIAuthProxy
 from .exceptions import OCISDKError
 
@@ -35,34 +37,70 @@ NONE = 'None'
 
 MAX_VOLUMES_LIMIT = 32
 
+def get_metadata(instance_id, debug=False):
+    '''
+    get metadata via SDK.
+    '''
+    if not oci_utils.oci_api.HAVE_OCI_SDK:
+        print "To get another instance's metadata, need oci-python-sdk installed and configured."
+        return None
+    try:
+        sess = oci_utils.oci_api.OCISession()
+        metadata = sess.get_instance(instance_id=instance_id).get_metadata()
+    except Exception as e:
+        sys.stderr.write("%s \n" % e)
+        raise
+
+    return metadata
 
 class OCIAPIObject(object):
     """
     Ancestor class for most OCI objects
     """
+    _ignore_dict_items = ["swagger_types", "attribute_map"] 
+
+    _complex_items = [ "launch_options", "source_details" ]
+    #_complex_items = [ oci_sdk.core.models.instance_source_via_image_details.InstanceSourceViaImageDetails, oci_sdk.core.models.launch_options.LaunchOptions ]
+
     def __init__(self):
         pass
 
     def __dict__(self):
+        return OCIAPIObject.get_dict_recursive(self)
+    
+    @staticmethod
+    def get_dict_recursive(obj):
+        '''
+        get dict for object which has embedded complex object. 
+        '''
         try:
             data_dict = {}
-            for key in vars(self.data):
-                value = getattr(self.data, key)
+            if hasattr(obj, 'data'):
+                x =  obj.data
+            else:
+                x = obj
+            for key in vars(x):
+                value = getattr(x, key)
                 if key.startswith('_'):
                     key = key[1:]
                 # Handle complex types
+                if key in OCIAPIObject._ignore_dict_items:
+                   continue 
                 if type(value) in [int, bool]:
                     data_dict[key] = value
                 elif isinstance(value, six.string_types):
                     data_dict[key] = value.strip()
                 elif value is None:
                     data_dict[key] = ''
+                elif  key in OCIAPIObject._complex_items:
+                    data_dict[key] = OCIAPIObject.get_dict_recursive(value)
                 else:
-                    pass
+                    #pdb.set_trace()
+                    data_dict[key] = value
             return data_dict
         except:
             return None
-        
+
     def get_display_name(self):
         try:
             return self.data.display_name
@@ -101,7 +139,7 @@ class OCISession(object):
         self.block_storage_client = None
         self.object_storage_client = None
         self.oci_utils_config = oci_utils.read_config()
-        self.metadata = oci_utils.metadata(get_public_ip=False)
+        self.metadata = oci_utils.metadata.metadata(get_public_ip=False)
         self.oci_config = {}
         self.signer = None
         self.auth_method = auth_method
@@ -132,7 +170,7 @@ class OCISession(object):
         else:
             # fall back to the instance's own compartment_id
             # We will only see the current compartment, but better than nothing
-            self.tenancy_ocid = oci_utils.metadata['instance']['compartmentId']
+            self.tenancy_ocid = self.metadata['instance']['compartment_id']
 
     def _setup_logging(self, debug=False, syslog=False):
         self.logger = logging.getLogger('oci_utils.oci_api')
@@ -471,6 +509,33 @@ class OCISession(object):
         self.instances = instances
         return instances
 
+
+    def update_instance_metadata(self, instance_id=None, **kwargs):
+
+        if instance_id is None:
+            instance_id = self.metadata['instance']['id']
+
+        details = {}
+        if kwargs['defined_tags']:
+            details['definedTags'] = kwargs['defined_tags']
+        if kwargs['display_name']:
+            details['displayName'] = kwargs['display_name']
+        if kwargs['freeform_tags']:
+            details['freeformTags'] = kwargs['freeform_tags']
+        if kwargs['metadata']:
+            details['metadata'] = kwargs['metadata']
+        if kwargs['extended_metadata']:
+            details['extendedMetadata'] = kwargs['extended_metadata']
+
+        cc = self.get_network_client()
+
+        result = self.sdk_call(
+            cc.update_instance,
+            instance_id=instance_id,
+            update_instance_details=details,
+        )
+        return result
+
     def find_instances(self, display_name, refresh=False):
         """
         Return a list of OCIInstance-s with a matching display_name regexp
@@ -562,7 +627,7 @@ class OCISession(object):
         if self.metadata is None:
             return None
         try:
-            my_compartment_id = self.metadata['instance']['compartmentId']
+            my_compartment_id = self.metadata['instance']['compartment_id']
         except:
             return None
 
@@ -572,21 +637,21 @@ class OCISession(object):
         except Exception as e:
             self.logger.error(str(e))
             return None
-        
+
         return OCICompartment(session=self,
                               compartment_data=comp_data)
 
     def this_availability_domain(self):
         if self.metadata is None:
             return None
-        return self.metadata['instance']['availabilityDomain']
+        return self.metadata['instance']['availability_domain']
 
     def get_tenancy_ocid(self):
         """
         return the ocid of the tenancy
         """
         return self.tenancy_ocid
-    
+
     def this_region(self):
         if self.metadata is None:
             return None
@@ -607,7 +672,7 @@ class OCISession(object):
                                           instance_id=instance_id).data
             return OCIInstance(self, instance_data)
         except Exception as e:
-            self.logger.debug('Failed to fetch instance data: %s' % e)
+            self.logger.error('Failed to fetch instance: %s. \nCheck your connection and settings.' % e)
 
         return None
 
@@ -662,7 +727,7 @@ class OCISession(object):
                          volume_data=vol_data,
                          attachment_data=v_att_data)
 
-    def get_compartment(self, compartment_id, refresh=False): 
+    def get_compartment(self, compartment_id, refresh=False):
         if not refresh and self.compartments:
             # return from cache
             for i in self.compartments:
@@ -773,7 +838,7 @@ class OCICompartment(OCIAPIObject):
             return self.instances
         if self.data.lifecycle_state != 'ACTIVE':
             return None
-        
+
         cc = self.oci_session.get_compute_client()
 
         # Note: the user may not have permission to list instances
@@ -799,7 +864,7 @@ class OCICompartment(OCIAPIObject):
             return self.subnets
         if self.data.lifecycle_state != 'ACTIVE':
             return None
-        
+
         subnets = []
         for vcn in self.all_vcns(refresh=refresh):
             vcn_subnets = vcn.all_subnets()
@@ -959,9 +1024,10 @@ class OCIInstance(OCIAPIObject):
         self.vnics = None
         self.subnets = None
         self.volumes = None
+        self.metadata = None
         self.secondary_private_ips = None
         self.instance_ocid = instance_data.id
-        
+
     def __str__(self):
         return "Instance '%s' (%s)" % (self.data.display_name,
                                           self.instance_ocid)
@@ -1065,7 +1131,7 @@ class OCIInstance(OCIAPIObject):
     def all_volumes(self, refresh=False):
         if self.volumes is not None and not refresh:
             return self.volumes
-        
+
         bsc = self.oci_session.get_block_storage_client()
         cc = self.oci_session.get_compute_client()
 
@@ -1112,7 +1178,7 @@ class OCIInstance(OCIAPIObject):
 
         self.volumes = vols
         return vols
-        
+
     def attach_volume(self, volume_id, use_chap=False,
                       display_name=None, wait=True):
         """
@@ -1120,7 +1186,7 @@ class OCIInstance(OCIAPIObject):
         """
         if self.max_volumes_reached():
             raise OCISDKError('This instance reached its max_volumes.')
-	    
+
         av_det = oci_sdk.core.models.AttachIScsiVolumeDetails(
             type="iscsi",
             use_chap=use_chap,
@@ -1141,7 +1207,7 @@ class OCIInstance(OCIAPIObject):
                                                refresh=True)
         except oci_sdk.exceptions.ServiceError as e:
             raise OCISDKError('Failed to attach volume: %s' % e.message)
-        
+
 
     def attach_vnic(self, private_ip=None, subnet_id=None, nic_index=0,
                     display_name=None, assign_public_ip=False,
@@ -1213,7 +1279,7 @@ class OCIInstance(OCIAPIObject):
             return self.oci_session.get_vnic(v_att.data.vnic_id, refresh=True)
         except oci_sdk.exceptions.ServiceError as e:
             raise OCISDKError('Failed to attach new VNIC: %s' % e.message)
-         
+
     def max_volumes_reached(self):
         max_volumes = int(self.oci_session.oci_utils_config.get('iscsi','max_volumes'))
         if max_volumes > MAX_VOLUMES_LIMIT:
@@ -1230,7 +1296,7 @@ class OCIInstance(OCIAPIObject):
             raise OCISDKError('This instance reached its max_volumes.')
 
         vol = self.oci_session.create_volume(
-            compartment_id=self.get_compartment().get_ocid(),
+            compartment_id=self.data.compartment_id,
             availability_domain=self.data.availability_domain,
             size=size,
             display_name=display_name,
@@ -1242,6 +1308,35 @@ class OCIInstance(OCIAPIObject):
             vol.destroy()
             return None
         return vol
+
+    def get_metadata(self, get_public_ip=False, refresh=False):
+        '''
+        get metadata for this instance, 
+        return OCIMetadata
+        '''
+        if self.metadata != None and not refresh:
+            return self.metadata
+
+        meta = {}
+        meta['instance'] = self.__dict__()
+        
+        #get vnics
+        vnics = self.all_vnics(refresh=refresh)
+        vnics_l = []
+        for vnic in vnics:
+            vnic_i = vnic.__dict__()
+            vnic_a = json.loads(vnic.att_data.__str__())
+            vnic_i['nic_index'] = vnic_a['nic_index']
+            vnic_i['vlan_tag'] = vnic_a['vlan_tag']
+            vnics_l.append(vnic_i)
+        meta['vnics'] =  vnics_l
+
+        #get public ips
+        if get_public_ip:
+	        meta['public_ip'] = self.get_public_ip()
+       
+        self.metadata = oci_utils.metadata.OCIMetadata(meta)
+        return self.metadata
 
 class OCIVCN(OCIAPIObject):
     def __init__(self, session, vcn_data):
