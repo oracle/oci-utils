@@ -1,4 +1,8 @@
-<Not released>
+Version 0.8
+
+- OLOCITOOLS-11 - implemented method for retrieving metadata for other compute instances.
+- OLOCITOOLS-12 - implemented oci-metadata --export
+- OLOCITOOLS-10 - added support for updating instance metadata for a specified instance.
 - fixed bug-28048699 - Needs to handle multiple physical NICs when creating secondary vnics
                        Added option "--nic-index" "to specify which physical NIC the vnic is assigned to.
 - fixed bug-28599902 - oci-public-ip returns any public ip it found first.

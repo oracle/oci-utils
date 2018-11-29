@@ -70,7 +70,7 @@ def parse_args():
                         metavar='FUNC', default=False,
                         help='refresh cached data for the given function, '
                         'or all functions if FUNC is not specified, and exit. '
-                        'Possible values for FUNC: vnic, iscsi, metadata, '
+                        'Possible values for FUNC: vnic, iscsi, '
                         'public_ip')
     parser.add_argument('--no-daemon', action='store_true',
                         help='run ocid in the foreground, useful for debugging')
@@ -84,7 +84,7 @@ def parse_args():
         args.refresh = True
     elif args.refresh:
         # not False and not None
-        if args.refresh not in ['vnic', 'iscsi', 'metadata', 'public_ip']:
+        if args.refresh not in ['vnic', 'iscsi', 'public_ip']:
             sys.stderr.write('Invalid choice for --refresh\n')
             sys.exit(1)
     cfg = oci_utils.read_config()
@@ -207,15 +207,6 @@ def test_func(context):
         f.write("hello %d\n" % context['counter'])
     context['counter'] += 1
     return context
-
-
-def metadata_func(context):
-    """
-    ocid thread function for refreshing the instance metadata.
-    """
-    # updates the cache
-    oci_utils.metadata.metadata().refresh(get_public_ip=False)
-    return {}
 
 
 def public_ip_func(context):
@@ -591,12 +582,6 @@ def start_thread(name, repeat, debug=False):
                         context={'fname':'/tmp/ocid-test', 'counter':1},
                         sleeptime=10,
                         repeat=repeat)
-    elif name == 'metadata':
-        th = ocidThread(name=name,
-                        ocidfunc=metadata_func,
-                        context={},
-                        sleeptime=119,
-                        repeat=repeat)
     elif name == 'public_ip':
         is_enabled = cfg.get('public_ip', 'enabled')
         if is_enabled not in TRUE:
@@ -668,9 +653,6 @@ def start_threads(args, repeat):
     if not args.refresh or args.refresh == True:
         # is not a refresh request or is a request to refresh all
         # so start all threads
-        th = start_thread('metadata', repeat, args.debug)
-        if th:
-            threads['metadata'] = th
         th = start_thread('public_ip', repeat, args.debug)
         if th:
             threads['public_ip'] = th

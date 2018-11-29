@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: oci-utils
-Version: 0.7.1
+Version: 0.8
 Summary: Oracle Cloud Infrastructure utilities
 Home-page: http://github.com/oracle/oci-utils/
 Author: Laszlo Peter
