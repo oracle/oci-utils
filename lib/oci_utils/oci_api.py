@@ -37,21 +37,6 @@ NONE = 'None'
 
 MAX_VOLUMES_LIMIT = 32
 
-def get_metadata(instance_id, debug=False):
-    '''
-    get metadata via SDK.
-    '''
-    if not oci_utils.oci_api.HAVE_OCI_SDK:
-        print "To get another instance's metadata, need oci-python-sdk installed and configured."
-        return None
-    try:
-        sess = oci_utils.oci_api.OCISession()
-        metadata = sess.get_instance(instance_id=instance_id).get_metadata()
-    except Exception as e:
-        sys.stderr.write("%s \n" % e)
-        raise
-
-    return metadata
 
 class OCIAPIObject(object):
     """
@@ -95,7 +80,6 @@ class OCIAPIObject(object):
                 elif  key in OCIAPIObject._complex_items:
                     data_dict[key] = OCIAPIObject.get_dict_recursive(value)
                 else:
-                    #pdb.set_trace()
                     data_dict[key] = value
             return data_dict
         except:
@@ -121,7 +105,7 @@ class OCISession(object):
                  auth_method=None, debug=False):
         global HAVE_OCI_SDK
         if not HAVE_OCI_SDK:
-            raise OCISDKError('OCI Python SDK not installed')
+            raise OCISDKError('Package python-oci-sdk not installed')
         self.debug = debug
         self._setup_logging(debug=debug, syslog=False)
         self.config_file = config_file
@@ -139,7 +123,10 @@ class OCISession(object):
         self.block_storage_client = None
         self.object_storage_client = None
         self.oci_utils_config = oci_utils.read_config()
-        self.metadata = oci_utils.metadata.metadata(get_public_ip=False)
+        try:
+            self.metadata = oci_utils.metadata.metadata(get_public_ip=False).get(silent=True).get()
+        except Exception as e:
+            self.metadata = None
         self.oci_config = {}
         self.signer = None
         self.auth_method = auth_method
@@ -159,7 +146,8 @@ class OCISession(object):
         if self.auth_method == NONE:
             if self.auth_status:
                 raise OCISDKError(self.auth_status)
-            raise OCISDKError('Failed to authenticate with the OCI service')
+            raise OCISDKError('Failed to authenticate with the Oracle Cloud Infrastructure service')
+
         self.tenancy_ocid = None
         if 'tenancy' in self.oci_config :
             # DIRECT or PROXY auth
@@ -167,7 +155,7 @@ class OCISession(object):
         elif self.signer is not None:
             # IP auth
             self.tenancy_ocid = self.signer.tenancy_id
-        else:
+        elif not self.metadata:
             # fall back to the instance's own compartment_id
             # We will only see the current compartment, but better than nothing
             self.tenancy_ocid = self.metadata['instance']['compartment_id']
@@ -348,6 +336,10 @@ class OCISession(object):
             return False
 
         # test that it works
+        if not self.metadata:
+            #not in an instance, return without test.
+            return true
+
         try:
             inst_id = self.metadata['instance']['id']
             cc = self.get_compute_client()
@@ -511,30 +503,38 @@ class OCISession(object):
 
 
     def update_instance_metadata(self, instance_id=None, **kwargs):
+        '''
+        Parameters:
+            instance_id: optional if you run on the instance.
+            kwargs: dict of updating fields.
+        Return:
+            metadata updated.
+        '''
 
         if instance_id is None:
-            instance_id = self.metadata['instance']['id']
-
+            try:
+                instance_id = self.metadata['instance']['id']
+            except Exception as e:
+                self.logger.error('No instance id. Please run in an instance or provide instance-id.\n')
+                return None
         details = {}
-        if kwargs['defined_tags']:
-            details['definedTags'] = kwargs['defined_tags']
-        if kwargs['display_name']:
-            details['displayName'] = kwargs['display_name']
-        if kwargs['freeform_tags']:
-            details['freeformTags'] = kwargs['freeform_tags']
-        if kwargs['metadata']:
-            details['metadata'] = kwargs['metadata']
-        if kwargs['extended_metadata']:
-            details['extendedMetadata'] = kwargs['extended_metadata']
+        for key in OCIInstance.settable_field_type:
+            if key in kwargs.keys():
+                details[key] = kwargs[key]
 
-        cc = self.get_network_client()
+        cc = self.get_compute_client()
 
-        result = self.sdk_call(
-            cc.update_instance,
-            instance_id=instance_id,
-            update_instance_details=details,
-        )
-        return result
+        try:
+            result = self.sdk_call(
+                cc.update_instance,
+                instance_id=instance_id,
+                update_instance_details=details,
+            ).data
+        except Exception as e:
+            self.logger.error('Failed to set metadata: %s. \nCheck your connection and settings.' % e)
+            return None
+            
+        return OCIInstance(self, result).get_metadata()
 
     def find_instances(self, display_name, refresh=False):
         """
@@ -964,7 +964,14 @@ class OCICompartment(OCIAPIObject):
             wait=wait)
 
 class OCIInstance(OCIAPIObject):
+    #Notes: dict can be json formatted string or file.
+    settable_field_type={
+        'displayName': str,
+        'metadata': dict,
+        'extendedMetadata': dict
+    }
 
+    lower_settable_fields = {key.lower():key for key in settable_field_type }
     def __init__(self, session, instance_data):
         """
         instance_data:
@@ -1335,7 +1342,7 @@ class OCIInstance(OCIAPIObject):
         if get_public_ip:
 	        meta['public_ip'] = self.get_public_ip()
        
-        self.metadata = oci_utils.metadata.OCIMetadata(meta)
+        self.metadata = oci_utils.metadata.OCIMetadata(meta, convert=True)
         return self.metadata
 
 class OCIVCN(OCIAPIObject):

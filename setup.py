@@ -28,9 +28,9 @@ def read(fname):
 
 setup(
     name = "oci-utils",
-    version = "0.7.1",
-    author = "Laszlo Peter",
-    author_email = "laszlo.peter@oracle.com",
+    version = "0.8",
+    author = "Laszlo Peter, Qing Lin",
+    author_email = "laszlo.peter@oracle.com, qing.lin@oracle.com",
     description = ("Oracle Cloud Infrastructure utilities"),
     license = "UPL",
     install_requires=install_requirements,

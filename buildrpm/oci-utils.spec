@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.7.1
-Release: 3%{?dist}
+Version: 0.8
+Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -85,6 +85,10 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+* Fri Oct 26 2018  Qing Lin <qing.lin@oracle.com> --0.8
+- OLOCITOOLS-11 - implemented method for retrieving metadata for other compute instances.   
+- OLOCITOOLS-12 - implemented oci-metadata --export
+- OLOCITOOLS-10 - added support for updating instance metadata for a specified instance.  
 
 * Tue Oct 02 2018  Qing Lin <qing.lin@oracle.com> --0.7.1-3
 - bug-28643343 - fixed most of the exceptions for oci config error.

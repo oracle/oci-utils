@@ -11,7 +11,11 @@ oci-metadata \- display Oracle Cloud Infrastructure compute instance metadata
 .I KEY
 .B | --get
 .I KEY
-.B ] [--help]
+.B ] [-u
+.I KEY=VALUE [KEY=VALUE, ...]
+.B | --update
+.I KEY=VALUE [KEY=VALUE, ...]
+.B ] [--export] [--trim] [--help]
 .SH DESCRIPTION
 The
 .B oci-metadata
@@ -26,10 +30,37 @@ Print the public IP address in JSON format, intended for scripting.
 Search for the given
 .B KEY
 in the metadata and only display matching entries.  For example
-.IR oci-metadata -g macaddr
+
+.B oci-metadata -g macAddr
+
 displays the MAC address of each VNIC interface.  Use the JSON output to see all available keys.
 .B KEY
 is not case sensitive, but it has to match the entire key.  You can use this option multiple times to display more than one key.
+
+.IP "-u KEY=VALUE [KEY=VALUE  ...], --update KEY=VALUE [KEY=VALUE  ...]"
+update the value for the given keys. Notes: Any keys other than displayName,  metadata and extendedMetadata will be set nest into 'extendedMetadata'.
+
+You can use this option multiple times. For example:
+
+.B oci-metadata -u displayName="test-name"   extendedMetadata=file://home/opc/extended_metadata 
+
+This will set the "displayName", and "extendedMetadata" to the specified values.
+
+The content of file extended_metadata looks like:
+
+{
+  'extended':{
+      'test': 'test_value'
+  }
+}
+        
+.IP --export
+Works with the -g option, print the command to export the keys as environment variables.
+Use --help to check the available keys to export.
+
+.IP --trim
+Works with the -g option, trim the keypath to the lowest level. eg. 'instance/metadata/ssh_authorized_keys/' to 'ssh_authorized_keys'.
+
 .IP --help
 Print a summary of the command line options.
 .SH DIAGNOSTICS

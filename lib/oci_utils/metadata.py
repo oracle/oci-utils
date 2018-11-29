@@ -23,13 +23,15 @@ def get_by_path(dic, keys):
     """
     Access a nested object in dic by key sequence.
     """
+    assert len(keys)>0, "Path key can not be an empty list."
+
     d = dic
     for key in keys[:-1]:
         if type(key) is int or key in d: 
             d = d[key]
         else:
             return None
-    if keys[-1] in d:    
+    if keys[-1] in d or ( type(d) is list and keys[-1] < len(d)):    
         return d[keys[-1]]
     else:
         return None
@@ -38,21 +40,37 @@ def set_by_path(dic, keys, value, create_missing=True):
     """
     set a nested object in dic by key sequence.
     """
+
     d = dic
-    for key in keys[:-1]:
-        if type(key) is int:
-            while len(d) <= key:
-                d.insert(key, {})
-            d = d[key]
-        elif key in d:
-            d = d[key]
+    i = 0
+    nKey = len(keys) - 1
+    while i < nKey:
+        k = keys[i]
+        if type(k) is int: 
+            assert type(d) is list, "Internal Error: %s is Expected as a list for %s.\n " %(d, k)
+
+            while len(d) <= k:
+                d.insert(k, {})
+            d = d[k]
+        elif k in d:
+            d = d[k]
         elif create_missing:
-            d[key] = {}
-            d = d[key]
+            nextKey = keys[i+1]
+            if type(nextKey) is int:
+                if type(d) is list:
+                    d.insert(k, [])
+                else:
+                    d[k] = []
+            else:
+                d[k] = {}
+            d = d[k]
         else:
             return dic
+        i += 1
 
-    if keys[-1] in d or create_missing:
+    if type(d) is list  and keys[-1] >= len(d):
+            d.insert(keys[-1], value)
+    else:
         d[keys[-1]] = value
     return dic
 
@@ -72,7 +90,7 @@ attribute_map = {
             "time_created": "timeCreated",
             "source_details": "sourceDetails",
             "launch_options": "launchOptions",
-            "image_id": "imageId",
+            "image_id": "image",
             "fault_domain": "faultDomain",
             "launch_mode": "launchMode",
             "ipxe_script": "ipxeScript",
@@ -122,9 +140,13 @@ refresh_interval = 600
 
 def get_path_keys(metadata,key_path, newkey_list):
     '''
-    metadata: a dict that the key_path can apply.
-    key_path: is a list of key sequence, it may contain wildcard.
-    newkey_list: the result concret keys after parsing the key path.
+    Parameters:
+        metadata: a dict that the key_path can apply.
+        key_path: is a list of key sequence, it may contain wildcard.
+        newkey_list: the result concret keys after parsing the key path.
+    Return:
+        Parameter newkey_list will be updated.
+        None.
     '''
     if len(key_path)==0:
         return 
@@ -135,30 +157,36 @@ def get_path_keys(metadata,key_path, newkey_list):
     key =key_path[0]
     if key.isdigit() and type(metadata) is list:
         nkey = int(key)
-        if nkey < len(metadata):
-            for nk in newkey_list:
-                nk.append(nkey)
-            metadata = metadata[nkey]
-        else: 
-            sys.stderr.write("key(%s)in %s is out of range.\n" % (nkey, key_path)) 
-            sys.exit(1)
+        assert nkey < len(metadata), "key(%s) in %s is out of range.\n" % (nkey, key_path)
+
+        for nk in newkey_list:
+            nk.append(nkey)
+        metadata = metadata[nkey]
+
     elif key == "*" or key == "":
         if type(metadata) is list:
             orig = []
             orig += newkey_list
             for nk in orig:
                 newkey_list.remove(nk)
-                for i in range(0,len(metadata)):
+                for i in range(len(metadata)):
                     nkey = nk + [i]
                     newkey_list.append(nkey)
             metadata = metadata[0]
         else:
             pass
     else:
+        lower_keys={k.lower():k for k in metadata}
+        if key not in metadata and key in lower_keys:
+            #lower case key, get original
+            key = lower_keys[key]
+
         for nk in newkey_list:
             nk.append(key)
 
+        assert key in metadata, "Invalid key '%s'  in %s.\n" % (key, str(metadata)) 
         metadata = metadata[key]
+
     if len(key_path)>1:    
         get_path_keys(metadata,key_path[1:], newkey_list) 
     else:
@@ -174,19 +202,20 @@ class OCIMetadata(dict):
     def __init__(self, metadata, convert=False):
         assert type(metadata) is dict, "metadata must be a dict"
         if convert:
-            self._metadata = self.name_convert(metadata)
+            self._metadata = self._name_convert_camelCase(metadata)
+            self._post_process(self._metadata)
         else:
             self._metadata = metadata
         self._fix_metadata()
         
-    def name_convert(self, meta):
+    def _name_convert_underscore(self, meta):
         """
-        convert nameXyz into name_xyz
+        convert name format from nameXyz into name_xyz 
         """
         if type(meta) is list:
             new_meta = []
             for m in meta:
-                new_meta.append(self.name_convert(m))
+                new_meta.append(self._name_convert_underscore(m))
 
         elif type(meta) is dict:
             new_meta = {}
@@ -196,14 +225,60 @@ class OCIMetadata(dict):
                     n_key = inv_attribute_map[nkey]
                 except:
                     n_key = nkey
-                new_meta[n_key] = self.name_convert(value)
+                new_meta[n_key] = self._name_convert_underscore(value)
+        else:
+                new_meta = meta 
+
+        return new_meta
+
+    def _post_process(self, metadata):
+        '''
+        Due to the different attribute names from the instance metadata
+        service and from the SDK, we need to convert the names from the
+        SDK to the names from the instance metadata service.
+        '''
+        # merge extendedMetadata into metadata
+        if 'instance' in metadata:
+            if 'metadata' in metadata['instance']:
+                if 'extendedMetadata' in metadata['instance']:
+                    v = metadata['instance'].pop('extendedMetadata')
+                    metadata['instance']['metadata'].update(v)
+            else:
+                if 'extendedMetadata' in metadata['instance']:
+                    v = metadata.pop('extendedMetadata')
+                    metadata['metadata'] = v
+
+        # change vnic's id to vnicId
+        if 'vnics' in metadata:
+            for i in range(len(metadata['vnics'])):
+                v = metadata['vnics'][i].pop('id')
+                metadata['vnics'][i]['vnicId'] = v
+        return metadata
+
+                
+    def _name_convert_camelCase(self, meta):
+        """
+        convert name_xyz into nameXyz 
+        """
+        if type(meta) is list:
+            new_meta = []
+            for m in meta:
+                new_meta.append(self._name_convert_camelCase(m))
+
+        elif type(meta) is dict:
+            new_meta = {}
+            for (key, value) in meta.iteritems():
+                try:
+                    n_key = attribute_map[key]
+                except:
+                    n_key = key
+                new_meta[n_key] = self._name_convert_camelCase(value)
         else:
                 new_meta = meta 
 
         return new_meta
 
                         
-
     def _filter_new(self, metadata, keys):
         """
         filter metadata based on keys, including keypath.
@@ -212,6 +287,7 @@ class OCIMetadata(dict):
         key_path_list = []
         new_meta = {}
         for key in keys:
+            key = key.replace("extendedMetadata","metadata").replace("extendedmetadata","metadata")
             if key.find('-') >= 0:
                 key = key.replace('-','_')
 
@@ -229,6 +305,8 @@ class OCIMetadata(dict):
                 single_key_list.append(key)
         if len(single_key_list) > 0:        
             ret_meta =  self._filter(metadata, single_key_list) 
+        else:
+            ret_meta = {}
 
         for key_path in key_path_list:
             set_by_path(ret_meta, key_path, new_meta[str(key_path)])
@@ -323,8 +401,6 @@ class metadata(object):
     _metadata_update_time = None
 
     # cache files
-    _md_global_cache = GLOBAL_CACHE_DIR + "/metadata-cache"
-    _md_user_cache = "~/.cache/oci-utils/metadata-cache"
     _md_cache_timeout = timedelta(minutes=2)
     _pub_ip_cache = GLOBAL_CACHE_DIR + "/public_ip-cache"
     _pub_ip_timeout = timedelta(minutes=10)
@@ -336,7 +412,6 @@ class metadata(object):
         :param get_public_ip:
         :param debug:
         '''
-        self._md_user_cache = os.path.expanduser(self._md_user_cache)
         self.logger = logging.getLogger('oci-metadata')
         if debug:
             self.logger.setLevel(logging.DEBUG)
@@ -345,23 +420,16 @@ class metadata(object):
         handler = logging.StreamHandler()
         handler.setLevel(logging.DEBUG)
         self.logger.addHandler(handler)
-        (cache_timestamp, cache_content) = cache.load_cache(
-            self._md_global_cache, self._md_user_cache, self._md_cache_timeout)
 
         if instance_id is not None:
-            oci_metadata = oci_utils.oci_api.get_metadata(instance_id=instance_id, debug=debug)
+            oci_metadata = oci_utils.oci_api.OCISession(debug=debug).get_instance(instance_id=instance_id).get_metadata()
+
         if oci_metadata is not None:
             assert type(oci_metadata) is OCIMetadata, "input should be an OCIMetadata object"
             self._metadata = oci_metadata
-        elif cache_content is None:
-            self.logger.debug("Cache not found or not usable, "
-                              "refreshing metadata")
+        else:
             self.refresh(get_public_ip=get_public_ip, debug=debug)
 
-        else:
-            self._metadata = OCIMetadata(cache_content, convert=True)
-            self._metadata_update_time = datetime.fromtimestamp(
-                cache_timestamp)
         cfg = read_config()
         try:
             secs = int(cfg.get('public_ip', 'refresh_interval'))
@@ -421,11 +489,8 @@ class metadata(object):
                 metadata['publicIp']=public_ip
 
         if metadata:
-            self._metadata = OCIMetadata(metadata, convert=True)
+            self._metadata = OCIMetadata(metadata)
 
-            cache.write_cache(cache_content=self._metadata.get(),
-                              cache_fname=self._md_global_cache,
-                              fallback_fname=self._md_user_cache)
         return result
 
     def get_public_ip(self, refresh=False):
@@ -448,7 +513,7 @@ class metadata(object):
                         if public_ip is not None:
                             break
             except Exception as e:
-                sys.stderr.debug(str(e))
+                self.logger.error(e)
                 pass
         if public_ip is None:
             # fall back to STUN:
@@ -461,10 +526,11 @@ class metadata(object):
         return public_ip
 
     def filter(self, keys):
+        assert self._metadata is not None, "Metadata is None. Check your input, config, and connection."
         return self._metadata.filter(keys)
 
-    def get(self):
-        if self._metadata is None:
+    def get(self, silent=False):
+        if self._metadata is None and not silent:
             if not self.refresh():
                 for e in self._errors:
                     self.logger.error(e)

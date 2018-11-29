@@ -45,7 +45,7 @@ It will also be unable to detect secondary private IP configuration changes and 
 
 .BR
 ocid(8)
-also caches the Oracle Cloud Infrastructure metadata and the public IP address of the instance.
+also caches the public IP address of the Oracle Cloud Infrastructure instance.
 
 To allow
 .BR ocid(8)
@@ -99,7 +99,6 @@ Possible values for FUNC:
                interface configuration as needed.
     iscsi      Look for new or detached iSCSI devices and
                attach/detach them as needed.
-    metadata   Update the instance metadata cache
     public_ip  Attempt to detect the public IP address of
                the instance and update the cache.
 
