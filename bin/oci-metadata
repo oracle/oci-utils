@@ -14,6 +14,7 @@ import sys
 import argparse
 import logging
 import time
+import collections
 try:
     import json
 except ImportError:
@@ -339,12 +340,15 @@ def get_value(key, metadata):
         return metadata[key]
     else:
         for k in metadata:
+            if key == k.lower():
+                return metadata[k]
             v = get_value(key, metadata[k])
             if v:
                 return v
     return None
 
 def get_trimed_key_values(keys, metadata):
+    metadata = convert_key_values_to_string(metadata)
     exportKeys = {}
     for key in keys:  
         ks = key.split('/')
@@ -370,6 +374,20 @@ def export_keys(keys, metadata):
 
     print x
 
+
+def convert_key_values_to_string(d):
+    """Recursively converts dictionary keys to strings."""
+    if type(d) is unicode:
+        return str(d)
+    elif isinstance(d, collections.Mapping):
+        nd = {} 
+        for k, v in d.iteritems():
+            nd[str(k)] = convert_key_values_to_string(v) 
+        return nd 
+    elif isinstance(d, collections.Iterable):
+        return type(d)(convert_key_values_to_string(x) for x in d)
+    else:
+        return d
 
 def main():
     '''

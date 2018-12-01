@@ -531,7 +531,7 @@ class OCISession(object):
                 update_instance_details=details,
             ).data
         except Exception as e:
-            self.logger.error('Failed to set metadata: %s. \nCheck your connection and settings.' % e)
+            self.logger.error('Failed to set metadata: %s. ' % e.message)
             return None
             
         return OCIInstance(self, result).get_metadata()
