@@ -109,16 +109,14 @@ def parse_args():
                         'Key can be any single field-name in metadata json output,'
                         'or a path like /instance/id, or /vnics/*/vnicid')
     parser.add_argument('--export', action='store_true',
-                        help='Work with -g option, export the keys as environment variables.'
-                        ' Only "metadata" or "extended_metadata" are exportable.')
+                        help='Used with the -g option, export the keys as environment variables.')
     parser.add_argument('--trim', action='store_true',
-                        help='Work with -g option, trim the key path into lowest level key.'
-                        ' If the key matches multiple values, only return the first value found.')
+                        help='Used with the -g option, trim the key path to the last component.')
     parser.add_argument('-u', '--update', nargs='+', metavar='KEY=VALUE ', dest='setkeys',
                         action='append', type=str,
                         help='Update the value for a specific key.  KEY can be displayName or a key in the extended metadata.'
                         ' VALUE can be a string, JSON data or a pointer to a file containing JSON data.'
-                        ' Notes: do not put spaces around "=".'
+                        ' Note: do not put spaces around "=".'
                         )
     parser.add_argument('-i', '--instance-id', metavar='OCID',
                         action='store', type=str,

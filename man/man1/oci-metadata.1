@@ -15,17 +15,21 @@ oci-metadata \- display Oracle Cloud Infrastructure compute instance metadata
 .I KEY=VALUE [KEY=VALUE, ...]
 .B | --update
 .I KEY=VALUE [KEY=VALUE, ...]
-.B ] [--export] [--trim] [--help]
+.B ] [--export] [--trim] [--help] [-i|--instance-id
+.I OCID
+.B ]
 .SH DESCRIPTION
 The
 .B oci-metadata
-utility displays metadata for a compute instance running in the Oracle
+utility is used to display or update metadata for a compute instance running in the Oracle
 Cloud Infrastructure.  Without any command line options all available metadata is displayed.
 .SH OPTIONS
 .IP -h,\ --human-readable
-(default) Print the public IP address in a form intended for humans.
+(default) Print the public metadata in a form intended for humans.
+This output format is not stable and is not intended for scripting.
+See the -j, --json, --trim, --export options for other formats.
 .IP -j,\ --json
-Print the public IP address in JSON format, intended for scripting.
+Print the instance metadata in JSON format, intended for scripting.
 .IP "-g KEY, --get KEY"
 Search for the given
 .B KEY
@@ -37,35 +41,182 @@ displays the MAC address of each VNIC interface.  Use the JSON output to see all
 .B KEY
 is not case sensitive, but it has to match the entire key.  You can use this option multiple times to display more than one key.
 
+.B KEY
+can also be a path traversing metadata structure from the root node "instance", for example
+
+.B oci-metadata -g '/vnics/*/vnicid'
+
+displays the VNIC ID of each VNIC.  You can use the JSON output to inspect
+the structure of the metadata.
+
 .IP "-u KEY=VALUE [KEY=VALUE  ...], --update KEY=VALUE [KEY=VALUE  ...]"
-update the value for the given keys. Notes: Any keys other than displayName,  metadata and extendedMetadata will be set nest into 'extendedMetadata'.
+Update the value for the given key(s).
+
+This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
+
+.B VALUE
+can be a string, a JSON value or a pointer to a file with JSON content
+in the following format:
+.B KEY=file:/path/to/file
+
+By default key-value pairs are added or
+updated in the extendedMetadata part of the instance metadata.  The exceptions
+to this are displayName, metadata and extendedMetadata.  Changing displayName
+updates the name given to the instance, so updating it also changes the way the
+instance is displayed in the Oracle Cloud Infrastructure console.
+When updating metadata or extendedMetadata the value must be a dictionary
+in JSON format. This dictionary then replaces all key/value pairs.
+
+Note that when updating metadata, the
+.B ssh_authorized_keys
+key must be included in the dictionary and the corresponding value must be
+the same as the ssh key used when the instance was created.
 
 You can use this option multiple times. For example:
 
-.B oci-metadata -u displayName="test-name"   extendedMetadata=file://home/opc/extended_metadata 
+.B oci-metadata -u displayName="test-name"   extendedMetadata=file://home/opc/extended_metadata.json
 
 This will set the "displayName", and "extendedMetadata" to the specified values.
 
-The content of file extended_metadata looks like:
+When displaying instance metadata, the "metadata" and "extendedMetadata"
+elements are merged and displayed under "metadata".  The difference between
+"metadata" and "extendedMetadata" is that "extendedMetadata" keys can be set
+to structured data, while "metadata" keys can only have string values.
+Refer to the Oracle Cloud Infrastructure API documentation for
+.B UpdateInstanceDetails
+for more information.
 
-{
-  'extended':{
-      'test': 'test_value'
-  }
-}
-        
 .IP --export
-Works with the -g option, print the command to export the keys as environment variables.
-Use --help to check the available keys to export.
+Used with the -g option, print a shell command to export the keys as
+environment variables.
 
 .IP --trim
-Works with the -g option, trim the keypath to the lowest level. eg. 'instance/metadata/ssh_authorized_keys/' to 'ssh_authorized_keys'.
+Used with the -g option, trim the key path to the last component, e.g. 'instance/metadata/ssh_authorized_keys/' to 'ssh_authorized_keys', making the output more
+concise.  If the key matches multiple keys, only the first one found is printed.
+Use a path to select a specific key.  See
+.B --get
+for more details.
+
+When used with the
+.B --json
+option, this will return the same JSON data that was assigned to the key using
+the
+.B --update
+option, removing the "instance" and "metadata" nodes.
+
+.IP "-i OCID, --instance-id OCID"
+
+Get or update the metadata of the instance with the given
+.B OCID.
+By default,
+.B oci-metadata
+works with the metadata of the instance it is running on.
+
+This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
 
 .IP --help
 Print a summary of the command line options.
+.SH EXAMPLES
+.PP
+.nf
+.RS
+oci-metadata -u myKey="some value"
+.RE
+.fi
+.PP
+Creates a new key or updates an existing key called
+.B myKey
+in the extended metadata, setting the value to
+.B "some value".
+.PP
+.nf
+.RS
+oci-metadata -u jsonKey=file:/home/jason/data.json
+.RE
+.fi
+.PP
+Sets the value of
+.B jsonKey
+to the contents of the file
+.B /home/jason/data.json
+.PP
+.nf
+.RS
+oci-metadata -u jsonKey='{ "name": "Jason", "age": "34" }'
+.RE
+.fi
+.PP
+Sets the value of
+.B jsonKey
+to JSON data given on the command line.
+
+Examples for querying the value of
+.B jsonKey
+.PP
+.nf
+.RS
+oci-metadata -g jsonKey
+Instance details:
+  Instance Metadata:
+    jsonKey:
+      age: 34
+      name: Jason
+.RE
+.fi
+.PP
+
+.PP
+.nf
+.RS
+oci-metadata -g jsonKey --trim
+age: 34
+name: Jason
+.RE
+.fi
+.PP
+
+.PP
+.nf
+.RS
+oci-metadata -g jsonKey -j
+{
+  "instance": {
+    "metadata": {
+      "jsonKey": {
+        "age": "34",
+        "name": "Jason"
+      }
+    }
+  }
+}
+.RE
+.fi
+.PP
+
+.PP
+.nf
+.RS
+oci-metadata -g jsonKey -j --trim
+{
+  "age": "34",
+  "name": "Jason"
+}
+.RE
+.fi
+.PP
+
+.PP
+.nf
+.RS
+oci-metadata -g displayName --export
+export displayName="my-instance"
+.RE
+.fi
+.PP
+
+
 .SH DIAGNOSTICS
 Return an exit status of 0 for success or 1 if an error occured.
 .SH "SEE ALSO"
-.BR oci-public-ip (1),
 .BR ocid (8)
 .BR oci-utils.conf.d (5)
