@@ -142,7 +142,7 @@ class OCISession(object):
             # code is running outside OCI, must have direct auth:
             self.auth_method = self._get_auth_method(auth_method=DIRECT)
         else:
-            self.auth_method = self._get_auth_method(auth_method)
+            self.auth_method = self._get_auth_method(self.auth_method)
         if self.auth_method == NONE:
             if self.auth_status:
                 raise OCISDKError(self.auth_status)
