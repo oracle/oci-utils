@@ -1,14 +1,29 @@
-Version 0.8
+Version 0.8.1
 
-- OLOCITOOLS-11 - implemented method for retrieving metadata for other compute instances.
-- OLOCITOOLS-12 - implemented oci-metadata --export
 - OLOCITOOLS-10 - added support for updating instance metadata for a specified instance.
+                  $ oci-metadata [ -u|--update ] key=value ... 
+- OLOCITOOLS-11 - implemented method for retrieving metadata for other compute instances.
+                  $ oci-metadata --instance-id ocid
+- OLOCITOOLS-12 - implemented exporting the getting keys as environment variables. 
+                  $ oci-metadata --export -g key ..
+- ???           - enhanced metadata get by supporting path and wildcard in path.
+                  $ oci-metadata -g /path/to/key -g /path/*/key
+- OLOCITOOLS-28 - implemented oci-metadata --trim -g   ...
+                  trim the path to the last key.
+- OLOCITOOLS-24 - removed the metadata cach
+
+- OLOCITOOLS-27 - fixed misleading error message when metadata does not include ssh_authorized_keys.
+
 - fixed bug-28048699 - Needs to handle multiple physical NICs when creating secondary vnics
                        Added option "--nic-index" "to specify which physical NIC the vnic is assigned to.
 - fixed bug-28599902 - oci-public-ip returns any public ip it found first.
                        Added an option [-a |--all] to list all public ips for this instance.
 - fixed bug-28643343 - fixed most exceptions for oci config error.
 
+- fixed bug-29026433 - oci-iscsi-config don't config secondary ip for second vnic automatically
+                       when running delete ip option
+
+- fixed bug-28840370 - local disks  should not count for "max_volumes" when creating iscsi disk
 
 Version 0.7.1:
 

@@ -328,13 +328,10 @@ oci_ip_rule_delete(){
     [ $# -lt 1 ] &&  echo "please provide a rt_name or sec_ip_address for cleanup " && return 1 
     rtname=$1
 
-    rules=`$IP rule | grep $rtname |cut -d: -f2`
-    rulesA=${rules// from/,from}
-    while IFS=',' read -ra ruleList; do
-        for i in "${ruleList[@]}"; do
-            $IP rule del $i || oci_vcn_warn "cannot delete rule for $i "
-        done
-    done <<< "$rulesA"
+    rules=`$IP rule | grep $rtname |cut -d: -f1`
+    for i in $rules; do
+        $IP rule del pref $i || oci_vcn_warn "cannot delete rule $i "
+    done
     return 0
 }
 
@@ -348,7 +345,6 @@ oci_vcn_ip_routing_del() {
         # delete rule
         local -r rt_name=$(oci_vcn_ip_route_table_name_ip_i $ip_i)
         oci_vcn_debug "rule del"
-        # $IP rule del lookup $rt_name || oci_vcn_warn "cannot delete rule to table $rt_name"
         oci_ip_rule_delete $rt_name
 
         # delete route table (deletes default route)

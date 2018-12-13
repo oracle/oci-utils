@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.8
+Version: 0.8.1
 Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities

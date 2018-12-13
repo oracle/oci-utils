@@ -146,14 +146,17 @@ def ocid_refresh(wait=False, debug=False):
 
 def display_current_devices(oci_sess, session, disks):
     if session:
+        oci_vols = []
+        if oci_sess is not None and oci_sdk_error is None:
+            oci_vols = oci_sess.this_instance().all_volumes()
+
         print "Currently attached iSCSI devices:"
         for iqn in session.keys():
             oci_vol = None
-            if oci_sess is not None and oci_sdk_error is None:
-                oci_vols = oci_sess.find_volumes(iqn=iqn)
-                if len(oci_vols) == 1:
-                    oci_vol = oci_vols[0]
-                        
+            for vol in oci_vols:
+                if vol.get_iqn() == iqn:
+                    oci_vol = vol
+                    break
             print
             print "Target %s" % iqn
             if oci_vol is not None:
@@ -335,8 +338,9 @@ def api_display_available_devices(sess, args):
         # -C/--compartment option wasn't used, default to the instance's own
         # compartment
         comp = sess.this_compartment()
+        aval_domain = sess.this_availability_domain()
         if comp is not None:
-            vols = comp.all_volumes()
+            vols = comp.all_volumes(availability_domain=aval_domain)
         else:
             sys.stderr.write("OCI SDK Error:Compartment for this instance not found\n")
 
@@ -587,7 +591,6 @@ def get_chap_secret(iqn):
         return chap_passwords[iqn]
     return (None,None)
     
-
 def main():
     '''
     Main program.

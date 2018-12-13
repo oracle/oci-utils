@@ -306,11 +306,13 @@ class VNICUtils(object):
         Run the secondary vnic script to deconfigure the secondary vnic script.
         Return the result of running the sec vnic script
         """
-        if [ipaddr, vnic_id] in self.vnic_info['sec_priv_ip']:
-            self.vnic_info['sec_priv_ip'].remove([ipaddr, vnic_id])
-        self.include(ipaddr, save=False)
-        self.save_vnic_info()
-        return self.__run_sec_vnic_script(['-d', '-e', ipaddr, vnic_id])
+        ret, info = self.__run_sec_vnic_script(['-d', '-e', ipaddr, vnic_id])
+        if ret == 0:
+            if [ipaddr, vnic_id] in self.vnic_info['sec_priv_ip']:
+                self.vnic_info['sec_priv_ip'].remove([ipaddr, vnic_id])
+            self.include(ipaddr, save=False)
+            self.save_vnic_info()
+        return (ret, info)
 
     def exclude(self, item, save=True):
         """
