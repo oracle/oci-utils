@@ -23,7 +23,7 @@ from oci_utils.exceptions import OCISDKError
 __print_info = True
 def msg_info(msg):
     if __print_info:
-        print "Info: " + msg
+        print "INFO: " + msg
 
 __print_debug = False
 def msg_debug(msg):
@@ -203,7 +203,7 @@ def do_show_network_config(vnic_utils):
     print
     (ret, out) = vnic_utils.get_network_config()
     if ret:
-        msg_error("Failed to execute the VNIC configuration script.")
+        msg_error("Failed to get network configure..")
     print "%s" % out
 
 def do_detach_vnic(args, vnic_utils):
@@ -327,25 +327,25 @@ def do_del_private_ip(vnic_utils, args):
                   " the VNIC." % args.del_private_ip)
         sys.exit(1)
     else: 
- 	if not priv_ip.delete():
+        if not priv_ip.delete():
             msg_error('failed to delete secondary private IP %s' % \
                   args.del_private_ip)
 
     vnic_id = None
     try:
-    	vnic_id = priv_ip.get_vnic_ocid()
+        vnic_id = priv_ip.get_vnic_ocid()
     except Exception as e:
         pass
+
     msg_info('deleting secondary private IP %s' % args.del_private_ip)
     # delete locally from vnic_info and de-configure the interface
-    (res, out) = vnic_utils.del_private_ip(args.del_private_ip, vnic_id)
+    return(vnic_utils.del_private_ip(args.del_private_ip, vnic_id))
 
 def main():
     '''
     Main program
     '''
     args = parse_args()
-
     ret = 0
     out = ""
     if args.debug:
@@ -365,11 +365,12 @@ def main():
                       "same time")
             sys.exit(1)
         do_create_vnic(args)
+
     try:
         vnic_utils = VNICUtils(debug=args.debug)
         vnic_info = vnic_utils.get_vnic_info()[1]
     except Exception as e:
-         sys.stderr.write("OCI SDK Error: %s \n" % e)
+         msg_error("OCI SDK Error: %s \n" % e)
          if args.debug:
              raise e
          sys.exit(1)
@@ -388,15 +389,16 @@ def main():
         excludes = []
 
     if args.add_private_ip:
-        do_add_private_ip(vnic_utils, args)
+        (ip, vnic_id) = do_add_private_ip(vnic_utils, args)
+        msg_info("IP %s has been assigned to vnic %s." % (ip, vnic_id))
 
-    if args.del_private_ip:
-        do_del_private_ip(vnic_utils, args)
+    elif args.del_private_ip:
+        (ret, out) = do_del_private_ip(vnic_utils, args)
 
     if args.exclude:
         for exc in args.exclude:
             if args.include and exc in args.include:
-                sys.stderr.write("Invalid arguments: item both included and excluded: %s" % exc)
+                msg_error("Invalid arguments: item both included and excluded: %s" % exc)
             vnic_utils.exclude(exc)
         excludes = vnic_info['exclude']
     if args.include:
@@ -404,23 +406,23 @@ def main():
             vnic_utils.include(inc)
         excludes = vnic_info['exclude']
 
-    if excludes and not args.quiet:
-        print "Info: Addresses excluded from automatic configuration: %s" % \
-            ", ".join(excludes)
+    if excludes:
+        msg_info("Addresses excluded from automatic configuration: %s" % \
+            ", ".join(excludes))
 
     if args.auto or args.create_vnic or args.add_private_ip or \
        args.detach_vnic:
-        (ret, out) = vnic_utils.auto_config(quiet=args.quiet, show=args.show,
+        (ret, out) = vnic_utils.auto_config(quiet=args.quiet, show=False,
                                sec_ip=args.sec_ip)
     elif args.deconfigure:
-        (ret, out) = vnic_utils.auto_deconfig(quiet=args.quiet, show=args.show,
+        (ret, out) = vnic_utils.auto_deconfig(quiet=args.quiet, show=False,
                                  sec_ip=args.sec_ip)
-
     if ret:
-        msg_error("Failed to execute the VNIC configuration script.")
-    print "%s" % out
+        msg_error("%s" % out)
+    else:
+        msg_info("%s" % out)
 
-    if args.show:
+    if not args.quiet:
         do_show_network_config(vnic_utils)
 
 sys.exit(main())

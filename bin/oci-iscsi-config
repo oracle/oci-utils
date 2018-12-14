@@ -338,9 +338,9 @@ def api_display_available_devices(sess, args):
         # -C/--compartment option wasn't used, default to the instance's own
         # compartment
         comp = sess.this_compartment()
-        aval_domain = sess.this_availability_domain()
+        avail_domain = sess.this_availability_domain()
         if comp is not None:
-            vols = comp.all_volumes(availability_domain=aval_domain)
+            vols = comp.all_volumes(availability_domain=avail_domain)
         else:
             sys.stderr.write("OCI SDK Error:Compartment for this instance not found\n")
 

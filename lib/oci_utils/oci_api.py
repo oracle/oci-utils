@@ -926,12 +926,12 @@ class OCICompartment(OCIAPIObject):
         bs = []
         try:
             if availability_domain :
-            	bs_data = self.oci_session.sdk_call(bsc.list_volumes,
+                bs_data = self.oci_session.sdk_call(bsc.list_volumes,
                                 availability_domain=availability_domain,
-                		compartment_id=self.compartment_ocid)
-	    else:
-            	bs_data = self.oci_session.sdk_call(bsc.list_volumes,
-                		compartment_id=self.compartment_ocid)
+                                compartment_id=self.compartment_ocid)
+            else:
+                bs_data = self.oci_session.sdk_call(bsc.list_volumes,
+                                compartment_id=self.compartment_ocid)
             for v_data in bs_data.data:
                 if v_data.lifecycle_state != 'AVAILABLE':
                     continue
@@ -1345,7 +1345,7 @@ class OCIInstance(OCIAPIObject):
 
         #get public ips
         if get_public_ip:
-	        meta['public_ip'] = self.get_public_ip()
+            meta['public_ip'] = self.get_public_ip()
        
         self.metadata = oci_utils.metadata.OCIMetadata(meta, convert=True)
         return self.metadata
