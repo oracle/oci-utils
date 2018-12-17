@@ -1,4 +1,4 @@
-Version 0.8.1
+Version 0.8.0
 
 - OLOCITOOLS-10 - added support for updating instance metadata for a specified instance.
                   $ oci-metadata [ -u|--update ] key=value ... 
