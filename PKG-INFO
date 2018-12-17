@@ -1,10 +1,10 @@
 Metadata-Version: 1.1
 Name: oci-utils
-Version: 0.8.1
+Version: 0.8.0
 Summary: Oracle Cloud Infrastructure utilities
 Home-page: http://github.com/oracle/oci-utils/
-Author: Laszlo Peter
-Author-email: laszlo.peter@oracle.com
+Author: Laszlo Peter, Qing Lin
+Author-email: laszlo.peter@oracle.com¸ qing.lin@oracle.com
 License: UPL
 Description: Oracle Cloud Infrastructure utilities
 Keywords: Oracle Cloud Infrastructure
