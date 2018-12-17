@@ -102,7 +102,7 @@ oci_vcn_debug() {
 
 oci_vcn_contains() {
     for e in "${@:2}"; do
-	[[ "$e" = "$1" ]] && return 0
+        [[ "$e" = "$1" ]] && return 0
     done
     return 1
 }
@@ -328,13 +328,10 @@ oci_ip_rule_delete(){
     [ $# -lt 1 ] &&  echo "please provide a rt_name or sec_ip_address for cleanup " && return 1 
     rtname=$1
 
-    rules=`$IP rule | grep $rtname |cut -d: -f2`
-    rulesA=${rules// from/,from}
-    while IFS=',' read -ra ruleList; do
-        for i in "${ruleList[@]}"; do
-            $IP rule del $i || oci_vcn_warn "cannot delete rule for $i "
-        done
-    done <<< "$rulesA"
+    rules=`$IP rule | grep $rtname |cut -d: -f1`
+    for i in $rules; do
+        $IP rule del pref $i || oci_vcn_warn "cannot delete rule $i "
+    done
     return 0
 }
 
@@ -348,7 +345,6 @@ oci_vcn_ip_routing_del() {
         # delete rule
         local -r rt_name=$(oci_vcn_ip_route_table_name_ip_i $ip_i)
         oci_vcn_debug "rule del"
-        # $IP rule del lookup $rt_name || oci_vcn_warn "cannot delete rule to table $rt_name"
         oci_ip_rule_delete $rt_name
 
         # delete route table (deletes default route)
@@ -947,14 +943,14 @@ oci_vcn_read() {
                 if [ -n "$addr" ]; then
                     # addr is configured: should be deleted
                     # bm case (in vm case ifaces are auto-deleted when vnic is detached)
-		    IP_CONFIGS[$ip_i]="$DELETE"
+                    IP_CONFIGS[$ip_i]="$DELETE"
                 elif [ -z "$IS_VM" ]; then
                     # bm iface mac w/o addr and w/o md mac:
                     # skip if phys iface, else addr deleted w/o deleting vlan?
                     if [ ${IP_VLTAGS[$ip_i]} -ne 0 ]; then
                         IP_CONFIGS[$ip_i]="$DELETE"
                         warn_ifaces="$warn_ifaces $iface"
-		    fi
+                    fi
                 else
                     # vm iface mac w/o addr and w/o md mac: assume random mac
                     if [ $attempt -eq 1 -a "${IP_STATES[$ip_i]}" = 'DOWN' ]; then
@@ -990,52 +986,52 @@ oci_vcn_read() {
 
 oci_vcn_exclude() {
     if [ -z "$EXCLUDES" ]; then
-	# nothing to exclude
-	return
+        # nothing to exclude
+        return
     fi
     local -i ip_i
     for ip_i in ${!IP_CONFIGS[@]}; do
         local config="${IP_CONFIGS[$ip_i]#$NA}"
-	if [ "$config" = "$DELETE" ]; then
-	    local addr="${IP_ADDRS[$ip_i]}"
-	    local iface="${IP_IFACES[$ip_i]}"
-	    local vlan="${IP_VLANS[$ip_i]}"
-	    if oci_vcn_contains "$addr" "${EXCLUDES[@]}"; then
-		if [ "x$1" != "x-q" ]; then
-		    oci_vcn_info "Excluding interface $iface addr $addr"
-		fi
-		IP_CONFIGS[$ip_i]="$EXCL"
-	    elif oci_vcn_contains "$iface" "${EXCLUDES[@]}"; then
-		if [ "x$1" != "x-q" ]; then
-		    oci_vcn_info "Excluding interface $iface addr $addr"
-		fi
-		IP_CONFIGS[$ip_i]="$EXCL"
-	    elif oci_vcn_contains "$vlan" "${EXCLUDES[@]}"; then
-		if [ "x$1" != "x-q" ]; then
-		    oci_vcn_info "Excluding interface $vlan addr $addr"
-		fi
-		IP_CONFIGS[$ip_i]="$EXCL"
-	    fi
-	fi
+        if [ "$config" = "$DELETE" ]; then
+            local addr="${IP_ADDRS[$ip_i]}"
+            local iface="${IP_IFACES[$ip_i]}"
+            local vlan="${IP_VLANS[$ip_i]}"
+            if oci_vcn_contains "$addr" "${EXCLUDES[@]}"; then
+                if [ "x$1" != "x-q" ]; then
+                    oci_vcn_info "Excluding interface $iface addr $addr"
+                fi
+                IP_CONFIGS[$ip_i]="$EXCL"
+            elif oci_vcn_contains "$iface" "${EXCLUDES[@]}"; then
+                if [ "x$1" != "x-q" ]; then
+                    oci_vcn_info "Excluding interface $iface addr $addr"
+                fi
+                IP_CONFIGS[$ip_i]="$EXCL"
+            elif oci_vcn_contains "$vlan" "${EXCLUDES[@]}"; then
+                if [ "x$1" != "x-q" ]; then
+                    oci_vcn_info "Excluding interface $vlan addr $addr"
+                fi
+                IP_CONFIGS[$ip_i]="$EXCL"
+            fi
+        fi
     done
     local -i md_i
     for md_i in ${!MD_CONFIGS[@]}; do
         local config="${MD_CONFIGS[$md_i]#$NA}"
-	if [ "$config" = "$ADD" ]; then
-	    local addr="${MD_ADDRS[$md_i]}"
-	    local vnic="${MD_VNICS[$md_i]}"
-	    if oci_vcn_contains "$addr" "${EXCLUDES[@]}"; then
-		if [ "x$1" != "x-q" ]; then
-		    oci_vcn_info "Excluding VNIC with addr $addr"
-		fi
-		MD_CONFIGS[$md_i]="$EXCL"
-	    elif oci_vcn_contains "$vnic" "${EXCLUDES[@]}"; then
-		if [ "x$1" != "x-q" ]; then
-		    oci_vcn_info "Excluding VNIC $vnic"
-		fi
-		MD_CONFIGS[$md_i]="$EXCL"
-	    fi
-	fi
+        if [ "$config" = "$ADD" ]; then
+            local addr="${MD_ADDRS[$md_i]}"
+            local vnic="${MD_VNICS[$md_i]}"
+            if oci_vcn_contains "$addr" "${EXCLUDES[@]}"; then
+                if [ "x$1" != "x-q" ]; then
+                    oci_vcn_info "Excluding VNIC with addr $addr"
+                fi
+                MD_CONFIGS[$md_i]="$EXCL"
+            elif oci_vcn_contains "$vnic" "${EXCLUDES[@]}"; then
+                if [ "x$1" != "x-q" ]; then
+                    oci_vcn_info "Excluding VNIC $vnic"
+                fi
+                MD_CONFIGS[$md_i]="$EXCL"
+            fi
+        fi
     done
 }
 
@@ -1047,14 +1043,14 @@ oci_vcn_config_or_deconfig_sec_addrs() {
     for i in $(seq 0 $((${#SEC_ADDRS[@]} - 1))); do
         local addr=${SEC_ADDRS[$i]}
         local vnic=${SEC_VNICS[$i]}
-	if oci_vcn_contains "$addr" "${EXCLUDES[@]}"; then
-	    oci_vcn_info "Excluding VNIC with addr $addr"
-	    continue
-	fi
-	if oci_vcn_contains "$vnic" "${EXCLUDES[@]}"; then
-	    oci_vcn_info "Excluding VNIC with OCID $vnic"
-	    continue
-	fi
+        if oci_vcn_contains "$addr" "${EXCLUDES[@]}"; then
+            oci_vcn_info "Excluding VNIC with addr $addr"
+            continue
+        fi
+        if oci_vcn_contains "$vnic" "${EXCLUDES[@]}"; then
+            oci_vcn_info "Excluding VNIC with OCID $vnic"
+            continue
+        fi
         # find vnic's mac
         local mac=''
         local -i md_i
@@ -1147,21 +1143,21 @@ oci_vcn_deconfig_all() {
         local addr="${IP_ADDRS[$ip_i]#$NA}"
         local iface="${IP_IFACES[$ip_i]#$NA}"
         local vlan="${IP_VLANS[$ip_i]#$NA}"
-	if oci_vcn_contains "$addr" "${EXCLUDES[@]}"; then
-	    oci_vcn_info "Excluding interface $iface addr $addr"
-	    ip_i+=1
-	    continue
-	fi
-	if oci_vcn_contains "$iface" "${EXCLUDES[@]}"; then
-	    oci_vcn_info "Excluding interface $iface addr $addr"
-	    ip_i+=1
-	    continue
-	fi
-	if oci_vcn_contains "$vlan" "${EXCLUDES[@]}"; then
-	    oci_vcn_info "Excluding interface $vlan addr $addr"
-	    ip_i+=1
-	    continue
-	fi
+        if oci_vcn_contains "$addr" "${EXCLUDES[@]}"; then
+            oci_vcn_info "Excluding interface $iface addr $addr"
+            ip_i+=1
+            continue
+        fi
+        if oci_vcn_contains "$iface" "${EXCLUDES[@]}"; then
+            oci_vcn_info "Excluding interface $iface addr $addr"
+            ip_i+=1
+            continue
+        fi
+        if oci_vcn_contains "$vlan" "${EXCLUDES[@]}"; then
+            oci_vcn_info "Excluding interface $vlan addr $addr"
+            ip_i+=1
+            continue
+        fi
         if [ -n "$addr" ]; then # ip is configured
             # note that primaries are encountered first
             if [ "${IP_SECADS[$ip_i]}" != "$YES" ]; then # primary addr
@@ -1388,7 +1384,7 @@ while [ $# -ge 1 ]; do
         -s) show='t';;
         -h) oci_vcn_help; exit 0;;
         -q) QUIET='t';;
-	-X) EXCLUDES+=($1); shift;;
+        -X) EXCLUDES+=($1); shift;;
         -*) oci_vcn_err "unknown option $opt";;
     esac
 done
@@ -1411,7 +1407,7 @@ if [ -n "$config" ]; then
     [ -z "$show" ] || oci_vcn_read && oci_vcn_exclude -q # reread if show
 elif [ -n "$deconfig" ]; then
     if [ ${#SEC_ADDRS[@]} -gt 0 ]; then # just deconfig addrs
-        oci_vcn_config_or_deconfig_sec_addrs
+        oci_vcn_config_or_deconfig_sec_addrs >/dev/null 
     else # deconfig all
         oci_vcn_deconfig_all
     fi

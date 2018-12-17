@@ -48,7 +48,7 @@ def list():
     try:
         DEVNULL = open(os.devnull, 'w')
         output = subprocess.check_output(['/bin/lsblk',
-                                          '-P', '-n',
+                                          '-S','-P', '-n',
                                           '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME'],
                                          stderr=DEVNULL)
         devices = {}

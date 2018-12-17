@@ -155,10 +155,10 @@ class OCISession(object):
         elif self.signer is not None:
             # IP auth
             self.tenancy_ocid = self.signer.tenancy_id
-        elif not self.metadata:
+        elif 'instance' in self.metadata:
             # fall back to the instance's own compartment_id
             # We will only see the current compartment, but better than nothing
-            self.tenancy_ocid = self.metadata['instance']['compartment_id']
+            self.tenancy_ocid = self.metadata['instance']['compartmentId']
 
     def _setup_logging(self, debug=False, syslog=False):
         self.logger = logging.getLogger('oci_utils.oci_api')
@@ -627,7 +627,7 @@ class OCISession(object):
         if self.metadata is None:
             return None
         try:
-            my_compartment_id = self.metadata['instance']['compartment_id']
+            my_compartment_id = self.metadata['instance']['compartmentId']
         except:
             return None
 
@@ -644,7 +644,7 @@ class OCISession(object):
     def this_availability_domain(self):
         if self.metadata is None:
             return None
-        return self.metadata['instance']['availability_domain']
+        return self.metadata['instance']['availabilityDomain']
 
     def get_tenancy_ocid(self):
         """
@@ -912,7 +912,7 @@ class OCICompartment(OCIAPIObject):
         self.vcns = vcns
         return vcns
 
-    def all_volumes(self, refresh=False):
+    def all_volumes(self, refresh=False, availability_domain=None):
         if self.volumes is not None and not refresh:
             return self.volumes
         if self.data.lifecycle_state != 'ACTIVE':
@@ -925,8 +925,13 @@ class OCICompartment(OCIAPIObject):
         # in this compartment, so ignoring ServiceError exceptions
         bs = []
         try:
-            bs_data = self.oci_session.sdk_call(bsc.list_volumes,
-                compartment_id=self.compartment_ocid)
+            if availability_domain :
+                bs_data = self.oci_session.sdk_call(bsc.list_volumes,
+                                availability_domain=availability_domain,
+                                compartment_id=self.compartment_ocid)
+            else:
+                bs_data = self.oci_session.sdk_call(bsc.list_volumes,
+                                compartment_id=self.compartment_ocid)
             for v_data in bs_data.data:
                 if v_data.lifecycle_state != 'AVAILABLE':
                     continue
@@ -1340,7 +1345,7 @@ class OCIInstance(OCIAPIObject):
 
         #get public ips
         if get_public_ip:
-	        meta['public_ip'] = self.get_public_ip()
+            meta['public_ip'] = self.get_public_ip()
        
         self.metadata = oci_utils.metadata.OCIMetadata(meta, convert=True)
         return self.metadata
