@@ -28,7 +28,7 @@ def read(fname):
 
 setup(
     name = "oci-utils",
-    version = "0.8.1",
+    version = "0.8.0",
     author = "Laszlo Peter, Qing Lin",
     author_email = "laszlo.peter@oracle.com, qing.lin@oracle.com",
     description = ("Oracle Cloud Infrastructure utilities"),
