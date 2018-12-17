@@ -203,7 +203,7 @@ def do_show_network_config(vnic_utils):
     print
     (ret, out) = vnic_utils.get_network_config()
     if ret:
-        msg_error("Failed to get network configure..")
+        msg_error("Failed to get network configuration.")
     print "%s" % out
 
 def do_detach_vnic(args, vnic_utils):
