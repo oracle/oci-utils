@@ -418,12 +418,10 @@ def main():
     elif args.deconfigure:
         (ret, out) = vnic_utils.auto_deconfig(quiet=args.quiet, show=False,
                                  sec_ip=args.sec_ip)
-    if ret:
-        msg_error("%s" % out)
-    else:
-        msg_info("%s" % out)
+    if out:
+        print "%s" % out
 
-    if not args.quiet:
+    if not args.quiet or args.show:
         do_show_network_config(vnic_utils)
 
 sys.exit(main())
