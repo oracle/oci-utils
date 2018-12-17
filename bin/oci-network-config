@@ -321,7 +321,8 @@ def do_del_private_ip(vnic_utils, args):
     # find the private IP
     priv_ip = sess.this_instance().find_private_ip(args.del_private_ip)
     if priv_ip is None:
-        msg_error("Secondary private IP not found remotely: %s" % args.del_private_ip)
+        msg_error("Secondary private IP not found in instance configuration: %s" \
+                  % args.del_private_ip)
     elif priv_ip.is_primary():
         msg_error("Cannot delete IP %s, it is the primary private address of"
                   " the VNIC." % args.del_private_ip)
@@ -337,7 +338,7 @@ def do_del_private_ip(vnic_utils, args):
     except Exception as e:
         pass
 
-    msg_info('deleting secondary private IP %s' % args.del_private_ip)
+    msg_info('Deleting secondary private IP %s' % args.del_private_ip)
     # delete locally from vnic_info and de-configure the interface
     return(vnic_utils.del_private_ip(args.del_private_ip, vnic_id))
 
