@@ -913,7 +913,8 @@ class OCICompartment(OCIAPIObject):
         return vcns
 
     def all_volumes(self, refresh=False, availability_domain=None):
-        if self.volumes is not None and not refresh:
+        if self.volumes is not None and availability_domain is None \
+           and not refresh:
             return self.volumes
         if self.data.lifecycle_state != 'ACTIVE':
             return None
@@ -953,7 +954,8 @@ class OCICompartment(OCIAPIObject):
             # ignore these, it means the current user has no
             # permission to list the volumes in the compartment
             pass
-        self.volumes = bs
+        if availability_domain is None:
+            self.volumes = bs
         return bs
 
     def create_volume(self, availability_domain, size, display_name=None,
