@@ -380,7 +380,7 @@ def main():
 
     if args.detach_vnic:
         do_detach_vnic(args, vnic_utils)
-        time.sleep(5)
+        time.sleep(10)
  
     if args.ns:
         vnic_utils.set_namespace(args.ns)
@@ -414,14 +414,17 @@ def main():
         msg_info("Addresses excluded from automatic configuration: %s" % \
             ", ".join(excludes))
 
-    if args.auto or args.create_vnic or args.add_private_ip or \
-       args.detach_vnic:
+    if args.auto or args.create_vnic or args.add_private_ip: 
         (ret, out) = vnic_utils.auto_config(quiet=args.quiet, show=False,
                                sec_ip=args.sec_ip)
+
     elif args.deconfigure:
         (ret, out) = vnic_utils.auto_deconfig(quiet=args.quiet, show=False,
                                  sec_ip=args.sec_ip)
-    elif out:
+    
+    if ret:
+        msg_error("Failed to run VNIC configuration.")
+    if out:
         print "%s" % out
 
     if not args.quiet or args.show:

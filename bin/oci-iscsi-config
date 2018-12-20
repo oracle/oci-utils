@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/python
 
 # oci-utils
 #
@@ -149,8 +149,8 @@ def display_current_devices(oci_sess, session, disks):
     if oci_sess is not None and oci_sdk_error is None:
         oci_vols = oci_sess.this_instance().all_volumes()
 
+    print "Currently attached iSCSI devices:"
     if session:
-        print "Currently attached iSCSI devices:"
         for iqn in session.keys():
             oci_vol = None
             for vol in oci_vols:
@@ -199,12 +199,13 @@ def display_current_devices(oci_sess, session, disks):
                              nvl(partitions[part]['mountpoint'], "Not mounted")
                             )
     else:
-        print "Error: iSCSI session not found."
+        print "Error: Local iSCSI info not available. List info from Cloud instead(No boot volume)."
+        print ""
         for oci_vol in oci_vols:
             print "Target %s" % oci_vol.get_iqn()
             print "         Volume name:    %s" % oci_vol.get_display_name()
             print "         Volume OCID:    %s" % oci_vol.get_ocid()
-            print "         Volume size:    %s" % oci_vol.get_size(format=vol.HUMAN)
+            print "         Volume size:    %s" % oci_vol.get_size(format=oci_vol.HUMAN)
 
     print ""
 
