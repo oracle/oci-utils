@@ -1355,7 +1355,7 @@ EOF
 
 # TODO secondary private IPs in metadata
 
-oci_vcn_debug "running $@ ..."
+cmd=$@
 declare show=''
 declare config=''
 declare deconfig=''
@@ -1385,10 +1385,12 @@ while [ $# -ge 1 ]; do
         -h) oci_vcn_help; exit 0;;
         -q) QUIET='t';;
         -X) EXCLUDES+=($1); shift;;
+        --debug) DEBUG='t';;
         -*) oci_vcn_err "unknown option $opt";;
     esac
 done
 
+oci_vcn_debug "running $cmd ..."
 [ -z "$START_SSHD" ] || [ -n "$USE_NS" ] || oci_vcn_err "cannot start sshd if namespace is not created"
 
 [ $EUID -eq 0 ] || oci_vcn_err "must be run as root"
@@ -1407,7 +1409,7 @@ if [ -n "$config" ]; then
     [ -z "$show" ] || oci_vcn_read && oci_vcn_exclude -q # reread if show
 elif [ -n "$deconfig" ]; then
     if [ ${#SEC_ADDRS[@]} -gt 0 ]; then # just deconfig addrs
-        oci_vcn_config_or_deconfig_sec_addrs >/dev/null 
+        oci_vcn_config_or_deconfig_sec_addrs >/dev/null
     else # deconfig all
         oci_vcn_deconfig_all
     fi

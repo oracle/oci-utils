@@ -145,11 +145,11 @@ def ocid_refresh(wait=False, debug=False):
     
 
 def display_current_devices(oci_sess, session, disks):
-    if session:
-        oci_vols = []
-        if oci_sess is not None and oci_sdk_error is None:
-            oci_vols = oci_sess.this_instance().all_volumes()
+    oci_vols = []
+    if oci_sess is not None and oci_sdk_error is None:
+        oci_vols = oci_sess.this_instance().all_volumes()
 
+    if session:
         print "Currently attached iSCSI devices:"
         for iqn in session.keys():
             oci_vol = None
@@ -198,7 +198,15 @@ def display_current_devices(oci_sess, session, disks):
                              nvl(partitions[part]['fstype'], "Unknown fs"),
                              nvl(partitions[part]['mountpoint'], "Not mounted")
                             )
-        print
+    else:
+        print "Error: iSCSI session not found."
+        for oci_vol in oci_vols:
+            print "Target %s" % oci_vol.get_iqn()
+            print "         Volume name:    %s" % oci_vol.get_display_name()
+            print "         Volume OCID:    %s" % oci_vol.get_ocid()
+            print "         Volume size:    %s" % oci_vol.get_size(format=vol.HUMAN)
+
+    print ""
 
 
 def display_attach_failed_device(iqn, targets, attach_failed):
@@ -261,7 +269,7 @@ def do_destroy_volume(sess, ocid, interactive=False):
     """
     if os.geteuid() != 0:
         sys.stderr.write("You must run this program with root privileges "
-        		 "to create and attach iSCSI devices.\n")
+                 "to create and attach iSCSI devices.\n")
         sys.exit(1)
 
     if not USE_OCI_SDK or sess is None:
@@ -507,7 +515,7 @@ def do_create_volume(sess, size, display_name, use_chap=False):
 
     if os.geteuid() != 0:
         sys.stderr.write("You must run this program with root privileges "
-        		 "to create and attach iSCSI devices.\n")
+                 "to create and attach iSCSI devices.\n")
         sys.exit(1)
 
     if not USE_OCI_SDK or sess is None:
@@ -614,7 +622,7 @@ def main():
 
     if not os.path.isfile("/var/run/ocid.pid"):
         sys.stderr.write("Warning:\n"
-			 "For full functionality of this utility "
+             "For full functionality of this utility "
                          "the ocid service must be running\n")
         sys.stderr.write("The administrator can start it using this "
                          "command:\n")
@@ -668,7 +676,7 @@ def main():
         retval = 0
         do_refresh = False
         for iqn in args.detach_iqns:
-	    if not iqn.startswith("iqn."):
+            if not iqn.startswith("iqn."):
                 sys.stderr.write("Invalid IQN %s\n" % iqn)
                 retval = 1
                 continue
@@ -736,11 +744,11 @@ def main():
                 if not do_attach_ocid(oci_sess, iqn):
                     retval = 1
                 continue
-	    if not iqn.startswith("iqn."):
+            elif not iqn.startswith("iqn."):
                 sys.stderr.write("Invalid IQN %s \n" % iqn)
                 retval = 1
                 continue
-		
+        
             if iqn in session:
                 print "Target %s is already attached." % iqn
                 continue

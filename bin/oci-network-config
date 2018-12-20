@@ -14,6 +14,7 @@ import os
 import sys
 import argparse
 import subprocess
+import time
 import json
 from oci_utils import VNICUtils
 from oci_utils.cache import load_cache, write_cache
@@ -219,6 +220,7 @@ def do_detach_vnic(args, vnic_utils):
             if not vnic.is_primary():
                 vnic_utils.delete_all_private_ips(vnic.get_ocid())
                 vnic.detach()
+                break
             else:
                 msg_error("The primary VNIC cannot be detached.")
                 sys.exit(1)
@@ -355,7 +357,7 @@ def main():
     if args.quiet:
         global __print_info
         __print_info = False
-
+ 
     if os.geteuid() != 0:
         msg_error("You must run this program with root privileges")
         sys.exit(1)
@@ -378,7 +380,8 @@ def main():
 
     if args.detach_vnic:
         do_detach_vnic(args, vnic_utils)
-        
+        time.sleep(5)
+ 
     if args.ns:
         vnic_utils.set_namespace(args.ns)
 
@@ -418,7 +421,7 @@ def main():
     elif args.deconfigure:
         (ret, out) = vnic_utils.auto_deconfig(quiet=args.quiet, show=False,
                                  sec_ip=args.sec_ip)
-    if out:
+    elif out:
         print "%s" % out
 
     if not args.quiet or args.show:
