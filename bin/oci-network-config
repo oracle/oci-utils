@@ -224,6 +224,7 @@ def do_detach_vnic(args, vnic_utils):
             else:
                 msg_error("The primary VNIC cannot be detached.")
                 sys.exit(1)
+    return sess.this_shape()
 
 def do_create_vnic(args):
     '''
@@ -351,6 +352,7 @@ def main():
     args = parse_args()
     ret = 0
     out = ""
+    shape = None
     if args.debug:
         global __print_debug
         __print_debug = True
@@ -379,7 +381,7 @@ def main():
          sys.exit(1)
 
     if args.detach_vnic:
-        do_detach_vnic(args, vnic_utils)
+        shape = do_detach_vnic(args, vnic_utils)
         time.sleep(10)
  
     if args.ns:
@@ -417,14 +419,16 @@ def main():
     if args.auto or args.create_vnic or args.add_private_ip: 
         (ret, out) = vnic_utils.auto_config(quiet=args.quiet, show=False,
                                sec_ip=args.sec_ip)
-
+    elif args.detach_vnic and shape and shape.startswith("BM"):
+	(ret, out) = vnic_utils.auto_config(quiet=args.quiet, show=False,
+                               sec_ip=args.sec_ip)
     elif args.deconfigure:
         (ret, out) = vnic_utils.auto_deconfig(quiet=args.quiet, show=False,
                                  sec_ip=args.sec_ip)
     
     if ret:
         msg_error("Failed to run VNIC configuration.")
-    if out:
+    if out and args.debug:
         print "%s" % out
 
     if not args.quiet or args.show:

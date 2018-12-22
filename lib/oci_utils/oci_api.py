@@ -160,6 +160,12 @@ class OCISession(object):
             # We will only see the current compartment, but better than nothing
             self.tenancy_ocid = self.metadata['instance']['compartmentId']
 
+    def this_shape(self):
+        try:
+            return self.metadata['instance']['shape']
+        except:
+            return None
+
     def _setup_logging(self, debug=False, syslog=False):
         self.logger = logging.getLogger('oci_utils.oci_api')
 
