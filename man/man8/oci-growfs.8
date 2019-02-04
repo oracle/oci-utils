@@ -1,0 +1,50 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-growfs.8
+.\"
+.\" Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
+.\"
+.TH OCI-GROWFS 8 "AUG 2018" Linux "User Manuals"
+.SH NAME
+/usr/libexec/oci-growfs \- expand a filesystem to its configured size in a compute instance in the Oracle Cloud Infrastructure. 
+
+.SH SYNOPSIS
+.B oci-growfs [-h] [-y|-n]
+
+.SH DESCRIPTION
+When a compute instance is created with a boot volume >= 50GB (default minimum size), or is resized to a larger size, the instance does not automatically use the entire volume.  By default, the boot volume will only extend to the minimum size (50GB).
+
+The purpuse of the
+.B oci-growfs
+script is to expand the root partition to fully utilize the allocated boot volume size.
+When the partition already extends to the entire volume, no changes are made to the system.
+The script is normally called by
+.BR ocid
+when the instance boots, but it can be run manually.
+You can use the
+.B auto_resize
+setting in the
+.B [iscsi]
+section in
+.BR oci-utils.conf.d(5)
+to enable or disable this functionality.
+
+.B oci-growfs
+must be run on a compute instance in the Oracle Cloud Infrastructure, and it requires root privilege.
+
+Note: in the current release only the root filesystem can be resized using
+.B oci-growfs.
+
+.SH OPTIONS
+.IP -h 
+print the usage help information.
+.IP -y
+answer 'y' to all questions.
+.IP -n
+answer 'n' to all questions.
+
+.SH DIAGNOSTICS
+Return an exit status of 0 for success or non-0 if an error occured.
+
+.SH "SEE ALSO"
+.BR ocid (8)
+.BR oci-utils.conf.d (5)

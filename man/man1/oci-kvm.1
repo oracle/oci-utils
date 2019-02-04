@@ -5,7 +5,7 @@
 .\"
 .TH OCI-KVM 1 "MAY 2018" Linux "User Manuals"
 .SH NAME
-oci-kvm \- install and remove KVM guests on OCI instances
+oci-kvm \- install and remove KVM guests on Oracle Cloud Infrastructure instances
 .SH SYNOPSIS
 .B oci-kvm create -D|--domain
 .I NAME
@@ -22,17 +22,17 @@ oci-kvm \- install and remove KVM guests on OCI instances
 .SH DESCRIPTION
 The
 .B oci-kvm
-utility is used to create and configure KVM guests on Oracle Cloud Infrastructure (OCI)
-instances that use OCI resources, such as block storage and networking, directly.  It
-automates all steps of the guest creation process while also ensuring that OCI resources
+utility is used to create and configure KVM guests on Oracle Cloud Infrastructure 
+instances that use Oracle Cloud Infrastructure resources, such as block storage and networking, directly.  It
+automates all steps of the guest creation process while also ensuring that Oracle Cloud Infrastructure resources
 have not been assigned to more than one KVM guest.  When a guest has outlived
 its usefulness, the utility can also remove and/or unconfigure all system resources
 that were assigned to the guest.
 
 The
 .B oci-kvm create
-subcommand performs all actions required to create a KVM guest that uses OCI Block
-Storage and OCI VNICs for the root disk and network interface respectively.  For block
+subcommand performs all actions required to create a KVM guest that uses Oracle Cloud Infrastructure Block
+Storage and Oracle Cloud Infrastructure VNICs for the root disk and network interface respectively.  For block
 storage, the device itself is validated and checked to ensure it has not been assigned
 to another guest.  For virtual network interfaces, all virtual network infrastructure
 is created automatically.  This includes virtual functions, VLANs, etc.  Indiviual
@@ -61,7 +61,7 @@ subcommands, operate on the given libvirt domain name.
 The path to the block device that will be the root device for the new guest.  If this
 option is not specified, an unused block device will be chosen arbitrarily.
 .IP "-n IP, --net IP"
-The IP address of the OCI VNIC that should be assigned to the new guest.  If this
+The IP address of the Oracle Cloud Infrastructure VNIC that should be assigned to the new guest.  If this
 option is not specified, an unused VNIC will be chosen arbitrarily.
 .IP "-V VIRT-INSTALL_ARGS, --virt VIRT-INSTALL_ARGS"
 Each argument that appears after either -V or --virt is passed into virt-install when

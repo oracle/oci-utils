@@ -48,11 +48,11 @@ def list():
     try:
         DEVNULL = open(os.devnull, 'w')
         output = subprocess.check_output(['/bin/lsblk',
-                                          '-P', '-n',
-                                          '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE'],
+                                          '-S','-P', '-n',
+                                          '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME'],
                                          stderr=DEVNULL)
         devices = {}
-        pattern = re.compile(r'^NAME="([^"]*)" FSTYPE="([^"]*)" MOUNTPOINT="([^"]*)" SIZE="([^"]*)"')
+        pattern = re.compile(r'^NAME="([^"]*)" FSTYPE="([^"]*)" MOUNTPOINT="([^"]*)" SIZE="([^"]*)" PKNAME="([^"]*)"')
         for line in output.split('\n'):
             match = pattern.match(line.strip())
             if (match):
@@ -61,12 +61,13 @@ def list():
                 devdict['fstype'] = match.group(2)
                 devdict['mountpoint'] = match.group(3)
                 devdict['size'] = match.group(4)
-                if len(dev) > 3:
-                    if not dev[:3] in devices:
-                        devices[dev[:3]] = {}
-                    if not 'partitions' in devices[dev[:3]]:
-                        devices[dev[:3]]['partitions'] = {}
-                    devices[dev[:3]]['partitions'][dev] = devdict
+                pkname = match.group(5)
+                if len(pkname) != 0:
+                    if pkname not in devices:
+                        devices[pkname] = {}
+                    if not 'partitions' in devices[pkname]:
+                        devices[pkname]['partitions'] = {}
+                    devices[pkname]['partitions'][dev] = devdict
                 else:
                     devices[dev] = devdict
         return devices

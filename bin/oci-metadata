@@ -9,39 +9,54 @@
 This utility displays instance metadata when run on Oracle Cloud Infrastructure
 instances.  See the manual page for more information.
 '''
-
+import os
 import sys
 import argparse
 import logging
 import time
+import collections
 try:
     import json
 except ImportError:
     import simplejson as json
 
-import oci_utils
+import oci_utils.metadata
+from oci_utils.oci_api import OCIInstance 
 
-oci_api_url = 'http://169.254.169.254/opc/v1/'
 oci_metadata_detail = {
-    'displayName': 'Instance name',
-    'timeCreated': 'Instance created at',
+    'displayName': 'Display Name',
+    'hostnameLabel': 'Hostname Label',
+    'timeCreated': 'Created at',
     'image': 'Image ID',
-    'state': 'Instance state',
+    'lifecycleState': 'Lifecycle State',
     'shape': 'Instance shape',
     'region': 'Region',
     'availabilityDomain': 'Availability Domain',
-    'image': 'Image OCID',
     'compartmentId': 'Compartment OCID',
-    'id': 'Instance OCID',
+    'id': 'OCID',
     'macAddr': 'MAC address',
     'subnetCidrBlock': 'Subnet CIDR block',
+    'subnetId': 'Subnet ID',
     'vnicId': 'VNIC OCID',
     'privateIp': 'Private IP address',
     'publicIp': 'Public IP address',
     'faultDomain': 'Fault domain',
     'virtualRouterIp': 'Virtual router IP address',
-    'vlanTag': 'VLAN tag'
+    'vlanTag': 'VLAN Tag',
+    'nicIndex': 'NIC Index',
+    'metadata': 'Metadata', 
+    'definedTags': 'Defined Tags',
+    'freeformTags': 'Freeform Tags',
+    'extendedMetadata': 'Extended Metadata',
+    'launchMode': 'Launch Mode',
+    'ipxeScript': 'iPXE Script',
+    'sourceDetails': 'Source Details',
+    'launchOptions': 'Launch Options',
+    'skipSourceDestCheck':'Skip Source/Dest Check',
+    'canonicalRegionName':'Canonical Region Name',
     }
+lower_metadata_fields = {key.lower():key for key in oci_metadata_detail}
+
 oci_regions = {
     'phx': 'phx - us-phoenix-1 (Phoenix, AZ, USA)',
     'iad': 'iad - us-ashburn-1 (Ashburn, VA, USA)',
@@ -50,11 +65,30 @@ oci_regions = {
     }
 
 oci_metadata_display_order = [
-    'displayName', 'region', 'availabilityDomain', 'faultDomain',
-    'shape', 'timeCreated', 'state',
-    'id',
-    'privateIp', 'macAddr', 'subnetCidrBlock', 'virtualRouterIp', 'vnicId'
+    'displayName', 'region', 'canonicalRegionName', 'availabilityDomain', 'faultDomain',
+    'id', 'compartmentId', 'shape', 'image','timeCreated', 'state',
+    'vnicId', 'vlanTag','nicIndex'
+    'privateIp', 'publicIp','macAddr', 'subnetCidrBlock', 'virtualRouterIp',
     ]
+
+human_readable_type = {
+        str: 'string type',
+        dict: 'json format'
+    }
+
+oci_metadata_ignores = [
+    'definedTags',
+    'freeformTags',
+    'launchMode',
+    'ipxeScript',
+    'sourceDetails',
+    'launchOptions',
+    'skipSourceDestCheck',
+    'canonicalRegionName',
+    ]
+
+# exportable keys
+exportable_keys = [ "metadata", "extendedMetadata" ]
 
 def parse_args():
     '''
@@ -71,7 +105,22 @@ def parse_args():
                         help='Display json output')
     parser.add_argument('-g', '--get', metavar='KEY', dest='keys',
                         action='append', type=str.lower,
-                        help='Display the value of a specific key')
+                        help='Display the value of a specific key'
+                        'Key can be any single field-name in metadata json output,'
+                        'or a path like /instance/id, or /vnics/*/vnicid')
+    parser.add_argument('--export', action='store_true',
+                        help='Used with the -g option, export the keys as environment variables.')
+    parser.add_argument('--trim', action='store_true',
+                        help='Used with the -g option, trim the key path to the last component.')
+    parser.add_argument('-u', '--update', nargs='+', metavar='KEY=VALUE ', dest='setkeys',
+                        action='append', type=str,
+                        help='Update the value for a specific key.  KEY can be displayName or a key in the extended metadata.'
+                        ' VALUE can be a string, JSON data or a pointer to a file containing JSON data.'
+                        ' Note: do not put spaces around "=".'
+                        )
+    parser.add_argument('-i', '--instance-id', metavar='OCID',
+                        action='store', type=str,
+                        help='get or set metadata for the specified instance')
     parser.add_argument('--debug', action='store_true',
                         help=argparse.SUPPRESS)
     parser.add_argument('--help', action='help',
@@ -88,30 +137,39 @@ def pretty_print_section(metadata, indent):
     # first display the keys that are in the oci_metadata_display_order list
     if type(metadata) is not dict:
         for element in list(metadata):
-            pretty_print_section(element, indent)
+            if type(element) is dict:
+                pretty_print_section(element, indent + "  " )
+            else:
+                #if type(element) is str: 
+                print "%s%s" % (indent, element)
     for key in oci_metadata_display_order:
         if key not in metadata:
             continue
-        if key == 'metadata':
-            print "%sInstance Metadata:" % indent
-            pretty_print_section(metadata['metadata'], indent + "  ")
-            continue
+
         display_key = key
         if key in oci_metadata_detail:
             display_key = oci_metadata_detail[key]
-
         value = metadata[key]
+        
+        if type(metadata[key]) is dict:
+            print "%s%s:" % (indent, display_key) 
+            pretty_print_section(value, indent + "  ")
+            continue
+
         if key == 'region':
             if value in oci_regions:
                 value = oci_regions[value]
         elif key == 'timeCreated':
-            value = time.strftime('%Y-%m-%d %H:%M:%S UTC',
-                                  time.gmtime(metadata['timeCreated']/1000))
+           # value = time.strftime('%Y-%m-%d %H:%M:%S UTC',
+           #                       time.gmtime(metadata['timeCreated']/1000))
+           pass
         print "%s%s: %s" % (indent, display_key, value)
 
     for key in metadata:
         # already printed the ones in oci_metadata_display_order
         if key in oci_metadata_display_order:
+            continue
+        if key in oci_metadata_ignores:
             continue
         # print it last unless it's listed in oci_metadata_display_order
         if key == 'metadata':
@@ -122,10 +180,15 @@ def pretty_print_section(metadata, indent):
 
         value = metadata[key]
 
+        if type(metadata[key]) is dict:
+            print "%s%s:" % (indent, display_key) 
+            pretty_print_section(value, indent + "  ")
+            continue
+
         print "%s%s: %s" % (indent, display_key, value)
 
     # print it last unless it's listed in oci_metadata_display_order
-    if key == 'metadata' and key not in oci_metadata_display_order:
+    if 'metadata'  in metadata and 'metadata' not in oci_metadata_display_order:
         print "%sInstance Metadata:" % indent
         pretty_print_section(metadata['metadata'], indent + "  ")
 
@@ -151,28 +214,244 @@ def pretty_print(metadata):
             else:
                 pretty_print_section(metadata['vnics'][0], '  ')
 
+    elif 'instance' not in metadata: 
+        #None of the previous sections.
+        pretty_print_section(metadata, '')
+
+def dumper(obj):
+    try:
+        return obj.toJSON()
+    except: 
+        try:
+            return obj.__dict__()
+        except:
+            return obj.__str__()
+
+
+def parse_var(keyValue):
+    '''
+    parse a key, value pair, seperated by "="
+    :param keyValue: "key=value"
+    :return: key, value
+    '''
+    items = keyValue.split('=')
+    key = items[0].strip()
+    if len(items) >1:
+        value='='.join(items[1:])
+        if len(value)==0:
+             sys.stderr.write("Warning: Value is empty.\n")
+
+        if value.startswith("{"):
+            json_acceptable_string = value.replace("'", "\"") 
+            try:
+                tmp = json.loads(json_acceptable_string)
+                value = tmp
+            except Exception as e:
+                sys.stderr.write("Invalid value '%s': %s\n" % (value, e))
+                sys.exit(1)
+
+
+        elif value.startswith("file:"):
+            try:
+                fname = value[5:]
+                if os.path.isfile(fname):
+                    fp = open(fname,'r')
+                    d=json.loads(fp.read().replace("'", "\""))
+                    value = d
+                    fp.close()
+                else:
+                    sys.stderr.write("Invalid file path: %s\n" % fname)
+                    sys.exit(1)
+            except Exception as e:
+                sys.stderr.write("Invalid file content (%s): %s\n" % (fname, e))
+                sys.exit(1)
+    else:
+        sys.stderr.write("Error: -u or --update expects key='value' format, not %s\n" % keyValue)
+        sys.exit(1)
+
+    return (key, value)
+
+def parse_vars(items):
+    '''
+    parse a series of key-value pairs and return a dictionary.
+    '''
+    d = {}
+    if items:
+        for item_list in items:
+            for item in item_list:
+                key, value = parse_var(item)
+                if key.find('/') >= 0:
+                    sys.stderr.write("Key should be simple without path (%s)\n" % (key))
+                    sys.exit(1)
+                d[key] = value
+    return d
+
+def verify_setkeys(set_keys):
+    '''
+    Verify the key, value pair according to the OCIInstance.settable_field_type
+    '''
+    if set_keys is None:
+        sys.stderr.write("You must provide a key=value for update option.\n")
+        return False
+    keys = set_keys.keys()
+    for k in keys:
+        if k in OCIInstance.settable_field_type:
+            v = set_keys[k]
+            if v is None or  type(v) is OCIInstance.settable_field_type[k]:
+                continue
+            else:
+                sys.stderr.write("Error: key %s expects value of %s, not %s.\n" % (k, human_readable_type[OCIInstance.settable_field_type[k]], human_readable_type[type(v)]))
+                return False
+        elif k.lower() in OCIInstance.lower_settable_fields:
+            v = set_keys.pop(k)
+            k = OCIInstance.lower_settable_fields.get(k.lower())
+            if v is None or type(v) is OCIInstance.settable_field_type[k]:
+                set_keys[k] = v
+            else:
+                sys.stderr.write("Error: key %s expects value of %s, not %s.\n" % (k, human_readable_type[OCIInstance.settable_field_type[k]], human_readable_type[type(v)]))
+                return False
+
+        elif k.lower() in lower_metadata_fields or k.lower() in oci_utils.metadata.attribute_map:
+            sys.stderr.write("Error: key(%s) is one of the reserved names.\n" % k)
+            return False
+        else:
+            if "extendedMetadata" in set_keys.keys():
+                extended_metadata = set_keys[ "extendedMetadata"]
+            else:
+                extended_metadata = {}
+
+            extended_metadata[k] = set_keys[k]
+            set_keys['extendedMetadata'] = extended_metadata
+    return True
+
+def get_value(key, metadata):
+    if type(metadata) is list:
+        if key.isdigit():
+            return metadata[int(k)]
+        for i in range(len(metadata)):
+            v = get_value(key, metadata[i])
+            if v:
+                return v
+    if type(metadata) is not dict:
+        return None
+    if key in metadata:
+        return metadata[key]
+    else:
+        for k in metadata:
+            if key == k.lower():
+                return metadata[k]
+            v = get_value(key, metadata[k])
+            if v:
+                return v
+    return None
+
+def get_trimed_key_values(keys, metadata):
+    metadata = convert_key_values_to_string(metadata)
+    exportKeys = {}
+    for key in keys:  
+        ks = key.split('/')
+        if len(ks[-1]) >0 :
+            ke = ks[-1]
+        else:
+            ke = ks[-2]
+        if ke in lower_metadata_fields:
+            ke = lower_metadata_fields[ke]
+
+        for k in metadata.keys():
+            v = get_value(ke,  metadata[k])
+            if v:
+                exportKeys[ke] = v
+                break
+    return exportKeys
+
+def export_keys(keys, metadata):
+    kValues = get_trimed_key_values(keys, metadata)
+    x = 'export '
+    for k,v in kValues.iteritems():
+        x += k + '=\"' + str(v)  + '\" '
+
+    print x
+
+
+def convert_key_values_to_string(d):
+    """Recursively converts dictionary keys to strings."""
+    if type(d) is unicode:
+        return str(d)
+    elif isinstance(d, collections.Mapping):
+        nd = {} 
+        for k, v in d.iteritems():
+            nd[str(k)] = convert_key_values_to_string(v) 
+        return nd 
+    elif isinstance(d, collections.Iterable):
+        return type(d)(convert_key_values_to_string(x) for x in d)
+    else:
+        return d
+
 def main():
     '''
     Main program
     '''
     args = parse_args()
 
-    metadata = oci_utils.metadata(debug=args.debug,
-                                  get_public_ip=False).filter(args.keys)
+    metadata = None
+
+    instId = None
+    if args.instance_id:
+	    instId = args.instance_id
+    
+    if args.export and not args.keys:
+        sys.stderr.write("Error: --export only works with --get or -g.\n")
+        return 1
+
+    if args.trim and not args.keys:
+        sys.stderr.write("Error: --trim only works with --get or -g. \n") 
+        return 1
+
+    if args.setkeys:
+        if args.keys:
+            sys.stderr.write("Error: -g or --get option conflicts with -u or --update. \n") 
+            return 1
+
+        k_v = parse_vars(args.setkeys)
+        if not verify_setkeys(k_v):
+            return 1
+        try:
+            meta = oci_utils.oci_api.OCISession().update_instance_metadata(instance_id=instId, **k_v)
+            metadata = meta.filter(k_v.keys())
+        except Exception as e:
+            sys.stderr.write("Error: %s\n" % e)
+            return 1
+    else:
+        # get
+        try:
+            meta = oci_utils.metadata.metadata(instance_id=instId, debug=args.debug,
+                                  get_public_ip=False)
+            metadata = meta.filter(args.keys)
+        except Exception as e:
+            sys.stderr.write("Error: %s\n" % e)
+            return 1
 
     if metadata is None:
         if args.keys:
-            print "No matching metadata found."
+            sys.stderr.write("Error: No matching metadata for '%s' found.\n" % ','.join(args.keys))
+        elif args.setkeys:
+            sys.stderr.write("Error: No matching metadata for '%s' found.\n" % ','.join(args.setkeys))
         else:
-            print "No metadata found."
+            sys.stderr.write("Error: No metadata found for instance (%s).\n" % instId)
         return 1
+   
+    if args.export:
+        export_keys(args.keys, metadata)
+        return 0
+
+    if args.trim:
+        metadata = get_trimed_key_values(args.keys, metadata)
 
     if args.json:
-        print(json.dumps(metadata))
+        print json.dumps(metadata,  default=dumper, indent=2)
         return 0
     else:
         pretty_print(metadata)
         return 0
 
 sys.exit(main())
-

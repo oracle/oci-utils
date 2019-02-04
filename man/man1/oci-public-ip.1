@@ -7,7 +7,7 @@
 .SH NAME
 oci-public-ip \- display the public IP address of the system
 .SH SYNOPSIS
-.B oci-public-ip [-h|--human-readable] [-j|--json] [-g|--get] [-s
+.B oci-public-ip [-h|--human-readable] [-j|--json] [-g|--get] [-a|--all] [-s
 .I SOURCEIP
 .B | --sourceip
 .I SOURCEIP
@@ -21,15 +21,17 @@ oci-public-ip \- display the public IP address of the system
 .SH DESCRIPTION
 The purpuse of the
 .B oci-public-ip
-utility is to print the public IP address of the current system.  While it was intended to be run on an OCI (Oracle Cloud Infrastructure) compute instance, it works on any system that can connect to the Internet.  The oci-public-ip utility uses the STUN protocol, implemented by the pystun library.
+utility is to print the public IP address of the current system.  While it was intended to be run on an compute instance in the Oracle Cloud Infrastructure, it works on any system that can connect to the Internet.  The oci-public-ip utility uses the STUN protocol, implemented by the pystun library.
 .SH OPTIONS
 .IP -h,\ --human-readable
 (default) Print the public IP address in a form intended for humans.
 .IP -j,\ --json
-Print the public IP address in JSON format, intended for scripting.
+Print the public IP address(es) in JSON format, intended for scripting.
 .IP -g,\ --get
-Print the public IP address (and nothing else) to the standard output.
+Print the public IP address(es) (and nothing else) to the standard output.
 Intended for scripting.
+.IP -a,\ --all
+Print all of the public IP addresses to the standard output.
 .IP "-s SOURCEIP, --sourceip SOURCEIP"
 Determine the public IP address that belongs to the
 .B SOURCEIP
@@ -46,7 +48,7 @@ option to print the list of STUN servers.
 Print a list of known STUN servers.
 .IP "--instance-id OCID"
 Display the public IP address of the given instance
-instead of the current one. Requires the OCI Python
+instead of the current one. Requires the Oracle Cloud Infrastructure Python
 SDK (python-oci-sdk package) to be installed and configured.
 .IP --debug
 Print diagnostic messages.

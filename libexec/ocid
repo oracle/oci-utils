@@ -26,6 +26,7 @@ from logging.handlers import SysLogHandler
 import lockfile
 import oci_utils
 import oci_utils.iscsiadm
+import oci_utils.metadata
 import subprocess
 from oci_utils.cache import load_cache, write_cache, get_timestamp
 import oci_utils.oci_api
@@ -69,7 +70,7 @@ def parse_args():
                         metavar='FUNC', default=False,
                         help='refresh cached data for the given function, '
                         'or all functions if FUNC is not specified, and exit. '
-                        'Possible values for FUNC: vnic, iscsi, metadata, '
+                        'Possible values for FUNC: vnic, iscsi, '
                         'public_ip')
     parser.add_argument('--no-daemon', action='store_true',
                         help='run ocid in the foreground, useful for debugging')
@@ -83,7 +84,7 @@ def parse_args():
         args.refresh = True
     elif args.refresh:
         # not False and not None
-        if args.refresh not in ['vnic', 'iscsi', 'metadata', 'public_ip']:
+        if args.refresh not in ['vnic', 'iscsi', 'public_ip']:
             sys.stderr.write('Invalid choice for --refresh\n')
             sys.exit(1)
     cfg = oci_utils.read_config()
@@ -208,20 +209,11 @@ def test_func(context):
     return context
 
 
-def metadata_func(context):
-    """
-    ocid thread function for refreshing the instance metadata.
-    """
-    # updates the cache
-    oci_utils.metadata().refresh(get_public_ip=False)
-    return {}
-
-
 def public_ip_func(context):
     """
     ocid thread function for refreshing the instance metadata.
     """
-    external_ip = oci_utils.metadata(get_public_ip=True).\
+    external_ip = oci_utils.metadata.metadata(get_public_ip=True).\
                 get_public_ip(refresh=True)
     return {'publicIp': external_ip}
 
@@ -230,7 +222,7 @@ def iscsi_func(context):
     """
     ocid thread function for discovering and attaching/detaching
     block volumes.
-    context must include 'max_volumes'
+    context must include 'max_volumes' and 'auto_detach'
     """
     if 'oci_sess' not in context:
         oci_sess = None
@@ -244,15 +236,31 @@ def iscsi_func(context):
             max_volumes = int(context['max_volumes'])
         except:
             pass
-        if max_volumes > 32:
-            max_volumes = 32
+        auto_detach = True
+        try:
+            auto_detach = context['auto_detach']
+        except:
+            pass
+        # the number of iterations to wait before detaching an offline volume
+        detach_retry = 5
+        try:
+            detach_retry = int(context['detach_retry'])
+        except:
+            pass
+        if max_volumes > oci_utils.oci_api.MAX_VOLUMES_LIMIT:
+            __ocid_logger.warn("Your configured max_volumes(%s) is over the limit(%s)\n"
+                         % (max_volumes,  oci_utils.oci_api.MAX_VOLUMES_LIMIT))
+            max_volumes = oci_utils.oci_api.MAX_VOLUMES_LIMIT
         context = {'ignore_file_ts': 0,
                    'ignore_iqns': [],
                    'attach_failed': {},
                    'chap_pw_ts': 0,
                    'chap_pws': {},
                    'oci_sess': oci_sess,
-                   'max_volumes': max_volumes
+                   'max_volumes': max_volumes,
+                   'offline_vols': {},
+                   'auto_detach': auto_detach,
+                   'detach_retry': detach_retry,
                   }
 
     # devices currently attached
@@ -269,6 +277,9 @@ def iscsi_func(context):
         chap_passwords = {}
     # save for the next iteration
     context['chap_pws'] = chap_passwords
+
+    # volumes that are offline in this iteration
+    new_offline_vols = {}
 
     all_iqns = {}
 
@@ -366,21 +377,55 @@ def iscsi_func(context):
             del attach_failed[iqn]
             cache_changed = True
 
+    detach_retry = 5
+    try:
+        detach_retry = int(context['detach_retry'])
+    except:
+        pass
+
     # look for disconnected devices in the current session
     # these devices were disconnected from the instance in the console,
     # we now have to detach them from at the OS level
     for iqn in session_devs:
+        # ignore the boot device
+        if iqn.endswith('boot:uefi'):
+            continue
+        if not 'state' in session_devs[iqn]:
+            continue
         if session_devs[iqn]['state'] in ['blocked', 'transport-offline']:
             __ocid_logger.debug("Checking iqn %s (state %s)\n" % \
                                 (iqn, session_devs[iqn]['state']))
             # is the iqn discoverable at the portal?
             if iqn not in inst_volumes:
-                # not connected to the instance
+                # Not found by iscsiadm discovery.
+                # To allow time for the volume to recover, wait for detach_retry
+                # iterations where the volume was offline before detaching it
+                if iqn not in context['offline_vols']:
+                    __ocid_logger.info("iSCSI volume appears to be offline: " \
+                                       "%s" % iqn)
+                    new_offline_vols[iqn] = 1
+                    continue
+                elif context['offline_vols'][iqn] < detach_retry:
+                    new_offline_vols[iqn] = context['offline_vols'][iqn] + 1
+                    __ocid_logger.info("iSCSI volume still offline (%d): " \
+                                       "%s" % (new_offline_vols[iqn], iqn))
+                    continue
+
+                if not context['auto_detach']:
+                    __ocid_logger.info("Volume still offline, but iSCSI " \
+                                       "auto_detach disabled: " \
+                                       "%s" % iqn)
+                    new_offline_vols[iqn] = detach_retry + 1
+                    continue
+                
                 cache_changed = True
                 ipaddr = session_devs[iqn]['persistent_portal_ip']
-                __ocid_logger.info("Detaching iscsi device: %s:%s (%s)" % \
+                __ocid_logger.info("Detaching iSCSI device: %s:%s (%s)" % \
                                    (ipaddr, "3260", iqn))
                 oci_utils.iscsiadm.detach(ipaddr, 3260, iqn)
+                # delete from list of previously offline volumes so it
+                # doesn't get reported as 'now online'
+                del context['offline_vols'][iqn]
                 # device is gone, remove from "ignore" list
                 if iqn in ignore_iqns:
                     ignore_iqns.remove(iqn)
@@ -389,6 +434,13 @@ def iscsi_func(context):
                 if iqn in attach_failed:
                     del attach_failed[iqn]
                     cache_changed = True
+
+    # look for deviced that were previously offline but now back online
+    # (just for printing a message that it's now online)
+    for iqn in context['offline_vols']:
+        if iqn not in new_offline_vols:
+            __ocid_logger.info("iSCSI volume now online: %s" % iqn)
+    context['offline_vols'] = new_offline_vols
 
     # check if the devices that were previously manually detached are still
     # connected to the instance
@@ -422,7 +474,7 @@ def iscsi_func(context):
 
 
 def get_metadata_vnics():
-    vnics = oci_utils.metadata(get_public_ip=False).filter('vnics')
+    vnics = oci_utils.metadata.metadata(get_public_ip=False).filter('vnics')
     if vnics is not None and 'vnics' in vnics:
         # deep copy
         vnics_copy = [dict(x) for x in vnics['vnics']]
@@ -530,12 +582,6 @@ def start_thread(name, repeat, debug=False):
                         context={'fname':'/tmp/ocid-test', 'counter':1},
                         sleeptime=10,
                         repeat=repeat)
-    elif name == 'metadata':
-        th = ocidThread(name=name,
-                        ocidfunc=metadata_func,
-                        context={},
-                        sleeptime=119,
-                        repeat=repeat)
     elif name == 'public_ip':
         is_enabled = cfg.get('public_ip', 'enabled')
         if is_enabled not in TRUE:
@@ -549,12 +595,24 @@ def start_thread(name, repeat, debug=False):
     elif name == 'iscsi':
         max_volumes = cfg.get('iscsi', 'max_volumes')
         is_enabled = cfg.get('iscsi', 'enabled')
+        auto_detach = cfg.get('iscsi', 'auto_detach') in TRUE
         if is_enabled not in TRUE:
             return None
+        #oci-growfs
+        auto_resize = cfg.get('iscsi', 'auto_resize')
+        if auto_resize in TRUE:
+            try:
+                output = subprocess.check_output(['/usr/libexec/oci-growfs',
+                    '-y'], stderr=subprocess.STDOUT)
+            except:
+                pass
+
         scan_interval = cfg.get('iscsi', 'scan_interval')
         th = ocidThread(name=name,
                         ocidfunc=iscsi_func,
-                        context={'max_volumes':max_volumes},
+                        context={'max_volumes':max_volumes,
+                                 'auto_detach':auto_detach,
+                        },
                         sleeptime=scan_interval,
                         repeat=repeat)
     elif name == 'vnic':
@@ -595,9 +653,6 @@ def start_threads(args, repeat):
     if not args.refresh or args.refresh == True:
         # is not a refresh request or is a request to refresh all
         # so start all threads
-        th = start_thread('metadata', repeat, args.debug)
-        if th:
-            threads['metadata'] = th
         th = start_thread('public_ip', repeat, args.debug)
         if th:
             threads['public_ip'] = th

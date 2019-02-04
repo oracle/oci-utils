@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.6
-Release: 16%{?dist}
+Version: 0.8.0
+Release: 4%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -19,13 +19,14 @@ Requires: python2
 Requires: python-daemon
 Requires: python-lockfile
 Requires: python-sdnotify
+Requires: cloud-utils-growpart
 # for lsblk
 Requires: util-linux
 # for iscsiadm
 Requires: iscsi-initiator-utils
 
 %description
-A package with useful scripts for querying/validating the state of OCI instances running Oracle Linux and facilitating some common configuration tasks.
+A package with useful scripts for querying/validating the state of Oracle Cloud Infrastructure instances running Oracle Linux and facilitating some common configuration tasks.
      
 %package kvm
 Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure
@@ -84,6 +85,37 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+* Fri Oct 26 2018  Qing Lin <qing.lin@oracle.com> --0.8
+- OLOCITOOLS-11 - implemented method for retrieving metadata for other compute instances.   
+- OLOCITOOLS-12 - implemented oci-metadata --export
+- OLOCITOOLS-10 - added support for updating instance metadata for a specified instance.  
+
+* Tue Oct 02 2018  Qing Lin <qing.lin@oracle.com> --0.7.1-3
+- bug-28643343 - fixed most of the exceptions for oci config error.
+- bug-28599902 - enhanced oci-public-ip to return all public ips with new option "-a|--all".
+- bug-28048699 - oci-utils needs to handle multiple physical NICs when creating secondary vnics
+
+* Wed Sep 19 2018 Laszlo (Laca) Peter <laszlo.peter@oracle.com> --0.7.1-1
+- fix bug 28668447 - ocid needs to allow time for iSCSI connection to recover
+
+* Wed Sep 19 2018  Qing Lin <qing.lin@oracle.com> --0.7-4
+- fix bug 28653583 - private ips assigned on wrong vnic.
+
+* Fri Aug 31 2018 Qing Lin <qing.lin@oracle.com>  --0.7
+- bump version to 0.7
+- added oci-network-inspector to listing networking information.(OLOCITOOLS-5)
+- added oci-growfs to support to grow filesystems (OLOCITOOLS-7)
+  Currently only / boot volume is expendable.
+- fixed bugs in oci-iscsi-config:
+  1. fixed: mis-list sdaa.. as partition of sda. It should be a seperate volume.(bug-28433320)
+  2. fixed: max_volumes usage in create and attach.
+  3. fixed: should not create a volume if it failed to attach (bug-28513898)
+  4. privilege adjustment for create and destroy(root+oci), attach and detach(root)
+  5. some code cleanup.
+- fixed bug oci-network-config
+  1. fixed secondary ips on secondary VNICs not reachable issue.(bug-28498139)
+- expanded 'OCI' to 'Oracle Cloud Infrastructure' in man pages, specfiles (OLOCITOOLS-8)
+
 * Thu May 10 2018 Daniel Krasinski <daniel.krasinski@oracle.com>  --16
 - merged latest oci-kvm code into mainline version
 
