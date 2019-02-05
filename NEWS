@@ -1,3 +1,7 @@
+Version 0.9.0
+- LINUX-498 - Enhance oci-metadata  for keys to only return key value 
+              Added suport --value-only
+
 Version 0.8.0
 
 - OLOCITOOLS-10 - added support for updating instance metadata for a specified instance.
@@ -6,7 +10,7 @@ Version 0.8.0
                   $ oci-metadata --instance-id ocid
 - OLOCITOOLS-12 - implemented exporting the getting keys as environment variables. 
                   $ oci-metadata --export -g key ..
-- ???           - enhanced metadata get by supporting path and wildcard in path.
+                - enhanced metadata get by supporting path and wildcard in path.
                   $ oci-metadata -g /path/to/key -g /path/*/key
 - OLOCITOOLS-28 - implemented oci-metadata --trim -g   ...
                   trim the path to the last key.
@@ -24,6 +28,8 @@ Version 0.8.0
                        when running delete ip option
 
 - fixed bug-28840370 - local disks  should not count for "max_volumes" when creating iscsi disk
+- fixed bug-29026422 - oci-iscsi-config -s " don't list boot partition for VM
+- fixed bug-29118662 - oci-network-config detach vnic give wrong message
 
 Version 0.7.1:
 

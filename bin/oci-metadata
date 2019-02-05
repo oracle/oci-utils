@@ -395,6 +395,15 @@ def remove_list_for_single_item_list(dic):
            elif len(v) == 1:
                dic[k] = v[0]
         
+def print_trimed_key_values(keys, metadata):
+    kValues = get_trimed_key_values(keys, metadata)
+    for k,v in kValues.iteritems():
+        if type(v) is list:
+            for item in v:
+                print k + " : " + str(item) 
+        else:
+            print k + " : " + str(v)
+
 def value_only(keys, metadata):
     kValues = get_trimed_key_values(keys, metadata)
     for k,v in kValues.iteritems():
@@ -414,7 +423,7 @@ def export_keys(keys, metadata):
             end = ""
             for item in v:
                x += end + str(item)
-               end="," 
+               end=" " 
         else:
             x += str(v)
         x += '\" '
@@ -504,8 +513,8 @@ def main():
         return 0
 
     if args.trim:
-        metadata = get_trimed_key_values(args.keys, metadata)
-
+        print_trimed_key_values(args.keys, metadata)
+        return 0
     if args.json:
         print json.dumps(metadata,  default=dumper, indent=2)
         return 0
