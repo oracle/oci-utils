@@ -359,6 +359,17 @@ def get_values(key, metadata):
         return values 
 
 def get_trimed_key_values(keys, metadata):
+    """
+    get the key trimmed in the metadata.
+    
+    Inputs:
+    keys: a list of getting keys.
+    metadata: a dict of matching values
+
+    Returns:
+    exportKeys: a new dict with trimed key and value.
+    """
+
     metadata = convert_key_values_to_string(metadata)
     exportKeys = {}
     for key in keys:  
@@ -388,6 +399,17 @@ def get_trimed_key_values(keys, metadata):
     return exportKeys
 
 def remove_list_for_single_item_list(dic):
+    """
+    If a key in the dictionary have a list value, which has 
+    one or less item,  then the key 
+    will be equal to the item in the list.
+
+    Inputs:
+    dic: a dictionary
+
+    Returns:
+    dic: the changed dictionary
+    """
     for k,v in dic.iteritems():
         if type(v) is list: 
            if len(v) == 0:
@@ -396,15 +418,37 @@ def remove_list_for_single_item_list(dic):
                dic[k] = v[0]
         
 def print_trimed_key_values(keys, metadata):
+    """
+    print the trimmed key and its value.
+    
+    Inputs:
+    keys: a list of getting keys.
+    metadata: a dict of matching values
+
+    Returns:
+    None.
+    """
+
     kValues = get_trimed_key_values(keys, metadata)
     for k,v in kValues.iteritems():
         if type(v) is list:
             for item in v:
-                print k + " : " + str(item) 
+                print k + ": " + str(item) 
         else:
-            print k + " : " + str(v)
+            print k + ": " + str(v)
 
-def value_only(keys, metadata):
+def print_value_only(keys, metadata):
+    """
+    print the values only for the matching key.
+    
+    Inputs:
+    keys: a list of getting keys.
+    metadata: a dict of matching values
+
+    Returns:
+    None.
+    """
+
     kValues = get_trimed_key_values(keys, metadata)
     for k,v in kValues.iteritems():
         if type(v) is list:
@@ -415,6 +459,17 @@ def value_only(keys, metadata):
 
 
 def export_keys(keys, metadata):
+    """
+    export the key and values in the metadata.
+    
+    Inputs:
+    keys: a list of getting keys.
+    metadata: a dict of matching values
+
+    Returns:
+    None.
+    """
+
     kValues = get_trimed_key_values(keys, metadata)
     for k,v in kValues.iteritems():
         x = 'export '
@@ -505,7 +560,7 @@ def main():
    
     
     if args.value_only:
-        value_only(args.keys, metadata)
+        print_value_only(args.keys, metadata)
         return 0
 
     if args.export:
