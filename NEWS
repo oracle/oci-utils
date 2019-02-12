@@ -1,7 +1,8 @@
 Version 0.9.0
 - LINUX-498 - Enhance oci-metadata  for keys to only return key value 
               Added suport --value-only
-
+- LINUX-560 - Cleanup utility not preserving permissions/ownerships (fixed)
+              same as bug-29260959.
 Version 0.8.0
 
 - OLOCITOOLS-10 - added support for updating instance metadata for a specified instance.

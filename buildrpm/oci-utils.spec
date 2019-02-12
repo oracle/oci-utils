@@ -86,7 +86,10 @@ rm -rf %{buildroot}
 
 %changelog
 * Fri Feb 1 2019  Qing Lin <qing.lin@oracle.com> --0.9.0
-- oci-metadata - added support for --value-only, which works with one get option, return the value only.   
+- LINUX-498 -oci-metadata added --value-only option, which works with one get option, return the value only.   
+- LINUX-560 - Cleanup utility not preserving permissions/ownerships (fixed)
+              same as bug-29260959.
+
 
 * Fri Oct 26 2018  Qing Lin <qing.lin@oracle.com> --0.8
 - OLOCITOOLS-11 - implemented method for retrieving metadata for other compute instances.   
