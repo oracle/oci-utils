@@ -21,6 +21,7 @@ except ImportError:
     import simplejson as json
 
 import oci_utils.metadata
+from oci_utils.metadata import get_by_path, get_path_keys
 from oci_utils.oci_api import OCIInstance 
 
 oci_metadata_detail = {
@@ -108,6 +109,8 @@ def parse_args():
                         help='Display the value of a specific key'
                         'Key can be any single field-name in metadata json output,'
                         'or a path like /instance/id, or /vnics/*/vnicid')
+    parser.add_argument('--value-only', action='store_true',
+                        help='Used with one -g option, return a list of values matching the key.')
     parser.add_argument('--export', action='store_true',
                         help='Used with the -g option, export the keys as environment variables.')
     parser.add_argument('--trim', action='store_true',
@@ -324,28 +327,49 @@ def verify_setkeys(set_keys):
             set_keys['extendedMetadata'] = extended_metadata
     return True
 
-def get_value(key, metadata):
+def get_values(key, metadata):
+    """
+       return a list of all the values matching the key
+    """
     if type(metadata) is list:
         if key.isdigit():
             return metadata[int(k)]
+        values = []
         for i in range(len(metadata)):
-            v = get_value(key, metadata[i])
-            if v:
-                return v
+            v = get_values(key, metadata[i])
+            if type(v) is list:
+                values.extend(v)
+            elif v is not None:
+                values.append(v)
+        return values
     if type(metadata) is not dict:
         return None
     if key in metadata:
         return metadata[key]
     else:
+        values = [] 
         for k in metadata:
             if key == k.lower():
                 return metadata[k]
-            v = get_value(key, metadata[k])
-            if v:
-                return v
-    return None
+            v = get_values(key, metadata[k])
+            if type(v) is list:
+                values.extend(v)
+            elif v is not None:
+                values.append(v)
+        return values 
 
 def get_trimed_key_values(keys, metadata):
+    """
+    get the key trimmed in the metadata.
+    
+    Inputs:
+    keys: a list of getting keys.
+    metadata: a dict of matching values
+
+    Returns:
+    exportKeys: a new dict with trimed key and value.
+    """
+
     metadata = convert_key_values_to_string(metadata)
     exportKeys = {}
     for key in keys:  
@@ -356,21 +380,110 @@ def get_trimed_key_values(keys, metadata):
             ke = ks[-2]
         if ke in lower_metadata_fields:
             ke = lower_metadata_fields[ke]
-
+        exportKeys[ke] = []
+        if len(ks) > 1:
+            #path key
+            newkey_list = []
+            get_path_keys(metadata,ks[1:], newkey_list)
+            for key in newkey_list:
+               v = get_by_path(metadata, key)
+               if v:
+                 exportKeys[ke].append(v)
+            continue   
         for k in metadata.keys():
-            v = get_value(ke,  metadata[k])
-            if v:
-                exportKeys[ke] = v
-                break
+            v = get_values(ke,  metadata[k])
+            if len(v) > 0:
+                exportKeys[ke].extend(v)
+                continue 
+    remove_list_for_single_item_list(exportKeys)
     return exportKeys
 
-def export_keys(keys, metadata):
-    kValues = get_trimed_key_values(keys, metadata)
-    x = 'export '
-    for k,v in kValues.iteritems():
-        x += k + '=\"' + str(v)  + '\" '
+def remove_list_for_single_item_list(dic):
+    """
+    If a key in the dictionary have a list value, which has 
+    one or less item,  then the key 
+    will be equal to the item in the list.
 
-    print x
+    Inputs:
+    dic: a dictionary
+
+    Returns:
+    dic: the changed dictionary
+    """
+    for k,v in dic.iteritems():
+        if type(v) is list: 
+           if len(v) == 0:
+               dict[k] = None
+           elif len(v) == 1:
+               dic[k] = v[0]
+        
+def print_trimed_key_values(keys, metadata):
+    """
+    print the trimmed key and its value.
+    
+    Inputs:
+    keys: a list of getting keys.
+    metadata: a dict of matching values
+
+    Returns:
+    None.
+    """
+
+    kValues = get_trimed_key_values(keys, metadata)
+    for k,v in kValues.iteritems():
+        if type(v) is list:
+            for item in v:
+                print k + ": " + str(item) 
+        else:
+            print k + ": " + str(v)
+
+def print_value_only(keys, metadata):
+    """
+    print the values only for the matching key.
+    
+    Inputs:
+    keys: a list of getting keys.
+    metadata: a dict of matching values
+
+    Returns:
+    None.
+    """
+
+    kValues = get_trimed_key_values(keys, metadata)
+    for k,v in kValues.iteritems():
+        if type(v) is list:
+            for item in v:
+                print str(item) 
+        else:
+            print  str(v)
+
+
+def export_keys(keys, metadata):
+    """
+    export the key and values in the metadata.
+    
+    Inputs:
+    keys: a list of getting keys.
+    metadata: a dict of matching values
+
+    Returns:
+    None.
+    """
+
+    kValues = get_trimed_key_values(keys, metadata)
+    for k,v in kValues.iteritems():
+        x = 'export '
+        x += k + '=\"' 
+        if type(v) is list:
+            end = ""
+            for item in v:
+               x += end + str(item)
+               end=" " 
+        else:
+            x += str(v)
+        x += '\" '
+        print x
+
 
 
 def convert_key_values_to_string(d):
@@ -423,6 +536,11 @@ def main():
             return 1
     else:
         # get
+        if args.value_only:
+            if len(args.keys) != 1:
+                sys.stderr.write("Error: --value-only option works only with one -g or --get option. \n") 
+                return 1
+               
         try:
             meta = oci_utils.metadata.metadata(instance_id=instId, debug=args.debug,
                                   get_public_ip=False)
@@ -440,13 +558,18 @@ def main():
             sys.stderr.write("Error: No metadata found for instance (%s).\n" % instId)
         return 1
    
+    
+    if args.value_only:
+        print_value_only(args.keys, metadata)
+        return 0
+
     if args.export:
         export_keys(args.keys, metadata)
         return 0
 
     if args.trim:
-        metadata = get_trimed_key_values(args.keys, metadata)
-
+        print_trimed_key_values(args.keys, metadata)
+        return 0
     if args.json:
         print json.dumps(metadata,  default=dumper, indent=2)
         return 0

@@ -15,7 +15,7 @@ oci-metadata \- display Oracle Cloud Infrastructure compute instance metadata
 .I KEY=VALUE [KEY=VALUE, ...]
 .B | --update
 .I KEY=VALUE [KEY=VALUE, ...]
-.B ] [--export] [--trim] [--help] [-i|--instance-id
+.B ] [--export] [--trim] [--value-only][--help] [-i|--instance-id
 .I OCID
 .B ]
 .SH DESCRIPTION
@@ -85,6 +85,9 @@ to structured data, while "metadata" keys can only have string values.
 Refer to the Oracle Cloud Infrastructure API documentation for
 .B UpdateInstanceDetails
 for more information.
+
+.IP --value-only
+Used with one -g or --get option, print only the values matching the get key.
 
 .IP --export
 Used with the -g option, print a shell command to export the keys as
@@ -214,6 +217,14 @@ export displayName="my-instance"
 .fi
 .PP
 
+.PP
+.nf
+.RS
+oci-metadata -g displayName --value-only
+my-instance
+.RE
+.fi
+.PP
 
 .SH DIAGNOSTICS
 Return an exit status of 0 for success or 1 if an error occured.

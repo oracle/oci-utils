@@ -26,7 +26,7 @@ CLEAN_HISTORY_DADA_LOG=
 usage()
 {
 cat <<EOF
-Usage: $0 [OPTION]
+Usage: $CMD [OPTION]
   
   -f
   --force                      Force to cleanup or recovery. No prompt for confirmation.
@@ -102,17 +102,63 @@ print_and_exit()
     exit 0
 }
   
+BACKUP_CMD="rsync -vaxAXRC "
 backup_and_delete()
 {
-    if [ $# != 1 ]; then
-        echo "Internal Error: need one parameter only ($@). Abort."
+    if [ $# -lt 1 ]; then
+        echo "Internal Error: need one parameter at least ($@). Abort."
+        echo "Usage: backup_and_delete <file>|<dir> [-x <exclude_pattern>] [-c <cleanup-level>]"
+        echo " '-c 0' is the default, means delete the file or directory. "
+        echo " '-c 1' means cleanup only "
+        echo " '-c 2' means to keep the file or dir without change. "
         exit 1
     fi
+    CLEANUP_LEVEL=0
     backup_item=$1
+    shift 1
+    EXCLUDE_PATTERN="--exclude=*~ "
+    EXCLUDE_FIND=""
+   
+    while [ $# -gt 0 ]; do
+        case "$1" in
+        -c)
+            CLEANUP_LEVEL=$2
+            shift 2
+            ;;
+        -x)
+            EXCLUDE_PATTERN=$EXCLUDE_PATTERN" --exclude=$2"
+            EXCLUDE_FIND=$EXCLUDE_FIND" -not -name $2"
+            shift 2
+            ;;
+        *)
+            echo "Internal Error: Option $@ not supported by backup_and_delete. Abort."
+            exit 1
+            ;;
+         esac
+    done
+    
     plan echo -n "=== Clearing $backup_item..."
-    backup_dir=$(dirname "$1"|head -1)
-    [ ! -d $BACKUP_LOC/$backup_dir ] && plan mkdir -p $BACKUP_LOC/$backup_dir
-    plan "mv -f $backup_item $BACKUP_LOC/$backup_dir/ >>$LOGFILE 2>&1"
+    if [ -d "$backup_item" ]; then 
+         backup_dir=$backup_item
+    else
+         backup_dir=$(dirname "$backup_item"|head -1)
+    fi
+    [ ! -d $backup_dir ] && log "$backup_dir is not a directory. do nothing." && return
+    
+    plan $BACKUP_CMD  "$backup_item" $BACKUP_LOC $EXCLUDE_PATTERN
+
+    if [ -d "$backup_item" -a  "$CLEANUP_LEVEL" == "0" ]; then
+        plan 'rm -rf $backup_item' 
+    elif [ "$CLEANUP_LEVEL" != "2" ]; then
+        for file in `find $backup_item $EXCLUDE_FIND`; do
+           [ -d "$file" ] && continue
+           if [[ "$file" =~ .*~$ ]] || [ $CLEANUP_LEVEL -eq 0 ]; then
+               plan "rm -f $file"  
+           elif [ $CLEANUP_LEVEL -eq 1 ]; then
+               plan "cat /dev/null > $file"
+           fi
+        done
+    fi
     plan 'echo " Done!"'
 }
   
@@ -137,9 +183,9 @@ warn()
         echo -e "\n\nWARNING!!!
 You will NOT be able to login to this instance once ssh keys and root passwd get removed!!!
 However, you can restore the information by running 
-    $0 -r $BACKUP_LOC
+    $CMD -r $BACKUP_LOC
 for more information, run
-    $(basename "$0") -h or man 8 $(basename "$0")
+    $(basename "$CMD") -h or man 8 $(basename "$CMD")
 "
     fi
     read -n 1 -s -r -p "Press 'R' to review plan or any other key to execute." input
@@ -172,29 +218,25 @@ cleanup()
     plan 'echo -e "\nCleanup Start\n"'
     # Cleanup network config files
     echo -e "\n\nDeleting network config files... "
-    for file in `find /etc/sysconfig/network-scripts/ -name "ifcfg-*" -not -name ifcfg-lo` ; do
-        echo -e "Deleting $file... "
-        if confirm $CLEAN_NET_CONFIG_FILES; then
-            CLEAN_NET_CONFIG_FILES=YES
-            backup_and_delete $file
-        else
-            CLEAN_NET_CONFIG_FILES=NO
-        fi
-    done
+    if confirm $CLEAN_NET_CONFIG_FILES; then
+        CLEAN_NET_CONFIG_FILES=YES
+        backup_and_delete "/etc/sysconfig/network-scripts/ifcfg-*" -x "ifcfg-lo"
+    else
+        CLEAN_NET_CONFIG_FILES=NO
+    fi
          
     # clear /etc/hosts
     echo -e "\nDeleting /etc/hosts and /etc/resolv.conf... "
     confirm $CLEAN_ETC_HOSTS
     if [ $? -eq 0 ]; then
         CLEAN_ETC_HOSTS=YES
-        backup_and_delete "/etc/hosts"
+        backup_and_delete "/etc/hosts" -c 2
         plan 'echo -e "127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
 ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6" > /etc/hosts'
 
         # Scrub Resolv.conf
         plan chattr -ai /etc/resolv.conf
-        backup_and_delete "/etc/resolv.conf"
-        plan 'touch /etc/resolv.conf'
+        backup_and_delete "/etc/resolv.conf" -c 1
     else
         CLEAN_ETC_HOSTS=NO
     fi
@@ -208,11 +250,12 @@ cleanup()
     else
         CLEAN_HOST_SSH_KEYS=NO
     fi
-  for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
-  do
-      [ -d $user/.ssh ] &&  echo -e "Deleting SSH keys in $user/.ssh/ ..."
-      confirm $CLEAN_USER_SSH_KEYS  
-      if [ $? -eq 0 ]; then
+    for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
+    do
+        [ ! -d $user/.ssh ] && continue 
+        echo -e "Deleting SSH keys for $user ..."
+        confirm $CLEAN_USER_SSH_KEYS  
+        if [ $? -eq 0 ]; then
           CLEAN_USER_SSH_KEYS=YES
           backup_and_delete "$user/.ssh/*"
       else
@@ -226,8 +269,7 @@ cleanup()
   confirm $CLEAN_ROOT_PASSWD
   if [ $? -eq 0 ]; then
       CLEAN_ROOT_PASSWD=YES
-      plan mkdir -p $BACKUP_LOC/etc/
-      plan cp -p /etc/shadow $BACKUP_LOC/etc/
+      backup_and_delete /etc/shadow -c 2
       plan "passwd -l root && sed -i 's/^root:[^:]*:/root:*:/I' /etc/shadow"
   else
       CLEAN_ROOT_PASSWD=NO
@@ -263,22 +305,17 @@ cleanup()
          
   # Scrub machine-id
   plan 'echo -e "\nScrubbing /etc/machine-id..."'
-  backup_and_delete "/etc/machine-id"
-  plan "touch /etc/machine-id"
+  backup_and_delete "/etc/machine-id" -c 1
         
   # Scrub Log Files
   plan 'echo -e "\nScrubbing log files in /var/log..."'
-  for SCRUB_FILE in $(find /var/log/ -type f);
-  do
-      backup_and_delete $SCRUB_FILE
-      plan "touch $SCRUB_FILE"
-  done
-       
-         
+  backup_and_delete "/var/log/*" -c 1
+  for file in `find /var/log -regex ".+[\.\-]+[0-9]+"`; do
+      plan rm -f $file
+  done       
   # Scrub Chrony Cleanup
   plan 'echo -e "\nScrubbing /etc/chrony.keys..."'
-  backup_and_delete "/etc/chrony.keys"
-  plan 'touch /etc/chrony.keys'
+  backup_and_delete "/etc/chrony.keys" -c 1
          
   # Clean tmp
   plan 'echo -e -n "\nCleaning /tmp..."'
@@ -301,14 +338,15 @@ cleanup()
          
   # Clean Yum UUID
   plan 'echo -e "\nRemoving Yum UUID..."'
-  backup_and_delete "/var/lib/yum/uuid"
+  backup_and_delete "/var/lib/yum/uuid" 
        
   # Cleaning up Yum metadata
-  plan 'echo -e -n "\nClean yum metadata..."'
-  plan "yum clean all >>$LOGFILE 2>&1"
-  plan rm -rf /var/cache/yum
-  plan 'echo "Done!"'
-         
+  if [ -d "/var/cache/yum" ]; then 
+      plan 'echo -e -n "\nClean yum metadata..."'
+      plan "yum clean all 2>&1"
+      plan rm -rf /var/cache/yum
+      plan 'echo "Done!"'
+  fi       
   # Purge cloud-init data
   plan 'echo -e "\nClearing cloud-init data..."'
   backup_and_delete "/var/lib/cloud/*"
@@ -320,11 +358,13 @@ cleanup()
   backup_and_delete "/var/lib/iscsi/ifaces/*"
          
   # Clear uln stuff
-  plan 'echo -e "\nClearing ULN data..."'
-  backup_and_delete "/etc/sysconfig/rhn/systemid"
-  plan cp -p /etc/sysconfig/rhn/up2date $BACKUP_LOC/etc/sysconfig/rhn/
-  plan "sed -i  \"s/^uuid.*/#&/\" /etc/sysconfig/rhn/up2date"
-       
+  if [ -f "/etc/sysconfig/rhn/systemid" ]; then
+      plan 'echo -e "\nClearing ULN data..."'
+      backup_and_delete "/etc/sysconfig/rhn/systemid"
+      backup_and_delete /etc/sysconfig/rhn/up2date -c 2 
+      plan "sed -i  \"s/^uuid.*/#&/\" /etc/sysconfig/rhn/up2date"
+  fi     
+
   # Clear bash history for opc and root users
   plan 'echo -e "\nCleaning bash history..."'
   set -o history
@@ -351,7 +391,6 @@ restore_bashrc(){
     do
         grep ".bash_history"  $user/.bashrc &>/dev/null && [ -f "$user/.bashrc-orig" ] && plan "mv -f $user/.bashrc-orig $user/.bashrc"
         owner=$(basename $user)
-        plan "chown $owner:$owner $user -R"
     done
 
 }
@@ -374,13 +413,14 @@ print_plan(){
 list_restore_files(){
     log "\nRestoring all files from $backup_dir..."
     log "======================================================" 
-    pushd $backup_dir &>/dev/null
+    pushd $backup_dir >/dev/null
     find .| tee -a $LOGFILE
-    popd &>/dev/null
+    popd >/dev/null
     log "======================================================" 
     log "Above files will be restored. "
 }
 
+RESTORE_CMD="rsync -vaxAXC "
 
 restore()
 {
@@ -394,8 +434,10 @@ restore()
             do
                 plan rm -f $user/.bash_history*
             done
-            plan 'tar -cpvz . --exclude=*~  |tar --backup=simple --no-overwrite-dir -xpvz -C /'
+            #plan 'tar -cpvz . --exclude=*~  |tar --backup=simple --no-overwrite-dir -xpvz -C /'
+            plan $RESTORE_CMD "$1/*" / 
             restore_bashrc
+            sudo systemctl daemon-reload
             plan "rm -rf $1"
         else
             clean_and_abort
@@ -414,6 +456,7 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
        
+CMD=$0
 #trap 'clean_and_abort' SIGINT 
 
 while [ "$#" -gt 0 ]; do

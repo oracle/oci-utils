@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.8.0
-Release: 4%{?dist}
+Version: 0.9.0
+Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -85,6 +85,9 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+* Fri Feb 1 2019  Qing Lin <qing.lin@oracle.com> --0.9.0
+- oci-metadata - added support for --value-only, which works with one get option, return the value only.   
+
 * Fri Oct 26 2018  Qing Lin <qing.lin@oracle.com> --0.8
 - OLOCITOOLS-11 - implemented method for retrieving metadata for other compute instances.   
 - OLOCITOOLS-12 - implemented oci-metadata --export
