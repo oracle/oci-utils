@@ -106,7 +106,7 @@ def parse_args():
                         help='Display json output')
     parser.add_argument('-g', '--get', metavar='KEY', dest='keys',
                         action='append', type=str.lower,
-                        help='Display the value of a specific key'
+                        help='Display the value of a specific key. '
                         'Key can be any single field-name in metadata json output,'
                         'or a path like /instance/id, or /vnics/*/vnicid')
     parser.add_argument('--value-only', action='store_true',
@@ -390,11 +390,12 @@ def get_trimed_key_values(keys, metadata):
                if v:
                  exportKeys[ke].append(v)
             continue   
-        for k in metadata.keys():
-            v = get_values(ke,  metadata[k])
-            if len(v) > 0:
-                exportKeys[ke].extend(v)
-                continue 
+        v = get_values(ke,  metadata)
+        if type(v) is list:
+            exportKeys[ke].extend(v)
+        elif v is not None:
+            exportKeys[ke].append(v)
+            
     remove_list_for_single_item_list(exportKeys)
     return exportKeys
 
