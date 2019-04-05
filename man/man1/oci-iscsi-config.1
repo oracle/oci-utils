@@ -1,0 +1,187 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-iscsi-config.1
+.\"
+.\" Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
+.\"
+
+.TH OCI-ISCSI-CONFIG 1 "MAY 2018" Linux "User Manuals"
+.SH NAME
+oci-iscsi-config \- configure iSCSI devices on Oracle Cloud Infrastructure compute instances
+.SH SYNOPSIS
+.B oci-iscsi-config [-i|--interactive] [-s|--show] [-a
+.I IQN
+.B | --attach
+.I IQN
+.B ] [-d
+.I IQN
+.B | --detach
+.I IQN
+.B ] [--username
+.I USER
+.B ] [--password
+.I PWD
+.B ] [--help]
+
+.B oci-iscsi-config [-s|--show] [-c
+.I SIZE
+.B | --create-volume
+.I SIZE
+.B ] [--volume-name
+.I NAME
+.B ] [--destroy-volume
+.I OCID
+.B ]
+
+.SH DESCRIPTION
+The
+.B oci-iscsi-config
+utility is used to display and/or configure iSCSI devices attached to a
+compute instance running in the Oracle Cloud Infrastructure.
+Without any command line options,
+.B oci-iscsi-config
+lists devices that need attention.
+
+To perform attach/detach operations
+.B oci-iscsi-config
+must be run with root privileges, either as user root or using
+.BR sudo(8).
+
+While
+.B oci-iscsi-config
+can be run by itself, it works best in conjunction with
+.BR ocid(8).
+When
+.BR ocid(8)
+is running, it keeps track of iSCSI devices and caches the information for
+.B oci-iscsi-config,
+which is then able to display all information without root privileges.
+It also attaches/detaches devices automatically if they do not require
+manual interaction.
+
+Additional features of
+.B oci-iscsi-config
+are available when the Oracle Cloud Infrastructure Python SDK is installed and configured.  The
+Oracle Cloud Infrastructure Python SDK is available in the python-oci-sdk package.  When available,
+.B oci-iscsi-config
+displays additional information about the iSCSI devices and can display all
+available Oracle Cloud Infrastructure storage volumes, not just the ones already assigned to the
+instance.  The second version of the command line requires the Oracle Cloud Infrastructure Python
+SDK.  This invocation can be used to create a new Oracle Cloud Infrastructure storage volume and
+assign it to the instance without the use of the Web-based Oracle Cloud Infrastructure Console,
+or to destroy a volume that is not attached to any instances.
+
+To install the Oracle Cloud Infrastructure Python SDK, use
+.PP
+.nf
+.RS
+yum install python-oci-sdk python-oci-cli
+.RE
+.fi
+.PP
+The python-oci-cli package contains the oci command line utility.  You can
+use the oci utility for configuring the Oracle Cloud Infrastructure Python SDK:
+.PP
+.nf
+.RS
+oci setup config
+.RE
+.fi
+.PP
+See https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
+for more information.
+
+Another option for authorizing the use of Oracle Cloud Infrastructure services from an instance is
+using Instance Principals.  The Oracle Cloud Infrastructure SDK does not need configuration on the
+instance when the instance is part of a dynamic group that was granted access
+to Oracle Cloud Infrastructure services.  See https://docs.us-phoenix-1.oraclecloud.com/Content/Identity/Tasks/callingservicesfrominstances.htm for further details.
+
+.SH OPTIONS
+.IP "-i, --interactive"
+Run in interactive mode -- displays devices that need attention and offers
+to attach/configure them.  Needs root privileges.
+.IP "-s, --show"
+Display all devices.  If
+.BR ocid(8)
+is not running then root privileges are needed.
+.IP "-a TARGET, --attach TARGET"
+Attempt to attach the device with the given IQN or OCID.  When using an
+IQN, the volume must already be attached (assigned) to the instance in
+the Oracle Cloud Infrastructure Console.  The Oracle Cloud Infrastructure Python SDK is required for selecting
+volumes using their OCID.
+This option can be used multiple times to attach multiple devices at the
+same time.  Requires root privileges.
+.IP "-d IQN, --detach IQN"
+Detach the device with the given
+.B IQN.
+If the volume (or any partition of the volume) is mounted, this option
+will attempt to unmount it first.
+This option can be used multiple times to detach multiple devices at the
+same time.  Requires root privileges.
+.IP "-c SIZE, --create-volume SIZE"
+Create a new volume of
+.B SIZE
+gigabytes and attach it to the current instance.
+This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
+.IP "--volume-name NAME"
+When using with the --create-volume option, set the display name of the
+new volume to
+.B NAME
+.IP "--username USER"
+Use
+.B USER
+as the CHAP username when authentication is needed for attaching a device.
+Not necessary when the Oracle Cloud Infrastructure Python SDK is available.
+.IP "--password PWD"
+Use
+.B PWD
+as the CHAP password when authentication is needed for attaching a device.
+Not necessary when the Oracle Cloud Infrastructure Python SDK is available.
+.IP "--destroy-volume OCID"
+Destroy the block storage volume with the given
+.B OCID.
+Warning: this is irreversible.  The volume must not be attached to any
+instances.
+.IP --help
+Print a summary of the command line options.
+.SH EXAMPLES
+.PP
+.nf
+.RS
+sudo oci-iscsi-config --create-volume 100 --volume-name my-storage
+.RE
+.fi
+.PP
+Creates a new storage volume named my-storage and attaches it to this
+instance.  See
+.BR oci-utils.conf.d(5)
+for information about configuring oci-utils to work as the root user.
+.PP
+.nf
+.RS
+oci-iscsi-config --attach ocid1.volume.oc1.phx.abyhqljrfuj4t76qpelfeox2hktcpt6gkz3fqqkajshdkajshdfkajfdjkmq
+.RE
+.fi
+.PP
+Attach the given volume to this instance.  Using
+.BR sudo(8)
+is not necessary if
+.BR ocid(8)
+is running, but it may take a couple of minutes for
+.BR ocid(8)
+to discover the newly attached device.  When using
+.BR sudo(8)
+the device is instantly attached.
+.PP
+.nf
+.RS
+sudo oci-iscsi-config --detach iqn.2015-12.com.oracleiaas:765083d7-c23c-4354-a51a-b72312334267
+.RE
+.fi
+.PP
+Detach the given volume.  If the volume (or a partition of the volume) is attached, it is unmounted before detaching the volume.
+.SH DIAGNOSTICS
+Return an exit status of 0 for success or 1 if an error occured.
+.SH "SEE ALSO"
+.BR ocid (8)
+.BR sudo (8)
+.BR oci-utils.conf.d (5)

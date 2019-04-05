@@ -1,0 +1,67 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-image-cleanup.8
+.\"
+.\" Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
+.\"
+
+.TH OCI-IMAGE-CLEANUP 1 "03 May 2018" Linux "User Manuals"
+.SH NAME
+oci-image-cleanup \- This script runs a set of cleanup steps to prepare OL compute instance for snapshot.
+
+.SH SYNOPSIS
+.B /usr/libexec/oci-image-cleanup [-h|--help]
+
+.B /usr/libexec/oci-image-cleanup [-c
+.I CONFIG_FILE
+.B |--config-file=
+.I CONFIG_FILE
+.B ] [-d
+.I BACKUP_DIR
+.B | --backup-dir
+.I BACKUP_DIR
+.B ][-f|--force ] [--dry-run]
+
+.B /usr/libexec/oci-image-cleanup [-r
+.I BACKUP_DIR
+.B |--restore-dir=
+.I BACKUP_DIR
+.B ][-f|--force ] [--dry-run]
+
+.SH DESCRIPTION
+This script runs a set of cleanup steps to prepare  OL instances in Oracle Cloud Infrastructure for creating custom images
+WARNING!!! This script will clear ssh keys and root passwd.
+Upon execution of this script, if you choose to clear the ssh keys, you will no longer be able to login to this instance with your existing credentials.
+You will need to create a new custom image of this instance first and then create a new compute instance from that custom image to login.
+
+.BR oci-image-cleanup(8)
+requires root privileges.
+
+More info on custom images can be found here:
+
+https://docs.us-phoenix-1.oraclecloud.com/Content/Compute/Tasks/managingcustomimages.htm
+
+.SH OPTIONS
+
+.IP  "-f  | --force"
+No prompt for confirmation. force to cleanup or restore. 
+When work with a config file, force will cleanup an item unless it is configured as No.
+
+.IP "--dry-run"
+for dry run, no real action is done. but show what the command with options will do.
+If no options are provided, it will run cleanup in interactive mode.
+
+.IP  "-r <BACKUP_DIR> | --restore=<BACKUP_DIR>"
+Restore files from BACKUP_DIR
+
+.IP  "-d <BACKUP_DIR> | --backup-dir=<BACKUP_DIR>"
+Specify dir to backup deleted files.
+Default backup dir is /dev/shm/oci-utils/image-cleanup-backup
+
+.IP  "-c <CONFIG_FILE> | --config-file=<CONFIG_FILE>"
+Specify config file.
+Sample config file is /etc/oci-utils/oci-image-cleanup.conf.
+
+.IP  "-h | --help"
+print this help message
+
+

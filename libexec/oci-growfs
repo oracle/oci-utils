@@ -1,0 +1,112 @@
+#!/bin/bash 
+
+# oci-utils
+#
+# Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+
+FORCE=false
+F_VALUE=
+# Print usage message
+usage()
+{
+cat <<EOF
+Usage: $0 [OPTION]
+
+Expand the root filesystem to its configured size.
+
+Option:
+  -y                           Answer to "y" to all questions.
+  -n                           Answer to "n" to all questions.
+  -h                           Print this message.
+
+EOF
+
+}
+
+# Prompt for action confirmation
+confirm()
+{
+    [ $# -eq 1 ] && input=$1 || input=
+
+    if [[ $FORCE = true ]]; then
+        [[ "$input" =~ ^[nN] ]] && return 1 || return 0
+    fi
+
+    while true
+    do
+        [ -z "$input" ] &&  read -r -p "Confirm? [y/n]: " input
+        case $input in
+            [yY][eE][sS]|[yY])
+                return 0;;
+
+            [nN][oO]|[nN])
+                return 1;;
+            *)
+                input=
+        esac
+    done
+}
+
+xfs_growfs_func(){
+    if [ $# -ne 2 ]; then
+        echo "Invalid disk or partition."
+        exit 1
+    fi 
+    which growpart > /dev/null 2>&1
+    [ $? != 0 ] && echo "Please install cloud-utils-growpart." && exit 1
+    which xfs_growfs > /dev/null 2>&1 
+    [ $? != 0 ] && echo "Please re-install cloud-utils-growpart." && exit 1
+
+    growpart $1 $2 --dry-run && confirm ${F_VALUE} && growpart $1 $2 && xfs_growfs /
+    return $? 
+}
+
+if [ "$EUID" -ne 0 ]; then
+    echo "This script needs root privileges to execute."
+    exit 1
+fi
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+    -n|-N)
+        FORCE=true
+        F_VALUE=n
+        echo "No to all questions..."
+        break
+        ;;
+    -y|-Y)
+        FORCE=true
+        F_VALUE=y
+        echo "Yes to all questions..."
+        break
+        ;;
+    -h)
+        usage
+        exit 0
+        ;;
+    -* | *)
+        echo "unknown option: $1" >&2;  
+        usage; 
+        exit 1
+        ;;
+    esac
+done
+
+root_mount=`mount |grep "/ type"`
+device=`echo ${root_mount}|awk '{print $1}'`
+disk=${device//[0-9]/}
+partition=${device//[^0-9]/}
+fs_type=`echo ${root_mount}|awk '{print $5}'`
+
+case "${fs_type}" in
+    xfs)
+       xfs_growfs_func $disk $partition
+       ;;
+    *)
+       echo "Type ${fs_type} not supported yet."
+       exit 1
+       ;;
+esac
+
+exit $?

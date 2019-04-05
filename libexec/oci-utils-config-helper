@@ -1,0 +1,55 @@
+#!/usr/bin/env python2.7
+
+# oci-utils
+#
+# Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+
+"""
+Read the OCI SDK config and return the config data through stdout
+"""
+
+import os
+import sys
+import json
+import threading
+from datetime import datetime
+from oci_utils.exceptions import OCISDKError
+import oci_utils.oci_api
+
+debug = False
+
+def response(status, **kwargs):
+    """
+    send a json formatted response to stdout.
+    jdata is already json formatted
+    """
+    resp = {'status': status}
+    for key, val in kwargs.iteritems():
+        resp[key] = val
+    sys.stdout.write(json.dumps(resp) + '\n')
+    sys.stdout.flush()
+
+def debug_print(msg):
+    """
+    print a JSON formatted debug message
+    """
+    global debug
+    if not debug:
+        return
+    sys.stdout.write(json.dumps({'status':'DEBUG', 'message':msg}) + '\n')
+    sys.stdout.flush()
+
+if not oci_utils.oci_api.HAVE_OCI_SDK:
+    response('ERROR', data="OCI Python SDK not installed")
+    sys.exit(1)
+
+try:
+    session = oci_utils.oci_api.OCISession(auth_method=oci_utils.oci_api.DIRECT)
+except oci_utils.oci_api.OCISDKError as e:
+    response('ERROR', data=str(e))
+    sys.exit(1)
+
+response('OK', data=session.oci_config)
+
+sys.exit(0)

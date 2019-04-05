@@ -1,0 +1,79 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-kvm.1
+.\"
+.\" Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
+.\"
+.TH OCI-KVM 1 "MAY 2018" Linux "User Manuals"
+.SH NAME
+oci-kvm \- install and remove KVM guests on Oracle Cloud Infrastructure instances
+.SH SYNOPSIS
+.B oci-kvm create -D|--domain
+.I NAME
+.B [-d|--disk
+.I DISK_PATH
+.B ] [-n|--net
+.I IP
+.B ] -V|--virt
+.I VIRT-INSTALL_ARGS
+
+.B oci-kvm destroy -D|--domain
+.I NAME
+
+.SH DESCRIPTION
+The
+.B oci-kvm
+utility is used to create and configure KVM guests on Oracle Cloud Infrastructure 
+instances that use Oracle Cloud Infrastructure resources, such as block storage and networking, directly.  It
+automates all steps of the guest creation process while also ensuring that Oracle Cloud Infrastructure resources
+have not been assigned to more than one KVM guest.  When a guest has outlived
+its usefulness, the utility can also remove and/or unconfigure all system resources
+that were assigned to the guest.
+
+The
+.B oci-kvm create
+subcommand performs all actions required to create a KVM guest that uses Oracle Cloud Infrastructure Block
+Storage and Oracle Cloud Infrastructure VNICs for the root disk and network interface respectively.  For block
+storage, the device itself is validated and checked to ensure it has not been assigned
+to another guest.  For virtual network interfaces, all virtual network infrastructure
+is created automatically.  This includes virtual functions, VLANs, etc.  Indiviual
+block storage devices and VNICs are required for each guest.  Guests cannot share
+either a VNIC or a block storage device.
+
+When the oci-utils-kvm is installed, it changes the configuration of
+.BR ocid(8)
+setting
+.BR vf_net = true
+in
+.BR /etc/oci-utils.conf.d/10-oci-kvm.conf .
+This causes
+.BR ocid(8)
+to stop automatically configuring VNICs and instead leaving them for the kvm
+tools to manage.
+
+.SH OPTIONS
+.IP "-D NAME, --domain NAME"
+For both the
+.B create
+and
+.B destroy
+subcommands, operate on the given libvirt domain name.
+.IP "-d DISK_PATH, --disk DISK_PATH"
+The path to the block device that will be the root device for the new guest.  If this
+option is not specified, an unused block device will be chosen arbitrarily.
+.IP "-n IP, --net IP"
+The IP address of the Oracle Cloud Infrastructure VNIC that should be assigned to the new guest.  If this
+option is not specified, an unused VNIC will be chosen arbitrarily.
+.IP "-V VIRT-INSTALL_ARGS, --virt VIRT-INSTALL_ARGS"
+Each argument that appears after either -V or --virt is passed into virt-install when
+this tool executes that command.
+.B  oci-kvm
+ itself provides the following arguments:
+--hvm, --name, --cpu, --disk, --network.
+.IP --help
+
+.SH DIAGNOSTICS
+Return an exit status of 0 for success or 1 if an error occured.
+
+.SH "SEE ALSO"
+.BR ocid (8)
+.BR oci-utils.conf.d (5)

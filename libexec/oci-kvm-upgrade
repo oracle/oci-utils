@@ -1,0 +1,113 @@
+#!/usr/bin/env python2.7
+
+# oci-utils
+#
+# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+
+"""
+Oracle Cloud Infrastructure utilities - one shot service that configures
+networking for virtual machines
+"""
+
+import os
+import sys
+import time
+import argparse
+import logging
+from logging.handlers import SysLogHandler
+import oci_utils
+import oci_utils.kvm.nic
+import oci_utils.kvm.virt
+
+__logger = logging.getLogger('oci-upgrade')
+__log_level = logging.INFO
+
+def setup_logging(syslog=False):
+    global __logger
+    global __log_level
+    if syslog:
+        handler = SysLogHandler(address='/dev/log',
+                                facility=SysLogHandler.LOG_DAEMON)
+    else:
+        handler = logging.StreamHandler(stream=sys.stderr)
+    handler.setLevel(__log_level)
+    formatter = logging.Formatter('%(name)s - %(levelname)s '
+                                  '- %(message)s')
+    handler.setFormatter(formatter)
+    __logger.setLevel(__log_level)
+    __logger.addHandler(handler)
+
+def parse_args():
+    '''
+    Parse the command line arguments and return an object representing the
+    command line (as returned by argparse's parse_args())
+    '''
+    parser = argparse.ArgumentParser(description='oci-utils daemon')
+    parser.add_argument('--debug', action='store_true',
+                        help='display diagnostic output'),
+
+    args = parser.parse_args()
+    return args
+
+def upgrade_v2_domains():
+    config = oci_utils.kvm.sysconfig.read_network_config()
+    domains = oci_utils.kvm.virt.get_domains_no_libvirtd()
+    domain_xml = {d: oci_utils.kvm.virt.get_domain_xml_no_libvirtd(d) for d in domains}
+    domain_interfaces = {d: oci_utils.kvm.virt.get_interfaces_from_domain(domain_xml[d]) for d in domains}
+
+    targets = []
+    for d, ifaces in domain_interfaces.iteritems():
+        for mac, name in ifaces.iteritems():
+            targets.append(mac.lower())
+            targets.append(name)
+
+    targets = set(targets)
+
+    new_config = {}
+    to_remove = []
+    for name, conf in config.iteritems():
+        mac = conf.get('MACADDR', "").lower()
+        onboot = conf.get('ONBOOT', "")
+
+        # Don't muck with interfaces that are either already
+        # up to date or are controlled by another entity
+        if onboot != 'no':
+            continue
+
+        # Check if this is a macvlan interface
+        if mac in targets:
+            n, c = oci_utils.kvm.sysconfig.make_vf(name, mac)
+            new_config[n] = c
+            to_remove.append(name)
+            continue
+
+        # Check if this is a vlan interface
+        if name in targets:
+            parent, vlan_id = name.split('.')
+            n, c = oci_utils.kvm.sysconfig.make_vlan(parent, vlan_id, config[parent]['MACADDR'])
+            new_config[n] = c
+            to_remove.append(name)
+
+    oci_utils.kvm.sysconfig.write_network_config(new_config)
+    oci_utils.kvm.sysconfig.delete_network_config(to_remove)
+
+
+def main(args):
+    """
+    Main program
+    """
+    upgrade_v2_domains()
+    return 0
+
+if os.geteuid() != 0:
+    sys.stderr.write("This program must be run as root.\n")
+    sys.exit(1)
+
+args = parse_args()
+
+if args.debug:
+    __log_level = logging.DEBUG
+
+setup_logging(syslog=False)
+sys.exit(main(args))

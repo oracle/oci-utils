@@ -1,0 +1,5 @@
+# Also see:
+# https://fedoraproject.org/wiki/Starting_services_by_default
+
+# oci-kvm-config
+enable oci-kvm-config.service
