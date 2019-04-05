@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.9.0
+Version: 0.9.1
 Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -7,18 +7,32 @@ License: UPL
 Group: Development/Tools
 Source: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
-%{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
+%{!?python2_sitelib: %global python2_sitelib %(%{__python2} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
 %{?systemd_requires}
 
 BuildArch: noarch
 
 BuildRequires: systemd
+# Oracle Linux 8
+%if 0%{?rhel} >= 8
 BuildRequires: python2-devel
-BuildRequires: python-setuptools
+BuildRequires: python2-setuptools
 Requires: python2
+Requires: python2-daemon
+Requires: python2-lockfile
+Requires: python2-sdnotify
+Requires: python2-six
+# Oracle Linux 7
+%else
+BuildRequires: python-devel
+BuildRequires: python-setuptools
+Requires: python
 Requires: python-daemon
 Requires: python-lockfile
 Requires: python-sdnotify
+Requires: python-six
+%endif
+
 Requires: cloud-utils-growpart
 # for lsblk
 Requires: util-linux
@@ -39,22 +53,22 @@ Utilities for creating and managing KVM guests that use Oracle Cloud Infrastruct
 %setup -q -n %{name}-%{version}
 
 %build
-%{__python} setup.py build
+%{__python2} setup.py build
 
 %install
-%{__python} setup.py install -O1 --prefix=%{_prefix} --root=%{buildroot}
+%{__python2} setup.py install -O1 --prefix=%{_prefix} --root=%{buildroot}
 mkdir -p %{buildroot}%{_localstatedir}/lib/oci-utils
 
 %clean
 rm -rf %{buildroot}
 
 %files
-%exclude %dir %{python_sitelib}/oci_utils/kvm
-%exclude %{python_sitelib}/oci_utils/kvm/*
+%exclude %dir %{python2_sitelib}/oci_utils/kvm
+%exclude %{python2_sitelib}/oci_utils/kvm/*
 %exclude %{_bindir}/oci-kvm
 %exclude %{_datadir}/man/man1/oci-kvm.1.gz
 %defattr(-,root,root)
-%{python_sitelib}/oci_utils*
+%{python2_sitelib}/oci_utils*
 %{_bindir}/oci-*
 %exclude %{_bindir}/oci-kvm
 %{_libexecdir}/
@@ -72,7 +86,7 @@ rm -rf %{buildroot}
 %files kvm
 %{_bindir}/oci-kvm
 %{_libexecdir}/oci-kvm-config.sh
-%{python_sitelib}/oci_utils/kvm*
+%{python2_sitelib}/oci_utils/kvm*
 %{_datadir}/man/man1/oci-kvm.1.gz
 %{_sysconfdir}/systemd/system/oci-kvm-config.service
 %{_prefix}/lib/systemd/system-preset/91-oci-kvm.preset
@@ -85,6 +99,9 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+* Wed Mar 27 2019 Wiekus Beukes <wiekus.beukes@oracle.com> --0.9.1
+- Added support to allow building under Oracle Linux 8 Beta 1
+
 * Fri Feb 1 2019  Qing Lin <qing.lin@oracle.com> --0.9.0
 - LINUX-498 -oci-metadata added --value-only option, which works with one get option, return the value only.   
 - LINUX-560 - Cleanup utility not preserving permissions/ownerships (fixed)
