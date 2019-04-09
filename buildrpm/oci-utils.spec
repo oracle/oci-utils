@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.9.1
+Version: 0.10.0
 Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -17,6 +17,7 @@ BuildRequires: systemd
 %if 0%{?rhel} >= 8
 BuildRequires: python2-devel
 BuildRequires: python2-setuptools
+BuildRequires: python2-flake8
 Requires: python2
 Requires: python2-daemon
 Requires: python2-lockfile
@@ -26,9 +27,9 @@ Requires: python2-six
 %else
 BuildRequires: python-devel
 BuildRequires: python-setuptools
+BuildRequires: python-flake8
 Requires: python
 Requires: python-daemon
-Requires: python-lockfile
 Requires: python-sdnotify
 Requires: python-six
 %endif
@@ -41,13 +42,20 @@ Requires: iscsi-initiator-utils
 
 %description
 A package with useful scripts for querying/validating the state of Oracle Cloud Infrastructure instances running Oracle Linux and facilitating some common configuration tasks.
-     
+
 %package kvm
 Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure
 Group: Development/Tools
 Requires: %{name} = %{version}-%{release}
 %description kvm
 Utilities for creating and managing KVM guests that use Oracle Cloud Infrastructure resources, such as block storage and networking, directly.
+
+%package outest
+Summary: OCI utils tests
+Group: Development/Tools
+Requires: %{name} = %{version}-%{release}
+%description outest
+Utilities unit tests
 
 %prep
 %setup -q -n %{name}-%{version}
@@ -57,7 +65,15 @@ Utilities for creating and managing KVM guests that use Oracle Cloud Infrastruct
 
 %install
 %{__python2} setup.py install -O1 --prefix=%{_prefix} --root=%{buildroot}
-mkdir -p %{buildroot}%{_localstatedir}/lib/oci-utils
+%{__mkdir_p} %{buildroot}%{_localstatedir}/lib/oci-utils
+# use for outest package
+%{__mkdir_p} $RPM_BUILD_ROOT/opt/oci-utils
+%{__mkdir_p} $RPM_BUILD_ROOT/opt/oci-utils/lib
+%{__cp} -r tests %{buildroot}/opt/oci-utils
+%{__cp} -r setup.cfg %{buildroot}/opt/oci-utils
+%{__cp} -r setup.py %{buildroot}/opt/oci-utils
+%{__cp} -r requirements.txt %{buildroot}/opt/oci-utils
+%{__cp} -r README %{buildroot}/opt/oci-utils
 
 %clean
 rm -rf %{buildroot}
@@ -92,6 +108,9 @@ rm -rf %{buildroot}
 %{_prefix}/lib/systemd/system-preset/91-oci-kvm.preset
 %config %{_sysconfdir}/oci-utils.conf.d/10-oci-kvm.conf
 
+%files outest
+/opt/oci-utils
+
 %post kvm
 %systemd_post oci-kvm-config.service
 
@@ -99,19 +118,24 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+* Mon Apr 08 2019 Wiekus Beukes <wiekus.beukes@oracle.com> --0.10.0
+- Added flake8 build requirement
+- Changed all remaining /usr/bin/python entries to python2.7
+
 * Wed Mar 27 2019 Wiekus Beukes <wiekus.beukes@oracle.com> --0.9.1
-- Added support to allow building under Oracle Linux 8 Beta 1
+- Updated the to be able build under Oracle Linux 8 Beta 1
 
 * Fri Feb 1 2019  Qing Lin <qing.lin@oracle.com> --0.9.0
-- LINUX-498 -oci-metadata added --value-only option, which works with one get option, return the value only.   
+- oci-metadata - added support for --value-only, which works with one get option, return the value only.
+- LINUX-498 -oci-metadata added --value-only option, which works with one get option, return the value only.
 - LINUX-560 - Cleanup utility not preserving permissions/ownerships (fixed)
               same as bug-29260959.
 
 
 * Fri Oct 26 2018  Qing Lin <qing.lin@oracle.com> --0.8
-- OLOCITOOLS-11 - implemented method for retrieving metadata for other compute instances.   
+- OLOCITOOLS-11 - implemented method for retrieving metadata for other compute instances.
 - OLOCITOOLS-12 - implemented oci-metadata --export
-- OLOCITOOLS-10 - added support for updating instance metadata for a specified instance.  
+- OLOCITOOLS-10 - added support for updating instance metadata for a specified instance.
 
 * Tue Oct 02 2018  Qing Lin <qing.lin@oracle.com> --0.7.1-3
 - bug-28643343 - fixed most of the exceptions for oci config error.

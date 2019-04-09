@@ -9,10 +9,10 @@ Version 0.9.0
 Version 0.8.0
 
 - OLOCITOOLS-10 - added support for updating instance metadata for a specified instance.
-                  $ oci-metadata [ -u|--update ] key=value ... 
+                  $ oci-metadata [ -u|--update ] <key>=<value> ...
 - OLOCITOOLS-11 - implemented method for retrieving metadata for other compute instances.
-                  $ oci-metadata --instance-id ocid
-- OLOCITOOLS-12 - implemented exporting the getting keys as environment variables. 
+                  $ oci-metadata --instance-id <ocid>
+- OLOCITOOLS-12 - implemented oci-metadata --export
                   $ oci-metadata --export -g key ..
                 - enhanced metadata get by supporting path and wildcard in path.
                   $ oci-metadata -g /path/to/key -g /path/*/key
@@ -27,10 +27,8 @@ Version 0.8.0
 - fixed bug-28599902 - oci-public-ip returns any public ip it found first.
                        Added an option [-a |--all] to list all public ips for this instance.
 - fixed bug-28643343 - fixed most exceptions for oci config error.
-
 - fixed bug-29026433 - oci-iscsi-config don't config secondary ip for second vnic automatically
                        when running delete ip option
-
 - fixed bug-28840370 - local disks  should not count for "max_volumes" when creating iscsi disk
 - fixed bug-29026422 - oci-iscsi-config -s " don't list boot partition for VM
 - fixed bug-29118662 - oci-network-config detach vnic give wrong message

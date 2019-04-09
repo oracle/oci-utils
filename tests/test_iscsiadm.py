@@ -1,39 +1,56 @@
 #!/usr/bin/env python2.7
 
-import os
-import unittest
-import oci_utils.iscsiadm
-from oci_utils.iscsiadm import __can_connect as can_connect
+# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
 
-# skip tests that require an OCI instance if not running on an OCI instance
-def skipUnlessOCI():
-    if not oci_utils.iscsiadm.__can_connect('169.254.169.254', 80):
-        return unittest.skip("must be run on an OCI instance")
-    return lambda func: func
-def skipUnlessRoot():
-    if os.geteuid() != 0:
-        return unittest.skip("must be root")
-    return lambda func: func
+import unittest
+
+import oci_utils.iscsiadm
+from decorators import (skipUnlessOCI, skipUnlessRoot)
+
 
 class TestIScsiAdm(unittest.TestCase):
-    def test__can_connect(self):
-        self.assertTrue(can_connect('www.oracle.com', 443))
-        self.assertFalse(can_connect('www.oracle.com', 123))
-        self.assertFalse(can_connect('blabber', 80))
+    """ Test iscsiadm module.
+    """
+    _discovery_address = '169.254.0.2'
+    _lun_iqn = 'iqn.2015-02.oracle.boot:uefi'
 
     @skipUnlessOCI()
     @skipUnlessRoot()
     def test_discovery(self):
-        iqns = oci_utils.iscsiadm.discovery('169.254.0.2')
-        self.assertTrue(len(iqns)>0)
-        self.assertIn('iqn.2015-02.oracle.boot:uefi', iqns[0])
+        """
+        Tests iscsiadm.discovery. Test LUNs discovery from an OCI instance.
+
+        Returns
+        -------
+            No return value.
+        """
+        iqns = oci_utils.iscsiadm.discovery(TestIScsiAdm._discovery_address)
+        self.assertTrue(len(iqns) > 0,
+                        'No LUNs discovered against [%s]' %
+                        TestIScsiAdm._discovery_address)
+        self.assertIn(TestIScsiAdm._lun_iqn, iqns[0],
+                      '[%s] not the first IQN discovered' %
+                      TestIScsiAdm._lun_iqn)
 
     @skipUnlessOCI()
     def test_session(self):
+        """
+        Tests iscsiadm.session.
+
+        Returns
+        -------
+            No return value.
+        """
         iqns = oci_utils.iscsiadm.session()
-        self.assertIn('iqn.2015-02.oracle.boot:uefi', iqns)
-        self.assertEqual(iqns['iqn.2015-02.oracle.boot:uefi']['current_portal_ip'], '169.254.0.2')
+        self.assertIn(TestIScsiAdm._lun_iqn, iqns,
+                      '[%s] not the first IQN discovered' %
+                      TestIScsiAdm._lun_iqn)
+        self.assertEqual(iqns['iqn.2015-02.oracle.boot:uefi']
+                         ['current_portal_ip'], '169.254.0.2')
+
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestIScsiAdm)
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    unittest.TextTestRunner().run(suite)

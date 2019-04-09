@@ -34,11 +34,11 @@ exception is thrown:
 ```python
 import sys
 import oci_utils.oci_api
-impoer oci_utils.exceptions
+import oci_utils.exceptions
 
 try:
     sess = oci_utils.oci_api.OCISession()
-except oci_utils.excepions.OCISDKError as e:
+except oci_utils.exceptions.OCISDKError as e:
     sys.stderr.write("Failed to access OCI services: %s\n" % e)
 ```
 

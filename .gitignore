@@ -4,6 +4,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
 
 # C extensions
 *.so
@@ -25,6 +26,7 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+rpmbuild/
 
 # Installer logs
 pip-log.txt

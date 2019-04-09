@@ -2,27 +2,36 @@
 
 # oci-utils
 #
-# Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
-# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown
+# at http://oss.oracle.com/licenses/upl.
 
-"""
-Read the OCI SDK config and return the config data through stdout
+""" Read the OCI SDK config and return the config data through stdout.
 """
 
-import os
-import sys
 import json
-import threading
-from datetime import datetime
-from oci_utils.exceptions import OCISDKError
+import sys
+
 import oci_utils.oci_api
 
 debug = False
 
+
 def response(status, **kwargs):
     """
-    send a json formatted response to stdout.
-    jdata is already json formatted
+    Send a json formatted response to stdout, jdata is already json formatted.
+
+    Parameters
+    ----------
+    status: str
+        The status.
+    kwargs: key,value
+        The data to convert to json.
+
+    Returns
+    -------
+        str
+           The json formatted version of **kwargs
     """
     resp = {'status': status}
     for key, val in kwargs.iteritems():
@@ -30,26 +39,50 @@ def response(status, **kwargs):
     sys.stdout.write(json.dumps(resp) + '\n')
     sys.stdout.flush()
 
+
 def debug_print(msg):
     """
-    print a JSON formatted debug message
+    Print a JSON formatted debug message.
+
+    Parameters
+    ----------
+    msg: str
+        The debug message.
+
+    Returns
+    -------
+        No return value.
     """
     global debug
     if not debug:
         return
-    sys.stdout.write(json.dumps({'status':'DEBUG', 'message':msg}) + '\n')
+    sys.stdout.write(json.dumps({'status': 'DEBUG', 'message': msg}) + '\n')
     sys.stdout.flush()
 
-if not oci_utils.oci_api.HAVE_OCI_SDK:
-    response('ERROR', data="OCI Python SDK not installed")
-    sys.exit(1)
 
-try:
-    session = oci_utils.oci_api.OCISession(auth_method=oci_utils.oci_api.DIRECT)
-except oci_utils.oci_api.OCISDKError as e:
-    response('ERROR', data=str(e))
-    sys.exit(1)
+def main():
+    """
+    Main program
 
-response('OK', data=session.oci_config)
+    Returns
+    -------
+        int
+            0
+    """
+    if not oci_utils.oci_api.HAVE_OCI_SDK:
+        response('ERROR', data="OCI Python SDK not installed")
+        return 1
 
-sys.exit(0)
+    try:
+        session = oci_utils.oci_api.OCISession(
+            auth_method=oci_utils.oci_api.DIRECT)
+    except oci_utils.oci_api.OCISDKError as e:
+        response('ERROR', data=str(e))
+        return 1
+
+    response('OK', data=session.oci_config)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

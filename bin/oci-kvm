@@ -2,68 +2,182 @@
 
 # oci-utils
 #
-# Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
-# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown
+# at http://oss.oracle.com/licenses/upl.
 
-'''
+"""
 This utility automates the creation and configuration of KVM virtual
 machines on Oracle Cloud Infrastructure instances.  See the manual
 page for more information.
-'''
+"""
 
-import oci_utils.kvm.virt
-import sys
 import argparse
+import sys
+import os
+import os.path
+import oci_utils.kvm.virt
 
 _create = 'create'
 _destroy = 'destroy'
+_create_pool = 'create-pool'
+
+
+def _disk_size_in_gb(_string):
+    try:
+        value = int(_string)
+    except ValueError, e:
+        raise argparse.ArgumentTypeError(str(e))
+    if value <= 0:
+        raise argparse.ArgumentTypeError('size must be positive value')
+    return value
+
 
 def parse_args():
-    '''
+    """
     Parse the command line arguments and return an object representing the
-    command line (as returned by argparse's parse_args())
-    '''
+    command line (as returned by argparse's parse_args()).
+
+    Returns
+    -------
+        The command line namespace.
+    """
     parser = argparse.ArgumentParser(description='Utility for creating and '
-                                                 'managing KVM virtual machines '
-                                                 'on an OCI instance.',
-                                                 add_help=False)
+                                                 'managing KVM virtual '
+                                                 'machines on an OCI '
+                                                 'instance.',
+                                     add_help=False)
     subparser = parser.add_subparsers(dest='mode')
     create_parser = subparser.add_parser(_create,
                                          help='Create a new virtual machine')
     destroy_parser = subparser.add_parser(_destroy,
-                                          help='Destroy an existing virtual machine')
+                                          help='Destroy an existing virtual '
+                                               'machine')
+    create_pool_parser = subparser.add_parser(_create_pool,
+                                              help='Create a filesystem storage pool')
     create_parser.add_argument('-d', '--disk', action='store', type=str,
                                help='Path to the root disk of the VM')
+    create_parser.add_argument('-p', '--pool', action='store', type=str,
+                               help='Name a of storage pool to be used for root disk')
+    create_parser.add_argument('-s', '--disk-size', action='store', type=_disk_size_in_gb,
+                               help='Size of the disk in GB to be created when using storage pool')
     create_parser.add_argument('-n', '--net', action='store', type=str,
-                               help='IP of the VNIC that should be attached to the VM')
+                               help='IP or name of the VNIC that should be attached '
+                                    'to the VM')
     create_parser.add_argument('-D', '--domain', action='store', type=str,
                                help='Name of the virtual machine',
                                required=True)
     create_parser.add_argument('-V', '--virt', nargs=argparse.REMAINDER,
-                               help='Additional arguments to provide to virt-install.  All arguments that appear after this one will be passed unmodified into virt-install, even if they are arguments that oci-kvm would otherwise understand.',
+                               help='Additional arguments to provide to '
+                                    'virt-install.  All arguments that appear '
+                                    'after this one will be passed unmodified '
+                                    'into virt-install, even if they are '
+                                    'arguments that oci-kvm would otherwise '
+                                    'understand.',
                                required=True)
 
     destroy_parser.add_argument('-D', '--domain', action='store', type=str,
                                 help='Name of the virtual machine',
                                 required=True)
 
+    create_pool_parser.add_argument('-d', '--disk', action='store', type=str,
+                                    help='Path to the root disk of the storage pool')
+    create_pool_parser.add_argument('-n', '--name', action='store', type=str,
+                                    help='name of the pool, default is <disk>', required=False)
+
+    parser.add_argument('--help', action='help',
+                        help='Display this help')
+
     return parser.parse_args()
 
+
 def create_vm(args):
-    return oci_utils.kvm.virt.create(args.domain, args.disk, args.net, args.virt)
+    """
+    Create a KVM virtual machine.
+
+    Parameters
+    ----------
+    args : namespace
+        The command line namespace.
+
+    Returns
+    -------
+        int
+            The return value provided by the kvm virtual machine create
+            call, 0 on success, 1 otherwise.
+    """
+    if '--network' in args.virt:
+        sys.stderr.write(
+            "--network is not a supported option. Please retry without "
+            "--network option.\n")
+        return 1
+    return oci_utils.kvm.virt.create(name=args.domain,
+                                     root_disk=args.disk,
+                                     pool=args.pool,
+                                     disk_size=args.disk_size,
+                                     network=args.net, extra_args=args.virt)
+
 
 def destroy_vm(args):
-    oci_utils.kvm.virt.destroy(args.domain)
-    return 0
+    """
+    Destroys a KVM virtual machine.
+
+    Parameters
+    ----------
+    args :
+        The command line namespace.
+
+    Returns
+    -------
+        int
+            The return value provided by the kvm virtual machine destroy
+            call, 0 on success, 1 otherwise.
+    """
+    return oci_utils.kvm.virt.destroy(args.domain)
+
+
+def _create_pool_vm(args):
+    """
+    create a filesystem pool
+
+    Parameters
+    ----------
+    args :
+        dict as the one returned by argparse.ArgumentParser().parse_args()
+
+    Returns
+    -------
+        int
+            The return value provided by the kvm storage pool create
+            call, 0 on success, 1 otherwise.
+    """
+    _pool_name = args.name
+    if not args.name:
+        _, _pool_name = os.path.split(args.disk)
+    return oci_utils.kvm.virt.create_fs_pool(args.disk, _pool_name)
+
 
 def main():
-    '''
-    Main program.
-    '''
-    subcommands = {_create: create_vm, _destroy: destroy_vm}
+    """
+    Main
+
+    Returns
+    -------
+        int
+            0 on success, 1 otherwise.
+    """
+    subcommands = {_create: create_vm, _destroy: destroy_vm, _create_pool: _create_pool_vm}
 
     args = parse_args()
-
+    if args.mode == _create:
+        if args.disk and args.pool:
+            print >> sys.stderr, "--disk and --pool option are exclusive"
+            return 1
+        if args.pool and not args.disk_size:
+            print >> sys.stderr, "must specify a disk size"
+            return 1
     return subcommands[args.mode](args)
 
-sys.exit(main())
+
+if __name__ == "__main__":
+    sys.exit(main())

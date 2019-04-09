@@ -1409,7 +1409,7 @@ if [ -n "$config" ]; then
     [ -z "$show" ] || oci_vcn_read && oci_vcn_exclude -q # reread if show
 elif [ -n "$deconfig" ]; then
     if [ ${#SEC_ADDRS[@]} -gt 0 ]; then # just deconfig addrs
-        oci_vcn_config_or_deconfig_sec_addrs >/dev/null
+        oci_vcn_config_or_deconfig_sec_addrs 
     else # deconfig all
         oci_vcn_deconfig_all
     fi

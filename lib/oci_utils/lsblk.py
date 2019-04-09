@@ -2,60 +2,61 @@
 
 # oci-utils
 #
-# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
-# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown
+# at http://oss.oracle.com/licenses/upl.
 
-"""
-Python wrapper around lsblk
+""" Python wrapper around lsblk.
 """
 
-import os
-import socket
-import subprocess
 import logging
+import os
 import re
+import subprocess
 
-__lsblk_logger = logging.getLogger('lsblk')
-__lsblk_logger.setLevel(logging.INFO)
-__handler = logging.StreamHandler()
-__lsblk_logger.addHandler(__handler)
+__lsblk_logger = logging.getLogger('oci-utils.lsblk')
 
-def set_logger(logger):
-    global __lsblk_logger
-    __lsblk_logger = logger
+_LSBLK_PATTERN = re.compile(
+    r'^NAME="([^"]*)" FSTYPE="([^"]*)" MOUNTPOINT="([^"]*)" '
+    r'SIZE="([^"]*)" PKNAME="([^"]*)"')
+
 
 def list():
     """
-    run lsblk, return a dict representing the scsi devices:
-    {device:
-        {'mountpoint':mountpoint,
-         'fstype':fstype,
-         'size':size,
-         'partitions':
-               {device1:
-                   {'mountpoint':mountpoint1,
-                    'fstype':fstype1,
-                    'size':size1}
-                device2:     
-                   {'mountpoint':mountpoint2,
-                    'fstype':fstype2,
-                    'size':size2}
-                ...
-               }
-        }
-    }    
+    Run lsblk, list block devices.
+
+    Returns
+    -------
+        dict
+            A dict representing the scsi devices:
+            {device:
+                {'mountpoint':mountpoint,
+                 'fstype':fstype,
+                 'size':size,
+                 'partitions':
+                  {device1:
+                       {'mountpoint':mountpoint1,
+                        'fstype':fstype1,
+                        'size':size1}
+                   device2:
+                       {'mountpoint':mountpoint2,
+                        'fstype':fstype2,
+                        'size':size2}
+                    ...
+                  }
+                }
+            }
     """
     try:
-        DEVNULL = open(os.devnull, 'w')
-        output = subprocess.check_output(['/bin/lsblk',
-                                          '-S','-P', '-n',
-                                          '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME'],
-                                         stderr=DEVNULL)
+        with open(os.devnull, 'w') as DEVNULL:
+            output = subprocess.check_output(
+                ['/bin/lsblk', '-S', '--pairs', '--noheadings',
+                 '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME'], stderr=DEVNULL)
         devices = {}
-        pattern = re.compile(r'^NAME="([^"]*)" FSTYPE="([^"]*)" MOUNTPOINT="([^"]*)" SIZE="([^"]*)" PKNAME="([^"]*)"')
+
         for line in output.split('\n'):
-            match = pattern.match(line.strip())
-            if (match):
+            match = _LSBLK_PATTERN.match(line.strip())
+            if match:
                 dev = match.group(1)
                 devdict = {}
                 devdict['fstype'] = match.group(2)
@@ -65,11 +66,12 @@ def list():
                 if len(pkname) != 0:
                     if pkname not in devices:
                         devices[pkname] = {}
-                    if not 'partitions' in devices[pkname]:
+                    if 'partitions' not in devices[pkname]:
                         devices[pkname]['partitions'] = {}
                     devices[pkname]['partitions'][dev] = devdict
                 else:
                     devices[dev] = devdict
         return devices
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError:
+        __lsblk_logger.exception('error running lsblk')
         return {}

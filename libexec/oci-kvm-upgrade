@@ -2,59 +2,60 @@
 
 # oci-utils
 #
-# Copyright (c) 2017, 2018 Oracle and/or its affiliates. All rights reserved.
-# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown
+# at http://oss.oracle.com/licenses/upl.
 
 """
 Oracle Cloud Infrastructure utilities - one shot service that configures
-networking for virtual machines
+networking for virtual machines.
 """
 
-import os
-import sys
-import time
 import argparse
 import logging
-from logging.handlers import SysLogHandler
+import os
+import sys
+
 import oci_utils
 import oci_utils.kvm.nic
 import oci_utils.kvm.virt
 
-__logger = logging.getLogger('oci-upgrade')
-__log_level = logging.INFO
+__logger = logging.getLogger('oci-utils.oci-upgrade')
 
-def setup_logging(syslog=False):
-    global __logger
-    global __log_level
-    if syslog:
-        handler = SysLogHandler(address='/dev/log',
-                                facility=SysLogHandler.LOG_DAEMON)
-    else:
-        handler = logging.StreamHandler(stream=sys.stderr)
-    handler.setLevel(__log_level)
-    formatter = logging.Formatter('%(name)s - %(levelname)s '
-                                  '- %(message)s')
-    handler.setFormatter(formatter)
-    __logger.setLevel(__log_level)
-    __logger.addHandler(handler)
 
 def parse_args():
-    '''
+    """
     Parse the command line arguments and return an object representing the
     command line (as returned by argparse's parse_args())
-    '''
+
+    Returns
+    -------
+        The parsed command line object.
+    """
+
     parser = argparse.ArgumentParser(description='oci-utils daemon')
     parser.add_argument('--debug', action='store_true',
                         help='display diagnostic output'),
 
-    args = parser.parse_args()
-    return args
+    those_arguments = parser.parse_args()
+    return those_arguments
+
 
 def upgrade_v2_domains():
-    config = oci_utils.kvm.sysconfig.read_network_config()
-    domains = oci_utils.kvm.virt.get_domains_no_libvirtd()
-    domain_xml = {d: oci_utils.kvm.virt.get_domain_xml_no_libvirtd(d) for d in domains}
-    domain_interfaces = {d: oci_utils.kvm.virt.get_interfaces_from_domain(domain_xml[d]) for d in domains}
+    """
+    Upgrade a kvm v2 domain.
+
+    Returns
+    -------
+        No return value.
+    """
+    config = oci_utils.impl.virt.sysconfig.read_network_config()
+    domains = oci_utils.impl.virt.virt_utils.get_domains_no_libvirtd()
+    domain_xml = {d: oci_utils.impl.virt.virt_utils.get_domain_xml_no_libvirtd(d)
+                  for d in domains}
+    domain_interfaces = \
+        {d: oci_utils.impl.virt.virt_utils.get_interfaces_from_domain(domain_xml[d])
+         for d in domains}
 
     targets = []
     for d, ifaces in domain_interfaces.iteritems():
@@ -77,7 +78,7 @@ def upgrade_v2_domains():
 
         # Check if this is a macvlan interface
         if mac in targets:
-            n, c = oci_utils.kvm.sysconfig.make_vf(name, mac)
+            n, c = oci_utils.impl.virt.sysconfig.make_vf(name, mac)
             new_config[n] = c
             to_remove.append(name)
             continue
@@ -85,29 +86,33 @@ def upgrade_v2_domains():
         # Check if this is a vlan interface
         if name in targets:
             parent, vlan_id = name.split('.')
-            n, c = oci_utils.kvm.sysconfig.make_vlan(parent, vlan_id, config[parent]['MACADDR'])
+            n, c = oci_utils.impl.virt.sysconfig.make_vlan(parent, vlan_id,
+                                                     config[parent]['MACADDR'])
             new_config[n] = c
             to_remove.append(name)
 
-    oci_utils.kvm.sysconfig.write_network_config(new_config)
-    oci_utils.kvm.sysconfig.delete_network_config(to_remove)
+    oci_utils.impl.virt.sysconfig.write_network_config(new_config)
+    oci_utils.impl.virt.sysconfig.delete_network_config(to_remove)
 
 
-def main(args):
+def main():
     """
     Main program
+
+    Returns
+    -------
+        int
+            0
     """
+
+    if os.geteuid() != 0:
+        sys.stderr.write("This program must be run as root.\n")
+        sys.exit(1)
+
+
     upgrade_v2_domains()
     return 0
 
-if os.geteuid() != 0:
-    sys.stderr.write("This program must be run as root.\n")
-    sys.exit(1)
 
-args = parse_args()
-
-if args.debug:
-    __log_level = logging.DEBUG
-
-setup_logging(syslog=False)
-sys.exit(main(args))
+if __name__ == "__main__":
+    sys.exit(main())
