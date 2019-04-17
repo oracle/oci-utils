@@ -142,8 +142,8 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
     """
     configured = sysconfig.read_network_config()
     ifaces = nic.get_interfaces()
-    virt_fns = ifaces[phys].get('virtfns', {})
-    vfs = {virt_fns[v]['mac']: (virt_fns[v]['pciId'], v) for v in virt_fns}
+    virt_fns = ifaces[phys].get('virt_fns', {})
+    vfs = {virt_fns[v]['mac']: (virt_fns[v]['pci_id'], v) for v in virt_fns}
 
     # First, remove entries where the mac address is configured via sysconfig
     for c in configured:
@@ -605,6 +605,55 @@ def destroy(name):
     destroy_domain_vlan(name)
 
     return subprocess.call([SUDO_CMD, VIRSH_CMD, 'undefine', name])
+
+
+def create_netfs_pool(netfs_server, resource_path, name):
+    """
+    Create a libvirt netfs based storage pool.
+    The target of the newly created pool is /oci-<pool name>
+
+    Parameters
+    ----------
+        netfs_server : str
+            IP or hostname of the netFS server
+        resource_path : str
+            the resource path
+    Returns
+    -------
+        int
+            return 0 on success, 1 otherwise
+    """
+    poolXML = Element('pool', type='netfs')
+    pname = SubElement(poolXML, 'name')
+    pname.text = name
+    psource = SubElement(poolXML, 'source')
+    SubElement(psource, 'host', name=netfs_server)
+    SubElement(psource, 'dir', path=resource_path)
+    SubElement(psource, 'format', type='nfs')
+    ptarget = SubElement(poolXML, 'target')
+    ppath = SubElement(ptarget, 'path')
+    ppath.text = '/oci-%s' % name
+
+    conn = libvirt.open(None)
+    if conn is None:
+        print_error('Failed to open connection to qemu:///system')
+        return 1
+
+    pool = conn.storagePoolDefineXML(ElementTree.tostring(poolXML), 0)
+    if pool is None:
+        print_error('Failed to create StoragePool object.')
+        return 1
+    try:
+        pool.setAutostart(1)
+        pool.build()
+        pool.create()
+    except libvirt.libvirtError, e:
+        pool.undefine()
+        print_error('Failed to setup the pool: %s' % e.get_error_message())
+        return 1
+    finally:
+        conn.close()
+    return 0
 
 
 def create_fs_pool(disk, name):
