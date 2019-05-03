@@ -179,7 +179,6 @@ def main():
     args = parse_args()
 
 
-
     if args.mode == _create:
         if args.disk and args.pool:
             print >> sys.stderr, "--disk and --pool option are exclusive"
