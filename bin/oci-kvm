@@ -16,6 +16,7 @@ import argparse
 import sys
 import os
 import os.path
+import libvirt
 import oci_utils.kvm.virt
 
 _create = 'create'
@@ -82,6 +83,10 @@ def parse_args():
 
     create_pool_parser.add_argument('-d', '--disk', action='store', type=str,
                                     help='Path to the root disk of the storage pool')
+    create_pool_parser.add_argument('-N', '--netfshost', action='store', type=str,
+                                    help='name or IP of the NFS server')
+    create_pool_parser.add_argument('-p', '--path', action='store', type=str,
+                                    help='path of the NETFS resource')
     create_pool_parser.add_argument('-n', '--name', action='store', type=str,
                                     help='name of the pool, default is <disk>', required=False)
 
@@ -154,7 +159,10 @@ def _create_pool_vm(args):
     _pool_name = args.name
     if not args.name:
         _, _pool_name = os.path.split(args.disk)
-    return oci_utils.kvm.virt.create_fs_pool(args.disk, _pool_name)
+    if args.disk:
+        return oci_utils.kvm.virt.create_fs_pool(args.disk, _pool_name)
+    if args.netfshost:
+        return oci_utils.kvm.virt.create_netfs_pool(args.netfshost, args.path, _pool_name)
 
 
 def main():
@@ -169,6 +177,8 @@ def main():
     subcommands = {_create: create_vm, _destroy: destroy_vm, _create_pool: _create_pool_vm}
 
     args = parse_args()
+
+
     if args.mode == _create:
         if args.disk and args.pool:
             print >> sys.stderr, "--disk and --pool option are exclusive"
@@ -176,6 +186,26 @@ def main():
         if args.pool and not args.disk_size:
             print >> sys.stderr, "must specify a disk size"
             return 1
+
+    if args.mode == _create_pool:
+        # check storagre pool nam unicity
+        conn = libvirt.open(None)
+        _sps = []
+        if conn:
+            _sps = [sp for sp in conn.listAllStoragePools() if sp.name() == args.name]
+            conn.close()
+
+        if len(_sps) != 0:
+            print >> sys.stderr, "Storage pool with name [%s] already exists" % args.name
+            return 1
+
+        if args.disk and args.netfshost:
+            print >> sys.stderr, "--disk and --host option are exclusive"
+            return 1
+        if args.netfshost and not args.path:
+            print >> sys.stderr, "must specify the remote resource path with the --path option"
+            return 1
+
     return subcommands[args.mode](args)
 
 
