@@ -15,8 +15,7 @@ oci-kvm \- install and remove KVM guests on Oracle Cloud Infrastructure instance
 .I IP
 .B ]  [-p|--pool
 .I POOL
-.B
-]  [-s|--disk-size
+.B ]  [-s|--disk-size
 .I DISK_SIZE
 .B ] -V|--virt
 .I VIRT-INSTALL_ARGS
@@ -24,11 +23,14 @@ oci-kvm \- install and remove KVM guests on Oracle Cloud Infrastructure instance
 .B oci-kvm destroy -D|--domain
 .I NAME
 
-.B oci-kvm create-pool [-d|--disk
-.I DEVICE] | [-N|--netfshost
-.I HOST -p|--path
-.I PATH] -n|--name
+.B oci-kvm create-pool  -n|--name
 .I NAME
+.B (-d
+.I DEVICE
+.B  | -N
+.I HOST
+.B -p
+.I PATH)
 
 .SH DESCRIPTION
 The
