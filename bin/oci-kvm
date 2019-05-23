@@ -80,7 +80,8 @@ def parse_args():
     destroy_parser.add_argument('-D', '--domain', action='store', type=str,
                                 help='Name of the virtual machine',
                                 required=True)
-
+    destroy_parser.add_argument('--destroy-disks', action='store_true',
+                                help='Also delete storage pool based disks')
     create_pool_parser.add_argument('-d', '--disk', action='store', type=str,
                                     help='Path to the root disk of the storage pool')
     create_pool_parser.add_argument('-N', '--netfshost', action='store', type=str,
@@ -138,7 +139,7 @@ def destroy_vm(args):
             The return value provided by the kvm virtual machine destroy
             call, 0 on success, 1 otherwise.
     """
-    return oci_utils.kvm.virt.destroy(args.domain)
+    return oci_utils.kvm.virt.destroy(args.domain, args.destroy_disks)
 
 
 def _create_pool_vm(args):

@@ -11,6 +11,7 @@
 
 import subprocess
 import time
+import logging
 import libvirt
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element
@@ -23,6 +24,7 @@ from ..impl.network_helpers import get_interfaces
 from ..impl.virt import sysconfig, virt_check, virt_utils
 from ..metadata import InstanceMetadata
 
+_logger = logging.getLogger('oci-utils.kvm.virt')
 
 def _print_available_vnics(vnics):
     """
@@ -571,7 +573,7 @@ def create(**kargs):
     return 0
 
 
-def destroy(name):
+def destroy(name, delete_disks):
     """
     Destroys a libvirt domain by name, and de-allocates any assigned resources.
 
@@ -579,7 +581,8 @@ def destroy(name):
     ----------
         name : str
             The domain name.
-
+        delete_disks : bool
+            Do we also delette to storage pool based disks ?
     Returns
     -------
         int
@@ -603,6 +606,25 @@ def destroy(name):
         return 1
 
     destroy_domain_vlan(name)
+    if delete_disks:
+        _logger.debug('looking for used libvirt volume')
+        conn = libvirt.open(None)
+        dom = conn.lookupByName(name)
+        domXML=ElementTree.fromstring(dom.XMLDesc(0))
+
+        for disk in domXML.findall('devices')[0].findall('disk'):
+            file_as_source =  disk.findall('source')[0].get('file')
+            if file_as_source:
+                _vol = virt_utils.find_storage_pool_volume_by_path(conn, file_as_source)
+                if _vol:
+                    _logger.debug('libvirt volume found [%s]' % _vol.name())
+                    try:
+                        _vol.wipe(0)
+                        _vol.delete(0)
+                        _logger.debug('libvirt volume deleted')
+                    except libvirt.libvirtError, e:
+                        _logger.error('Cannot delete volume [%s]: %s' % (_vol.name(),str(e)))
+        conn.close()
 
     return subprocess.call([SUDO_CMD, VIRSH_CMD, 'undefine', name])
 
