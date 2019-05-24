@@ -13,16 +13,29 @@ oci-kvm \- install and remove KVM guests on Oracle Cloud Infrastructure instance
 .I DISK_PATH
 .B ] [-n|--net
 .I IP
+.B ]  [-p|--pool
+.I POOL
+.B ]  [-s|--disk-size
+.I DISK_SIZE
 .B ] -V|--virt
 .I VIRT-INSTALL_ARGS
 
 .B oci-kvm destroy -D|--domain
 .I NAME
 
+.B oci-kvm create-pool  -n|--name
+.I NAME
+.B {-d
+.I DEVICE
+.B |-N
+.I HOST
+.B -p
+.I PATH}
+
 .SH DESCRIPTION
 The
 .B oci-kvm
-utility is used to create and configure KVM guests on Oracle Cloud Infrastructure 
+utility is used to create and configure KVM guests on Oracle Cloud Infrastructure
 instances that use Oracle Cloud Infrastructure resources, such as block storage and networking, directly.  It
 automates all steps of the guest creation process while also ensuring that Oracle Cloud Infrastructure resources
 have not been assigned to more than one KVM guest.  When a guest has outlived
@@ -34,10 +47,14 @@ The
 subcommand performs all actions required to create a KVM guest that uses Oracle Cloud Infrastructure Block
 Storage and Oracle Cloud Infrastructure VNICs for the root disk and network interface respectively.  For block
 storage, the device itself is validated and checked to ensure it has not been assigned
-to another guest.  For virtual network interfaces, all virtual network infrastructure
+to another guest. A storage pool can also be used. For virtual network interfaces, all virtual network infrastructure
 is created automatically.  This includes virtual functions, VLANs, etc.  Indiviual
 block storage devices and VNICs are required for each guest.  Guests cannot share
 either a VNIC or a block storage device.
+
+The
+.B oci-kvm create-pool
+subcommand creates a storage pool to host guest virtual disks. Pools can be created upon local disk, block storage of FSS space.
 
 When the oci-utils-kvm is installed, it changes the configuration of
 .BR ocid(8)
@@ -58,11 +75,39 @@ and
 .B destroy
 subcommands, operate on the given libvirt domain name.
 .IP "-d DISK_PATH, --disk DISK_PATH"
-The path to the block device that will be the root device for the new guest.  If this
-option is not specified, an unused block device will be chosen arbitrarily.
+For the
+.B create
+command, the path to the block device that will be the root device for the new guest.  If this
+option is not specified, an unused block device will be chosen arbitrarily. This option is exclusive with --pool.
+.br
+For the
+.B create-pool
+command, the block device that will be used to build the storage pool.
+.IP "-n NAME, --name NAME"
+For the
+.B create-pool
+command, the name of the pool. When not specified, the default name is the chosen disk name
 .IP "-n IP, --net IP"
-The IP address of the Oracle Cloud Infrastructure VNIC that should be assigned to the new guest.  If this
+On bare metal instance host, the IP address of the Oracle Cloud Infrastructure VNIC that should be assigned to the new guest.
+On virtual machine instance host the name of the Oracle Cloud Infrastructure VNIC. If this
 option is not specified, an unused VNIC will be chosen arbitrarily.
+.IP "-N HOST, --netfshost HOST"
+For the
+.B create-pool
+name or IP of the NFS server
+.IP "-p PATH, --path PATH"
+For the
+.B create-pool
+path of the NETFS resource.
+
+.IP "-p POOL, --pool POOL"
+The name of the pool to be used to create virtual disk.
+When used, the disk size must be also specified. To get the list of pool available on the host, use
+the following command
+.B /usr/bin/virsh pool-list.
+This option is exclusive with --disk.
+.IP "-s DISK_SIZE, --disk-size DISK_SIZE"
+The size of the disk in GB  to be created within the given storage pool. This option is mandatory when the --pool option is specified
 .IP "-V VIRT-INSTALL_ARGS, --virt VIRT-INSTALL_ARGS"
 Each argument that appears after either -V or --virt is passed into virt-install when
 this tool executes that command.
@@ -71,6 +116,23 @@ this tool executes that command.
 --hvm, --name, --cpu, --disk, --network.
 .IP --help
 
+.SH EXAMPLES
+
+oci-kvm create-pool --disk /dev/sdb
+.RS 3
+Creates a storage pool on disk /dev/sdb. Name of the pool will be
+.I sdb
+.RE
+
+oci-kvm create-pool --netfshost 100.100.231.9 --path /FileSystem-20190405-1454 --name guest_pool
+.RS 3
+Creates a storage pool on NFS resource FileSystem-20190405-1454 on NFS server 100.100.231.9.
+.RE
+
+oci-kvm create --disk-size 128 --pool guest_pool --net 10.0.0.64 -D foo  --virt --cpu 1 --memory 8g --pxe
+.RS 3
+Creates a guest with a root disk of 128GB on storage pool named foo
+.RE
 .SH DIAGNOSTICS
 Return an exit status of 0 for success or 1 if an error occured.
 
