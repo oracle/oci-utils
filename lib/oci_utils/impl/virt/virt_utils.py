@@ -14,7 +14,8 @@ from .. import sudo_utils
 from ..network_helpers import get_interfaces
 
 __all__ = ['get_domains_name', 'get_domain_state', 'get_domain_xml',
-           'get_interfaces_from_domain', 'get_disks_from_domain', 'get_domains_no_libvirtd', 'get_domain_xml_no_libvirtd']
+           'get_interfaces_from_domain', 'get_disks_from_domain', 'get_domains_no_libvirtd', 'get_domain_xml_no_libvirtd',
+           'find_storage_pool_volume_by_path']
 
 
 def get_domains_name():
@@ -294,3 +295,20 @@ def get_domain_xml_no_libvirtd(domain):
         return None
 
 
+def find_storage_pool_volume_by_path (conn, path):
+    """
+    find a libvirt Storage pool volume by path
+    parameters
+    ----------
+      conn : libvirt.virConnect
+            an active connection to hypervisor
+      path : str
+            volume path
+    Returns:
+        an instance of libvirt.virStorageVol or None if not found
+    """
+    for pool in conn.listAllStoragePools():
+        for volume in pool.listAllVolumes():
+            if volume.path() == path:
+                return volume
+    return None

@@ -22,6 +22,7 @@ oci-kvm \- install and remove KVM guests on Oracle Cloud Infrastructure instance
 
 .B oci-kvm destroy -D|--domain
 .I NAME
+.B [--destroy-disks]
 
 .B oci-kvm create-pool  -n|--name
 .I NAME
@@ -68,6 +69,8 @@ to stop automatically configuring VNICs and instead leaving them for the kvm
 tools to manage.
 
 .SH OPTIONS
+.IP "--destroy-disks"
+For the destroy command, specify that all disks based on libvirt storage pool must alos be deleted
 .IP "-D NAME, --domain NAME"
 For both the
 .B create
