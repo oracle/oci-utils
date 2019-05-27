@@ -16,15 +16,25 @@ import libvirt
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element
 from xml.etree.ElementTree import SubElement
+import logging
+import StringIO
 
 from . import nic
 from ..impl import IP_CMD, SUDO_CMD, PARTED_CMD, MK_XFS_CMD, print_choices, print_error, VIRSH_CMD
 from ..impl import sudo_utils
 from ..impl.network_helpers import get_interfaces
+from ..impl.network_helpers import add_route_table
+from ..impl.network_helpers import delete_route_table
+from ..impl.network_helpers import add_static_ip_route, remove_static_ip_routes
+from ..impl.network_helpers import add_static_ip_rule, remove_static_ip_rules
+from ..impl.network_helpers import add_firewall_rule, remove_firewall_rule
 from ..impl.virt import sysconfig, virt_check, virt_utils
 from ..metadata import InstanceMetadata
 
 _logger = logging.getLogger('oci-utils.kvm.virt')
+
+_logger = logging.getLogger('oci-utils.kvm.virt')
+
 
 def _print_available_vnics(vnics):
     """
@@ -320,7 +330,7 @@ def test_vnic_and_assign_vf(ip_addr, free_vnics):
     return vnic, vf_pci_id, vf_num
 
 
-def create_networking(vf_device, vlan, mac):
+def create_networking(vf_device, vlan, mac, ip=None, prefix=None):
     """
     Create a networking device.
 
@@ -332,13 +342,19 @@ def create_networking(vf_device, vlan, mac):
         The VLAN name.
     mac : str
         The MAC address.
-
+    ip : str (optional)
+       the IP to eb set on the new intf
+    prefix : int
+       the prefix used to compute ip netmask
     Returns
     -------
         The return value from starting the networking interface.
     """
     vf_cfg = sysconfig.make_vf(vf_device, mac)
-    vlan_cfg = sysconfig.make_vlan(vf_device, vlan, mac)
+    if ip and prefix:
+        vlan_cfg = sysconfig.make_vlan_with_ip(vf_device, vlan, mac, ip, prefix)
+    else:
+        vlan_cfg = sysconfig.make_vlan(vf_device, vlan, mac)
 
     cfg = {vf_cfg[0]: vf_cfg[1],
            vlan_cfg[0]: vlan_cfg[1]
@@ -454,6 +470,8 @@ def create(**kargs):
                 root disk size in GB
             network : str
              The ip address or VNIC name
+            virtual_network : str
+              Name of libvirt virtual network (has precedence over 'network')
             extra_args : list()
              Extra options.
 
@@ -488,66 +506,68 @@ def create(**kargs):
             '--cpu', 'host',
             '--disk', _disk_virt_install_args]
 
-    vnics = InstanceMetadata()['vnics']
-
-    interfaces = get_interfaces()
-
-    if _is_bm_shape:
-        free_vnics = find_free_vnics(vnics, interfaces)
-        if not kargs['network']:
-            try:
-                free_vnic_ip_addr = free_vnics.pop()
-            except KeyError:
-                _print_available_vnics(free_vnics)
-                return 1
-        else:
-            free_vnic_ip_addr = kargs['network']
-            print "Assigned IP address {}".format(free_vnic_ip_addr)
-
-        vnic, vf, vf_num = test_vnic_and_assign_vf(free_vnic_ip_addr, free_vnics)
-        if not vnic:
-            return 1
-
-        vf_dev = get_interface_by_pci_id(vf, interfaces)
-        if not create_networking(vf_dev, vnic['vlanTag'], vnic['macAddr']):
-            destroy_networking(vf_dev, vnic['vlanTag'])
-            return 1
-        args.append('--hvm')
+    if kargs['virtual_network']:
         args.append('--network')
-        args.append('type=direct,source={}.{},source_mode=passthrough,mac={},'
-                    'model=e1000'.format(
-                        vf_dev, vnic['vlanTag'], vnic['macAddr']))
+        args.append('network=%s,model=e1000' % kargs['virtual_network'])
     else:
-        # VM shape case
-        if kargs['network']:
-            args.append('--network')
-            args.append('type=direct,model=virtio,source=%s' % kargs['network'])
-        else:
-            # have to find one free interface. i.e not already used by a guest
-            # and not the primary one. the VNICs returned by metadata service is sorted list
-            # i.e the first one is the primary VNICs
-            domains_nics = _get_intf_used_by_guest()
-            intf_to_use = None
-            for intf_name, intf_info in interfaces.iteritems():
-                # skip non physical intf
-                if not intf_info['physical']:
-                    continue
-                # if used by a guest, skip it
-                if intf_name in [m.values()[0] for m in domains_nics.values()]:
-                    continue
-                # if primary one (primary VNIC), skip it
-                if vnics[0]['macAddr'].upper() == intf_info['mac'].upper():
-                    continue
-                # we've found one
-                intf_to_use = intf_name
-                break
+        vnics = InstanceMetadata()['vnics']
+        interfaces = get_interfaces()
 
-            if not intf_to_use:
-                print_error('no free VNIC available')
+        if _is_bm_shape:
+            free_vnics = find_free_vnics(vnics, interfaces)
+            if not kargs['network']:
+                try:
+                    free_vnic_ip_addr = free_vnics.pop()
+                except KeyError:
+                    _print_available_vnics(free_vnics)
+                    return 1
+            else:
+                free_vnic_ip_addr = kargs['network']
+                print "Assigned IP address {}".format(free_vnic_ip_addr)
+
+            vnic, vf, vf_num = test_vnic_and_assign_vf(free_vnic_ip_addr, free_vnics)
+            if not vnic:
                 return 1
 
+            vf_dev = get_interface_by_pci_id(vf, interfaces)
+            if not create_networking(vf_dev, vnic['vlanTag'], vnic['macAddr']):
+                destroy_networking(vf_dev, vnic['vlanTag'])
+                return 1
+            args.append('--hvm')
             args.append('--network')
-            args.append('type=direct,model=virtio,source=%s' % intf_to_use)
+            args.append('type=direct,source={}.{},source_mode=passthrough,mac={},'
+                        'model=e1000'.format(vf_dev, vnic['vlanTag'], vnic['macAddr']))
+        else:
+            # VM shape case
+            if kargs['network']:
+                args.append('--network')
+                args.append('type=direct,model=virtio,source=%s' % kargs['network'])
+            else:
+                # have to find one free interface. i.e not already used by a guest
+                # and not the primary one. the VNICs returned by metadata service is sorted list
+                # i.e the first one is the primary VNICs
+                domains_nics = _get_intf_used_by_guest()
+                intf_to_use = None
+                for intf_name, intf_info in interfaces.iteritems():
+                    # skip non physical intf
+                    if not intf_info['physical']:
+                        continue
+                    # if used by a guest, skip it
+                    if intf_name in [m.values()[0] for m in domains_nics.values()]:
+                        continue
+                    # if primary one (primary VNIC), skip it
+                    if vnics[0]['macAddr'].upper() == intf_info['mac'].upper():
+                        continue
+                    # we've found one
+                    intf_to_use = intf_name
+                    break
+
+                if not intf_to_use:
+                    print_error('no free VNIC available')
+                    return 1
+
+                args.append('--network')
+                args.append('type=direct,model=virtio,source=%s' % intf_to_use)
 
     args.extend(kargs['extra_args'])
 
@@ -555,6 +575,8 @@ def create(**kargs):
         args.append('--noautoconsole')
         print "Autoconsole has been disabled. To view the console, issue "
         "'virsh console {}'".format(kargs['name'])
+
+    _logger.debug('create: executing [%s]' % ' '.join(args))
 
     dev_null = open('/dev/null', 'w')
     virt_install = subprocess.Popen(args, stdout=dev_null)
@@ -566,7 +588,7 @@ def create(**kargs):
             break
 
     if virt_install.returncode is not None and virt_install.returncode != 0:
-        if _is_bm_shape:
+        if _is_bm_shape and not kargs['virtual_network']:
             destroy_networking(vf_dev, vnic['vlanTag'])
         return 1
 
@@ -589,42 +611,80 @@ def destroy(name, delete_disks):
             1 if domain does not exist or is running.
             Return value form virsh undefine.
     """
-    state = virt_utils.get_domain_state(name)
-    if not state:
+
+    libvirtConn = libvirt.open(None)
+    if libvirtConn is None:
+        print_error('Failed to open connection to qemu:///system')
+        return 1
+    dom = None
+    try:
+        dom = libvirtConn.lookupByName(name)
+    except libvirt.libvirtError, e:
         domains = virt_utils.get_domains_name()
         print_error("Domain {} does not exist.", name)
         if len(domains):
             print_choices("Domains:", domains)
         else:
             print_error("No domains are defined.")
+        libvirtConn.close()
         return 1
-    elif state == "running":
+
+    # from here , domain exists
+    if dom.isActive():
         print_error(
             "Domain {} is running.  Only domains that are not running can be "
             "destroyed.",
             name)
+        libvirtConn.close()
         return 1
 
-    destroy_domain_vlan(name)
+    # check that domains is on libvirt network or not
+    # if so we have nothing to do about networking
+    # interface XML is like the following . locate the network and check
+    # if 'source' is of type network
+    # <interface type='network'>
+    #   <mac address='...'/>
+    #   <source network='xxx' bridge='xxx'/>
+    #   ...
+    # </interface>
+    _use_virtual_network = False
+    try:
+        raw_xml = ElementTree.fromstring(dom.XMLDesc())
+        all_devices = raw_xml.findall('devices')
+        # we expect only one 'devices' section
+        net_intfs = [intf for intf in all_devices[0].findall('interface') if intf.get('type') == 'network']
+        if len(net_intfs) > 0:
+            vnet = net_intfs[0].findall('source')[0].get('network')
+            if vnet:
+                _logger.debug('destroy: use of virtual network [%s] detected' % vnet)
+                _use_virtual_network = True
+    except libvirt.libvirtError, e:
+        print_error('Failed to get domain information: %s' % e.get_error_message())
+        libvirtConn.close()
+        return 1
+
+    if not _use_virtual_network:
+        _logger.debug('destroy: destroying network of domain')
+        destroy_domain_vlan(name)
+
     if delete_disks:
         _logger.debug('looking for used libvirt volume')
-        conn = libvirt.open(None)
-        dom = conn.lookupByName(name)
-        domXML=ElementTree.fromstring(dom.XMLDesc(0))
+        for device in raw_xml.findall('devices'):
+            for disk in device.findall('disk'):
+                for source in disk.findall('source'):
+                    file_as_source = source.get('file')
+                    if file_as_source:
+                       _vol = virt_utils.find_storage_pool_volume_by_path(libvirtConn, file_as_source)
+                       if _vol:
+                            _logger.debug('libvirt volume found [%s]' % _vol.name())
+                            try:
+                               _vol.wipe(0)
+                               _vol.delete(0)
+                               _logger.debug('libvirt volume deleted')
+                            except libvirt.libvirtError, e:
+                               _logger.error('Cannot delete volume [%s]: %s' % (_vol.name(), str(e)))
 
-        for disk in domXML.findall('devices')[0].findall('disk'):
-            file_as_source =  disk.findall('source')[0].get('file')
-            if file_as_source:
-                _vol = virt_utils.find_storage_pool_volume_by_path(conn, file_as_source)
-                if _vol:
-                    _logger.debug('libvirt volume found [%s]' % _vol.name())
-                    try:
-                        _vol.wipe(0)
-                        _vol.delete(0)
-                        _logger.debug('libvirt volume deleted')
-                    except libvirt.libvirtError, e:
-                        _logger.error('Cannot delete volume [%s]: %s' % (_vol.name(),str(e)))
-        conn.close()
+    libvirtConn.close()
 
     return subprocess.call([SUDO_CMD, VIRSH_CMD, 'undefine', name])
 
@@ -739,4 +799,307 @@ def create_fs_pool(disk, name):
         return 1
     finally:
         conn.close()
+    return 0
+
+
+def create_virtual_network(**kargs):
+    """
+    Creates a libvirt network on a secondary OCI vNIC
+
+    Parameters
+    ----------
+    kargs: dict
+      arguments
+         expected keys:
+            network : str
+              The ip address of the VNIC
+            vcn_cidr : str
+            the CIDR block of the VCN of the VNIC used to build the network on
+            network_name : str
+              The name for the new virtual network
+            ip_first :
+               The first IP of virtual network IP range
+            ip_start
+               The first IP of virtual network IP range dedicated to guest
+            ip_end
+               The last IP of virtual network IP range dedicated to guest
+            ip_prefix
+               The IP netmask of virtual network
+    Returns
+    -------
+        StringIO.StringIO()
+            An instance of StringIO populated with command lines which can be used to persist the network creation, None on failure
+    """
+
+    _persistence_script = StringIO.StringIO()
+    _persistence_script.write('#/bin/bash\n')
+
+    # get the given IP used to find vNIC to use
+    _vnic_ip_to_use = kargs['network']
+
+    _logger.debug('in create_virtual_network, given IP : %s ' % _vnic_ip_to_use)
+
+    # get all vNIC of the current system
+    _all_vnics = InstanceMetadata()['vnics']
+
+    # get all current system network interfaces
+    _all_system_interfaces = get_interfaces()
+
+    libvirtConn = libvirt.open(None)
+    if libvirtConn is None:
+        print_error('Failed to open connection to qemu:///system')
+        return None
+
+    free_vnics = find_free_vnics(_all_vnics, _all_system_interfaces)
+
+    # based on given PI adress, find free VF.
+    vnic, vf, vf_num = test_vnic_and_assign_vf(_vnic_ip_to_use, free_vnics)
+    if not vnic:
+        _logger.debug('choosen vNIC is not free')
+        return None
+    _logger.debug('ready to write network configuration for (%s, %s, %s)' % (vnic, vf, vf_num))
+
+    vf_dev = get_interface_by_pci_id(vf, _all_system_interfaces)
+    _logger.debug('vf device for %s: %s' % (vf, vf_dev))
+    if not create_networking(vf_dev,
+                             vnic['vlanTag'],
+                             vnic['macAddr'],
+                             vnic['privateIp'],
+                             int(vnic['subnetCidrBlock'].split('/')[1])):
+        print_error('cannot create networking')
+        destroy_networking(vf_dev, vnic['vlanTag'])
+        return None
+
+    _logger.debug('Networking succesfully created')
+
+    # define a routing table for the new VF.
+    _logger.debug('add new routing table [%s]' % vf_dev)
+    add_route_table(vf_dev)
+
+    # add routes and ip rules
+
+    # ip route add default via <secondary VNIC default gateway> dev <VF network device>.<VLAN tag> table <VF network device>
+    _persistence_script.write('# Add routes\n')
+    routing_cmd = ['default', 'via']
+    routing_cmd.append(vnic['virtualRouterIp'])
+    routing_cmd.append('dev')
+    routing_cmd.append('%s.%s' % (vf_dev, vnic['vlanTag']))
+    routing_cmd.append('table')
+    routing_cmd.append(vf_dev)
+    (_c, _msg) = add_static_ip_route(
+        script=_persistence_script,
+        device='%s.%s' % (vf_dev, vnic['vlanTag']), *routing_cmd)
+    if _c != 0:
+        print_error('Failed to set ip default route: %s' % _msg)
+        delete_route_table(vf_dev)
+        destroy_networking(vf_dev, vnic['vlanTag'])
+        return None
+
+    #  ip rule add from <secondary VNIC IP address> lookup <VF network device>
+    ip_rule_cmd = ['from']
+    ip_rule_cmd.append(vnic['privateIp'])
+    ip_rule_cmd.append('lookup')
+    ip_rule_cmd.append(vf_dev)
+    (_c, _msg) = add_static_ip_rule(script=_persistence_script,
+                                    device=vf_dev, *ip_rule_cmd)
+    if _c != 0:
+        print_error('Failed to set ip rule: %s' % _msg)
+        delete_route_table(vf_dev)
+        destroy_networking(vf_dev, vnic['vlanTag'])
+        return None
+
+    # define the libvirt network
+    netXML = Element('network')
+    SubElement(netXML, 'name').text = kargs['network_name']
+    SubElement(netXML, 'forward', dev='%s.%s' % (vf_dev, vnic['vlanTag']), mode='route')
+    SubElement(netXML, 'bridge', name='%s0' % kargs['network_name'], stp='on', delay='0')
+    ip = SubElement(netXML, 'ip', address=kargs['ip_first'], prefix=kargs['ip_prefix'])
+    dhcp = SubElement(ip, 'dhcp')
+    ip_range = SubElement(dhcp, 'range', start=kargs['ip_start'], end=kargs['ip_end'])
+
+    _logger.debug('defining network as [%s]' % ElementTree.tostring(netXML))
+
+    virtual_network = libvirtConn.networkDefineXML(ElementTree.tostring(netXML))
+    if virtual_network is None:
+        print_error('Failed to create virtual network')
+        delete_route_table(vf_dev)
+        destroy_networking(vf_dev, vnic['vlanTag'])
+        return None
+    _logger.debug('network defined')
+    try:
+        virtual_network.create()
+        _logger.debug('network created')
+    except libvirt.libvirtError, e:
+        virtual_network.undefine()
+        delete_route_table(vf_dev)
+        destroy_networking(vf_dev, vnic['vlanTag'])
+        print_error('Failed to setup the network: %s' % e.get_error_message())
+        return None
+    finally:
+        if libvirtConn:
+            libvirtConn.close()
+
+    _persistence_script.write('# Start the KVM network\n')
+    _persistence_script.write('/bin/virsh net-start --network %s\n' % kargs['network_name'])
+
+    # Add a route for the KVM network to the local routing table for the secondary VNIC
+    _persistence_script.write('# Add routes for KVM\n')
+    routing_cmd = [kargs['vcn_cidr']]
+    routing_cmd.append('dev')
+    routing_cmd.append('%s0' % kargs['network_name'])
+    routing_cmd.extend(['scope', 'link', 'proto', 'kernel', 'table'])
+    routing_cmd.append(vf_dev)
+    (_c, _msg) = add_static_ip_route(script=_persistence_script,
+                                     device='%s0' % kargs['network_name'], *routing_cmd)
+    if _c != 0:
+        print_error('Failed to set ip route: %s' % _msg)
+        delete_route_table(vf_dev)
+        destroy_networking(vf_dev, vnic['vlanTag'])
+        virtual_network.destroy()
+        virtual_network.undefine()
+        return None
+
+    # Add a routing rule for the KVM network to the routing table for the secondary VNIC
+    ip_rule_cmd = ['iif']
+    ip_rule_cmd.append('%s0' % kargs['network_name'])
+    ip_rule_cmd.append('lookup')
+    ip_rule_cmd.append(vf_dev)
+    (_c, _msg) = add_static_ip_rule(script=_persistence_script,
+                                    device=vf_dev, *ip_rule_cmd)
+    if _c != 0:
+        print_error('Failed to set ip rule: %s' % _msg)
+        delete_route_table(vf_dev)
+        destroy_networking(vf_dev, vnic['vlanTag'])
+        virtual_network.destroy()
+        virtual_network.undefine()
+        return None
+
+    ip_rule_cmd = ['oif']
+    ip_rule_cmd.append('%s0' % kargs['network_name'])
+    ip_rule_cmd.append('lookup')
+    ip_rule_cmd.append(vf_dev)
+    (_c, _msg) = add_static_ip_rule(script=_persistence_script,
+                                    device=vf_dev, *ip_rule_cmd)
+    if _c != 0:
+        print_error('Failed to set ip rule: %s' % _msg)
+        delete_route_table(vf_dev)
+        destroy_networking(vf_dev, vnic['vlanTag'])
+        virtual_network.destroy()
+        virtual_network.undefine()
+        return None
+
+    _logger.debug('add FW rules')
+    # Add firewall rules for the address space of the KVM network to allow address rewriting
+    _persistence_script.write('# Add firewall rules\n')
+    fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
+    fw_cmd.append('%s/%s' % (kargs['ip_first'], kargs['ip_prefix']))
+    fw_cmd.extend(['-d', '224.0.0.0/24', '-j', 'ACCEPT'])
+    (_c, _msg) = add_firewall_rule(script=_persistence_script, *fw_cmd)
+    if _c != 0:
+        print_error('Failed to set firewall rule [%s]' % _msg)
+        _logger.debug('Failed to execute [%s]' % ' '.join(fw_cmd))
+
+    fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
+    fw_cmd.append('%s/%s' % (kargs['ip_first'], kargs['ip_prefix']))
+    fw_cmd.extend(['-d', '255.255.255.255/32', '-j', 'ACCEPT'])
+    (_c, _msg) = add_firewall_rule(script=_persistence_script, *fw_cmd)
+    if _c != 0:
+        print_error('Failed to set firewall rule [%s]' % _msg)
+        _logger.debug('Failed to execute [%s]' % ' '.join(fw_cmd))
+
+    fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
+    fw_cmd.append('%s/%s' % (kargs['ip_first'], kargs['ip_prefix']))
+    fw_cmd.extend(['!', '-d', '%s/%s' % (kargs['ip_first'], kargs['ip_prefix']), '-j', 'MASQUERADE'])
+    (_c, _msg) = add_firewall_rule(script=_persistence_script, *fw_cmd)
+    if _c != 0:
+        print_error('Failed to set firewall rule [%s]' % _msg)
+        _logger.debug('Failed to execute [%s]' % ' '.join(fw_cmd))
+
+    return _persistence_script
+
+
+def delete_virtual_network(**kargs):
+    """
+    Deletes a libvirt network.
+
+    Parameters
+    ----------
+    kargs: dict
+      arguments
+         expected keys:
+            network_name : str
+              The name for the new virtual network
+    Returns
+    -------
+        int
+            0 on success, 1 otherwise.
+    """
+    libvirtConn = libvirt.open(None)
+    if libvirtConn is None:
+        print_error('Cannot find network named [%s]' % kargs['network_name'])
+        return 1
+    net = None
+    try:
+        net = libvirtConn.networkLookupByName(kargs['network_name'])
+    except libvirt.libvirtError:
+        print_error('Cannot find network named [%s]' % kargs['network_name'])
+        return 1
+
+    root = ElementTree.fromstring(net.XMLDesc())
+    _interface_elem = None
+    # we have only one element per iteration
+    for _f in root.findall('forward'):
+        for _i in _f.findall('interface'):
+            _interface_elem = _i
+    if _interface_elem is None:
+        print_error('Cannot find any interface in network XML description')
+        return 1
+
+    device_name = _interface_elem.get('dev')
+    if device_name is None:
+        print_error('Cannot find device information in interface node')
+        return 1
+
+    bridge_name = root.findall('bridge')[0].get('name')
+
+    ip_first = root.findall('ip')[0].get('address')
+    ip_prefix = root.findall('ip')[0].get('prefix')
+
+    (vf_dev, vlanTag) = device_name.split('.')
+
+    fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
+    fw_cmd.append('%s/%s' % (ip_first, ip_prefix))
+    fw_cmd.extend(['-d', '224.0.0.0/24', '-j', 'ACCEPT'])
+    remove_firewall_rule(*fw_cmd)
+
+    fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
+    fw_cmd.append('%s/%s' % (ip_first, ip_prefix))
+    fw_cmd.extend(['-d', '255.255.255.255/32', '-j', 'ACCEPT'])
+    remove_firewall_rule(*fw_cmd)
+
+    fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
+    fw_cmd.append('%s/%s' % (ip_first, ip_prefix))
+    fw_cmd.extend(['!', '-d', '%s/%s' % (ip_first, ip_prefix), '-j', 'MASQUERADE'])
+    remove_firewall_rule(*fw_cmd)
+
+    remove_static_ip_routes(bridge_name)
+    remove_static_ip_rules(vf_dev)
+    remove_static_ip_routes(device_name)
+
+    delete_route_table(vf_dev)
+
+    if net.isActive():
+        _logger.debug('stopping the virtual network')
+        net.destroy()
+
+    _logger.debug('unbdefining the virtual network')
+    net.undefine()
+
+    # do not needd that anymore
+    libvirtConn.close()
+
+    _logger.debug('destroying VF interfaces')
+    destroy_networking(vf_dev, vlanTag)
+
+    _logger.debug('Virtual network deleted')
     return 0

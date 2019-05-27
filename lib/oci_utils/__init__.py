@@ -96,5 +96,13 @@ def _set_proxy():
         pass
 
 
+def _setup_env():
+    """
+    protect ourself for sub process executions
+    """
+    os.environ['LC_ALL'] = 'C'
+
+
 _setup_logging()
 _set_proxy()
+_setup_env()
