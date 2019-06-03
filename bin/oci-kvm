@@ -60,9 +60,9 @@ def parse_args():
     create_pool_parser = subparser.add_parser(_create_pool,
                                               help='Create a filesystem storage pool')
     create_network_parser = subparser.add_parser(_create_network,
-                                                 help='Create a libvirt network on OCI vNIC')
+                                                 help='Create a libvirt network on an OCI vNIC')
     delete_network_parser = subparser.add_parser(_delete_network,
-                                                 help='Delete a libvirt network on OCI vNIC')
+                                                 help='Delete a libvirt network on an OCI vNIC')
 
     create_parser.add_argument('-d', '--disk', action='store', type=str,
                                help='Path to the root disk of the VM')
