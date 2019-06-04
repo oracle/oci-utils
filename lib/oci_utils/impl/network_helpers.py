@@ -11,12 +11,24 @@ import os
 import socket
 import subprocess
 import logging
+import shutil
+from socket import inet_ntoa
+from struct import pack
+import re
 
-__all__ = ['get_interfaces']
+__all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route_table',
+           'network_prefix_to_mask',
+           'add_static_ip_route',
+           'add_static_ip_rule',
+           'add_firewall_rule',
+           'remove_firewall_rule',
+           'remove_static_ip_routes',
+           'remove_static_ip_rules']
 
 _CLASS_NET_DIR = '/sys/class/net'
 
 _logger = logging.getLogger('oci-utils.net-helper')
+
 
 def get_interfaces():
     """
@@ -138,3 +150,243 @@ def is_ip_reachable(ipaddr, port=3260):
         return False
     finally:
         s.close()
+
+
+def add_route_table(table_name):
+    """
+    Adds a new routing table by name
+    Add a new entry in /etc/iproute2/rt_tables
+    Parameters
+    ----------
+    table_name : str
+        name of the new table
+    Returns
+    -------
+        bool
+            True for success, False for failure
+    """
+
+    # first , find a free number for the table
+    tables_num = []
+    with open('/etc/iproute2/rt_tables') as f:
+        for line in f.readlines():
+            if len(line.strip()) > 0 and not line.startswith('#'):
+                # trust the format of that file
+                tables_num.append(int(line.split()[0]))
+    _new_table_num_to_use = -1
+    for n in xrange(255):
+        if n not in tables_num:
+            _new_table_num_to_use = n
+            break
+    _logger.debug('new table index : %d' % _new_table_num_to_use)
+    with open('/etc/iproute2/rt_tables', 'a') as f:
+        f.write('%d\t%s\n' % (_new_table_num_to_use, table_name))
+
+    return True
+
+
+def delete_route_table(table_name):
+    """
+    Deletes a routing table by name
+    remove a  entry in /etc/iproute2/rt_tables
+    Parameters
+    ----------
+    table_name : str
+        name of the new table
+    Returns
+    -------
+        bool
+            True for success, False for failure
+    """
+    _all_new_lines = []
+    with open('/etc/iproute2/rt_tables') as f:
+        _all_lines = f.readlines()
+        for line in _all_lines:
+            # format is '<index>\t<table name>'
+            _s_l = line.split()
+            if len(_s_l) > 1 and _s_l[1] == table_name:
+                # foudn the table name , skip this line
+                continue
+            _all_new_lines.append(line)
+
+    shutil.copy2('/etc/iproute2/rt_tables', '/etc/iproute2/rt_tables.bck')
+
+    table_file = None
+    _something_wrong = False
+    try:
+        table_file = open('/etc/iproute2/rt_tables', 'w')
+        table_file.writelines(_all_new_lines)
+    except:
+        _something_wrong = True
+    finally:
+        if table_file:
+            table_file.close()
+        if _something_wrong:
+            shutil.move('/etc/iproute2/rt_tables.bck', '/etc/iproute2/rt_tables')
+        else:
+            os.remove('/etc/iproute2/rt_tables.bck')
+
+    return True
+
+
+def network_prefix_to_mask(prefix):
+    """
+    converts a prefix to a netmask address
+    Parameters:
+       prefix : the prefix as int
+    Returns:
+        the netmask address
+    Exemple:
+       network_prefix_to_mask(22) -> '255.255.252.0'
+    """
+    bits = 0xffffffff ^ (1 << 32 - prefix) - 1
+    return inet_ntoa(pack('>I', bits))
+
+
+def remove_static_ip_routes(link_name):
+    """
+    Deletes all routes related to a network device
+    Parameters:
+       link_name : str
+          the ip link name
+    Return:
+        None
+    """
+    _logger.debug('looking for ip routes for dev=%s' % link_name)
+    _lines = []
+    try:
+        _lines = subprocess.check_output(['/sbin/ip', 'route', 'show', 'dev', link_name]).splitlines()
+    except subprocess.CalledProcessError, ignored:
+        pass
+    _logger.debug('routes found [%s]' % _lines)
+    for _line in _lines:
+        try:
+            _command = ['/sbin/ip', 'route', 'del']
+            _command.extend(_line.strip().split(' '))
+            subprocess.check_output(_command)
+        except subprocess.CalledProcessError, e:
+            _logger.warning('cannot delete route [%s]: %s' % (_line, str(e)))
+
+
+def add_static_ip_route(*args, **kwargs):
+    """
+    add a static route
+    Parameters:
+        kwargs:
+            device : network device on which assign the route
+            script : a reference to StringIO object to write the command for future use in script
+        *args : argument list as passed to the ip-route(8) command
+    Return:
+        (code,message): command code , on failure a message is sent back
+    """
+    routing_cmd = ['/usr/sbin/ip', 'route', 'add']
+    routing_cmd.extend(args)
+    _logger.debug('adding route : [%s]' % ' '.join(args))
+    try:
+        subprocess.check_output(routing_cmd, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        return (1, e.output)
+
+    if kwargs.get('script'):
+        kwargs.get('script').write(' '.join(routing_cmd))
+        kwargs.get('script').write('\n')
+
+    return (0, '')
+
+
+def remove_static_ip_rules(link_name):
+    """
+    Deletes all rules related to a network device
+    Parameters:
+       link_name : str
+          the ip link name
+    Return:
+        None
+    """
+    _logger.debug('looking for ip rules for dev=%s' % link_name)
+    _lines = []
+    try:
+        _lines = subprocess.check_output(['/sbin/ip', 'rule', 'show', 'lookup', link_name]).splitlines()
+    except subprocess.CalledProcessError, ignored:
+        pass
+    _logger.debug('rules found [%s]' % _lines)
+    for _line in _lines:
+        try:
+            _command = ['/sbin/ip', 'rule', 'del']
+            # all line listed are like '<rule number>:\t<rule as string> '
+            # when underlying device is down (i.e virtual network is down) the command append '[detached]' we have to remove this
+            _command.extend(re.compile("\d:\t").split(_line.strip())[1].replace('[detached] ', '').split(' '))
+            subprocess.check_output(_command)
+        except subprocess.CalledProcessError, e:
+            _logger.warning('cannot delete rule [%s]: %s' % (' '.join(_command), str(e)))
+
+
+def add_static_ip_rule(*args, **kwargs):
+    """
+    add a static rule
+    Parameters:
+        kwargs:
+            device : network device on which assign the rule
+            script : a reference to StringIO object to write the command for future use in script
+        *args : argument list as passed to the ip-rule(8) command
+    Return:
+        (code,message): command code , on failure a message is sent back
+    """
+    ip_rule_cmd = ['/usr/sbin/ip', 'rule', 'add']
+    ip_rule_cmd.extend(args)
+    _logger.debug('adding rule : [%s]' % ' '.join(args))
+    try:
+        subprocess.check_output(ip_rule_cmd, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        return (1, e.output)
+
+    if kwargs.get('script'):
+        kwargs.get('script').write(' '.join(ip_rule_cmd))
+        kwargs.get('script').write('\n')
+
+    return (0, '')
+
+
+def add_firewall_rule(*args, **kwargs):
+    """
+    add a static firewall rule
+    Parameters:
+        kwargs:
+            script : a reference to StringIO object to write the command for future use in script
+        *args : argument list as passed to the iptables(8) command
+    Return:
+        (code,message): command code , on failure a message is sent back
+    """
+    fw_rule_cmd = ['/usr/sbin/iptables']
+    fw_rule_cmd.extend(args)
+    _logger.debug('adding fw rule : [%s]' % ' '.join(args))
+    try:
+        subprocess.check_output(fw_rule_cmd, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        return (1, e.output)
+
+    if kwargs.get('script'):
+        kwargs.get('script').write(' '.join(fw_rule_cmd))
+        kwargs.get('script').write('\n')
+
+    return (0, '')
+
+
+def remove_firewall_rule(*args):
+    """
+    remove a static firewall rule
+    Parameters:
+        *args : argument list as passed to the iptables(8) command
+    Return:
+        (code,message): command code , on failure a message is sent back
+    """
+    fw_rule_cmd = ['/usr/sbin/iptables']
+    fw_rule_cmd.extend(args)
+    _logger.debug('removing fw rule : [%s]' % ' '.join(args))
+    try:
+        subprocess.check_output(fw_rule_cmd, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        _logger.warning('removal of firewall rule failed: %s' % e.output)
+        return (1, e.output)
+
+    return (0, '')

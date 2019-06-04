@@ -11,6 +11,7 @@
 import os
 
 from .. import sudo_utils
+from ..network_helpers import network_prefix_to_mask
 
 __sysconfig = '/etc/sysconfig'
 __netscripts = __sysconfig + '/network-scripts'
@@ -410,6 +411,14 @@ def make_vf(name, mac):
 def make_vlan(parent, vlan_id, mac):
     """
     Create a VLAN file contents.
+    See make_vlan_with_ip(parent, vlan_id, mac, None, None)
+    """
+    return make_vlan_with_ip(parent, vlan_id, mac, None, None)
+
+
+def make_vlan_with_ip(parent, vlan, mac, ip, prefix):
+    """
+    Create a VLAN file contents.
 
     Parameters
     ----------
@@ -419,21 +428,41 @@ def make_vlan(parent, vlan_id, mac):
         The VLAN id.
     mac : str
         The interface MAC address
+    ip : str
+        The Ip for the new interface
+    prefix :
+        the prefix from wich to compute the netmask
 
     Returns
     -------
         The VLAN interface file contents.
     """
-    name = make_vlan_name(parent, vlan_id)
-    return ('vm-{}'.format(name),
-            {'DEVICE': name,
-             'MACADDR': mac,
-             'PHYSDEV': parent,
-             'NM_CONTROLLED': 'no',
-             'BOOTPROTO': 'none',
-             'ONBOOT': 'yes',
-             'MTU': '9000',
-             'NOZEROCONF': 'yes',
-             'VLAN': 'yes'
-             }
-            )
+    name = make_vlan_name(parent, vlan)
+    if ip and prefix:
+        return ('vm-{}'.format(name),
+                {'DEVICE': name,
+                 'MACADDR': mac,
+                 'PHYSDEV': parent,
+                 'NM_CONTROLLED': 'no',
+                 'BOOTPROTO': 'none',
+                 'ONBOOT': 'yes',
+                 'MTU': '9000',
+                 'NOZEROCONF': 'yes',
+                 'VLAN': 'yes',
+                 'IPADDR': ip,
+                 'NETMASK': network_prefix_to_mask(prefix)
+                 }
+                )
+    else:
+        return ('vm-{}'.format(name),
+                {'DEVICE': name,
+                 'MACADDR': mac,
+                 'PHYSDEV': parent,
+                 'NM_CONTROLLED': 'no',
+                 'BOOTPROTO': 'none',
+                 'ONBOOT': 'yes',
+                 'MTU': '9000',
+                 'NOZEROCONF': 'yes',
+                 'VLAN': 'yes'
+                 }
+                )

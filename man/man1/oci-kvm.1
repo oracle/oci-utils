@@ -11,6 +11,8 @@ oci-kvm \- install and remove KVM guests on Oracle Cloud Infrastructure instance
 .I NAME
 .B [-d|--disk
 .I DISK_PATH
+.B ] [-v|--virtual-network
+.I NETWORK
 .B ] [-n|--net
 .I IP
 .B ]  [-p|--pool
@@ -94,6 +96,8 @@ command, the name of the pool. When not specified, the default name is the chose
 On bare metal instance host, the IP address of the Oracle Cloud Infrastructure VNIC that should be assigned to the new guest.
 On virtual machine instance host the name of the Oracle Cloud Infrastructure VNIC. If this
 option is not specified, an unused VNIC will be chosen arbitrarily.
+.IP "-v VIRTUAL_NETWORK, --virtual-network VIRTUAL_NETWORK"
+The name of the libvirt virtual network to attach the guest to.
 .IP "-N HOST, --netfshost HOST"
 For the
 .B create-pool
