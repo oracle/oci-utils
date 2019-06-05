@@ -11,7 +11,7 @@
 
 import logging
 import subprocess
-
+import os
 from . import SUDO_CMD
 
 __all__ = ['call', 'call_output', 'call_popen_output']
