@@ -21,7 +21,22 @@ CLEAN_HOST_SSH_KEYS=
 CLEAN_ROOT_PASSWD=
 CLEAN_USER_SSH_KEYS=
 CLEAN_HISTORY_DADA_LOG=
-  
+
+
+print_warning_essage()
+{
+cat <<EOF
+This script runs a set of cleanup steps to prepare OCI OL instances for CUSTOM images
+
+WARNING!!! This script will clear ssh keys and root passwd.
+Upon execution of this script, if you choose to clear the ssh keys, you will no longer be able to login to this instance with your existing credentials.
+You will need to create a new CUSTOM image of this instance first and then create a new compute instance from that CUSTOM image to login. More info on CUSTOM images can be found here:
+     
+https://docs.us-phoenix-1.oraclecloud.com/Content/Compute/Tasks/managingcustomimages.htm
+ 
+EOF
+}
+
 # Print usage message
 usage()
 {
@@ -46,15 +61,6 @@ Usage: $CMD [OPTION]
 
   -h
   --help                       Print this message.
-
-This script runs a set of cleanup steps to prepare OCI OL instances for custom images
-
-WARNING!!! This script will clear ssh keys and root passwd.
-Upon execution of this script, if you choose to clear the ssh keys, you will no longer be able to login to this instance with your existing credentials.
-You will need to create a new custom image of this instance first and then create a new compute instance from that custom image to login. More info on custom images can be found here:
-     
-https://docs.us-phoenix-1.oraclecloud.com/Content/Compute/Tasks/managingcustomimages.htm
- 
 EOF
 }
      
@@ -150,7 +156,7 @@ backup_and_delete()
     if [ -d "$backup_item" -a  "$CLEANUP_LEVEL" == "0" ]; then
         plan 'rm -rf $backup_item' 
     elif [ "$CLEANUP_LEVEL" != "2" ]; then
-        for file in `find $backup_item $EXCLUDE_FIND`; do
+        for file in `find $backup_item $EXCLUDE_FIND 2>/dev/null`; do
            [ -d "$file" ] && continue
            if [[ "$file" =~ .*~$ ]] || [ $CLEANUP_LEVEL -eq 0 ]; then
                plan "rm -f $file"  
@@ -277,7 +283,7 @@ cleanup()
   echo -e "\n\nThe next steps will clean up the following files:
       /etc/udev/rules.d/70*,  
       /etc/machine-id,  
-      /var/logs/*,  
+      /var/log/*,  
       /etc/chrony.key, 
       /var/cache/yum,  
       /tmp/*,
@@ -310,7 +316,8 @@ cleanup()
   # Scrub Log Files
   plan 'echo -e "\nScrubbing log files in /var/log..."'
   backup_and_delete "/var/log/*" -c 1
-  for file in `find /var/log -regex ".+[\.\-]+[0-9]+"`; do
+  #                                                                  oracle-cloud-init directiry must not be deleted
+  for file in `find /var/log -regex ".+[\.\-]+[0-9]+" -and   ! -name oracle-cloud-agent 2>/dev/null`; do
       plan rm -f $file
   done       
   # Scrub Chrony Cleanup
@@ -540,13 +547,30 @@ echo "#!/bin/bash" >$PLANFILE
 echo -e "oci image-cleanup $@ \n" > $LOGFILE
 [ ! -z "$SUDO_USER" ] && chown $SUDO_USER:$SUDO_USER $PLANFILE $LOGFILE
 
+go_on=0
 
 if [[ $RESTORE = true ]]; then
     restore $restore_dir
 else
-    cleanup
-    print_agreement |tee -a $LOGFILE $CONFLOG
-    warn
+    if [ $FORCE == false ]
+    then
+      print_warning_essage
+      confirm 'Perform cleanup'
+      if [ $? -eq 0 ]
+      then
+	go_on=1
+      fi
+    else
+	go_on=1
+    fi
+    if [ $go_on -eq 1 ]
+    then
+      cleanup
+      print_agreement |tee -a $LOGFILE $CONFLOG
+      warn
+    else
+	exit 0
+    fi
 fi
    
 if [[ $DRYRUN = true ]]; then
