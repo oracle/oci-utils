@@ -27,30 +27,22 @@ from ..platform_helpers import (get_block_devices, get_phys_device)
 _logger = logging.getLogger('oci-utils.virt.virt-check')
 
 
-def iommu_check(check_for_bm_shape=True):
+def iommu_check():
     """
     Verify if the IOMMU is enabled. Linux kernel logs the message "IOMMU:
-    enabled" at boot time and the IOMMU subsystem creates 'dmar' device
-    nodes under /sys/class/iommu # directory. This functions checks for both
+    enabled" at boot time. This functions checks for both
     to confirm that the IOMMU is enabled.
-    Parameters
-    ----------
-    check_for_bm_shape: boolean
-        check for BM shape types ?
+
     Returns
     -------
         bool
             True on success, False otherwise.
     """
     iommu_enabled_exp = "IOMMU.*enabled"
-    dmar_file_path = "/sys/class/iommu/dmar0"
     output = sudo_utils.call_popen_output(
         ['/bin/dmesg', '|', 'egrep', '"{}"'.format(iommu_enabled_exp)])
     if not output:
         _logger.debug('IOMMU flag not set on kernel')
-        return False
-    if check_for_bm_shape and not os.path.exists(dmar_file_path):
-        _logger.debug('missing dmar device')
         return False
     return True
 
@@ -125,7 +117,7 @@ def validate_kvm_env(check_for_bm_shape=True):
     if phys_dev is None:
         return False
 
-    if not iommu_check(check_for_bm_shape):
+    if not iommu_check():
         return False
 
     if check_for_bm_shape:
