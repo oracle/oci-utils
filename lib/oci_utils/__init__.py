@@ -108,11 +108,6 @@ _setup_logging(('_OCI_UTILS_DEBUG' in os.environ) or (_configuration.has_section
                                                       _configuration.has_option('ocid', 'debug') and
                                                       _configuration.getboolean('ocid', 'debug')
                                                       ))
-logging.getLogger('oci-utils.manu').info('this is an info message')
-logging.getLogger('oci-utils.manu').warn('this is an warning message')
-logging.getLogger('oci-utils.manu').critical('this is an critical message')
-logging.getLogger('oci-utils.manu').debug('this is an debug message')
-logging.getLogger('oci-utils.manu').error('this is an error message')
 
 
 _set_proxy()
