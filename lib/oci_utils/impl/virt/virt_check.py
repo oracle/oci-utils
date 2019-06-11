@@ -30,8 +30,7 @@ _logger = logging.getLogger('oci-utils.virt.virt-check')
 def iommu_check():
     """
     Verify if the IOMMU is enabled. Linux kernel logs the message "IOMMU:
-    enabled" at boot time. This functions checks for both
-    to confirm that the IOMMU is enabled.
+    enabled" at boot time.
 
     Returns
     -------
