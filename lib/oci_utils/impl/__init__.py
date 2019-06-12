@@ -12,7 +12,8 @@ import sys
 import threading
 from ConfigParser import ConfigParser
 from datetime import datetime, timedelta
-from logging.handlers import SysLogHandler
+import logging 
+import logging.handlers
 
 from time import sleep
 
@@ -240,7 +241,7 @@ def setup_logging(forceDebug=False):
     General function to setup logger.
     Everything from debug to stdout message is handle by loggers.
     stdout logger handle info and warning message to STDOUT
-    stdder logger handle error and critical message to stderr
+    stderr logger handle error and critical message to stderr
     anything else is for debug logger which log everything to /var/tmp/oci-utils.log
     """
 
@@ -249,10 +250,10 @@ def setup_logging(forceDebug=False):
         '%(asctime)s - %(name)s - %(levelname)s(%(module)s:%(lineno)s) - %(message)s')
 
     if os.environ.get('_OCI_UTILS_SYSLOG'):
-        handler = SysLogHandler(address='/dev/log',
+        handler = logging.handlers.SysLogHandler(address='/dev/log',
                                 facility=SysLogHandler.LOG_DAEMON)
     else:
-        handler = logging.FileHandler('/var/tmp/oci-utils.log', mode='a',)
+        handler = logging.handlers.RotatingFileHandler('/var/tmp/oci-utils.log', mode='a',maxBytes=1024 * 1024, backupCount=3)
 
     handler.setFormatter(formatter)
     handler.setLevel(logging.NOTSET)
