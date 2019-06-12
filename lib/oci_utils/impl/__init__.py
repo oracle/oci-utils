@@ -12,7 +12,9 @@ import sys
 import threading
 from ConfigParser import ConfigParser
 from datetime import datetime, timedelta
-from logging.handlers import SysLogHandler
+import logging 
+import logging.handlers
+
 from time import sleep
 
 from ..exceptions import OCISDKError
@@ -213,25 +215,64 @@ def read_config():
     return oci_utils_config
 
 
-def setup_logging():
+class levelsFilter(logging.Filter):
     """
-    General function to setup logger
+    By logging level filter.
+    the filter will discard any record that do not have the right level
     """
+
+    def __init__(self, levels, name=''):
+        """
+        Constructs a new filter
+        levels : list of level (as int) that are accepted and will lead to
+          the actual handling of the record
+        """
+        logging.Filter.__init__(self, name)
+        self.levels = levels
+
+    def filter(self, record):
+        if record.levelno in self.levels:
+            return True
+        return False
+
+
+def setup_logging(forceDebug=False):
+    """
+    General function to setup logger.
+    Everything from debug to stdout message is handle by loggers.
+    stdout logger handle info and warning message to STDOUT
+    stderr logger handle error and critical message to stderr
+    anything else is for debug logger which log everything to /var/tmp/oci-utils.log
+    """
+
+    flatFormatter = logging.Formatter('%(message)s')
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s(%(module)s:%(lineno)s) - %(message)s')
 
     if os.environ.get('_OCI_UTILS_SYSLOG'):
-        handler = SysLogHandler(address='/dev/log',
+        handler = logging.handlers.SysLogHandler(address='/dev/log',
                                 facility=SysLogHandler.LOG_DAEMON)
     else:
-        handler = logging.StreamHandler(stream=sys.stderr)
+        handler = logging.handlers.RotatingFileHandler('/var/tmp/oci-utils.log', mode='a',maxBytes=1024 * 1024, backupCount=3)
 
-    logging.getLogger('oci-utils').setLevel(logging.WARNING)
-
-    if os.environ.get('_OCI_UTILS_DEBUG'):
-        logging.getLogger('oci-utils').setLevel(logging.DEBUG)
-        handler.setLevel(logging.DEBUG)
-
-    formatter = logging.Formatter(
-        '%(name)s - %(levelname)s(:%(lineno)s) - %(message)s')
     handler.setFormatter(formatter)
+    handler.setLevel(logging.NOTSET)
 
-    logging.getLogger('oci-utils').addHandler(handler)
+    logger = logging.getLogger('oci-utils')
+    logger.setLevel(logging.INFO)
+
+    stdoutHandler = logging.StreamHandler(stream=sys.stdout)
+    stdoutHandler.setFormatter(flatFormatter)
+    stdoutHandler.addFilter(levelsFilter([logging.INFO, logging.WARNING]))
+
+    stderrHandler = logging.StreamHandler(stream=sys.stderr)
+    stderrHandler.setFormatter(flatFormatter)
+    stderrHandler.addFilter(levelsFilter([logging.ERROR, logging.CRITICAL]))
+
+    logger.addHandler(handler)
+    logger.addHandler(stdoutHandler)
+    logger.addHandler(stderrHandler)
+
+    if forceDebug:
+        logger.setLevel(logging.DEBUG)
+        handler.setLevel(logging.DEBUG)

@@ -6,6 +6,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
+import logging
 import os
 import os.path
 
@@ -103,6 +104,11 @@ def _setup_env():
     os.environ['LC_ALL'] = 'C'
 
 
-_setup_logging()
+_setup_logging(('_OCI_UTILS_DEBUG' in os.environ) or (_configuration.has_section('ocid') and
+                                                      _configuration.has_option('ocid', 'debug') and
+                                                      _configuration.getboolean('ocid', 'debug')
+                                                      ))
+
+
 _set_proxy()
 _setup_env()
