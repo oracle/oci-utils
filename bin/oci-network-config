@@ -105,9 +105,6 @@ def parse_args():
                              'configuration/deconfiguration.')
     parser.add_argument('--quiet', '-q', action='store_true',
                         help='Suppress information messages')
-    parser.add_argument('--debug', action='store_true',
-                        help=argparse.SUPPRESS)
-
     args = parser.parse_args()
     return args
 
@@ -424,7 +421,7 @@ def do_del_private_ip(vnic_utils, delete_options):
 
     if not priv_ip.delete():
         raise StandardError('failed to delete secondary private IP %s' %
-                       delete_options.del_private_ip)
+                            delete_options.del_private_ip)
 
     __logger.info('deconfigure secondary private IP %s' %
                   delete_options.del_private_ip)
@@ -443,14 +440,6 @@ def main():
             1 on failure.
     """
     args = parse_args()
-
-    _log_l = logging.INFO
-    if args.debug:
-        _log_l = logging.DEBUG
-    elif args.quiet:
-        _log_l = logging.CRITICAL
-
-    logging.getLogger('oci-utils').setLevel(_log_l)
 
     if os.geteuid() != 0:
         __logger.error("You must run this program with root privileges")
@@ -472,8 +461,7 @@ def main():
         vnic_info = vnic_utils.get_vnic_info()[1]
     except Exception as e:
         __logger.warning("OCI SDK Error: %s" % str(e))
-        if args.debug:
-            __logger.exception('OCI SDK Error')
+        __logger.exception('OCI SDK Error')
         return 1
 
     shape = None
@@ -543,8 +531,8 @@ def main():
 
     if ret:
         __logger.error("Failed to execute the VNIC configuration script.")
-    if out and args.debug:
-        print "%s" % out
+    if out:
+        __logger.debug(str(out))
 
     if not args.quiet or args.show:
         do_show_network_config(vnic_utils)

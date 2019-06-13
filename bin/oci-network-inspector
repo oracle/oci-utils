@@ -48,9 +48,6 @@ def parse_args():
                         metavar='OCID',
                         action='store',
                         help='ocid of a given Virtual Cloud Network')
-    parser.add_argument('--debug',
-                        action='store_true',
-                        help=argparse.SUPPRESS)
     parser.add_argument('--help',
                         action='help',
                         help='Display this help')
@@ -69,13 +66,6 @@ def main():
             0 on success, 1 otherwise.
     """
     args = parse_args()
-
-    _log_l = logging.INFO
-    if args.debug:
-        _log_l = logging.DEBUG
-
-    logging.getLogger('oci-utils').setLevel(_log_l)
-
 
     # needs the OCI SDK installed and configured
     try:

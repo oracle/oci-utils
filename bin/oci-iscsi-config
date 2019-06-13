@@ -3,7 +3,7 @@
 # oci-utils
 #
 # Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
-# Licensed under the Universal Permissive License v 1.0 as shown at 
+# Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
 """
@@ -200,8 +200,7 @@ def ocid_refresh(wait=False, debug=False):
                                               '--refresh',
                                               'iscsi'] + debug_opt,
                                              stderr=subprocess.STDOUT)
-        if debug:
-            _logger.error("%s" % output)
+        _logger.debug(str(output))
         return True
     except subprocess.CalledProcessError:
         return False
@@ -229,7 +228,7 @@ def display_current_devices(oci_sess, session, disks):
     oci_vols = []
     if oci_sess is not None and oci_sdk_error is None:
         oci_vols = oci_sess.this_instance().all_volumes()
-                        
+
     if session:
         for iqn in session.keys():
             oci_vol = None
@@ -875,8 +874,6 @@ def main():
 
     if oci_utils.oci_api.HAVE_OCI_SDK:
         try:
-            if args.debug:
-                logging.getLogger('oci-utils').setLevel(logging.DEBUG)
             oci_sess = oci_utils.oci_api.OCISession()
             USE_OCI_SDK = True
         except Exception as e:

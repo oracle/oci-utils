@@ -26,6 +26,7 @@ from oci_utils.exceptions import OCISDKError
 
 stun_log = logging.getLogger("oci-utils.oci-public-ip")
 
+
 def parse_args():
     """
     Parse the command line arguments and return an object representing the
@@ -58,7 +59,6 @@ def parse_args():
                              'instance instead of the current one.  Requires '
                              'the OCI Python SDK to be installed and '
                              'configured')
-    parser.add_argument('--debug', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--help', action='help', help='Display this help')
 
     args = parser.parse_args()
@@ -75,11 +75,6 @@ def main():
             0 on success, 1 otherwise.
     """
     args = parse_args()
-
-    if args.debug:
-        debug_handler = logging.StreamHandler(stream=sys.stderr)
-        stun_log.addHandler(debug_handler)
-        stun_log.setLevel(logging.DEBUG)
 
     if args.list_servers:
         # print the list of known STUN servers and exit
