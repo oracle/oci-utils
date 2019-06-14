@@ -193,7 +193,12 @@ def session():
         _iscsi_logger.error('failed to execute /usr/sbin/iscsiadm')
         return {}
     except subprocess.CalledProcessError as e:
-        _iscsi_logger.warning('error running /usr/sbin/iscsiadm [%s]' % str(e))
+        if e.returncode in (15, 21):
+            # non fatal error that we should not warn the user about
+            # see ISCSIADM(8)
+            _iscsi_logger.debug('error running /usr/sbin/iscsiadm [%s]' % str(e))
+        else:
+            _iscsi_logger.warning('error running /usr/sbin/iscsiadm [%s]' % str(e))
         return {}
 
 
