@@ -140,6 +140,10 @@ def create_vm(args):
             The return value provided by the kvm virtual machine create
             call, 0 on success, 1 otherwise.
     """
+    if not args.disk and not args.pool:
+        print >> sys.stderr, "either --disk and --pool option must be specified"
+        return 1
+
     if args.disk and args.pool:
         print >> sys.stderr, "--disk and --pool option are exclusive"
         return 1

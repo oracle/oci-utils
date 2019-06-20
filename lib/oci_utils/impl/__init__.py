@@ -12,7 +12,7 @@ import sys
 import threading
 from ConfigParser import ConfigParser
 from datetime import datetime, timedelta
-import logging 
+import logging
 import logging.handlers
 
 from time import sleep
@@ -248,15 +248,18 @@ def setup_logging(forceDebug=False):
     flatFormatter = logging.Formatter('%(message)s')
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s(%(module)s:%(lineno)s) - %(message)s')
-
+    handler = None
     if os.environ.get('_OCI_UTILS_SYSLOG'):
         handler = logging.handlers.SysLogHandler(address='/dev/log',
-                                facility=SysLogHandler.LOG_DAEMON)
+                                                 facility=logging.handlers.SysLogHandler.LOG_DAEMON)
     else:
-        handler = logging.handlers.RotatingFileHandler('/var/tmp/oci-utils.log', mode='a',maxBytes=1024 * 1024, backupCount=3)
-
-    handler.setFormatter(formatter)
-    handler.setLevel(logging.NOTSET)
+        try:
+            handler = logging.handlers.RotatingFileHandler(
+                '/var/tmp/oci-utils.log', mode='a', maxBytes=1024 * 1024, backupCount=3)
+            handler.setFormatter(formatter)
+            handler.setLevel(logging.NOTSET)
+        except StandardError, e:
+            print 'warning, cannot setup debug file : %s' % str(e)
 
     logger = logging.getLogger('oci-utils')
     logger.setLevel(logging.INFO)
@@ -268,11 +271,12 @@ def setup_logging(forceDebug=False):
     stderrHandler = logging.StreamHandler(stream=sys.stderr)
     stderrHandler.setFormatter(flatFormatter)
     stderrHandler.addFilter(levelsFilter([logging.ERROR, logging.CRITICAL]))
-
-    logger.addHandler(handler)
+    if handler is not None:
+        logger.addHandler(handler)
     logger.addHandler(stdoutHandler)
     logger.addHandler(stderrHandler)
 
     if forceDebug:
         logger.setLevel(logging.DEBUG)
-        handler.setLevel(logging.DEBUG)
+        if handler is not None:
+            handler.setLevel(logging.DEBUG)
