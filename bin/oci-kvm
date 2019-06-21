@@ -141,11 +141,11 @@ def create_vm(args):
             call, 0 on success, 1 otherwise.
     """
     if not args.disk and not args.pool:
-        print >> sys.stderr, "either --disk and --pool option must be specified"
+        print >> sys.stderr, "either --disk or --pool option must be specified"
         return 1
 
     if args.disk and args.pool:
-        print >> sys.stderr, "--disk and --pool option are exclusive"
+        print >> sys.stderr, "--disk and --pool options are exclusive"
         return 1
     if args.pool and not args.disk_size:
         print >> sys.stderr, "must specify a disk size"
