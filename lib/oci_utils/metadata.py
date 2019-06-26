@@ -360,8 +360,12 @@ class OCIMetadata(dict):
         for key in keys:
             key = key.replace("extendedMetadata", "metadata").replace(
                 "extendedmetadata", "metadata")
-            if key.find('-') >= 0:
-                key = key.replace('-', '_')
+            #
+            # fixing LINUX-1876, oci-metadata does not work with hyphenated
+            # keys; the reason for this code in unclear for now, sideeffects
+            # caused by removing it also.
+            # if key.find('-') >= 0:
+            #     key = key.replace('-', '_')
 
             if key.find('/') >= 0:
                 # key is a path
