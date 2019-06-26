@@ -488,7 +488,7 @@ def get_trimed_key_values(keys, metadata):
             The trimmed metadata.
     """
     metadata = convert_key_values_to_string(metadata)
-    exp_keys = {}
+    exportKeys = {}
     for key in keys:
         ks = key.split('/')
         if len(ks[-1]) > 0:
