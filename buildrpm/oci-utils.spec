@@ -23,6 +23,7 @@ Requires: python2-daemon
 Requires: python2-lockfile
 Requires: python2-sdnotify
 Requires: python2-six
+Requires: python2-enum34
 # Oracle Linux 7
 %else
 BuildRequires: python-devel
