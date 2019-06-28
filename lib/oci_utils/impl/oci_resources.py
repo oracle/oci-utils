@@ -15,7 +15,7 @@ from .resources import OCIAPIAbstractResource
 from .. import _configuration as oci_utils_configuration
 from .. import _MAX_VOLUMES_LIMIT, OCI_ATTACHMENT_STATE, \
     OCI_COMPARTEMENT_STATE, \
-    OCI_RESOURCE_STATE, OCI_VOLUME_SIZE_FMT
+    OCI_RESOURCE_STATE, OCI_INSTANCE_STATE, OCI_VOLUME_SIZE_FMT
 from ..exceptions import OCISDKError
 
 try:
@@ -117,8 +117,8 @@ class OCICompartment(OCIAPIAbstractResource):
         """
         if self._instances is not None and not refresh:
             return self._instances
-        if OCI_RESOURCE_STATE[self._data.lifecycle_state] \
-                != OCI_RESOURCE_STATE.ACTIVE:
+        if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] \
+                != OCI_COMPARTEMENT_STATE.ACTIVE:
             OCICompartment._logger.debug('current state not active')
             return []
 
@@ -132,8 +132,8 @@ class OCICompartment(OCIAPIAbstractResource):
                 cc.list_instances,
                 compartment_id=self._ocid)
             for i_data in instances_data.data:
-                if OCI_RESOURCE_STATE[i_data.lifecycle_state] \
-                        == OCI_RESOURCE_STATE.TERMINATED:
+                if OCI_INSTANCE_STATE[i_data.lifecycle_state] \
+                        == OCI_INSTANCE_STATE.TERMINATED:
                     continue
                 instances.append(OCIInstance(self._oci_session, i_data))
         except oci_sdk.exceptions.ServiceError:
