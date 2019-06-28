@@ -46,6 +46,19 @@ class OCI_RESOURCE_STATE(enum.Enum):
     FAULTY = 5
 
 
+class OCI_INSTANCE_STATE(enum.Enum):
+    """ Resource state definitions.
+    """
+    PROVISIONING = 0
+    RUNNING = 1
+    STARTING = 2
+    STOPPING = 3
+    STOPPED = 4
+    CREATING_IMAGE = 5
+    TERMINATING = 6
+    TERMINATED = 7
+
+
 class OCI_COMPARTEMENT_STATE(enum.Enum):
     """ Compartment state definitions.
     """
