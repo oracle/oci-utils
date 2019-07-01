@@ -360,8 +360,11 @@ class OCIMetadata(dict):
         for key in keys:
             key = key.replace("extendedMetadata", "metadata").replace(
                 "extendedmetadata", "metadata")
-            if key.find('-') >= 0:
-                key = key.replace('-', '_')
+            #
+            # fixing issues with oci-metadata not working with hyphenated
+            # keys; this was done initially to be consistent with the OCI SDK.
+            # if key.find('-') >= 0:
+            #     key = key.replace('-', '_')
 
             if key.find('/') >= 0:
                 # key is a path
