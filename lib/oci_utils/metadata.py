@@ -361,9 +361,8 @@ class OCIMetadata(dict):
             key = key.replace("extendedMetadata", "metadata").replace(
                 "extendedmetadata", "metadata")
             #
-            # fixing LINUX-1876, oci-metadata does not work with hyphenated
-            # keys; the reason for this code in unclear for now, sideeffects
-            # caused by removing it also.
+            # fixing issues with oci-metadata not working with hyphenated
+            # keys; this was done initially to be consistent with the OCI SDK.
             # if key.find('-') >= 0:
             #     key = key.replace('-', '_')
 
