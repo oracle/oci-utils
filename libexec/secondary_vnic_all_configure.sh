@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 
 # Copyright (c) 2018, Oracle and/or its affiliates.
 # The Universal Permissive License (UPL), Version 1.0
@@ -10,6 +10,7 @@
 # 2017-11-21 inhibit namespaces for ubuntu 16
 # 2018-02-12 fix sshd typo in help
 # 2018-02-20 update copyright notice
+# 2019-07-03 implemented Networkmanager to ignore secondary vnics
 
 declare -r THIS=$(basename "$0")
 declare -r MD_URL='http://169.254.169.254/opc/v1/vnics/'
@@ -32,11 +33,13 @@ declare -r CURL=$(which curl)
 declare -r IP=$(which ip)
 declare -r SSHD=$(which sshd)
 declare -r MODPROBE=$(which modprobe)
+declare -r SED=$(which sed)
 declare -r OS_RELEASE='/etc/os-release'
 declare -r OS_ID=$(grep -ws ID $OS_RELEASE | cut -f 2 -d '=' | tr -d '"')
 declare -r OS_VERSION=$(grep -ws VERSION_ID $OS_RELEASE | cut -f 2 -d '=' | tr -d '"')
 declare -r OS_MAJ_VERSION=$(echo $OS_VERSION | cut -f 1 -d '.')
 declare -r SYS_CLASS_NET='/sys/class/net'
+declare -r NWM_CONF='/etc/NetworkManager/NetworkManager.conf'
 declare -A VIRTUAL_IFACES
 declare IS_VM=''
 declare -a MACS # all (unique) macs
@@ -314,7 +317,7 @@ oci_vcn_ip_routing_add() {
         rt_name=$(oci_vcn_ip_route_table_create $nic_i $vltag) || exit $?
         oci_vcn_debug "default route add"
         $IP route add default via $virtrt dev $iface table $rt_name || oci_vcn_err "cannot add default route via $virtrt on $iface to table $rt_name"
-        oci_vcn_info " added default via $virtrt dev $iface table $rt_name"
+        oci_vcn_info "added default route via $virtrt dev $iface table $rt_name"
 
         # create source-based rule to use table
         oci_vcn_debug "src rule add"
@@ -325,7 +328,7 @@ oci_vcn_ip_routing_add() {
 }
 
 oci_ip_rule_delete(){
-    [ $# -lt 1 ] &&  echo "please provide a rt_name or sec_ip_address for cleanup " && return 1 
+    [ $# -lt 1 ] &&  echo "please provide a rt_name or sec_ip_address for cleanup " && return 1
     rtname=$1
 
     rules=`$IP rule | grep $rtname |cut -d: -f1`
@@ -502,7 +505,6 @@ oci_vcn_ip_addr_add_iface() {
 
     # must be adding to physical iface/nic
     [ -z "${IP_VLANS[$ip_i]#$NA}" ] || oci_vcn_err "cannot add IP address $addr to virtual interface ${IP_VLANS[$ip_i]}"
-
     # create virtual interface if needed (bm cases)
     local macvlan=''
     if [ -z "$IS_VM" ] && [ $vltag -ne 0 ]; then
@@ -597,6 +599,47 @@ oci_vcn_ip_addr_del_iface() {
     fi
 }
 
+oci_disable_network_mgr() {
+    #
+    # adds the mac address of the device to the unmanaged-devices list in then
+    # NetworkManager.conf file.
+    local -r ifname=$1
+    oci_vcn_debug "interface: $ifname"
+    local -r mac=$($IP -br link | grep $ifname | awk -F " " '{print $3}')
+    oci_vcn_debug "macaddres: $mac"
+    if [ -f $NWM_CONF ] && [ -r $NWM_CONF ]; then
+        oci_vcn_debug "$NWM_CONF exists and is readable"
+        keyfilepresent=$(grep -i keyfile $NWM_CONF)
+        if [ -z "${keyfilepresent}" ]; then
+             oci_vcn_debug "[keyfile] tag not present"
+             printf '\n[keyfile]\nunmanaged-devices=mac:%s\n' $mac >> $NWM_CONF
+        else
+            oci_vcn_debug "[keyfile] tag present"
+            unmanageddevicespresent=$(grep -i unmanaged-devices $NWM_CONF)
+            oci_vcn_debug "found $unmanageddevicespresent"
+            if [ -z $unmanageddevicespresent ]; then
+                oci_vcn_debug "unmanaged-devices tag not present"
+                newunmanaged="unmanaged-devices=mac:$mac"
+                oci_vcn_debug "adding: ${newunmanaged}"
+                "$SED" -i "/^\[keyfile.*/a ${newunmanaged}" $NWM_CONF
+            else
+                oci_vcn_debug "unmanaged-devices tag present"
+                if [[ "$unmanageddevicespresent,,}" == *"mac:$mac"* ]]; then
+                    oci_vcn_debug "mac $mac already disabled"
+                else
+                    oci_vcn_debug "mac $mac not disabled yet"
+                    newunmanaged="$unmanageddevicespresent;mac:$mac"
+                    oci_vcn_debug "replacing: ${newunmanaged}"
+                    "$SED" -i "/^unmanaged-devices/s/^unmanaged-devices.*\$/${newunmanaged}/" $NWM_CONF
+                fi
+            fi
+            oci_vcn_warn "*** System reboot is required to make $dev ignored by NetworkManager. ***"
+        fi
+    else
+        oci_vcn_debug "No Network Manager configuration found."
+    fi
+}
+
 oci_vcn_ip_addr_add() {
     local -ir md_i=$1
     local -r mac="${MD_MACS[$md_i]}"
@@ -659,9 +702,10 @@ oci_vcn_ip_addr_add() {
     local dev
     dev=$(oci_vcn_ip_addr_add_iface $md_i $ip_i $ns) || exit $?
 
+    # disable network manager for $dev
+    oci_disable_network_mgr $dev
     # setup routes
     oci_vcn_ip_routing_add $md_i $nic_i $dev $ns
-
     # if namespace then wait for changes and start services
     if [ -n "$ns" ]; then
         sleep 1 # namespace changes seem to take time
@@ -687,7 +731,7 @@ oci_vcn_ip_sec_addr_add() {
     oci_vcn_info "adding secondary IP address $addr to interface (or VLAN) $dev$nsinfo"
     $IP $nscmd addr add $addr/32 dev $dev || oci_vcn_err "cannot add secondary IP address $addr on interface $dev$nsinfo"
     local table_exist=$( oci_vcn_ip_route_table_exists $rt_name )
-    [ -n "$table_exist" ] || return 
+    [ -n "$table_exist" ] || return
     ( $IP rule | grep -qsw "$addr" ) && oci_vcn_debug "rule exist" && return
     $IP $nscmd rule add from  $addr lookup $rt_name || oci_vcn_err "cannot add rule for the $addr to table $rt_name"
 }
@@ -712,7 +756,7 @@ oci_vcn_ip_sec_addr_del() {
     fi
 
     oci_vcn_info "removing secondary IP address $addr from interface (or VLAN) $dev$nsinfo"
-    oci_ip_rule_delete $addr 
+    oci_ip_rule_delete $addr
     $IP $nscmd addr del $addr/32 dev $dev || oci_vcn_err "cannot remove IP address $addr on interface $dev"
 }
 
@@ -977,7 +1021,6 @@ oci_vcn_read() {
         done
         [ -n "$retry" ] || break
     done
-
     if [ -n "$warn_ifaces" ]; then
         oci_vcn_warn "no VNIC (or MAC does not match) and no address, interfaces will be marked for delete:$warn_ifaces"
     fi
@@ -1135,6 +1178,25 @@ oci_vcn_config() {
     [ -n "$found" ] || [ -n "$sec_addrs_found" ] || oci_vcn_info "no changes, IP configuration is up-to-date"
 }
 
+oci_remove_keyfile_from_nw(){
+    #
+    # remove the keyfile entry from the NetworkManager.conf file; this is not full-proof,
+    # it removes only lines starting with the unmanaged-devices= tag and the [keyfile] tag,
+    # continuation lines could be missed, if added manually.
+    # todo: remove the section compeletely.
+    if [ -f $NWM_CONF ] && [ -r $NWM_CONF ]; then
+        oci_vcn_debug "$NWM_CONF exists and is readable"
+        keyfilepresent=$(grep -i keyfile $NWM_CONF)
+        if [ -z "${keyfilepresent}" ]; then
+            oci_vcn_debug "[keyfile] section not present"
+        else
+            oci_vcn_debug "Removing [keyfile] section"
+            "$SED" -i "/^unmanaged-devices/d" $NWM_CONF
+        fi
+    else
+        oci_vcn_debug "No Network Manager configuration found."
+    fi
+}
 oci_vcn_deconfig_all() {
     local -i ip_i=0
     local found=''
@@ -1182,6 +1244,10 @@ oci_vcn_deconfig_all() {
         fi
         ip_i+=1
     done
+    #
+    # clean up NetworkManager.conf
+    oci_remove_keyfile_from_nw
+
     if [ -z "$found" ]; then
         oci_vcn_info "no changes, no IP configuration to delete"
     fi
@@ -1365,11 +1431,12 @@ while [ $# -ge 1 ]; do
     declare opt="$1"
     shift
     case $opt in
-        -c) config='t';;
-        -d) deconfig='t';;
+        -c) config='t' ;;
+        -d) deconfig='t' ;;
         -e) if [ $# -lt 2 ]; then oci_vcn_err "secondary private IP address option requires <IP address> <VNIC OCID>"; fi
             SEC_ADDRS+=($1); shift
             SEC_VNICS+=($1); shift
+            oci_vcn_debug "secondary private IP address to configure: $SEC_ADDRS $SEC_VNICS"
             ;;
         -n) if [ "$os_maj_ver" = "ubuntu-16" ] || [ "$os_ver" = "ol-6.9" ] || [ "$os_ver" = "centos-6.8" ] || [ "$os_ver" = "centos-6.9" ]; then
                 oci_vcn_err "namespaces not supported on this os version ($os_ver)"
@@ -1409,7 +1476,7 @@ if [ -n "$config" ]; then
     [ -z "$show" ] || oci_vcn_read && oci_vcn_exclude -q # reread if show
 elif [ -n "$deconfig" ]; then
     if [ ${#SEC_ADDRS[@]} -gt 0 ]; then # just deconfig addrs
-        oci_vcn_config_or_deconfig_sec_addrs 
+        oci_vcn_config_or_deconfig_sec_addrs >/dev/null
     else # deconfig all
         oci_vcn_deconfig_all
     fi
