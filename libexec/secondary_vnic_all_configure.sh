@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 # Copyright (c) 2018, Oracle and/or its affiliates.
 # The Universal Permissive License (UPL), Version 1.0
@@ -10,7 +10,7 @@
 # 2017-11-21 inhibit namespaces for ubuntu 16
 # 2018-02-12 fix sshd typo in help
 # 2018-02-20 update copyright notice
-# 2019-07-03 implemented Networkmanager to ignore secondary vnics
+# 2019-07-04 implemented Networkmanager to ignore secondary vnics
 
 declare -r THIS=$(basename "$0")
 declare -r MD_URL='http://169.254.169.254/opc/v1/vnics/'
@@ -607,6 +607,18 @@ oci_disable_network_mgr() {
     oci_vcn_debug "interface: $ifname"
     local -r mac=$($IP -br link | grep $ifname | awk -F " " '{print $3}')
     oci_vcn_debug "macaddres: $mac"
+    oci_disable_network_mgr_mac $mac
+}
+
+oci_disable_network_mgr_mac(){
+    #
+    # adds the mac address to the unmanaged-devices list in then NetworkManager.conf file.
+    local -r mac=$1
+    oci_vcn_debug "macaddres: $mac"
+    local -r ifname=$1
+    oci_vcn_debug "interface: $ifname"
+    local -r mac=$($IP -br link | grep $ifname | awk -F " " '{print $3}')
+    oci_vcn_debug "macaddres: $mac"
     if [ -f $NWM_CONF ] && [ -r $NWM_CONF ]; then
         oci_vcn_debug "$NWM_CONF exists and is readable"
         keyfilepresent=$(grep -i keyfile $NWM_CONF)
@@ -758,6 +770,44 @@ oci_vcn_ip_sec_addr_del() {
     oci_vcn_info "removing secondary IP address $addr from interface (or VLAN) $dev$nsinfo"
     oci_ip_rule_delete $addr
     $IP $nscmd addr del $addr/32 dev $dev || oci_vcn_err "cannot remove IP address $addr on interface $dev"
+}
+
+oci_enable_network_mgr_mac(){
+    #
+    # removes the mac address to the unmanaged-devices list in then NetworkManager.conf file.
+    local -r mac=$1
+    oci_vcn_debug "macaddres: $mac"
+    if [ -f $NWM_CONF ] && [ -r $NWM_CONF ]; then
+        oci_vcn_debug "$NWM_CONF exists and is readable"
+        keyfilepresent=$(grep -i keyfile $NWM_CONF)
+        if [ -z "${keyfilepresent}" ]; then
+             oci_vcn_debug "[keyfile] tag not present"
+        else
+             unmanageddevicespresent=$(grep -i unmanaged-devices $NWM_CONF)
+             oci_vcn_debug "found $unmanageddevicespresent"
+             # mac in here?
+             macstr="mac:$mac"
+             newunmanaged=$(echo ${unmanageddevicespresent/$macstr/''})
+             oci_vcn_debug "new unmanaged string: $newunmanaged"
+             lc=$(echo $newunmanaged|cut -c $((${#newunmanaged})))
+             if [ $lc = ";" ]; then
+                 newum=$("$SED" 's/.$//' <<< $newunmanaged)
+             else
+                 newum=$newunmanaged
+             fi
+             oci_vcn_debug "new unmanaged string: $newum"
+             # are mac addresses left
+             lc=$(echo $newunmanaged|cut -c $((${#newunmanaged})))
+             if [ $lc = "=" ]; then
+                 newum=''
+                 "$SED" -i "/^\[keyfile/s/^\[keyfile.*\$//" $NWM_CONF
+             fi
+             # replace in line
+             "$SED" -i "/^unmanaged-devices/s/^unmanaged-devices.*\$/${newum}/" $NWM_CONF
+        fi
+    else
+        oci_vcn_debug "No Network Manager configuration found."
+    fi
 }
 
 oci_vcn_sec_addr_is_provisioned() {
@@ -1120,10 +1170,14 @@ oci_vcn_config_or_deconfig_sec_addrs() {
         [ $pri_ip_i -ge 0 ] || oci_vcn_err "cannot find interface for secondary IP address $addr on $vnic"
         if [ -n "$do_config" ] && [ -z "$already_config" ]; then # configure
             oci_vcn_ip_sec_addr_add $pri_ip_i $addr
+            # adding to unmanaged-devices
+            oci_disable_network_mgr_mac $mac
             found='t'
         elif [ -z "$do_config" ] && [ -n "$already_config" ]; then # deconfigure
             # note this path is only if deconfiguring just the secondaries
             oci_vcn_ip_sec_addr_del $ip_i
+            # removing from unmanaged-devices
+            oci_enable_network_mgr_mac $mac
             found='t'
         fi
     done
@@ -1183,7 +1237,7 @@ oci_remove_keyfile_from_nw(){
     # remove the keyfile entry from the NetworkManager.conf file; this is not full-proof,
     # it removes only lines starting with the unmanaged-devices= tag and the [keyfile] tag,
     # continuation lines could be missed, if added manually.
-    # todo: remove the section compeletely.
+    # todo: check for continuation lines
     if [ -f $NWM_CONF ] && [ -r $NWM_CONF ]; then
         oci_vcn_debug "$NWM_CONF exists and is readable"
         keyfilepresent=$(grep -i keyfile $NWM_CONF)
@@ -1192,6 +1246,7 @@ oci_remove_keyfile_from_nw(){
         else
             oci_vcn_debug "Removing [keyfile] section"
             "$SED" -i "/^unmanaged-devices/d" $NWM_CONF
+            "$SED" -i "/^\[keyfile/s/^\[keyfile.*\$//" $NWM_CONF
         fi
     else
         oci_vcn_debug "No Network Manager configuration found."
