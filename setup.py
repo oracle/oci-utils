@@ -166,9 +166,9 @@ class sync_rpm(create_rpm):
 
 setup(
     name="oci-utils",
-    version="0.10.0",
-    author="Laszlo Peter, Qing Lin",
-    author_email="laszlo.peter@oracle.com, qing.lin@oracle.com",
+    version="0.10.1",
+    author="Laszlo Peter, Qing Lin, Guido Tijskens",
+    author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com",
     description="Oracle Cloud Infrastructure utilities",
     license="UPL",
     install_requires=install_requirements,
@@ -207,6 +207,7 @@ setup(
                   'man/man1/oci-iscsi-config.1',
                   'man/man1/oci-network-config.1',
                   'man/man1/oci-kvm.1',
+                  'man/man1/oci-image-migrate.1'
                   ]),
                 (os.path.join(sys.prefix, "share", "man", "man5"),
                  ['man/man5/oci-utils.conf.d.5',
@@ -222,6 +223,7 @@ setup(
              'bin/oci-network-config',
              'bin/oci-network-inspector',
              'bin/oci-kvm',
+             'bin/oci-image-migrate',
              ],
     classifiers=[
         "Development Status :: 3 - Alpha",

@@ -1,0 +1,504 @@
+#!/usr/bin/env python2.7
+
+# oci-utils
+#
+# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown
+# at http://oss.oracle.com/licenses/upl.
+
+"""
+Script to migrate on-premise virtual servers to the Oracle Cloud
+Infrastructure. The candidate image needs to comply with:
+- BIOS boot;
+- image size is maximum 300GB;
+- contain one disk containing Master Boot Record and boot loader;
+- no additional volumes are required to complete the boot process;
+- the boot and root partitions are not encrypted;
+- the image is a single file in VMDK or QCOW2 format;
+- the boot loader uses UUID or LVM to locate the boot volume;
+- the network configuration does not contain hardcoded MAC addresses;
+"""
+
+import argparse
+import importlib
+import logging
+import os
+import pkgutil
+import sys
+import time
+import six
+# for the sake of testing
+sys.path.append('/omv/data/git_pycharm/oci-utils/lib')
+from oci_utils.migrate import gen_tools
+from oci_utils.migrate import migrate_utils as migrate_utils
+from oci_utils.migrate import data
+from oci_utils.migrate.exception import OciMigrateException
+
+try:
+    import yaml
+except ImportError as e:
+    gen_tools.exit_msg('Unable to load yaml, please install:\n  pip install '
+                       'pyyaml\n  or\n   yum install python-yaml.')
+    raise OciMigrateException('Failed to find the yaml module.')
+
+logger = logging.getLogger('oci-image-migrate')
+
+#
+# Dictionary containing utilities which might be needed with the packages
+# which provide them.
+helpers_list = {'qemu-nbd': 'qemu-img',
+                'qemu-img': 'qemu-img',
+                'blkid': 'util-linux',
+                'lsblk': 'util-linux',
+                'sfdisk': 'util-linux',
+                'fdisk': 'util-linux',
+                'parted': 'parted',
+                'partx': 'util-linux',
+                'lvmdiskscan': 'lvm2',
+                'oci': 'oci-cli'}
+
+
+def debug(message):
+    """
+    Writes a message to stderr if debugflag is set.
+
+    Parameters
+    ----------
+        message: str
+            The message
+    Returns
+    -------
+        No return value
+    """
+    if gen_tools.debugflag:
+        sys.stderr.write('%s\n' % message)
+
+
+def parse_args():
+    """
+    Parse the command line arguments and return an object representing the
+    command line (as returned by argparse's parse_args())
+    arguments:
+     -i|--iimage <on-premise image>; mandatory.
+     -b|--bucket <bucket name>; mandatory.
+     -o|--oimage <output image name>; optional.
+     --debug sets loglevel to INFO.
+     -q|--quiet sets loglevel to CRITICAL.
+     -v|--verbose produces verbose output.
+     -h|--help
+
+    Returns
+    -------
+        The command line namespace.
+    """
+    parser = argparse.ArgumentParser(
+        description='Utility to support preparation of on-premise legacy '
+                    'images for importing in the Oracle Cloud Infrastructure.',
+        add_help=False)
+    # requiredargs = parser.add_argument_group('mandatory arguments')
+    parser.add_argument('-i', '--iimage',
+                        action='store',
+                        dest='inputimage',
+                        required=('--bucket' in sys.argv or '-b' in sys.argv),
+                        help='The on-premise image for migration to OCI.')
+    parser.add_argument('-b', '--bucket',
+                        action='store',
+                        dest='bucketname',
+                        required=('--iimage' in sys.argv or '-i' in sys.argv),
+                        help='The destination bucket in OCI to store '
+                             'the converted image.')
+    parser.add_argument('-o', '--oimage',
+                        action='store',
+                        dest='outputimage',
+                        help='The output image name.')
+    parser.add_argument('--debug',
+                        action='store_true',
+                        dest='debugflag',
+                        default=False,
+                        help=argparse.SUPPRESS)
+    parser.add_argument('--quiet', '-q',
+                        action='store_true',
+                        dest='quietflag',
+                        help='Suppress information messages')
+    parser.add_argument('--verbose', '-v',
+                        action='store_true',
+                        dest='verboseflag',
+                        default=False,
+                        help='Show verbose information.')
+    parser.add_argument('--help',
+                        action='help',
+                        help='Display this help')
+
+    if len(sys.argv[1:]) == 0:
+        parser.print_help()
+        print('Invalid number of arguments.')
+        exit(1)
+
+    args = parser.parse_args()
+    return args
+
+
+def import_formats():
+    """
+    Import modules which handle different image formats and construct the
+    format data dictionary. Check the object definitions for the
+    'format_data' attribute.
+
+    Returns
+    -------
+        dict: Dictionary containing for each image format at least:
+              { magic number : { name : <type name>,
+                                 module : <module name>,
+                                 clazz : <the class name>,
+                                 prereq : <prequisites dictionary>
+                                }
+              }
+    """
+    attr_format = 'format_data'
+    imagetypes = dict()
+    packagename = 'oci_utils.migrate'
+    pkg = __import__(packagename)
+    logger.debug('pkg name: %s' % pkg)
+    path = os.path.dirname(sys.modules.get(packagename).__file__)
+    logger.debug('path: %s' % path)
+    for _, module_name, _ in pkgutil.iter_modules([path]):
+        type_name = packagename + '.' + module_name
+        logger.debug('type_name: %s' % type_name)
+        try:
+            impret = importlib.import_module(type_name)
+            logger.debug('import result: %s' % impret)
+            attrret = getattr(sys.modules[type_name], attr_format)
+            logger.debug('attribute format_data: %s' % attrret)
+            for key in attrret:
+                if key != data.dummy_format_key:
+                    imagetypes.update(attrret)
+                else:
+                    logger.debug('%s is the dummy key, skipping.' % key)
+        except Exception as e:
+            logger.debug('attribute %s not found in %s: %s'
+                         % (attr_format, type_name, str(e)))
+    return imagetypes
+
+
+def show_utilities(found, missing):
+    """
+    Display the status of the required utilities.
+
+    Parameters
+    ----------
+    found: list
+        List of found utilities.
+    missing: list
+        List of missing utilities.
+
+    Returns
+    -------
+        No return value.
+    """
+    if found:
+        print('\n  %30s\n%s' % ('  Utilities found:', '  ' + '-'*60))
+        for util in found:
+            print('  %30s' % util)
+    if missing:
+        print('\n  %30s\n%s' % ('  Utilities not found:', '  ' + '-'*60))
+        for util in missing:
+            print('  %30s, needs package %s' % (util, helpers_list[util]))
+    print('\n')
+
+
+def show_supported_formats_data(thisdict):
+    """
+    Display the data collected from the image type modules.
+
+    Parameters
+    ----------
+    thisdict: dict
+        Data about the supported image types.
+
+    Returns
+    -------
+        No return value.
+    """
+    gen_tools.result_msg('Show_supported_formats_data')
+    print('\n  %25s\n  %25s\n  %25s : %-20s\n  %25s   %-20s'
+          % ('Supported image formats', '-'*25,
+             'Magic Key', 'Format data', '-'*20, '-'*20))
+    for key in sorted(thisdict):
+        print('  %25s : ' % key)
+        thissubdict = thisdict[key]
+        for yek in sorted(thissubdict):
+            print('  %35s : %s' % (yek, thissubdict[yek]))
+        print('\n')
+
+
+def collect_image_data(imgobject):
+    """
+    Verify the prerequisites of the image file with respect to the migration
+    to the Oracle Cloud Infrastructure.
+
+    Parameters
+    ----------
+    imgobject: Qcow2Head, VmdkHead, SomeTypeHead..  object
+        The image object.
+
+    Returns
+    -------
+        dict:
+            The image data.
+    """
+    try:
+        res, img_info = imgobject.image_data()
+        migrate_utils.show_image_data(imgobject)
+    except Exception as e:
+        logger.critical('Unable to collect or invalid image data: %s' % str(e))
+        raise OciMigrateException('Unable to collect or invalid image data: %s'
+                                  % str(e))
+    # need to return the img_info object in the end...
+    return res, img_info
+
+
+def test_helpers():
+    """
+    Verify which utilities are available.
+
+    Returns
+    -------
+        helpers: List of available utilities.
+        missing: List of missing utilities.
+    """
+    helpers = []
+    missing = []
+    for util in helpers_list:
+        try:
+            if gen_tools.exec_exists(util):
+                helpers.append(util)
+            else:
+                missing.append(util)
+        except Exception as e:
+            logger.error('utility %s is not installed: %s'
+                         % (helpers_list[util], str(e)))
+    return helpers, missing
+
+
+def main():
+    """
+    Main
+
+    Returns
+    -------
+        int
+            0 on success, 1 otherwise.
+    """
+    data.pythonver = sys.version_info[0]
+    gen_tools.result_msg('Python version is %s' % data.pythonver)
+    args = parse_args()
+    #
+    # Logging:
+    # by default is ERROR, is set to INFO by the debug flag, to CRITICAL by
+    # the quiet flag; the debug and quiet flag are overruled by the
+    # environment variable LOGLEVEL
+    _log_l = "ERROR"
+    if args.debugflag:
+        _log_l = "INFO"
+        gen_tools.debugflag = args.debugflag
+    elif args.quietflag:
+        _log_l = "CRITICAL"
+    env_log = os.environ.get("LOGLEVEL")
+    if env_log in ['NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+        _log_l = env_log
+    #
+    # logging
+    logfilename = data.logfilepath + '_' + time.strftime("%Y%m%d_%H%M") + '.log'
+    logging.basicConfig(level=_log_l,
+                        filename=logfilename,
+                        format='%(asctime)s %(filename)s-%(funcName)'
+                               's(%(lineno)d) [%(levelname)s] %(message)s')
+    logger.debug('Log level set to %s' % _log_l)
+    #
+    # Verbose mode is False by default
+    verboseflag = args.verboseflag
+    gen_tools.verboseflag = verboseflag
+    logger.debug('Verbose level set to %s' % verboseflag)
+    #
+    # Operator needs to be root.
+    if not gen_tools.is_root():
+        gen_tools.exit_msg('  *** ERROR *** %s needs to be run as root user' %
+                           sys.argv[0])
+    else:
+        gen_tools.prog_msg('User is root.')
+
+    #
+    # Import the 'format' modules and collect the format data
+    supported_formats = import_formats()
+    if verboseflag:
+        show_supported_formats_data(supported_formats)
+    #
+    # Check the utilities installed.
+    util_list, missing_list = test_helpers()
+    logger.debug('%s' % util_list)
+    if verboseflag:
+        show_utilities(util_list, missing_list)
+    if missing_list:
+        gen_tools.exit_msg('  *** ERROR *** %s needs packages %s installed.\n' %
+                           (sys.argv[0], missing_list), 1)
+    #
+    # Check if oci-cli is configured.
+    if gen_tools.file_exists(data.ociconfigfile):
+        gen_tools.prog_msg('oci-cli config file exists.')
+    else:
+        gen_tools.exit_msg('  *** ERROR *** oci-cli is not configured.\n')
+    #
+    # More on command line arguments.
+    #
+    # input image
+    gen_tools.prog_msg('Input image:  %s' % args.inputimage)
+    imagepath = args.inputimage
+    resultfilename = data.resultfilepath + '_' \
+                     + os.path.splitext(os.path.basename(imagepath))[0] \
+                     + '.res'
+    gen_tools.resultfilename = resultfilename
+    #
+    # initialise output
+    gen_tools.prog_msg('\n  Results are written to %s.' % resultfilename)
+    gen_tools.prog_msg('\n  Log data is written to %s.' % logfilename)
+    #
+    #
+    gen_tools.result_msg('%s at %s' % (' '.join(sys.argv), time.ctime()), 'wb')
+    gen_tools.result_msg('Input image:  %s' % args.inputimage)
+    #
+    # Verify if imagefile exists
+    if not gen_tools.file_exists(args.inputimage):
+        gen_tools.exit_msg('Image file %s does not exist.' % args.inputimage)
+    #
+    # bucket
+    bucketname = args.bucketname
+    logger.debug('Bucket name:  %s' % bucketname)
+    gen_tools.result_msg('Bucket name:  %s' % bucketname)
+    #
+    # output image
+    if args.outputimage:
+        outputname = args.outputimage
+    else:
+        outputname = os.path.splitext(os.path.basename(args.inputimage))[0]
+    gen_tools.result_msg('Output name:  %s\n' % outputname)
+    #
+    # Verify if readable.
+    fn_magic = gen_tools.get_magic_data(args.inputimage)
+    if fn_magic is None:
+        gen_tools.exit_msg('An error occured while trying to read magic '
+                           'number of File %s.' % args.inputimage)
+    #
+    # Verify if image type is supported.
+    logger.debug('Magic number of %s is %s' % (imagepath, fn_magic))
+    if fn_magic not in supported_formats:
+        gen_tools.exit_msg('Image type %s is not recognised.' % fn_magic)
+    #
+    # Get the correct class.
+    imageclazz = supported_formats[fn_magic]
+    gen_tools.result_msg('Type of image %s identified as %s'
+                       % (imagepath, imageclazz['name']))
+    #
+    # Locate the class and module
+    imageclassdef = getattr(
+        sys.modules['oci_utils.migrate.%s' %
+                    supported_formats[fn_magic]['name']],
+                    imageclazz['clazz'])
+    imageobject = imageclassdef(imagepath, logger)
+    #
+    # Generic data collection
+    try:
+        imgres, imagedata = collect_image_data(imageobject)
+        if imgres:
+            logger.debug('Image processing succeeded.')
+        else:
+            logger.critical('Image processing failed.')
+        #
+        if imagedata:
+            logger.debug('%s passed verification.' % imagepath)
+        else:
+            logger.critical('%s failed image check.' % imagepath)
+    except Exception as e:
+        logger.critical('%s failed image check: %s' % (imagepath, str(e)))
+        gen_tools.exit_msg('  Problem detected during investigation of the '
+                           'image %s: %s, exiting.' % (imagepath, str(e)))
+    #
+    # passed prerequisites and changes?
+    prereq_passed = True
+    #
+    # Image type specific prerequisites
+    sup, msg = imageobject.type_specific_prereq_test()
+    if sup:
+        gen_tools.result_msg('%s' % msg)
+    else:
+        prereq_passed = False
+        prereq_msg = msg
+    #
+    # Generic prerequisites
+    prereq_msg = ''
+    gen_prereq, msg = imageobject.generic_prereq_check()
+    if gen_prereq:
+        prereq_msg += '\n  %s passed the generic preqrequisites.' % imagepath
+    else:
+        prereq_passed = False
+        prereq_msg += msg
+
+    if imgres:
+        prereq_msg += '\n  %s data collection and processing succeeded.' \
+                      % imagepath
+    else:
+        prereq_passed = False
+        prereq_msg += '\n  %s processing failed, check the logfile and/or ' \
+                      'set environment variable LOGLEVEL to DEBUG.' % imagepath
+
+    if prereq_passed:
+        gen_tools.result_msg(prereq_msg)
+    else:
+        gen_tools.exit_msg(prereq_msg)
+    #
+    # Ask for agreement to proceed.
+    if not gen_tools.read_yn('\n  Agree to proceed uploading %s to %s as %s?'
+                             % (imagepath, bucketname, outputname)):
+        gen_tools.exit_msg('  Exiting.')
+    #
+    # Prerequisite verification and essential image updates passed, uploading
+    # image.
+    try:
+    #
+    # Verify if object storage exits.
+        thisbucket = migrate_utils.bucket_exists(bucketname)
+        gen_tools.result_msg('Object storage %s exists.' % bucketname)
+    #
+    # Verify if object already exists.
+        if migrate_utils.object_exists(thisbucket, outputname):
+            raise OciMigrateException('Object %s already exists object '
+                                      'storage %s.' % (outputname, bucketname))
+        else:
+            logger.debug('Object %s does not yet exists in object storage %s'
+                         % (outputname, bucketname))
+    #
+    # Upload the image.
+        uploadprogress = gen_tools.ProGressBar(25, 0.5,  [' #', '# '])
+        uploadprogress.start()
+        gen_tools.prog_msg('\n  Uploading %s, this might take a while....'
+                           % imagepath)
+        uploadres = migrate_utils.upload_image(imagepath, bucketname,
+                                               outputname)
+        logger.debug('Uploadresult: %s' % uploadres)
+        gen_tools.prog_msg('  Finished....\n')
+        uploadprogress.stop()
+    except Exception as e:
+        #
+        # if progressthread was started, needs to be terminated.
+        if gen_tools.isthreadrunning(uploadprogress):
+            uploadprogress.stop()
+        #
+        logger.error('Error while uploading %s to %s: %s.'
+                     % (imagepath, bucketname, str(e)))
+        gen_tools.exit_msg('*** ERROR *** Error while uploading %s to %s: '
+                           '%s.' % (imagepath, bucketname, str(e)))
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
