@@ -615,10 +615,6 @@ oci_disable_network_mgr_mac(){
     # adds the mac address to the unmanaged-devices list in then NetworkManager.conf file.
     local -r mac=$1
     oci_vcn_debug "macaddres: $mac"
-    local -r ifname=$1
-    oci_vcn_debug "interface: $ifname"
-    local -r mac=$($IP -br link | grep $ifname | awk -F " " '{print $3}')
-    oci_vcn_debug "macaddres: $mac"
     if [ -f $NWM_CONF ] && [ -r $NWM_CONF ]; then
         oci_vcn_debug "$NWM_CONF exists and is readable"
         keyfilepresent=$(grep -i keyfile $NWM_CONF)
@@ -774,7 +770,7 @@ oci_vcn_ip_sec_addr_del() {
 
 oci_enable_network_mgr_mac(){
     #
-    # removes the mac address to the unmanaged-devices list in then NetworkManager.conf file.
+    # removes the mac address from the unmanaged-devices list in then NetworkManager.conf file.
     local -r mac=$1
     oci_vcn_debug "macaddres: $mac"
     if [ -f $NWM_CONF ] && [ -r $NWM_CONF ]; then
@@ -784,26 +780,30 @@ oci_enable_network_mgr_mac(){
              oci_vcn_debug "[keyfile] tag not present"
         else
              unmanageddevicespresent=$(grep -i unmanaged-devices $NWM_CONF)
-             oci_vcn_debug "found $unmanageddevicespresent"
-             # mac in here?
-             macstr="mac:$mac"
-             newunmanaged=$(echo ${unmanageddevicespresent/$macstr/''})
-             oci_vcn_debug "new unmanaged string: $newunmanaged"
-             lc=$(echo $newunmanaged|cut -c $((${#newunmanaged})))
-             if [ $lc = ";" ]; then
-                 newum=$("$SED" 's/.$//' <<< $newunmanaged)
-             else
-                 newum=$newunmanaged
+             if [ -z "${unmanageddevicespresent}" ]; then
+                 oci_vcn_debug "unmanaged-devices line not present"
+             else:
+                 oci_vcn_debug "found $unmanageddevicespresent"
+                 # mac in here?
+                 macstr="mac:$mac"
+                 newunmanaged=$(echo ${unmanageddevicespresent/$macstr/''})
+                 oci_vcn_debug "new unmanaged string: $newunmanaged"
+                 lc=$(echo $newunmanaged|cut -c $((${#newunmanaged})))
+                 if [ $lc = ";" ]; then
+                     newum=$("$SED" 's/.$//' <<< $newunmanaged)
+                 else
+                     newum=$newunmanaged
+                 fi
+                 oci_vcn_debug "new unmanaged string: $newum"
+                 # are mac addresses left
+                 lc=$(echo $newunmanaged|cut -c $((${#newunmanaged})))
+                 if [ $lc = "=" ]; then
+                     newum=''
+                     "$SED" -i "/^\[keyfile/s/^\[keyfile.*\$//" $NWM_CONF
+                 fi
+                 # replace in line
+                 "$SED" -i "/^unmanaged-devices/s/^unmanaged-devices.*\$/${newum}/" $NWM_CONF
              fi
-             oci_vcn_debug "new unmanaged string: $newum"
-             # are mac addresses left
-             lc=$(echo $newunmanaged|cut -c $((${#newunmanaged})))
-             if [ $lc = "=" ]; then
-                 newum=''
-                 "$SED" -i "/^\[keyfile/s/^\[keyfile.*\$//" $NWM_CONF
-             fi
-             # replace in line
-             "$SED" -i "/^unmanaged-devices/s/^unmanaged-devices.*\$/${newum}/" $NWM_CONF
         fi
     else
         oci_vcn_debug "No Network Manager configuration found."
