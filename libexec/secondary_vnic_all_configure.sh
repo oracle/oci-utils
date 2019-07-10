@@ -641,7 +641,7 @@ oci_disable_network_mgr_mac(){
                     "$SED" -i "/^unmanaged-devices/s/^unmanaged-devices.*\$/${newunmanaged}/" $NWM_CONF
                 fi
             fi
-            oci_vcn_warn "*** System reboot is required to make $dev ignored by NetworkManager. ***"
+            oci_vcn_warn "*** Restart of NetworkManager might be necessary to accomplish $dev to be ignored by NetworkManager. ***"
         fi
     else
         oci_vcn_debug "No Network Manager configuration found."
@@ -803,6 +803,7 @@ oci_enable_network_mgr_mac(){
                  fi
                  # replace in line
                  "$SED" -i "/^unmanaged-devices/s/^unmanaged-devices.*\$/${newum}/" $NWM_CONF
+                 oci_vcn_warn "*** Restart of NetworkManager might be necessary to accomplish $dev to be managed by NetworkManager. ***"
              fi
         fi
     else
