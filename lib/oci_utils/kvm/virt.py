@@ -573,8 +573,8 @@ def create(**kargs):
 
     if '--console' in kargs['extra_args']:
         args.append('--noautoconsole')
-        print "Autoconsole has been disabled. To view the console, issue "
-        "'virsh console {}'".format(kargs['name'])
+        print "Autoconsole has been disabled. To view the console, issue " \
+              "'virsh console {}'".format(kargs['name'])
 
     _logger.debug('create: executing [%s]' % ' '.join(args))
 
