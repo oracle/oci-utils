@@ -281,7 +281,7 @@ class VNICUtils(object):
         if vnic_id is None:
             return 0, 'IP %s is not configured.' % ipaddr
 
-        ret, info = self.__run_sec_vnic_script(['-d', '-e', ipaddr, vnic_id])
+        ret, info = self._run_sec_vnic_script(['-d', '-e', ipaddr, vnic_id])
         if ret == 0:
             if [ipaddr, vnic_id] in self.vnic_info['sec_priv_ip']:
                 self.vnic_info['sec_priv_ip'].remove([ipaddr, vnic_id])
