@@ -315,7 +315,7 @@ def parse_var(key_value):
     if len(items) > 1:
         value = '='.join(items[1:])
         if len(value) == 0:
-            _logger.warning("Value is empty.\n")
+            _logger.warning("Value is empty")
 
         if value.startswith("{"):
             json_acceptable_string = value.replace("'", "\"")
@@ -323,7 +323,7 @@ def parse_var(key_value):
                 tmp = json.loads(json_acceptable_string)
                 value = tmp
             except Exception as e:
-                _logger.error("Invalid value '%s': %s\n" % (value, e))
+                _logger.error("Invalid value '%s': %s" % (value, e))
                 sys.exit(1)
 
         elif value.startswith("file:"):
@@ -335,14 +335,14 @@ def parse_var(key_value):
                     value = d
                     fp.close()
                 else:
-                    _logger.error("Invalid file path: %s\n" % fname)
+                    _logger.error("Invalid file path: %s" % fname)
                     sys.exit(1)
             except Exception as e:
-                _logger.error("Invalid file content (%s): %s\n" % (fname, e))
+                _logger.error("Invalid file content (%s): %s" % (fname, e))
                 sys.exit(1)
     else:
         _logger.error(
-            " -u or --update expects key='value' format, not %s\n" % key_value)
+            " -u or --update expects key='value' format, not %s" % key_value)
         sys.exit(1)
 
     return key, value
@@ -369,7 +369,7 @@ def parse_vars(items):
                 key, value = parse_var(item)
                 if key.find('/') >= 0:
                     _logger.error(
-                        "Key should be simple without path (%s)\n" % key)
+                        "Key should be simple without path (%s)" % key)
                     sys.exit(1)
                 d[key] = value
     return d
@@ -389,7 +389,7 @@ def verify_setkeys(set_keys):
             True on succes, False otherwise.
     """
     if set_keys is None:
-        _logger.error("You must provide a key=value for update option.\n")
+        _logger.error("You must provide a key=value for update option.")
         return False
     keys = set_keys.keys()
     for k in keys:
@@ -398,7 +398,7 @@ def verify_setkeys(set_keys):
             if v is None or type(v) is OCIInstance.settable_field_type[k]:
                 continue
             else:
-                _logger.error(" Key %s expects value of %s, not %s.\n" % (
+                _logger.error(" Key %s expects value of %s, not %s." % (
                     k, human_readable_type[OCIInstance.settable_field_type[k]],
                     human_readable_type[type(v)]))
                 return False
@@ -408,14 +408,14 @@ def verify_setkeys(set_keys):
             if v is None or type(v) is OCIInstance.settable_field_type[k]:
                 set_keys[k] = v
             else:
-                _logger.error(" Key %s expects value of %s, not %s.\n" % (
+                _logger.error(" Key %s expects value of %s, not %s." % (
                     k, human_readable_type[OCIInstance.settable_field_type[k]],
                     human_readable_type[type(v)]))
                 return False
 
         elif k.lower() in lower_metadata_fields or k.lower() in \
                 oci_utils.metadata._attribute_map:
-            _logger.error(" Key(%s) is one of the reserved names.\n" % k)
+            _logger.error(" Key(%s) is one of the reserved names." % k)
             return False
         else:
             if "extendedMetadata" in set_keys.keys():
@@ -653,17 +653,17 @@ def main():
         inst_id = args.instance_id
 
     if args.export and not args.keys:
-        _logger.error("--export only works with --get or -g.\n")
+        _logger.error("--export only works with --get or -g.")
         return 1
 
     if args.trim and not args.keys:
-        _logger.error("--trim only works with --get or -g. \n")
+        _logger.error("--trim only works with --get or -g. ")
         return 1
 
     if args.setkeys:
         if args.keys:
             _logger.error(
-                "-g or --get option conflicts with -u or --update. \n")
+                "-g or --get option conflicts with -u or --update.")
             return 1
 
         k_v = parse_vars(args.setkeys)
@@ -677,13 +677,13 @@ def main():
                                                          **k_v)
             metadata = meta.filter(k_v.keys())
         except Exception as e:
-            _logger.error("%s\n" % e)
+            _logger.error("%s" % str(e))
             return 1
     else:
         # get
         if args.value_only:
             if len(args.keys) != 1:
-                sys.stderr.write("Error: --value-only option works only with one -g or --get option. \n")
+                sys.stderr.write("Error: --value-only option works only with one -g or --get option.")
                 return 1
 
         try:
@@ -695,18 +695,17 @@ def main():
                 meta = InstanceMetadata()
             metadata = meta.filter(args.keys)
         except Exception as e:
-            _logger.error("%s\n" % e)
+            _logger.error("%s" % str(e))
             return 1
 
     if metadata is None:
         if args.keys:
             _logger.error(
-                "No matching metadata for '%s' found.\n" % ','.join(args.keys))
+                "No matching metadata for '%s' found." % str(args.keys))
         elif args.setkeys:
-            _logger.error("No matching metadata for '%s' found.\n" % ','.join(
-                args.setkeys))
+            _logger.error("No matching metadata for '%s' found." % str(args.setkeys))
         else:
-            _logger.error("No metadata found for instance (%s).\n" % inst_id)
+            _logger.error("No metadata found for instance (%s)." % inst_id)
         return 1
 
     if args.value_only:

@@ -290,7 +290,7 @@ class OCIMetadata(dict):
                 The converted metadata.
         """
         # merge extendedMetadata into metadata
-        if 'instance' in metadata:
+        if 'instance' in metadata and metadata['instance'] is not None:
             if 'metadata' in metadata['instance']:
                 if 'extendedMetadata' in metadata['instance']:
                     v = metadata['instance'].pop('extendedMetadata')
@@ -564,7 +564,7 @@ class InstanceMetadata(object):
             self.refresh()
         else:
             assert type(oci_metadata) is \
-                   OCIMetadata, "input should be an OCIMetadata object"
+                OCIMetadata, "input should be an OCIMetadata object"
             self._metadata = oci_metadata
 
     def refresh(self, get_public_ip=False):
