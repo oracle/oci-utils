@@ -35,6 +35,24 @@ oci-kvm \- install and remove KVM guests on Oracle Cloud Infrastructure instance
 .B -p
 .I PATH}
 
+.B oci-kvm create-network -n|--net
+.I NET
+.B -N|--network-name
+.I NETWORK_NAME
+.B -v|--vcn-cidr
+.I VCN_CIDR
+.B -F|--ip-first
+.I IP_FIRST
+.B -E|--ip-end
+.I IP_END
+.B -S|--ip-start
+.I IP_START
+.B -P|--ip-prefix
+IP_PREFIX
+
+.B oci-kvm delete-network -N|--network-name
+.I NETWORK_NAME
+
 .SH DESCRIPTION
 The
 .B oci-kvm
@@ -58,6 +76,19 @@ either a VNIC or a block storage device.
 The
 .B oci-kvm create-pool
 subcommand creates a storage pool to host guest virtual disks. Pools can be created upon local disk, block storage of FSS space.
+
+The
+.B oci-kvm create-network
+subcommand creates a libvirt network on top of OCI vNIC. The created network offers an IP range usable by other KVM guests.
+See the '--virtual-network' option of the
+.B create
+command
+
+The
+.B oci-kvm delete-network
+subcommand deletes a libvirt network previously created by
+.B create-network
+command.
 
 When the oci-utils-kvm is installed, it changes the configuration of
 .BR ocid(8)
@@ -88,14 +119,25 @@ option is not specified, an unused block device will be chosen arbitrarily. This
 For the
 .B create-pool
 command, the block device that will be used to build the storage pool.
+.IP "-N NETWORK_NAME, --network-name NETWORK_NAME"
+For the
+.B create-network
+and the
+.B delete-network
+commands, the name of the virtual (libvirt) network
 .IP "-n NAME, --name NAME"
 For the
 .B create-pool
 command, the name of the pool. When not specified, the default name is the chosen disk name
 .IP "-n IP, --net IP"
-On bare metal instance host, the IP address of the Oracle Cloud Infrastructure VNIC that should be assigned to the new guest.
+For the
+.B create
+command, on bare metal instance host, the IP address of the Oracle Cloud Infrastructure VNIC that should be assigned to the new guest.
 On virtual machine instance host the name of the Oracle Cloud Infrastructure VNIC. If this
 option is not specified, an unused VNIC will be chosen arbitrarily.
+For the
+.B create-network
+command, the IP address of the Oracle Cloud Infrastructure VNIC that should be used to build the network
 .IP "-v VIRTUAL_NETWORK, --virtual-network VIRTUAL_NETWORK"
 The name of the libvirt virtual network to attach the guest to.
 .IP "-N HOST, --netfshost HOST"
@@ -121,6 +163,26 @@ this tool executes that command.
 .B  oci-kvm
  itself provides the following arguments:
 --hvm, --name, --cpu, --disk, --network.
+.IP "-v VCN_CIDR, --vcn-cidr VCN_CIDR"
+For the
+.B create-network
+command, the VCN CIDR block used by the vNIC to be used.
+.IP "-F IP_FIRST, --ip-first IP_FIRST"
+For the
+.B create-network
+command, specify the first IP address in the virtual network address space.
+.IP "-S IP_START, --ip-start IP_START"
+For the
+.B create-network
+command, specify the first IP address in the virtual network address space.
+.IP "-E IP_END, --ip-end IP_END"
+For the
+.B create-network
+command, specify the last IP address in the virtual network address space.
+.IP "-P IP_PREFIX, --ip-prefix IP_PREFIX"
+For the
+.B create-network
+command, specify the last IP address in the virtual network address space.
 .IP --help
 
 .SH EXAMPLES
@@ -140,6 +202,12 @@ oci-kvm create --disk-size 128 --pool guest_pool --net 10.0.0.64 -D foo  --virt 
 .RS 3
 Creates a guest with a root disk of 128GB on storage pool named foo
 .RE
+
+oci-kvm create-network --name=mynet0 --net 10.0.1.2 --vcn-cidr=10.0.0.0/16 --ip-first=10.0.2.20 --ip-start=10.0.2.10 --ip-end=10.0.2.30 --ip-prefix=24
+.RS 3
+Creates virtual network named mynet0 on vNIC with 10.0.1.2 address
+.RE
+
 .SH DIAGNOSTICS
 Return an exit status of 0 for success or 1 if an error occured.
 
