@@ -674,15 +674,15 @@ def destroy(name, delete_disks):
                 for source in disk.findall('source'):
                     file_as_source = source.get('file')
                     if file_as_source:
-                       _vol = virt_utils.find_storage_pool_volume_by_path(libvirtConn, file_as_source)
-                       if _vol:
+                        _vol = virt_utils.find_storage_pool_volume_by_path(libvirtConn, file_as_source)
+                        if _vol:
                             _logger.debug('libvirt volume found [%s]' % _vol.name())
                             try:
-                               _vol.wipe(0)
-                               _vol.delete(0)
-                               _logger.debug('libvirt volume deleted')
+                                _vol.wipe(0)
+                                _vol.delete(0)
+                                _logger.debug('libvirt volume deleted')
                             except libvirt.libvirtError, e:
-                               _logger.error('Cannot delete volume [%s]: %s' % (_vol.name(), str(e)))
+                                _logger.error('Cannot delete volume [%s]: %s' % (_vol.name(), str(e)))
 
     libvirtConn.close()
 
@@ -831,6 +831,9 @@ def create_virtual_network(**kargs):
             An instance of StringIO populated with command lines which can be used to persist the network creation, None on failure
     """
 
+    _instance_shape = InstanceMetadata()['instance']['shape']
+    _is_bm_shape = _instance_shape.startswith('BM')
+
     _persistence_script = StringIO.StringIO()
     _persistence_script.write('#/bin/bash\n')
 
@@ -850,17 +853,40 @@ def create_virtual_network(**kargs):
         print_error('Failed to open connection to qemu:///system')
         return None
 
-    free_vnics = find_free_vnics(_all_vnics, _all_system_interfaces)
+    vf_dev = None
 
-    # based on given PI adress, find free VF.
-    vnic, vf, vf_num = test_vnic_and_assign_vf(_vnic_ip_to_use, free_vnics)
-    if not vnic:
-        _logger.debug('choosen vNIC is not free')
-        return None
-    _logger.debug('ready to write network configuration for (%s, %s, %s)' % (vnic, vf, vf_num))
+    if _is_bm_shape:
+        free_vnics = find_free_vnics(_all_vnics, _all_system_interfaces)
 
-    vf_dev = get_interface_by_pci_id(vf, _all_system_interfaces)
-    _logger.debug('vf device for %s: %s' % (vf, vf_dev))
+        # based on given IP address, find free VF.
+        vnic, vf, vf_num = test_vnic_and_assign_vf(_vnic_ip_to_use, free_vnics)
+        if not vnic:
+            _logger.debug('choosen vNIC is not free')
+            return None
+        _logger.debug('ready to write network configuration for (%s, %s, %s)' % (vnic, vf, vf_num))
+
+        vf_dev = get_interface_by_pci_id(vf, _all_system_interfaces)
+        _logger.debug('vf device for %s: %s' % (vf, vf_dev))
+    else:
+        # vm shape: use vnic as it is
+        # find the device of that vnic
+        vnic = None
+        for v in _all_vnics:
+            if v['privateIp'] == _vnic_ip_to_use:
+                vnic = v
+                break
+        if vnic is None:
+            print_error('vNIC with address [%s] not found' % _vnic_ip_to_use)
+            return None
+        for intf_name, attrs in _all_system_interfaces.iteritems():
+            if attrs['mac'].upper() == vnic['macAddr'].upper() and attrs['physical']:
+                vf_dev = intf_name
+        if vf_dev is None:
+            print_error('cannot find network interface matching vNIC with ip [%s]' % _vnic_ip_to_use)
+            return None
+
+        _logger.debug(' device for nework %s' % vf_dev)
+
     if not create_networking(vf_dev,
                              vnic['vlanTag'],
                              vnic['macAddr'],
