@@ -203,7 +203,7 @@ oci-kvm create --disk-size 128 --pool guest_pool --net 10.0.0.64 -D foo  --virt 
 Creates a guest with a root disk of 128GB on storage pool named foo
 .RE
 
-oci-kvm create-network --name=mynet0 --net 10.0.1.2 --vcn-cidr=10.0.0.0/16 --ip-first=10.0.2.20 --ip-start=10.0.2.10 --ip-end=10.0.2.30 --ip-prefix=24
+oci-kvm create-network --name=mynet0 --network-name 10.0.1.2 --vcn-cidr=10.0.0.0/16 --ip-first=10.0.2.20 --ip-start=10.0.2.10 --ip-end=10.0.2.30 --ip-prefix=24
 .RS 3
 Creates virtual network named mynet0 on vNIC with 10.0.1.2 address
 .RE
