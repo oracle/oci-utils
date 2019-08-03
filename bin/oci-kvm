@@ -92,14 +92,17 @@ def parse_args():
                                 required=True)
     destroy_parser.add_argument('--destroy-disks', action='store_true',
                                 help='Also delete storage pool based disks')
-    create_pool_parser.add_argument('-d', '--disk', action='store', type=str,
+
+    dbp_group = create_pool_parser.add_argument_group(title='disk pool',description='Options for disk based storage pool')
+    dbp_group.add_argument('-d', '--disk', action='store', type=str,
                                     help='Path to the root disk of the storage pool')
-    create_pool_parser.add_argument('-N', '--netfshost', action='store', type=str,
+    nfsp_group = create_pool_parser.add_argument_group(title='NETFS pool', description='Options for NETFS based storage pool')
+    nfsp_group.add_argument('-N', '--netfshost', action='store', type=str,
                                     help='name or IP of the NFS server')
-    create_pool_parser.add_argument('-p', '--path', action='store', type=str,
+    nfsp_group.add_argument('-p', '--path', action='store', type=str,
                                     help='path of the NETFS resource')
     create_pool_parser.add_argument('-n', '--name', action='store', type=str,
-                                    help='name of the pool, default is <disk>', required=False)
+                                    help='name of the pool', required=True)
 
     create_network_parser.add_argument('-n', '--net', action='store', required=True, type=str,
                                        help='IP of the VNIC used to build the network')
@@ -296,13 +299,16 @@ def _create_pool_vm(args):
     if args.disk and args.netfshost:
         print >> sys.stderr, "--disk and --host option are exclusive"
         return 1
+
+    if not args.disk and not args.netfshost:
+        print >> sys.stderr, "Either --disk or --host must be specified."
+        return 1
+
     if args.netfshost and not args.path:
         print >> sys.stderr, "must specify the remote resource path with the --path option"
         return 1
 
     _pool_name = args.name
-    if not args.name:
-        _, _pool_name = os.path.split(args.disk)
     if args.disk:
         return oci_utils.kvm.virt.create_fs_pool(args.disk, _pool_name)
     if args.netfshost:
