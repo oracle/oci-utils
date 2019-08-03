@@ -253,13 +253,14 @@ def setup_logging(forceDebug=False):
         handler = logging.handlers.SysLogHandler(address='/dev/log',
                                                  facility=logging.handlers.SysLogHandler.LOG_DAEMON)
     else:
-        try:
-            handler = logging.handlers.RotatingFileHandler(
-                '/var/tmp/oci-utils.log', mode='a', maxBytes=1024 * 1024, backupCount=3)
-            handler.setFormatter(formatter)
-            handler.setLevel(logging.NOTSET)
-        except StandardError, e:
-            print 'warning, cannot setup debug file : %s' % str(e)
+        if forceDebug:
+            try:
+                handler = logging.handlers.RotatingFileHandler(
+                    '/var/tmp/oci-utils.log', mode='a', maxBytes=1024 * 1024, backupCount=3)
+                handler.setFormatter(formatter)
+                handler.setLevel(logging.NOTSET)
+            except StandardError, e:
+                print 'warning, cannot setup debug file : %s' % str(e)
 
     logger = logging.getLogger('oci-utils')
     logger.setLevel(logging.INFO)
