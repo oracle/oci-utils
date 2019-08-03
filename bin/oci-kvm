@@ -301,7 +301,7 @@ def _create_pool_vm(args):
         return 1
 
     if not args.disk and not args.netfshost:
-        print >> sys.stderr, "One of the options --disk and --host must be selected"
+        print >> sys.stderr, "Either --disk or --host must be specified."
         return 1
 
     if args.netfshost and not args.path:
