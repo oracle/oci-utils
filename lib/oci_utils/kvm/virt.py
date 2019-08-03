@@ -674,15 +674,15 @@ def destroy(name, delete_disks):
                 for source in disk.findall('source'):
                     file_as_source = source.get('file')
                     if file_as_source:
-                       _vol = virt_utils.find_storage_pool_volume_by_path(libvirtConn, file_as_source)
-                       if _vol:
+                        _vol = virt_utils.find_storage_pool_volume_by_path(libvirtConn, file_as_source)
+                        if _vol:
                             _logger.debug('libvirt volume found [%s]' % _vol.name())
                             try:
-                               _vol.wipe(0)
-                               _vol.delete(0)
-                               _logger.debug('libvirt volume deleted')
+                                _vol.wipe(0)
+                                _vol.delete(0)
+                                _logger.debug('libvirt volume deleted')
                             except libvirt.libvirtError, e:
-                               _logger.error('Cannot delete volume [%s]: %s' % (_vol.name(), str(e)))
+                                _logger.error('Cannot delete volume [%s]: %s' % (_vol.name(), str(e)))
 
     libvirtConn.close()
 
@@ -756,49 +756,40 @@ def create_fs_pool(disk, name):
     """
 
     # first cleanup the block device
-    if subprocess.call([SUDO_CMD, PARTED_CMD, '--script', disk, 'mklabel', 'gpt']):
+    if sudo_utils.call([PARTED_CMD, '--script', disk, 'mklabel', 'gpt']):
         print_error('Failed to label the block volume')
         return 1
 
-    if subprocess.call([SUDO_CMD, PARTED_CMD, '--align', 'optimal', '--script', disk, 'mkpart', 'primary', 'xfs', '1MiB', '100%']):
+    if sudo_utils.call([PARTED_CMD, '--align', 'optimal', '--script', disk, 'mkpart', 'primary', 'xfs', '1MiB', '100%']):
         print_error('Failed to make primary partition on the block volume')
         return 1
 
     _new_part = "%s1" % disk
 
-    if subprocess.call([MK_XFS_CMD, '-q', _new_part]):
+    if sudo_utils.call([MK_XFS_CMD, '-f', '-q', _new_part]):
         print_error('Failed to make xfs filesystem on new prtition')
         return 1
 
-    poolXML = Element('pool', type='fs')
-    pname = SubElement(poolXML, 'name')
-    pname.text = name
-    psource = SubElement(poolXML, 'source')
-    # we create a primary partition: device will be named devname1 (i.e /dev/sda -> /dev/sda1)
-    SubElement(psource, 'device', path=_new_part)
-    ptarget = SubElement(poolXML, 'target')
-    ppath = SubElement(ptarget, 'path')
-    ppath.text = '/oci-%s' % name
-
-    conn = libvirt.open(None)
-    if conn is None:
-        print_error('Failed to open connection to qemu:///system')
+    if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-define-as', '--name=%s'%name, '--type=fs', '--source-dev=%s'%_new_part,'--target=/oci-%s'%name]):
+        print_error('Failed to define pool')
         return 1
 
-    pool = conn.storagePoolDefineXML(ElementTree.tostring(poolXML), 0)
-    if pool is None:
-        print_error('Failed to create StoragePool object.')
+    if sudo_utils.call([VIRSH_CMD, '--quiet','pool-build', name]):
+        print_error('Failed to build pool')
+        sudo_utils.call([VIRSH_CMD, 'pool-undefine', name])
         return 1
-    try:
-        pool.setAutostart(1)
-        pool.build()
-        pool.create()
-    except libvirt.libvirtError, e:
-        pool.undefine()
-        print_error('Failed to setup the pool: %s' % e.get_error_message())
+
+    if sudo_utils.call([VIRSH_CMD, '--quiet','pool-start', name]):
+        sudo_utils.call([VIRSH_CMD, 'pool-undefine', name])
+        print_error('Failed to build pool')
         return 1
-    finally:
-        conn.close()
+
+    if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-autostart', name]):
+        sudo_utils.call([VIRSH_CMD, 'pool-destroy', name])
+        sudo_utils.call([VIRSH_CMD, 'pool-undefine', name])
+        print_error('Failed to build pool')
+        return 1
+
     return 0
 
 
