@@ -107,8 +107,8 @@ def parse_args():
                                        help='the name of the network')
     create_network_parser.add_argument('-v', '--vcn-cidr', action='store', required=True, type=str,
                                        help='The VCN CIDR block used by the choosen vNIC')
-    create_network_parser.add_argument('-F', '--ip-first', action='store', required=True, type=str,
-                                       help='first IP in virtual network address space')
+    create_network_parser.add_argument('-F', '--ip-bridge', action='store', required=True, type=str,
+                                       help='Bridge IP for virtual network address space')
     create_network_parser.add_argument('-S', '--ip-start', action='store', required=True, type=str,
                                        help='guest first IP range in virtual network address space')
     create_network_parser.add_argument('-E', '--ip-end', action='store', required=True, type=str,
@@ -249,7 +249,7 @@ def _create_network_vm(args):
 
     script = oci_utils.kvm.virt.create_virtual_network(network=args.net,
                                                        network_name=args.network_name,
-                                                       ip_first=args.ip_first,
+                                                       ip_bridge=args.ip_bridge,
                                                        ip_prefix=args.ip_prefix,
                                                        ip_start=args.ip_start,
                                                        ip_end=args.ip_end,
