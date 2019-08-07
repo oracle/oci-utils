@@ -107,7 +107,7 @@ def parse_args():
                                        help='the name of the network')
     create_network_parser.add_argument('-v', '--vcn-cidr', action='store', required=True, type=str,
                                        help='The VCN CIDR block used by the choosen vNIC')
-    create_network_parser.add_argument('-F', '--ip-bridge', action='store', required=True, type=str,
+    create_network_parser.add_argument('-B', '--ip-bridge', action='store', required=True, type=str,
                                        help='Bridge IP for virtual network address space')
     create_network_parser.add_argument('-S', '--ip-start', action='store', required=True, type=str,
                                        help='guest first IP range in virtual network address space')

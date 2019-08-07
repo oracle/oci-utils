@@ -41,7 +41,7 @@ oci-kvm \- install and remove KVM guests on Oracle Cloud Infrastructure instance
 .I NETWORK_NAME
 .B -v|--vcn-cidr
 .I VCN_CIDR
-.B -F|--ip-bridge
+.B -B|--ip-bridge
 .I IP_BRIDGE
 .B -E|--ip-end
 .I IP_END
@@ -166,7 +166,7 @@ this tool executes that command.
 For the
 .B create-network
 command, the VCN CIDR block used by the vNIC to be used.
-.IP "-F IP_BRIDGE, --ip-bridge IP_BRIDGE"
+.IP "-B IP_BRIDGE, --ip-bridge IP_BRIDGE"
 For the
 .B create-network
 command, specify the IP address of the bridge used to build the virtual network.
