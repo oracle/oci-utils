@@ -808,8 +808,8 @@ def create_virtual_network(**kargs):
             the CIDR block of the VCN of the VNIC used to build the network on
             network_name : str
               The name for the new virtual network
-            ip_first :
-               The first IP of virtual network IP range
+            ip_bridge :
+               The bridge IP of virtual network
             ip_start
                The first IP of virtual network IP range dedicated to guest
             ip_end
@@ -904,7 +904,7 @@ def create_virtual_network(**kargs):
     SubElement(netXML, 'name').text = kargs['network_name']
     SubElement(netXML, 'forward', dev='%s.%s' % (vf_dev, vnic['vlanTag']), mode='route')
     SubElement(netXML, 'bridge', name='%s0' % kargs['network_name'], stp='on', delay='0')
-    ip = SubElement(netXML, 'ip', address=kargs['ip_first'], prefix=kargs['ip_prefix'])
+    ip = SubElement(netXML, 'ip', address=kargs['ip_bridge'], prefix=kargs['ip_prefix'])
     dhcp = SubElement(ip, 'dhcp')
     ip_range = SubElement(dhcp, 'range', start=kargs['ip_start'], end=kargs['ip_end'])
 
@@ -983,7 +983,7 @@ def create_virtual_network(**kargs):
     # Add firewall rules for the address space of the KVM network to allow address rewriting
     _persistence_script.write('# Add firewall rules\n')
     fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
-    fw_cmd.append('%s/%s' % (kargs['ip_first'], kargs['ip_prefix']))
+    fw_cmd.append('%s/%s' % (kargs['ip_bridge'], kargs['ip_prefix']))
     fw_cmd.extend(['-d', '224.0.0.0/24', '-j', 'ACCEPT'])
     (_c, _msg) = add_firewall_rule(script=_persistence_script, *fw_cmd)
     if _c != 0:
@@ -991,7 +991,7 @@ def create_virtual_network(**kargs):
         _logger.debug('Failed to execute [%s]' % ' '.join(fw_cmd))
 
     fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
-    fw_cmd.append('%s/%s' % (kargs['ip_first'], kargs['ip_prefix']))
+    fw_cmd.append('%s/%s' % (kargs['ip_bridge'], kargs['ip_prefix']))
     fw_cmd.extend(['-d', '255.255.255.255/32', '-j', 'ACCEPT'])
     (_c, _msg) = add_firewall_rule(script=_persistence_script, *fw_cmd)
     if _c != 0:
@@ -999,8 +999,8 @@ def create_virtual_network(**kargs):
         _logger.debug('Failed to execute [%s]' % ' '.join(fw_cmd))
 
     fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
-    fw_cmd.append('%s/%s' % (kargs['ip_first'], kargs['ip_prefix']))
-    fw_cmd.extend(['!', '-d', '%s/%s' % (kargs['ip_first'], kargs['ip_prefix']), '-j', 'MASQUERADE'])
+    fw_cmd.append('%s/%s' % (kargs['ip_bridge'], kargs['ip_prefix']))
+    fw_cmd.extend(['!', '-d', '%s/%s' % (kargs['ip_bridge'], kargs['ip_prefix']), '-j', 'MASQUERADE'])
     (_c, _msg) = add_firewall_rule(script=_persistence_script, *fw_cmd)
     if _c != 0:
         print_error('Failed to set firewall rule [%s]' % _msg)
@@ -1053,24 +1053,24 @@ def delete_virtual_network(**kargs):
 
     bridge_name = root.findall('bridge')[0].get('name')
 
-    ip_first = root.findall('ip')[0].get('address')
+    ip_bridge = root.findall('ip')[0].get('address')
     ip_prefix = root.findall('ip')[0].get('prefix')
 
     (vf_dev, vlanTag) = device_name.split('.')
 
     fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
-    fw_cmd.append('%s/%s' % (ip_first, ip_prefix))
+    fw_cmd.append('%s/%s' % (ip_bridge, ip_prefix))
     fw_cmd.extend(['-d', '224.0.0.0/24', '-j', 'ACCEPT'])
     remove_firewall_rule(*fw_cmd)
 
     fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
-    fw_cmd.append('%s/%s' % (ip_first, ip_prefix))
+    fw_cmd.append('%s/%s' % (ip_bridge, ip_prefix))
     fw_cmd.extend(['-d', '255.255.255.255/32', '-j', 'ACCEPT'])
     remove_firewall_rule(*fw_cmd)
 
     fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
-    fw_cmd.append('%s/%s' % (ip_first, ip_prefix))
-    fw_cmd.extend(['!', '-d', '%s/%s' % (ip_first, ip_prefix), '-j', 'MASQUERADE'])
+    fw_cmd.append('%s/%s' % (ip_bridge, ip_prefix))
+    fw_cmd.extend(['!', '-d', '%s/%s' % (ip_bridge, ip_prefix), '-j', 'MASQUERADE'])
     remove_firewall_rule(*fw_cmd)
 
     remove_static_ip_routes(bridge_name)
