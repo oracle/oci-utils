@@ -65,11 +65,11 @@ that were assigned to the guest.
 
 The
 .B oci-kvm create
-subcommand performs all actions required to create a KVM guest that uses Oracle Cloud Infrastructure Block
-Storage and Oracle Cloud Infrastructure VNICs for the root disk and network interface respectively.  For block
+subcommand performs all actions required to create a KVM guest that uses Oracle Cloud Infrastructure block
+storage and Oracle Cloud Infrastructure VNICs for the root disk and network interface respectively.  For block
 storage, the device itself is validated and checked to ensure it has not been assigned
 to another guest. A storage pool can also be used. For virtual network interfaces, all virtual network infrastructure
-is created automatically.  This includes virtual functions, VLANs, etc.  Indiviual
+is created automatically.  This includes virtual functions, VLANs, etc. indiviual
 block storage devices and VNICs are required for each guest.  Guests cannot share
 either a VNIC or a block storage device.
 
@@ -98,12 +98,12 @@ in
 .BR /etc/oci-utils.conf.d/10-oci-kvm.conf .
 This causes
 .BR ocid(8)
-to stop automatically configuring VNICs and instead leaving them for the kvm
+to stop automatically configuring VNICs and instead leaving them for the KVM
 tools to manage.
 
 .SH OPTIONS
 .IP "--destroy-disks"
-For the destroy command, specify that all disks based on libvirt storage pool must alos be deleted
+For the destroy command, specify that all disks based on libvirt storage pool must also be deleted.
 .IP "-D NAME, --domain NAME"
 For both the
 .B create
@@ -124,11 +124,11 @@ The name of the virtual (libvirt) network for the
 .B create-network
 and
 .B delete-network
-subcommands
+subcommands.
 .IP "-n NAME, --name NAME"
 For the
 .B create-pool
-command, the name of the pool. When not specified, the default name is the chosen disk name
+command, the name of the pool. When not specified, the default name is the chosen disk name.
 .IP "-n IP, --net IP"
 For the
 .B create
@@ -137,13 +137,13 @@ On virtual machine instance host the name of the Oracle Cloud Infrastructure VNI
 option is not specified, an unused VNIC will be chosen arbitrarily.
 For the
 .B create-network
-command, the IP address of the Oracle Cloud Infrastructure VNIC that should be used to build the network
+command, the IP address of the Oracle Cloud Infrastructure VNIC that should be used to build the network.
 .IP "-v VIRTUAL_NETWORK, --virtual-network VIRTUAL_NETWORK"
 The name of the libvirt virtual network to attach the guest to.
 .IP "-N HOST, --netfshost HOST"
 For the
 .B create-pool
-name or IP of the NFS server
+name or IP of the NFS server.
 .IP "-p PATH, --path PATH"
 For the
 .B create-pool
@@ -155,7 +155,7 @@ the following command
 .B /usr/bin/virsh pool-list.
 This option is exclusive with --disk.
 .IP "-s DISK_SIZE, --disk-size DISK_SIZE"
-The size of the disk in GB  to be created within the given storage pool. This option is mandatory when the --pool option is specified
+The size of the disk in GB  to be created within the given storage pool. This option is mandatory when the --pool option is specified.
 .IP "-V VIRT-INSTALL_ARGS, --virt VIRT-INSTALL_ARGS"
 Each argument that appears after either -V or --virt is passed into virt-install when
 this tool executes that command.
@@ -189,17 +189,17 @@ command, specify the last IP address in the virtual network address space.
 oci-kvm create-pool --disk /dev/sdb
 .RS 3
 Creates a storage pool on disk /dev/sdb. Name of the pool will be
-.I sdb
+.I sdb.
 .RE
 
-oci-kvm create-pool --netfshost 100.100.231.9 --path /FileSystem-20190405-1454 --name guest_pool
+oci-kvm create-pool --netfshost 1.2.3.4 --path /FileSystem-20190405-1454 --name guest_pool
 .RS 3
-Creates a storage pool on NFS resource FileSystem-20190405-1454 on NFS server 100.100.231.9.
+Creates a storage pool on NFS resource FileSystem-20190405-1454 on NFS server 1.2.3.4.
 .RE
 
 oci-kvm create --disk-size 128 --pool guest_pool --net 10.0.0.64 -D foo  --virt --cpu 1 --memory 8g --pxe
 .RS 3
-Creates a guest with a root disk of 128GB on storage pool named foo
+Creates a guest with a root disk of 128GB on storage pool named foo.
 .RE
 
 oci-kvm create-network --network-name=mynet0 --net=10.0.1.2 --vcn-cidr=10.0.0.0/16 --ip-bridge=192.168.10.9 --ip-start=192.168.10.10 --ip-end=192.168.10.30 --ip-prefix=24
@@ -208,7 +208,7 @@ Creates virtual network named mynet0 on vNIC with 10.0.1.2 address
 .RE
 
 .SH DIAGNOSTICS
-Return an exit status of 0 for success or 1 if an error occured.
+Return an exit status of 0 for success or 1 if an error occurred.
 
 .SH "SEE ALSO"
 .BR ocid (8)
