@@ -19,8 +19,12 @@ from time import sleep
 
 from ..exceptions import OCISDKError
 
-__all__ = ['lock_thread', 'release_thread', 'read_config', 'SUDO_CMD']
+__all__ = ['lock_thread', 'release_thread', 'read_config', 'SUDO_CMD', 'CAT_CMD', 'SH_CMD', 'CP_CMD']
 
+CAT_CMD = '/usr/bin/cat'
+RM_CMD = '/bin/rm'
+CP_CMD = '/bin/cp'
+SH_CMD = '/bin/sh'
 SUDO_CMD = '/bin/sudo'
 VIRSH_CMD = '/usr/bin/virsh'
 IP_CMD = '/usr/sbin/ip'

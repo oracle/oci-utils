@@ -541,13 +541,23 @@ def create(**kargs):
             # VM shape case
             if kargs['network']:
                 args.append('--network')
-                args.append('type=direct,model=virtio,source=%s' % kargs['network'])
+                # find associated mac
+                _mac_to_use = None
+                for intf_name, intf_info in interfaces.iteritems():
+                    if intf_name == kargs['network']:
+                        _mac_to_use = intf_info['mac'].upper()
+                if _mac_to_use is None:
+                    _logger.debug('warning: cannot find MAC address for %s'%kargs['network'])
+                    args.append('type=direct,model=virtio,source_mode=passthrough,source=%s' % kargs['network'])
+                else:
+                    args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' % (kargs['network'], _mac_to_use))
             else:
                 # have to find one free interface. i.e not already used by a guest
                 # and not the primary one. the VNICs returned by metadata service is sorted list
                 # i.e the first one is the primary VNICs
                 domains_nics = _get_intf_used_by_guest()
                 intf_to_use = None
+                _mac_to_use = None
                 for intf_name, intf_info in interfaces.iteritems():
                     # skip non physical intf
                     if not intf_info['physical']:
@@ -560,6 +570,7 @@ def create(**kargs):
                         continue
                     # we've found one
                     intf_to_use = intf_name
+                    _mac_to_use = intf_info['mac'].upper()
                     break
 
                 if not intf_to_use:
@@ -567,7 +578,7 @@ def create(**kargs):
                     return 1
 
                 args.append('--network')
-                args.append('type=direct,model=virtio,source=%s' % intf_to_use)
+                args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' % (intf_to_use,_mac_to_use))
 
     args.extend(kargs['extra_args'])
 
@@ -822,6 +833,9 @@ def create_virtual_network(**kargs):
             An instance of StringIO populated with command lines which can be used to persist the network creation, None on failure
     """
 
+    _instance_shape = InstanceMetadata()['instance']['shape']
+    _is_bm_shape = _instance_shape.startswith('BM')
+
     _persistence_script = StringIO.StringIO()
     _persistence_script.write('#/bin/bash\n')
 
@@ -841,17 +855,40 @@ def create_virtual_network(**kargs):
         print_error('Failed to open connection to qemu:///system')
         return None
 
-    free_vnics = find_free_vnics(_all_vnics, _all_system_interfaces)
+    vf_dev = None
 
-    # based on given PI adress, find free VF.
-    vnic, vf, vf_num = test_vnic_and_assign_vf(_vnic_ip_to_use, free_vnics)
-    if not vnic:
-        _logger.debug('choosen vNIC is not free')
-        return None
-    _logger.debug('ready to write network configuration for (%s, %s, %s)' % (vnic, vf, vf_num))
+    if _is_bm_shape:
+        free_vnics = find_free_vnics(_all_vnics, _all_system_interfaces)
 
-    vf_dev = get_interface_by_pci_id(vf, _all_system_interfaces)
-    _logger.debug('vf device for %s: %s' % (vf, vf_dev))
+        # based on given IP address, find free VF.
+        vnic, vf, vf_num = test_vnic_and_assign_vf(_vnic_ip_to_use, free_vnics)
+        if not vnic:
+            _logger.debug('choosen vNIC is not free')
+            return None
+        _logger.debug('ready to write network configuration for (%s, %s, %s)' % (vnic, vf, vf_num))
+
+        vf_dev = get_interface_by_pci_id(vf, _all_system_interfaces)
+        _logger.debug('vf device for %s: %s' % (vf, vf_dev))
+    else:
+        # vm shape: use vnic as it is
+        # find the device of that vnic
+        vnic = None
+        for v in _all_vnics:
+            if v['privateIp'] == _vnic_ip_to_use:
+                vnic = v
+                break
+        if vnic is None:
+            print_error('vNIC with address [%s] not found' % _vnic_ip_to_use)
+            return None
+        for intf_name, attrs in _all_system_interfaces.iteritems():
+            if attrs['mac'].upper() == vnic['macAddr'].upper() and attrs['physical']:
+                vf_dev = intf_name
+        if vf_dev is None:
+            print_error('cannot find network interface matching vNIC with ip [%s]' % _vnic_ip_to_use)
+            return None
+
+        _logger.debug(' device for nework %s' % vf_dev)
+
     if not create_networking(vf_dev,
                              vnic['vlanTag'],
                              vnic['macAddr'],
