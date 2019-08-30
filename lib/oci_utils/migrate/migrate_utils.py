@@ -17,10 +17,11 @@ import sys
 import time
 import re
 import json
+import subprocess
 from functools import wraps
 from glob import glob
 from ConfigParser import ConfigParser
-from oci_utils.migrate import data
+from oci_utils.migrate import configdata
 from oci_utils.migrate.exception import OciMigrateException
 from oci_utils.migrate.exception import NoSuchCommand
 from oci_utils.migrate import gen_tools
@@ -66,7 +67,6 @@ def state_loop(maxloop, intsec=1):
                     funcret = func(*args, **kwargs)
                     return funcret
                 except Exception as e:
-                    print 'counter %d' % i
                     logger.debug('Failed, sleeping for %d sec: %s'
                                  % (intsec, str(e)))
                     if i == maxloop - 1:
@@ -87,7 +87,7 @@ def exec_df():
     """
     cmd = ['df', '-h']
     df_res = gen_tools.run_popen_cmd(cmd)
-    gen_tools.result_msg('%s' % df_res)
+    gen_tools.result_msg(mag='\n%s' % df_res)
 
 
 def enter_chroot(newroot):
@@ -126,11 +126,13 @@ def enter_chroot(newroot):
         #
         # adjust PATH to make sure.
         currentpath = os.environ['PATH']
-        newpath = \
-            currentpath.replace('/bin', '')\
-                .replace('/usr/sbin', '')\
-                .replace('::', ':') \
-            + ':/bin:/usr/bin:/usr/sbin'
+        newpath = currentpath.replace('/bin', '')\
+                      .replace('/usr/bin', '')\
+                      .replace('/sbin', '')\
+                      .replace('/usr/sbin', '')\
+                      .replace('/usr/local/sbin', '')\
+                      .replace('::', ':') \
+                  + ':/root/bin:/bin:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin'
         os.environ['PATH'] = newpath
         logger.debug('Set path to %s' % newpath)
         return root2return, currentpath
@@ -140,7 +142,7 @@ def enter_chroot(newroot):
                                   % (newpath, str(e)))
 
 
-def leave_chroot(root2return, path2restore):
+def leave_chroot(root2return):
     """
     Leave a chroot environment and return to another one.
 
@@ -148,8 +150,6 @@ def leave_chroot(root2return, path2restore):
     ----------
     root2return: file descriptor
         The file descriptor of the root to return to.
-    path2restore: str
-        The path to restore to the old environment.
 
     Returns
     -------
@@ -162,10 +162,6 @@ def leave_chroot(root2return, path2restore):
         os.chroot('.')
         os.close(root2return)
         logger.debug('Left change root environment.')
-        #
-        # restore path
-        os.environ['PATH'] = path2restore
-        logger.debug('Restored path to %s' % os.environ['PATH'])
         return True
     except Exception as e:
         logger.error('Failed to return from chroot: %s' % str(e))
@@ -188,8 +184,8 @@ def exec_find(thisfile, rootdir='/'):
         str: The full path of the filename if found, None otherwise.
     """
     logger.debug('Looking for %s in %s' % (thisfile, rootdir))
-    gen_tools.result_msg('Looking for %s in %s, might take a while.'
-                       % (thisfile, rootdir))
+    gen_tools.result_msg(msg='Looking for %s in %s, might take a while.'
+                             % (thisfile, rootdir))
     try:
         for thispath, directories, files in os.walk(rootdir):
             # logger.debug('%s %s %s' % (thispath, directories, files))
@@ -217,16 +213,18 @@ def exec_rmmod(module):
 
     Returns
     -------
-        bool:
-            True on success, False otherwise.
+        bool: True
     """
     cmd = ['rmmod']
     cmd.append(module)
     try:
-        if gen_tools.run_call_cmd(cmd) == 0:
-            return True
+        rmmod_result = subprocess.check_call(cmd, stdout=open(os.devnull, 'wb'),
+                                             stderr=open(os.devnull, 'wb'),
+                                             shell=False)
+        if rmmod_result == 0:
+            logger.debug('Successfully removed %s' % module)
         else:
-            logger.critical('Failed to execute %s, ignoring.' % cmd)
+            logger.error('Error removing %s, exit code %s, ignoring.' % (cmd, str(rmmod_result)))
     except Exception as e:
         logger.error('Failed: %s, ignoring.' % str(e))
     #
@@ -308,37 +306,6 @@ def exec_rmdir(dirname):
         return False
     except Exception as e:
         raise OciMigrateException(str(e))
-
-
-def exec_rename(fromname, toname):
-    """
-    Renames a file.
-
-    Parameters
-    ----------
-    fromname: str
-        Full path of the original file.
-    toname: str
-        The new name as full path.
-
-    Returns
-    -------
-        bool: True on success, raises an exception on failure.
-    """
-    if os.path.isfile(fromname):
-        logger.debug('File %s exists' % fromname)
-        try:
-            os.rename(fromname, toname)
-            logger.debug('Renamed %s to %s.' % (fromname, toname))
-            return True
-        except Exception as e:
-            logger.error('Failed to rename %s to %s: %s'
-                         % (fromname, toname, str(e)))
-            raise OciMigrateException('Failed to rename %s to %s: %s'
-                                      % (fromname, toname, str(e)))
-    else:
-        logger.error('File %s does not exists' % fromname)
-    return False
 
 
 @state_loop(qemu_max_count)
@@ -501,6 +468,7 @@ def exec_parted(devname):
                 devdata['Partition Table'] = devx.split(':')[1]
             else:
                 logger.debug('Ignoring %s' % devx)
+        logger.debug(devdata)
         return devdata
     except Exception as e:
         logger.error('Failed to collect parted %s device data: %s'
@@ -530,7 +498,7 @@ def exec_sfdisk(devname):
         for devx in result.split('\n'):
             if devx.startswith(devname):
                 key = devx.split(':')[0].strip()
-                gen_tools.result_msg('sfdisk partition %s' % key)
+                gen_tools.result_msg(msg='sfdisk partition %s' % key)
                 thispart = {'start': 0, 'size': 0, 'Id': 0, 'bootable': False}
                 val = devx.split(':')[1].split(',')
                 for it in val:
@@ -572,23 +540,19 @@ def mount_imgfn(imgname):
     """
     #
     # create nbd devices
-    gen_tools.result_msg('Load nbd')
+    gen_tools.result_msg(msg='Load nbd')
     if not create_nbd():
         raise OciMigrateException('Failed ot load nbd module')
     else:
         logger.debug('nbd module loaded')
     #
     # find free nbd device
-    gen_tools.result_msg('Find free nbd device')
+    gen_tools.result_msg(msg='Find free nbd device')
     devpath = get_free_nbd()
-#    if devpath is None:
-#        logger.critical('Failed to find a free nbd device.')
-#        raise OciMigrateException('Failed to find a free nbd device')
-#    else:
     logger.debug('Device %s is free.' % devpath)
     #
     # link img with first free nbd device
-    gen_tools.result_msg('Mount image %s' % imgname)
+    gen_tools.result_msg(msg='Mount image %s' % imgname, result=True)
     try:
         qemucmd = ['-c', devpath, imgname]
         z = exec_qemunbd(qemucmd)
@@ -726,19 +690,26 @@ def find_os_specific(ostag):
             # supported os id's
             logger.debug('module_name: %s' % module_name)
             if module_name != thismodule:
-                with open(path + '/' + module_name + '.py', 'rb') as f:
-                    for l in f:
-                        if '_os_type_tag_csl_tag_type_os_' in l.strip():
-                            logger.debug('Found os_type_tag in %s.'
-                                         % module_name)
-                            logger.debug('In line:\n  %s' % l)
-                            if ostag in \
-                                    re.sub("[ ']", "", l).split('=')[1].split(','):
-                                logger.debug('Found tag in %s.' % module_name)
-                                module = module_name
+                modulefile = path + '/' + module_name + '.py'
+                if os.path.isfile(modulefile):
+                    with open(modulefile, 'rb') as f:
+                        for l in f:
+                            if '_os_type_tag_csl_tag_type_os_' in l.strip():
+                                logger.debug('Found os_type_tag in %s.'
+                                             % module_name)
+                                logger.debug('In line:\n  %s' % l)
+                                if ostag in re.sub("[ ']", "", l).split('=')[1].split(','):
+                                    logger.debug('Found ostag in %s.'
+                                                 % module_name)
+                                    module = module_name
+                                else:
+                                    logger.debug('ostag not found in %s.'
+                                                 % module_name)
                                 break
+                else:
+                    logger.debug('No file found for module %s' % module_name)
     except Exception as e:
-        logger.critical('Failed to locate the os type specific module: %s'
+        logger.critical('Failed to locate the OS type specific module: %s'
                         % str(e))
     return module
 
@@ -772,7 +743,7 @@ def mount_pseudo(rootdir):
             pseudomounts.append(cmd_par[3])
         except Exception as e:
             logger.critical('Failed to %s: %s' % (cmd, str(e)))
-            return None
+            raise OciMigrateException('Failed to %s: %s' % (cmd, str(e)))
     return pseudomounts
 
 
@@ -1001,7 +972,7 @@ def mount_lvm2(devname):
             logger.critical('pvscan %s failed' % devname)
         #
         # for the sake of testing
-        # gen_tools.pause_gt('pvscan test')
+        # gen_tools.pause_msg('pvscan test')
         #
         # volume groups
         if exec_vgscan():
@@ -1010,7 +981,7 @@ def mount_lvm2(devname):
             logger.critical('vgscan failed')
         #
         # for the sake of testing
-        # gen_tools.pause_gt('vgscan test')
+        # gen_tools.pause_msg('vgscan test')
         #
         # logical volumes
         vgs = exec_lvscan()
@@ -1020,7 +991,7 @@ def mount_lvm2(devname):
             logger.critical('lvscan failed')
         #
         # for the sake of testing
-        # gen_tools.pause_gt('lvscan test')
+        # gen_tools.pause_msg('lvscan test')
         #
         # make available
         vgchangeargs = ['--activate', 'y']
@@ -1028,7 +999,7 @@ def mount_lvm2(devname):
         logger.debug('vgchange: %s' % vgchangeres)
         #
         # for the sake of testing
-        # gen_tools.pause_gt('vgchangeres test')
+        # gen_tools.pause_msg('vgchangeres test')
         vgfound = False
         if vgchangeres is not None:
             for l in vgchangeres.splitlines():
@@ -1042,7 +1013,7 @@ def mount_lvm2(devname):
             logger.debug('vgchange: %s, %s' % (vgchangeres, vgfound))
             #
             # for the sake of testing
-            # gen_tools.pause_gt('vgchangeres test')
+            # gen_tools.pause_msg('vgchangeres test')
         else:
             logger.critical('vgchange failed')
         return vgs
@@ -1065,18 +1036,18 @@ def get_oci_config(section='DEFAULT'):
     -------
         dict: the contents of the configuration file as a dictionary.
     """
-    logger.debug('Reading the %s configuration file.' % data.ociconfigfile)
+    logger.debug('Reading the %s configuration file.' % configdata.ociconfigfile)
     thisparser = ConfigParser()
     try:
-        rf = thisparser.read(data.ociconfigfile)
+        rf = thisparser.read(configdata.ociconfigfile)
         sectiondata = dict(thisparser.items(section))
         logger.debug('OCI configuration: %s' % sectiondata)
         return sectiondata
     except Exception as e:
         logger.error('Failed to read OCI configuration %s: %s.' %
-                     (data.ociconfigfile, str(e)))
+                     (configdata.ociconfigfile, str(e)))
         raise OciMigrateException('Failed to read OCI configuration %s: %s.' %
-                                  (data.ociconfigfile, str(e)))
+                                  (configdata.ociconfigfile, str(e)))
 
 
 def bucket_exists(bucketname):
@@ -1093,6 +1064,15 @@ def bucket_exists(bucketname):
         object: The bucket on success, raise an exception otherwise
     """
     logger.debug('Test bucket %s.' % bucketname)
+    thispath = os.getenv('PATH')
+    logger.debug('PATH is %s' % thispath)
+    cmd = ['which', 'oci']
+    try:
+        ocipath = gen_tools.run_popen_cmd(cmd)
+        logger.debug('oci path is %s' % ocipath)
+    except Exception as e:
+        logger.error('Cannot find oci anymore: %s' % str(e))
+
     cmd = ['oci', 'os', 'object', 'list', '--bucket-name', bucketname]
     try:
         bucketresult = gen_tools.run_popen_cmd(cmd)
@@ -1154,8 +1134,8 @@ def upload_image(imgname, bucketname, ociname):
            bucketname, '--file', imgname, '--name', ociname, '--no-multipart']
     try:
         uploadresult = gen_tools.run_popen_cmd(cmd)
-        logger.debug('Successfully uploaded %s to %s as %s.'
-                     % (imgname, bucketname, ociname))
+        logger.debug('Successfully uploaded %s to %s as %s: %s.'
+                     % (imgname, bucketname, ociname, uploadresult))
     except Exception as e:
         logger.critical('Failed to upload %s to object storage %s as %s: %s.'
                         % (imgname, bucketname, ociname, str(e)))
@@ -1190,8 +1170,10 @@ def unmount_lvm2(vg):
         else:
             logger.error('pvscan failed')
     except Exception as e:
-        raise OciMigrateException('Exception raised during release lvms %s: %s'
-                                  % (vg, str(e)))
+        logger.error('Failed to release lvms %s: %s' % vg, str(e))
+        gen_tools.error_msg('Failed to release lvms %s: %s' % vg, str(e))
+        # raise OciMigrateException('Exception raised during release
+        # lvms %s: %s' % (vg, str(e)))
 
 
 @state_loop(5, 2)
@@ -1245,7 +1227,7 @@ def print_header(head):
     -------
         No return value.
     """
-    gen_tools.result_msg(msg='\n  %30s\n  %30s' % (head, '-'*30), prog=False)
+    gen_tools.result_msg(msg='\n  %30s\n  %30s' % (head, '-'*30), result=True)
 
 
 def show_image_data(imgobj):
@@ -1263,33 +1245,33 @@ def show_image_data(imgobj):
     """
     print_header('Components collected.')
     for k, v in sorted(imgobj.img_info.iteritems()):
-        gen_tools.result_msg(msg='  %30s' % k, prog=False)
+        gen_tools.result_msg(msg='  %30s' % k, result=True)
 
     logger.debug('show data')
-    print '\n  %25s\n  %s' % ('Image data:', '-'*60)
+    print('\n  %25s\n  %s' % ('Image data:', '-'*60))
     #
     # name
     fnname = '  missing'
     print_header('Image file path.')
     if 'img_name' in imgobj.img_info:
         fnname = imgobj.img_info['img_name']
-    gen_tools.result_msg(msg='  %30s' % fnname, prog=False)
+    gen_tools.result_msg(msg='  %30s' % fnname, result=True)
     #
     # type
     imgtype = '  missing'
     print_header('Image type.')
     if 'img_type' in imgobj.img_info:
         imgtype = imgobj.img_info['img_type']
-    gen_tools.result_msg('  %30s' % imgtype, prog=False)
+    gen_tools.result_msg(msg='  %30s' % imgtype, result=True)
     #
     # size
     imgsizes = '    physical: missing data\n    logical:  missing data'
     print_header('Image size:')
     if 'img_size' in imgobj.img_info:
-        imgsizes = '    physical: %8.2f GB\n    logical:  %8.2f GB' \
+        imgsizes = '    physical: %8.2f GB\n      logical:  %8.2f GB' \
                    % (imgobj.img_info['img_size']['physical'],
                       imgobj.img_info['img_size']['logical'])
-    gen_tools.result_msg('%s' % imgsizes, prog=False)
+    gen_tools.result_msg(msg='%s' % imgsizes, result=True)
     #
     # header
     if 'img_header' in imgobj.img_info:
@@ -1297,9 +1279,9 @@ def show_image_data(imgobj):
             imgobj.show_header()
         except Exception as e:
             gen_tools.result_msg(msg='Failed to show the image hadear: %s'
-                                     % str(e), prog=False)
+                                     % str(e), result=True)
     else:
-        gen_tools.result_msg(msg='\n  Image header data missing.', prog=False)
+        gen_tools.result_msg(msg='\n  Image header data missing.', result=True)
     #
     # mbr
     mbr = '  missing'
@@ -1307,7 +1289,7 @@ def show_image_data(imgobj):
     if 'mbr' in imgobj.img_info:
         if 'hex' in imgobj.img_info['mbr']:
             mbr = imgobj.img_info['mbr']['hex']
-        gen_tools.result_msg(msg='%s' % mbr, prog=False)
+        gen_tools.result_msg(msg='%s' % mbr, result=True)
     #
     # partition table
         print_header('Partiton Table.')
@@ -1315,7 +1297,7 @@ def show_image_data(imgobj):
         if 'partition_table' in imgobj.img_info['mbr']:
             show_partition_table(imgobj.img_info['mbr']['partition_table'])
         else:
-            gen_tools.result_msg(msg=parttabmissing, prog=False)
+            gen_tools.result_msg(msg=parttabmissing, result=True)
     #
     # parted data
     print_header('Parted data.')
@@ -1323,7 +1305,7 @@ def show_image_data(imgobj):
     if 'parted' in imgobj.img_info:
         show_parted_data(imgobj.img_info['parted'])
     else:
-        gen_tools.result_msg(msg='%s' % parteddata, prog=False)
+        gen_tools.result_msg(msg='%s' % parteddata, result=True)
     #
     # partition data
     print_header('Partition Data.')
@@ -1331,7 +1313,7 @@ def show_image_data(imgobj):
     if 'partitions' in imgobj.img_info:
         show_partition_data(imgobj.img_info['partitions'])
     else:
-        gen_tools.result_msg(msg='%s' % partdata, prog=False)
+        gen_tools.result_msg(msg='%s' % partdata, result=True)
     #
     # grub config data
     print_header('Grub configuration data.')
@@ -1339,7 +1321,7 @@ def show_image_data(imgobj):
     if 'grubdata' in imgobj.img_info:
         show_grub_data(imgobj.img_info['grubdata'])
     else:
-        gen_tools.result_msg(msg='%s' % grubdat, prog=False)
+        gen_tools.result_msg(msg='%s' % grubdat, result=True)
     #
     # logical volume data
     print_header('Logical Volume data.')
@@ -1348,7 +1330,7 @@ def show_image_data(imgobj):
         if imgobj.img_info['volume_groups']:
             show_lvm2_data(imgobj.img_info['volume_groups'])
     else:
-        gen_tools.result_msg(msg=lvmdata, prog=False)
+        gen_tools.result_msg(msg=lvmdata, result=True)
     #
     # various data:
     print_header('Various data.')
@@ -1356,16 +1338,16 @@ def show_image_data(imgobj):
         gen_tools.result_msg(msg='  %30s: %s mounted on %s'
                                  % ('boot', imgobj.img_info['bootmnt'][0],
                                     imgobj.img_info['bootmnt'][1]),
-                             prog=False)
+                             result=True)
     if 'rootmnt' in imgobj.img_info:
         gen_tools.result_msg(msg='  %30s: %s mounted on %s'
                                  % ('root', imgobj.img_info['rootmnt'][0],
                                     imgobj.img_info['rootmnt'][1]),
-                             prog=False)
+                             result=True)
     if 'boot_type' in imgobj.img_info:
         gen_tools.result_msg(msg='  %30s: %-30s'
                                  % ('boot type:', imgobj.img_info['boot_type']),
-                             prog=False)
+                             result=True)
     #
     # fstab
     print_header('fstab data.')
@@ -1373,15 +1355,15 @@ def show_image_data(imgobj):
     if 'fstab' in imgobj.img_info:
         show_fstab(imgobj.img_info['fstab'])
     else:
-        gen_tools.result_msg(msg=fstabmiss, prog=False)
+        gen_tools.result_msg(msg=fstabmiss, result=True)
     #
     # network
-    print_header('Network configuration data.')
-    networkmissing = '  Network configuration data is missing.'
-    if 'network' in imgobj.img_info:
-        show_network_data(imgobj.img_info['network'])
-    else:
-        gen_tools.result_msg(msg=networkmissing, prog=False)
+    # print_header('Network configuration data.')
+    # networkmissing = '  Network configuration data is missing.'
+    # if 'network' in imgobj.img_info:
+    #     show_network_data(imgobj.img_info['network'])
+    # else:
+    #     gen_tools.result_msg(msg=networkmissing, result=True)
     #
     # os release data
     print_header('Operating System information.')
@@ -1390,9 +1372,9 @@ def show_image_data(imgobj):
         for k in sorted(imgobj.img_info['osinformation']):
             gen_tools.result_msg(msg='  %30s : %-30s'
                                      % (k, imgobj.img_info['osinformation'][k]),
-                                 prog=False)
+                                 result=True)
     else:
-        gen_tools.result_msg(msg=osinfomissing, prog=False)
+        gen_tools.result_msg(msg=osinfomissing, result=True)
     #
     # oci configuration
     print_header('OCI client configuration.')
@@ -1401,9 +1383,9 @@ def show_image_data(imgobj):
         for k in sorted(imgobj.img_info['oci_config']):
             gen_tools.result_msg(msg='  %30s : %-30s'
                                      % (k, imgobj.img_info['oci_config'][k]),
-                                 prog=False)
+                                 result=True)
     else:
-        gen_tools.result_msg(msg=ociconfmissing, prog=False)
+        gen_tools.result_msg(msg=ociconfmissing, result=True)
 
 
 def show_partition_table(table):
@@ -1420,9 +1402,9 @@ def show_partition_table(table):
         No return value.
     """
     gen_tools.result_msg(msg='  %2s %5s %16s %32s'
-                             % ('nb', 'boot', 'type', 'data'), prog=False)
-    gen_tools.result_msg(msg= ' %2s %5s %16s %32s'
-                              % ('-'*2, '-'*5, '-'*16, '-'*32), prog=False)
+                             % ('nb', 'boot', 'type', 'data'), result=True)
+    gen_tools.result_msg(msg='  %2s %5s %16s %32s'
+                             % ('-'*2, '-'*5, '-'*16, '-'*32), result=True)
     for i in range(0, 4):
         if table[i]['boot']:
             bootflag = 'YES'
@@ -1432,7 +1414,7 @@ def show_partition_table(table):
                                  % (i, bootflag,
                                     table[i]['type'],
                                     table[i]['entry']),
-                             prog=False)
+                             result=True)
 
 
 def show_img_header(headerdata):
@@ -1450,9 +1432,9 @@ def show_img_header(headerdata):
         No return value.
     """
     gen_tools.result_msg(msg='\n  %30s\n  %30s'
-                             % ('Image header:', '-'*30), prog=False)
+                             % ('Image header:', '-'*30), result=True)
     for k, v in sorted(headerdata):
-        gen_tools.result_msg(msg='  %30s : %s' % (k, v), prog=False)
+        gen_tools.result_msg(msg='  %30s : %s' % (k, v), result=True)
 
 
 def show_fstab(fstabdata):
@@ -1471,7 +1453,7 @@ def show_fstab(fstabdata):
         gen_tools.result_msg(
             msg='%60s %20s %8s %20s %2s %2s'
                 % (line[0], line[1], line[2], line[3], line[4], line[5]),
-            prog=False)
+            result=True)
 
 
 def show_grub_data(grublist):
@@ -1492,8 +1474,8 @@ def show_grub_data(grublist):
         for grubkey in entry:
             # print entry[grubkey]
             for l in entry[grubkey]:
-                gen_tools.result_msg(msg=l, prog=False)
-            gen_tools.result_msg(msg='\n', prog=False)
+                gen_tools.result_msg(msg=l, result=True)
+            gen_tools.result_msg(msg='\n', result=True)
 
 
 def show_parted_data(parted_dict):
@@ -1510,8 +1492,8 @@ def show_parted_data(parted_dict):
         No return value.
     """
     for k, v in sorted(parted_dict.iteritems()):
-        gen_tools.result_msg(msg='%30s : %s' % (k, v), prog=False)
-    gen_tools.result_msg(msg='\n', prog=False)
+        gen_tools.result_msg(msg='%30s : %s' % (k, v), result=True)
+    gen_tools.result_msg(msg='\n', result=True)
 
 
 def show_lvm2_data(lvm2_data):
@@ -1528,10 +1510,10 @@ def show_lvm2_data(lvm2_data):
         No return value.
     """
     for k, v in sorted(lvm2_data.iteritems()):
-        gen_tools.result_msg(msg='\n  Volume Group: %s:' % k, prog=False)
+        gen_tools.result_msg(msg='\n  Volume Group: %s:' % k, result=True)
         for t in v:
-            gen_tools.result_msg(msg='%40s : %-30s' % (t[0], t[1]), prog=False)
-    gen_tools.result_msg(msg='\n', prog=False)
+            gen_tools.result_msg(msg='%40s : %-30s' % (t[0], t[1]), result=True)
+    gen_tools.result_msg(msg='\n', result=True)
 
 
 def show_partition_data(partition_dict):
@@ -1549,11 +1531,11 @@ def show_partition_data(partition_dict):
     """
     for k, v in sorted(partition_dict.iteritems()):
         gen_tools.result_msg(msg='%30s :\n%s'
-                                 % ('partition %s' % k, '-'*60), prog=False)
+                                 % ('partition %s' % k, '-'*60), result=True)
         for x, y in sorted(v.iteritems()):
-            gen_tools.result_msg(msg='%30s : %s' % (x, y), prog=False)
-        gen_tools.result_msg(msg='\n', prog=False)
-    gen_tools.result_msg(msg='\n', prog=False)
+            gen_tools.result_msg(msg='%30s : %s' % (x, y), result=True)
+        gen_tools.result_msg(msg='\n', result=True)
+    gen_tools.result_msg(msg='\n', result=True)
 
 
 def show_network_data(networkdata):
@@ -1570,9 +1552,9 @@ def show_network_data(networkdata):
         No return value.
     """
     for nic, nicdata in sorted(networkdata.iteritems()):
-        gen_tools.result_msg(msg='  %20s:' % nic, prog=False)
+        gen_tools.result_msg(msg='  %20s:' % nic, result=True)
         for k, v in sorted(nicdata.iteritems()):
-            gen_tools.result_msg(msg='  %30s = %s' % (k, v), prog=False)
+            gen_tools.result_msg(msg='  %30s = %s' % (k, v), result=True)
 
 
 def show_hex_dump(bindata):
@@ -1605,5 +1587,5 @@ def show_hex_dump(bindata):
             addr += 1
             ll -= blocklen
     except Exception as e:
-        print 'exception: %s' % str(e)
+        logger.error('exception: %s' % str(e))
     return hexdata

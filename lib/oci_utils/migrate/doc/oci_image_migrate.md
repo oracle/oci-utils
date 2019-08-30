@@ -128,7 +128,7 @@ datastructure **img_info** for analysing the image:
                   ID
                   ....
 
-    botmnt  (boot partition, <current mountpoint of the boot partition>)
+    bootmnt  (boot partition, <current mountpoint of the boot partition>)
 
     rootmnt  (root partition, <current mountpoint of the root partition>)
 

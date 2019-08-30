@@ -64,7 +64,7 @@ def test():
     -------
         No return value
     """
-    gen_tools.result_msg(__name__)
+    gen_tools.result_msg(msg=__name__)
 
 
 class VmdkHead(DeviceData):
@@ -168,7 +168,7 @@ class VmdkHead(DeviceData):
         self.img_header = dict()
         self.img_header['head'] = self.vmdkhead_dict
         self.img_header['desc'] = self.vmdkdesc_dict
-        gen_tools.result_msg('Got image %s header' % filename)
+        gen_tools.result_msg(msg='Got image %s header' % filename, result=True)
 
     def show_header(self):
         """
@@ -180,17 +180,18 @@ class VmdkHead(DeviceData):
         """
         gen_tools.result_msg(msg='\n  %30s\n  %30s   %30s'
                                  % ('VMDK file header data', '-' * 30, '-' * 30),
-                             prog=False)
+                             result=False)
         for f in VmdkHead.header0_structure:
-            gen_tools.result_msg(''.join(['  %30s : ' % f[2], f[1]
-                                          % self.vmdkhead_dict[f[2]]]),
-                                 prog=False)
+            gen_tools.result_msg(msg=''.join(['  %30s : ' % f[2], f[1]
+                                              % self.vmdkhead_dict[f[2]]]),
+                                 result=False)
         gen_tools.result_msg(msg='\n  %30s\n  %30s   %30s'
-                                  % ('VMDK file descriptor data', '-' * 30, '-' * 30),
-                              prog=False)
+                                 % ('VMDK file descriptor data',
+                                    '-' * 30, '-' * 30),
+                             result=False)
         for k in sorted(self.vmdkdesc_dict):
             gen_tools.result_msg(msg='  %30s : %-30s'
-                                     % (k, self.vmdkdesc_dict[k]), prog=False)
+                                     % (k, self.vmdkdesc_dict[k]), result=False)
 
     def image_size(self):
         """
@@ -204,9 +205,10 @@ class VmdkHead(DeviceData):
         img_sz = {'physical': float(self.stat.st_size)/gigabyte,
                   'logical': float(self.vmdkhead_dict['capacity']*512)/gigabyte}
 
-        gen_tools.result_msg('Image size: physical %10.2f GB, '
-                              'logical %10.2f GB' %
-                              (img_sz['physical'], img_sz['logical']))
+        gen_tools.result_msg(msg='Image size: physical %10.2f GB, '
+                                 'logical %10.2f GB'
+                                 % (img_sz['physical'], img_sz['logical']),
+                             result=True)
         return img_sz
 
     def image_supported(self, image_defs):

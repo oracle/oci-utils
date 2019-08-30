@@ -54,7 +54,7 @@ def test():
     -------
         No return value
     """
-    gen_tools.result_msg(__name__)
+    gen_tools.result_msg(msg=__name__)
 
 
 class Qcow2Head(DeviceData):
@@ -134,7 +134,7 @@ class Qcow2Head(DeviceData):
                                   enumerate(Qcow2Head.header2_structure))
         self.img_header = dict()
         self.img_header['head'] = self.qcowhead_dict
-        gen_tools.result_msg('Got image %s header' % filename)
+        gen_tools.result_msg(msg='Got image %s header' % filename, result=True)
 
     def show_header(self):
         """
@@ -144,13 +144,13 @@ class Qcow2Head(DeviceData):
         -------
             No return value.
         """
-        gen_tools.result_msg('\n  %30s\n  %30s'
-                             % ('QCOW2 file header data', '-'*30),
-                             prog=False)
+        gen_tools.result_msg(msg='\n  %30s\n  %30s'
+                                 % ('QCOW2 file header data', '-'*30),
+                             result=False)
         for f in Qcow2Head.header2_structure:
-            gen_tools.result_msg(''.join(["  %-30s" % f[2], f[1]
-                                          % self.qcowhead_dict[f[2]]]),
-                                 prog=False)
+            gen_tools.result_msg(msg=''.join(["  %-30s" % f[2], f[1]
+                                              % self.qcowhead_dict[f[2]]]),
+                                 result=False)
 
     def image_size(self):
         """
@@ -166,8 +166,8 @@ class Qcow2Head(DeviceData):
                   'logical': float(self.qcowhead_dict['size'])/gigabyte}
 
         gen_tools.result_msg(
-            'Image size: physical %10.2f GB, logical %10.2f GB' %
-            (img_sz['physical'], img_sz['logical']))
+            msg='Image size: physical %10.2f GB, logical %10.2f GB' %
+            (img_sz['physical'], img_sz['logical']), result=True)
         return img_sz
 
     def image_supported(self, image_defs):
@@ -218,7 +218,7 @@ class Qcow2Head(DeviceData):
         try:
             result = self.handle_image()
         except Exception as e:
-            self._logger.critical('error %s' % str(e))
+            self._logger.critical('ERROR %s' % str(e))
             raise OciMigrateException(str(e))
         return result, self.img_info
 

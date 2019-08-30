@@ -21,6 +21,18 @@ logger = logging.getLogger('oci-image-migrate')
 
 _os_type_tag_csl_tag_type_os_ = 'sometype,'
 
+
+def os_banner():
+    """
+    Show OS banner.
+    Returns
+    -------
+        No return value.
+    """
+    gen_tools.result_msg(msg='OS is one of %s' % _os_type_tag_csl_tag_type_os_,
+                         result=True)
+
+
 def install_cloud_init(*args):
     """
     Install cloud init package

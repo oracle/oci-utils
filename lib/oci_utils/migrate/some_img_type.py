@@ -17,8 +17,6 @@ import sys
 # for the sake of testing
 sys.path.append('/omv/data/git_pycharm/oci-utils/lib')
 from oci_utils.migrate import gen_tools
-from oci_utils.migrate.migrate_utils import gigabyte as gigabyte
-from oci_utils.migrate import migrate_utils as migrate_utils
 from oci_utils.migrate.imgdevice import DeviceData
 from oci_utils.migrate.migrate_utils import OciMigrateException
 
@@ -44,7 +42,7 @@ def test():
     -------
         No return value
     """
-    gen_tools.prog_msg(__name__)
+    gen_tools.result_msg(msg=__name__)
 
 
 class SomeTypeHead(DeviceData):
@@ -96,31 +94,33 @@ class SomeTypeHead(DeviceData):
             with open(self.fn, 'rb') as f:
                 head_bin = f.read(head_size)
                 self._logger.debug('%s header successfully read' % self.fn)
-        except Exception, e:
-            self._logger.critical(
-                'Failed to read header of %s: %s' % (self.fn, str(e)))
-            raise OciMigrateException('Failed to read the header of %s: %s' % (self.fn, str(e)))
+        except Exception as e:
+            self._logger.critical('Failed to read header of %s: %s'
+                                  % (self.fn, str(e)))
+            raise OciMigrateException('Failed to read the header of %s: %s'
+                                      % (self.fn, str(e)))
 
         sometypeheader = struct.unpack(SomeTypeHead.sometypehead_fmt, head_bin)
 
         self.stat = os.stat(self.fn)
         self.img_tag = os.path.splitext(os.path.split(self.fn)[1])[0]
-        self.somehead_dict = dict((name[2], sometypeheader[i]) for i, name in
-                               enumerate(SomeTypeHead.header2_structure))
+        self.somehead_dict = dict((name[2], sometypeheader[i])
+                                  for i, name
+                                  in enumerate(SomeTypeHead.header2_structure))
         self.img_header = dict()
         self.img_header['head'] = self.somehead_dict
-        gen_tools.result_msg('Got image %s header' % filename)
+        gen_tools.result_msg(msg='Got image %s header' % filename, result=True)
         #
         # mount the image using the nbd
         try:
             self.devicename = self.mount_img()
             self._logger.debug('Image data %s' % self.devicename)
-            gen_tools.result_msg('Mounted %s' % self.devicename)
+            gen_tools.result_msg(msg='Mounted %s' % self.devicename,
+                                 result=True)
             deviceinfo = self.handle_image()
         except Exception as e:
             self._logger.critical('error %s' % str(e))
             raise OciMigrateException(str(e))
-
 
     def show_header(self):
         """

@@ -7,7 +7,7 @@
 # at http://oss.oracle.com/licenses/upl.
 
 """
-Static data with respect to the oci-image-migrate.
+Configuration and status data with respect to the oci-image-migrate.
 """
 #
 # dummy format key
@@ -28,7 +28,9 @@ ociconfigfile = '/root/.oci/config'
 # recognised file system types.
 filesystem_types = ['ext2', 'ext3', 'ext4', 'xfs', 'btrfs', 'ocfs2']
 logical_vol_types = ['LVM2_member']
-partition_to_skip = ['swap']
+#
+# partition names and types to be ignored.
+partition_to_skip = ['swap', 'none', 'dummy']
 #
 # recognised partition types.
 partition_types = {'00': ' Empty',
@@ -145,32 +147,44 @@ essential_dir_list = ['/boot',
                       '/srv',
                       '/usr',
                       '/var']
-
 #
-# default network configuration file for OL type linux
-default_if_network_config = ['TYPE="Ethernet"',
-                             'PROXY_METHOD="none"',
-                             'BROWSER_ONLY="no"',
-                             'BOOTPROTO="dhcp"',
-                             'DEFROUTE="yes"',
-                             'IPV4_FAILURE_FATAL="no"',
-                             'IPV6INIT="yes"',
-                             'IPV6_AUTOCONF="yes"',
-                             'IPV6_DEFROUTE="yes"',
-                             'IPV6_FAILURE_FATAL="no"',
-                             'IPV6_ADDR_GEN_MODE="stable-privacy"',
-                             'NAME="eth0"',
-                             'DEVICE="eth0"',
-                             'ONBOOT="yes"']
+# ifcfg
+default_ifcfg = '/etc/sysconfig/network-scripts'
+default_ifcfg_config = ['TYPE="Ethernet"',
+                        'PROXY_METHOD="none"',
+                        'BROWSER_ONLY="no"',
+                        'BOOTPROTO="dhcp"',
+                        'DEFROUTE="yes"',
+                        'IPV4_FAILURE_FATAL="no"',
+                        'IPV6INIT="yes"',
+                        'IPV6_AUTOCONF="yes"',
+                        'IPV6_DEFROUTE="yes"',
+                        'IPV6_FAILURE_FATAL="no"',
+                        'IPV6_ADDR_GEN_MODE="stable-privacy"',
+                        'NAME="_XXXX_"',
+                        'DEVICE="_XXXX_"',
+                        'NM_CONTROLLED="no"',
+                        'ONBOOT="yes"']
 #
-# (Ubuntu) network configuration file paths
+# interfaces file
+default_interfaces = '/etc/network'
+default_interfaces_config = [
+    '# The loopback network interface',
+    'auto lo',
+    'iface lo inet loopback',
+    '# The primary network interface',
+    'auto _XXXX_',
+    'iface _XXXX_ inet dhcp',]
+#
+# netplan
+default_netplan = '/etc/netplan'
+default_netplan_file = '10-default-network.yaml'
+default_netplan_config = {'network': {'ethernets': {'_XXXX_': {'dhcp4': 'true'}}}}
+#
+# network manager
 default_nwmconfig = '/etc/NetworkManager/NetworkManager.conf'
 default_nwconnections = '/etc/NetworkManager/system-connections'
-default_netplan = '/etc/netplan'
-default_interfaces = '/etc/network/interfaces'
-#
-# Ubuntu default network manager config file.
-default_nwm_file = [
+default_nwm_conf_file = [
     '[main]',
     'plugins=ifupdown,keyfile',
     '',
@@ -179,24 +193,15 @@ default_nwm_file = [
     '',
     '[device]',
     'wifi.scan-rand-mac-address=no', ]
-# Ubuntu default netplan configuration file
-default_netplan_file = '/etc/netplan/10-default-network.yaml'
-default_netplan_config = {'network': {'ethernets': {'_XXXX_': {'addresses': [], 'dhcp4': True}}}}
 #
-# Ubuntu default interfaces file
-default_interfaces_file = [
-    '# This file describes the network interfaces available on your system',
-    '# and how to activate them. For more information, see interfaces(5).',
-    '',
-    '# source /etc/network/interfaces.d/*',
-    '# The loopback network interface',
-    '',
-    'auto lo',
-    'iface lo inet loopback',
-    '',
-    '# The primary network interface',
-    'auto _XXXX_',
-    'iface _XXXX_ inet dhcp', ]
+# systemd_networkd
+default_systemd = ['/etc/systemd/network', '/lib/systemd/network']
+default_systemd_file = '/etc/systemd/network/10-default-cfg.network'
+default_systemd_config = [
+    '[Match]',
+    'Name=_XXXX_',
+    '[Network]',
+    'DHCP=ipv4',]
 #
 # list of supported operating systems.
 valid_os = ['ORACLE LINUX SERVER',
@@ -204,4 +209,6 @@ valid_os = ['ORACLE LINUX SERVER',
             'CENTOS',
             'UBUNTU']
 #
-#
+# flag verified if upload can proceed.
+migrate_prepartion = True
+migrate_non_upload_reason=''

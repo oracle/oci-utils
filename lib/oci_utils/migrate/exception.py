@@ -8,6 +8,28 @@
 
 """ Module with oci migrate related exceptions.
 """
+import sys
+
+
+def display_error_msg(msg=None):
+    """
+    GT debug message
+
+    Parameters
+    ----------
+    msg: str
+        Eventual message.
+
+    Returns
+    -------
+        No return value
+    """
+    if msg is not None:
+        msg = '  *** ERROR *** %s' % msg
+    else:
+        msg = '  *** ERROR *** Unidentified error.\n'
+    sys.stderr.write('%s\n' % msg)
+    sys.stderr.flush()
 
 
 class OciMigrateException(Exception):
@@ -25,8 +47,9 @@ class OciMigrateException(Exception):
             The exception message.
         """
         if message is None:
-            message = 'An exception occured, no further information'
+            message = 'An exception occurred, no further information'
         super(OciMigrateException, self).__init__(message)
+        display_error_msg(message)
 
 
 class NoSuchCommand(OciMigrateException):
@@ -42,3 +65,4 @@ class NoSuchCommand(OciMigrateException):
             The missing command, exec or script.
         """
         super(NoSuchCommand, self).__init__('Command %s not found' % command)
+        display_error_msg('Command %s not found' % command)
