@@ -48,6 +48,11 @@ A package with useful scripts for querying/validating the state of Oracle Cloud 
 Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure
 Group: Development/Tools
 Requires: %{name} = %{version}-%{release}
+%if 0%{?rhel} >= 8
+Requires: python2-netaddr
+%else
+Requires: python-netaddr
+%endif
 %description kvm
 Utilities for creating and managing KVM guests that use Oracle Cloud Infrastructure resources, such as block storage and networking, directly.
 

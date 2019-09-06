@@ -379,7 +379,7 @@ def make_vlan_name(parent, vlan_id):
     return '{}.{}'.format(parent, vlan_id)
 
 
-def make_vf(name, mac):
+def make_vf(name, mac, ip=None, prefix=None):
     """
     Create a network interface file contents.
 
@@ -389,6 +389,10 @@ def make_vf(name, mac):
         The network interface name.
     mac : str
         The network interface MAC address.
+    ip : str
+        The Ip for the new interface
+    prefix :
+        the prefix from wich to compute the netmask
 
     Returns
     -------
@@ -396,16 +400,30 @@ def make_vf(name, mac):
             The network interface file contents.
     """
     name = make_vf_name(name)
-    return ('vm-{}'.format(name),
-            {'DEVICE': name,
-             'MACADDR': mac,
-             'NM_CONTROLLED': 'no',
-             'BOOTPROTO': 'none',
-             'ONBOOT': 'yes',
-             'MTU': '9000',
-             'NOZEROCONF': 'yes'
-             }
-            )
+    if ip and prefix:
+        return ('vm-{}'.format(name),
+                {'DEVICE': name,
+                 'MACADDR': mac,
+                 'NM_CONTROLLED': 'no',
+                 'BOOTPROTO': 'none',
+                 'ONBOOT': 'yes',
+                 'MTU': '9000',
+                 'NOZEROCONF': 'yes',
+                 'IPADDR': ip,
+                 'NETMASK': network_prefix_to_mask(prefix)
+                 }
+                )
+    else:
+        return ('vm-{}'.format(name),
+                {'DEVICE': name,
+                 'MACADDR': mac,
+                 'NM_CONTROLLED': 'no',
+                 'BOOTPROTO': 'none',
+                 'ONBOOT': 'yes',
+                 'MTU': '9000',
+                 'NOZEROCONF': 'yes'
+                 }
+                )
 
 
 def make_vlan(parent, vlan_id, mac):
