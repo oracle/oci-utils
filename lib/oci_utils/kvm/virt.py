@@ -845,7 +845,7 @@ def create_virtual_network(**kargs):
     _is_bm_shape = _instance_shape.startswith('BM')
 
     _persistence_script = StringIO.StringIO()
-    _persistence_script.write('#/bin/bash\n')
+    _persistence_script.write('#!/bin/bash\n')
 
     # get the given IP used to find vNIC to use
     _vnic_ip_to_use = kargs['network']
@@ -925,7 +925,10 @@ def create_virtual_network(**kargs):
     routing_cmd = ['default', 'via']
     routing_cmd.append(vnic['virtualRouterIp'])
     routing_cmd.append('dev')
-    routing_cmd.append('%s' % vf_dev)
+    if _is_bm_shape:
+        routing_cmd.append('%s.%s' % (vf_dev, vnic['vlanTag']))
+    else:
+        routing_cmd.append('%s' % vf_dev)
     routing_cmd.append('table')
     routing_cmd.append(vf_dev)
     (_c, _msg) = add_static_ip_route(
@@ -980,7 +983,6 @@ def create_virtual_network(**kargs):
 
     if sudo_utils.call([VIRSH_CMD, '--quiet', 'net-start', kargs['network_name']]):
         print_error('Failed to define the network')
-        os.remove(tf.name)
         delete_route_table(vf_dev)
         destroy_networking(vf_dev, vnic['vlanTag'])
         return None

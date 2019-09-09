@@ -289,6 +289,7 @@ def add_static_ip_route(*args, **kwargs):
     _out = sudo_utils.call_output(routing_cmd)
     if _out is not None and len(_out) > 0:
         _logger.warning('add of ip route failed')
+        return (1, _out)
 
     if kwargs.get('script'):
         kwargs.get('script').write(' '.join(routing_cmd))
