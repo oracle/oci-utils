@@ -141,7 +141,7 @@ def get_interfaces_from_domain(domain_xml):
     for iface in devices.findall('./interface'):
         mac = iface.find('./mac')
         source = iface.find('./source')
-        ifaces[mac.attrib['address'].lower()] = source.attrib['dev']
+        ifaces[mac.attrib['address'].lower()] = source.attrib.get('dev', '')
     return ifaces
 
 
@@ -295,7 +295,7 @@ def get_domain_xml_no_libvirtd(domain):
         return None
 
 
-def find_storage_pool_volume_by_path (conn, path):
+def find_storage_pool_volume_by_path(conn, path):
     """
     find a libvirt Storage pool volume by path
     parameters

@@ -93,14 +93,16 @@ def parse_args():
     destroy_parser.add_argument('--destroy-disks', action='store_true',
                                 help='Also delete storage pool based disks')
 
-    dbp_group = create_pool_parser.add_argument_group(title='disk pool',description='Options for disk based storage pool')
+    dbp_group = create_pool_parser.add_argument_group(
+        title='disk pool', description='Options for disk based storage pool')
     dbp_group.add_argument('-d', '--disk', action='store', type=str,
-                                    help='Path to the root disk of the storage pool')
-    nfsp_group = create_pool_parser.add_argument_group(title='NETFS pool', description='Options for NETFS based storage pool')
+                           help='Path to the root disk of the storage pool')
+    nfsp_group = create_pool_parser.add_argument_group(
+        title='NETFS pool', description='Options for NETFS based storage pool')
     nfsp_group.add_argument('-N', '--netfshost', action='store', type=str,
-                                    help='name or IP of the NFS server')
+                            help='name or IP of the NFS server')
     nfsp_group.add_argument('-p', '--path', action='store', type=str,
-                                    help='path of the NETFS resource')
+                            help='path of the NETFS resource')
     create_pool_parser.add_argument('-n', '--name', action='store', type=str,
                                     help='name of the pool', required=True)
 
@@ -108,8 +110,6 @@ def parse_args():
                                        help='IP of the VNIC used to build the network')
     create_network_parser.add_argument('-N', '--network-name', action='store', required=True, type=str,
                                        help='the name of the network')
-    create_network_parser.add_argument('-v', '--vcn-cidr', action='store', required=True, type=str,
-                                       help='The VCN CIDR block used by the choosen vNIC')
     create_network_parser.add_argument('-B', '--ip-bridge', action='store', required=True, type=str,
                                        help='Bridge IP for virtual network address space')
     create_network_parser.add_argument('-S', '--ip-start', action='store', required=True, type=str,
@@ -217,7 +217,8 @@ def _delete_network_vm(args):
     print 'Network found:\n'
     print xml.dom.minidom.parseString(net.XMLDesc()).toprettyxml(indent=" ", newl='')
     print ''
-    if raw_input('Really destroy this network ?') == 'y':
+
+    if raw_input('Really destroy this network ?').strip().lower() in ('y', 'yes'):
         return oci_utils.kvm.virt.delete_virtual_network(network_name=args.network_name)
     return 1
 
@@ -255,8 +256,7 @@ def _create_network_vm(args):
                                                        ip_bridge=args.ip_bridge,
                                                        ip_prefix=args.ip_prefix,
                                                        ip_start=args.ip_start,
-                                                       ip_end=args.ip_end,
-                                                       vcn_cidr=args.vcn_cidr)
+                                                       ip_end=args.ip_end)
     if script:
         print 'Use the following commands to build a script to make the network created accross reboots'
         print ''
