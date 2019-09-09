@@ -124,6 +124,9 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+* Mon Sep 9 2019 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.10.1
+- Added support of libvirt network for KVM guests
+
 * Mon Apr 08 2019 Wiekus Beukes <wiekus.beukes@oracle.com> --0.10.0
 - Added flake8 build requirement
 - Changed all remaining /usr/bin/python entries to python2.7
