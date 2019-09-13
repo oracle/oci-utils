@@ -112,7 +112,7 @@ def main():
     comp_ocid = None
     for vcn in vcns:
         _compartment = vcn.get_compartment()
-        if vcn.data.compartment_id != comp_ocid:
+        if _compartment.get_ocid() != comp_ocid:
             print ""
             print "Compartment: %s (%s)" % \
                   (_compartment.get_display_name(), _compartment.get_ocid())
@@ -162,7 +162,9 @@ def main():
                     print "         Vnic: %s (%s)" % \
                           (vnic.get_ocid(), vnic.get_state())
                     # subnet ips
-                    if not subnet.data.prohibit_public_ip_on_vnic:
+                    # FIXME: This is a temporary work around - the OCI-UTILS API
+                    #        need to be fixed to allow retrieving the property
+                    if not subnet._data.prohibit_public_ip_on_vnic:
                         print "         Vnic PublicIP: %s" % \
                               vnic.get_public_ip()
                     instance = vnic.get_instance()
