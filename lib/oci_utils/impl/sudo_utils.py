@@ -12,7 +12,7 @@
 import logging
 import subprocess
 import os
-from . import (SUDO_CMD, CAT_CMD, RM_CMD, SH_CMD, CP_CMD)
+from . import (SUDO_CMD, CAT_CMD, RM_CMD, SH_CMD, CP_CMD, TOUCH_CMD, CHMOD_CMD)
 
 __all__ = ['call', 'call_output', 'call_popen_output', 'delete_file', 'copy_file', 'write_to_file']
 
@@ -195,3 +195,44 @@ def write_to_file(path, content):
         _logger.debug("Error writing content to file: %s" % err)
         return 1
     return 0
+
+
+def create_file(path, mode=None):
+    """
+    create a file
+
+    Parameters
+    ----------
+    path: str
+        The full path of the file.
+    mode: str
+        the mode to apply to the file
+
+    Returns
+    -------
+        The return code fo the cat(1) command.
+    """
+    _logger.debug("creating file : %s" % path)
+    res = call([TOUCH_CMD,  path])
+    if res == 0 and mode is not None:
+        res = set_file_mode(path, mode)
+    return res
+
+
+def set_file_mode(path, mode=None):
+    """
+    set access mode of a  file
+
+    Parameters
+    ----------
+    path: str
+        The full path of the file.
+    mode: str
+        the mode to apply to the file
+
+    Returns
+    -------
+        The return code fo the chmod(1) command.
+    """
+    _logger.debug("applying mode  %s to file %s" % (mode, path))
+    return call([CHMOD_CMD, mode, path])

@@ -21,6 +21,8 @@ import os
 import StringIO
 from netaddr import IPNetwork
 
+from string import Template
+
 from . import nic
 from ..impl import IP_CMD, SUDO_CMD, PARTED_CMD, MK_XFS_CMD, print_choices, print_error, VIRSH_CMD
 from ..impl import sudo_utils
@@ -33,9 +35,13 @@ from ..impl.network_helpers import add_firewall_rule, remove_firewall_rule
 from ..impl.virt import sysconfig, virt_check, virt_utils
 from ..metadata import InstanceMetadata
 
-_logger = logging.getLogger('oci-utils.kvm.virt')
+from ..impl.init_script_templates import _kvm_network_script_tmpl
+from ..impl.init_script_helpers import SimpleInitScriptGenerator
+from ..impl.init_script_helpers import InitScriptManager
+
 
 _logger = logging.getLogger('oci-utils.kvm.virt')
+
 
 
 def _print_available_vnics(vnics):
@@ -837,15 +843,11 @@ def create_virtual_network(**kargs):
                The IP netmask of virtual network
     Returns
     -------
-        StringIO.StringIO()
-            An instance of StringIO populated with command lines which can be used to persist the network creation, None on failure
+        0 on success , 1 otherwise
     """
 
     _instance_shape = InstanceMetadata()['instance']['shape']
     _is_bm_shape = _instance_shape.startswith('BM')
-
-    _persistence_script = StringIO.StringIO()
-    _persistence_script.write('#!/bin/bash\n')
 
     # get the given IP used to find vNIC to use
     _vnic_ip_to_use = kargs['network']
@@ -867,7 +869,7 @@ def create_virtual_network(**kargs):
         vnic, vf, vf_num = test_vnic_and_assign_vf(_vnic_ip_to_use, free_vnics)
         if not vnic:
             _logger.debug('choosen vNIC is not free')
-            return None
+            return 1
         _logger.debug('ready to write network configuration for (%s, %s, %s)' % (vnic, vf, vf_num))
 
         vf_dev = get_interface_by_pci_id(vf, _all_system_interfaces)
@@ -879,7 +881,7 @@ def create_virtual_network(**kargs):
                              int(vnic['subnetCidrBlock'].split('/')[1])):
             print_error('cannot create networking')
             destroy_networking(vf_dev, vnic['vlanTag'])
-            return None
+            return 1
     else:
         # vm shape: use vnic as it is
         # find the device of that vnic
@@ -896,7 +898,7 @@ def create_virtual_network(**kargs):
                 vf_dev = intf_name
         if vf_dev is None:
             print_error('cannot find network interface matching vNIC with ip [%s]' % _vnic_ip_to_use)
-            return None
+            return 1
 
         _logger.debug(' device for nework %s' % vf_dev)
 
@@ -907,7 +909,7 @@ def create_virtual_network(**kargs):
                             int(vnic['subnetCidrBlock'].split('/')[1])):
             print_error('cannot create networking')
             destroy_networking(vf_dev)
-            return None
+            return 1
 
     _logger.debug('Networking succesfully created')
 
@@ -915,43 +917,20 @@ def create_virtual_network(**kargs):
     _logger.debug('add new routing table [%s]' % vf_dev)
     add_route_table(vf_dev)
 
-    #deduce KVMnetwork
-    _net=str(IPNetwork('%s/%s' % (kargs['ip_bridge'],kargs['ip_prefix']) ).network)
-    _kvm_addr_space = '%s/%s' % (_net,kargs['ip_prefix'])
+    # deduce KVMnetwork
+    _net = str(IPNetwork('%s/%s' % (kargs['ip_bridge'], kargs['ip_prefix'])).network)
+    _kvm_addr_space = '%s/%s' % (_net, kargs['ip_prefix'])
 
-    # add routes and ip rules
-    # ip route add default via <secondary VNIC default gateway> dev <VF network device>.<VLAN tag> table <VF network device>
-    _persistence_script.write('# Add routes\n')
-    routing_cmd = ['default', 'via']
-    routing_cmd.append(vnic['virtualRouterIp'])
-    routing_cmd.append('dev')
-    if _is_bm_shape:
-        routing_cmd.append('%s.%s' % (vf_dev, vnic['vlanTag']))
-    else:
-        routing_cmd.append('%s' % vf_dev)
-    routing_cmd.append('table')
-    routing_cmd.append(vf_dev)
-    (_c, _msg) = add_static_ip_route(
-        script=_persistence_script,
-        device='%s.%s' % (vf_dev, vnic['vlanTag']), *routing_cmd)
-    if _c != 0:
-        print_error('Failed to set ip default route: %s' % _msg)
-        delete_route_table(vf_dev)
-        destroy_networking(vf_dev, vnic['vlanTag'])
-        return None
-
-    #  ip rule add from <secondary VNIC IP address> lookup <VF network device>
-    ip_rule_cmd = ['from']
-    ip_rule_cmd.append(vnic['privateIp'])
-    ip_rule_cmd.append('lookup')
-    ip_rule_cmd.append(vf_dev)
-    (_c, _msg) = add_static_ip_rule(script=_persistence_script,
-                                    device=vf_dev, *ip_rule_cmd)
-    if _c != 0:
-        print_error('Failed to set ip rule: %s' % _msg)
-        delete_route_table(vf_dev)
-        destroy_networking(vf_dev, vnic['vlanTag'])
-        return None
+    kvm_init_script = SimpleInitScriptGenerator('kvm_net_%s' % kargs['network_name'], "KVM network")
+    kvm_init_script.setMethodsBody(Template(_kvm_network_script_tmpl).safe_substitute(
+        __KVM_NETWORK_NAME__=kargs['network_name'],
+        __KVM_NET_ADDRESS_SPACE__=_kvm_addr_space,
+        __KVM_NET_BRIDGE_NAME__='%s0' % kargs['network_name'],
+        __VNIC_DEFAULT_GW__=vnic['virtualRouterIp'],
+        __NET_DEV__=vf_dev,
+        __RT_TABLE_NAME__=vf_dev,
+        __VNIC_PRIVATE_IP__=vnic['privateIp']
+    ))
 
     # define the libvirt network
     netXML = Element('network')
@@ -963,12 +942,12 @@ def create_virtual_network(**kargs):
     SubElement(netXML, 'bridge', name='%s0' % kargs['network_name'], stp='on', delay='0')
     ip = SubElement(netXML, 'ip', address=kargs['ip_bridge'], prefix=kargs['ip_prefix'])
     dhcp = SubElement(ip, 'dhcp')
-    ip_range = SubElement(dhcp, 'range', start=kargs['ip_start'], end=kargs['ip_end'])
+    SubElement(dhcp, 'range', start=kargs['ip_start'], end=kargs['ip_end'])
 
     _logger.debug('defining network as [%s]' % ElementTree.tostring(netXML))
 
-    tf=tempfile.NamedTemporaryFile(mode='w',delete=False)
-    os.chmod(tf.name,0o644)
+    tf = tempfile.NamedTemporaryFile(mode='w', delete=False)
+    os.chmod(tf.name, 0o644)
 
     ElementTree.ElementTree(netXML).write(tf.name)
 
@@ -977,79 +956,29 @@ def create_virtual_network(**kargs):
         os.remove(tf.name)
         delete_route_table(vf_dev)
         destroy_networking(vf_dev, vnic['vlanTag'])
-        return None
+        return 1
 
     os.remove(tf.name)
 
-    if sudo_utils.call([VIRSH_CMD, '--quiet', 'net-start', kargs['network_name']]):
-        print_error('Failed to define the network')
+
+    kvm_init_script.setStartRunlevels([2 ,3 ,4 ,5])
+    kvm_init_script.setStopRunlevels([0,1,6])
+    kvm_init_script.addRequiredDependency('libvirtd')
+
+    try:
+        kvm_init_script.generate()
+    except StandardError, e:
+        print_error('Failed to generate the init script : %s' % str(e))
         delete_route_table(vf_dev)
         destroy_networking(vf_dev, vnic['vlanTag'])
-        return None
-
-    sudo_utils.call([VIRSH_CMD, '--quiet', 'net-autostart', kargs['network_name']])
-
-
-    _persistence_script.write('# Start the KVM network\n')
-    _persistence_script.write('/bin/virsh net-start --network %s\n' % kargs['network_name'])
-
-    # Add a route for the KVM network to the local routing table for the secondary VNIC
-    _persistence_script.write('# Add routes for KVM\n')
-    routing_cmd = [_kvm_addr_space]
-    routing_cmd.append('dev')
-    routing_cmd.append('%s0' % kargs['network_name'])
-    routing_cmd.extend(['scope', 'link', 'proto', 'kernel', 'table'])
-    routing_cmd.append(vf_dev)
-    (_c, _msg) = add_static_ip_route(script=_persistence_script,
-                                     device='%s0' % kargs['network_name'], *routing_cmd)
-    if _c != 0:
-        print_error('Failed to set ip route: %s' % _msg)
+        return 1
+    try:
+        InitScriptManager('kvm_net_%s' % kargs['network_name']).start()
+    except StandardError, e:
+        print_error('Failed to start the network init script')
         delete_route_table(vf_dev)
         destroy_networking(vf_dev, vnic['vlanTag'])
-        return None
-
-    # Add a routing rule for the KVM network to the routing table for the secondary VNIC
-
-    ip_rule_cmd = ['from']
-    ip_rule_cmd.append(_kvm_addr_space)
-    ip_rule_cmd.append('lookup')
-    ip_rule_cmd.append(vf_dev)
-    (_c, _msg) = add_static_ip_rule(script=_persistence_script,
-                                     device=vf_dev, *ip_rule_cmd)
-    if _c != 0:
-         print_error('Failed to set ip rule: %s' % _msg)
-         delete_route_table(vf_dev)
-         destroy_networking(vf_dev, vnic['vlanTag'])
-         return None
-
-    _logger.debug('add FW rules')
-    # Add firewall rules for the address space of the KVM network to allow address rewriting
-    _persistence_script.write('# Add firewall rules\n')
-    fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
-    fw_cmd.append(_kvm_addr_space)
-    fw_cmd.extend(['-d', '224.0.0.0/24', '-j', 'ACCEPT'])
-    (_c, _msg) = add_firewall_rule(script=_persistence_script, *fw_cmd)
-    if _c != 0:
-        print_error('Failed to set firewall rule [%s]' % _msg)
-        _logger.debug('Failed to execute [%s]' % ' '.join(fw_cmd))
-
-    fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
-    fw_cmd.append(_kvm_addr_space)
-    fw_cmd.extend(['-d', '255.255.255.255/32', '-j', 'ACCEPT'])
-    (_c, _msg) = add_firewall_rule(script=_persistence_script, *fw_cmd)
-    if _c != 0:
-        print_error('Failed to set firewall rule [%s]' % _msg)
-        _logger.debug('Failed to execute [%s]' % ' '.join(fw_cmd))
-
-    fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
-    fw_cmd.append(_kvm_addr_space)
-    fw_cmd.extend(['!', '-d', '%s/%s' % (kargs['ip_bridge'], kargs['ip_prefix']), '-j', 'MASQUERADE'])
-    (_c, _msg) = add_firewall_rule(script=_persistence_script, *fw_cmd)
-    if _c != 0:
-        print_error('Failed to set firewall rule [%s]' % _msg)
-        _logger.debug('Failed to execute [%s]' % ' '.join(fw_cmd))
-
-    return _persistence_script
+        return 1
 
 
 def delete_virtual_network(**kargs):
@@ -1139,6 +1068,9 @@ def delete_virtual_network(**kargs):
 
     _logger.debug('destroying VF interfaces')
     destroy_networking(vf_dev, vlanTag)
+
+    InitScriptManager('kvm_net_%s' % kargs['network_name']).stop()
+    InitScriptManager('kvm_net_%s' % kargs['network_name']).remove()
 
     _logger.debug('Virtual network deleted')
     return 0

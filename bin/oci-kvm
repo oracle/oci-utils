@@ -251,20 +251,12 @@ def _create_network_vm(args):
         print >> sys.stderr, "Network with name [%s] already exists" % args.network_name
         return 1
 
-    script = oci_utils.kvm.virt.create_virtual_network(network=args.net,
-                                                       network_name=args.network_name,
-                                                       ip_bridge=args.ip_bridge,
-                                                       ip_prefix=args.ip_prefix,
-                                                       ip_start=args.ip_start,
-                                                       ip_end=args.ip_end)
-    if script:
-        print 'Use the following commands to build a script to make the network created accross reboots'
-        print ''
-        print script.getvalue()
-        script.close()
-        return 0
-    else:
-        return 1
+    return oci_utils.kvm.virt.create_virtual_network(network=args.net,
+                                                     network_name=args.network_name,
+                                                     ip_bridge=args.ip_bridge,
+                                                     ip_prefix=args.ip_prefix,
+                                                     ip_start=args.ip_start,
+                                                     ip_end=args.ip_end)
 
 
 def _create_pool_vm(args):
