@@ -172,7 +172,10 @@ def main():
                           (instance.get_hostname(), instance.get_state())
                     print "         Instance ocid: %s" % (instance.get_ocid())
                 else:
-                    vnic_id = ip.get_vnic().get_ocid()
+                    # FIXME: The get_vnic() API is broken
+                    # vnic_id = ip.get_vnic().get_ocid()
+                    # Following line is a work around only
+                    vnic_id = ip._data.vnic_id
                     print "         Vnic: %s(%s)" % (vnic_id, "NotFound")
                     print "         Instance: (maybe)%s(%s)" % \
                           (ip.get_display_name(), "NotFound")
