@@ -166,7 +166,7 @@ class sync_rpm(create_rpm):
 
 setup(
     name="oci-utils",
-    version="0.10.0",
+    version="0.10.1",
     author="Laszlo Peter, Qing Lin",
     author_email="laszlo.peter@oracle.com, qing.lin@oracle.com",
     description="Oracle Cloud Infrastructure utilities",
