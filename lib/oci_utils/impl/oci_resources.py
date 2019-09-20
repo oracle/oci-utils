@@ -1822,7 +1822,11 @@ class OCISubnet(OCIAPIAbstractResource):
         return self._data.cidr_block
     def is_public_ip_on_vnic_allowed(self):
         """
-
+        Checks if public PI allowed in vnic of this subnet
+        Returns:
+        --------
+            bool
+                True if allowed
         """
         return not self._data.prohibit_public_ip_on_vnic
 
