@@ -102,7 +102,7 @@ def main():
         for comp in comps:
             comp_vcns = comp.all_vcns()
             for vcn in comp_vcns:
-                vcn.set_compartment_name(comp.data.name)
+                vcn.set_compartment_name(comp.get_display_name())
             vcns += comp_vcns
 
     if len(vcns) == 0:
