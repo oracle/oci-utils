@@ -36,8 +36,8 @@ from ..impl.virt import sysconfig, virt_check, virt_utils
 from ..metadata import InstanceMetadata
 
 from ..impl.init_script_templates import _kvm_network_script_tmpl
-from ..impl.init_script_helpers import SimpleInitScriptGenerator
-from ..impl.init_script_helpers import InitScriptManager
+from ..impl.init_script_helpers import SystemdServiceGenerator
+from ..impl.init_script_helpers import SystemdServiceManager
 
 
 _logger = logging.getLogger('oci-utils.kvm.virt')
@@ -921,15 +921,15 @@ def create_virtual_network(**kargs):
     _net = str(IPNetwork('%s/%s' % (kargs['ip_bridge'], kargs['ip_prefix'])).network)
     _kvm_addr_space = '%s/%s' % (_net, kargs['ip_prefix'])
 
-    kvm_init_script = SimpleInitScriptGenerator('kvm_net_%s' % kargs['network_name'], "KVM network")
-    kvm_init_script.setMethodsBody(Template(_kvm_network_script_tmpl).safe_substitute(
-        __KVM_NETWORK_NAME__=kargs['network_name'],
-        __KVM_NET_ADDRESS_SPACE__=_kvm_addr_space,
-        __KVM_NET_BRIDGE_NAME__='%s0' % kargs['network_name'],
-        __VNIC_DEFAULT_GW__=vnic['virtualRouterIp'],
-        __NET_DEV__=vf_dev,
-        __RT_TABLE_NAME__=vf_dev,
-        __VNIC_PRIVATE_IP__=vnic['privateIp']
+    kvm_sysd_svc = SystemdServiceGenerator('kvm_net_%s' % kargs['network_name'], "KVM network")
+    kvm_sysd_svc.setEnvironement(
+        (('__KVM_NETWORK_NAME__', kargs['network_name']),
+        ('__KVM_NET_ADDRESS_SPACE__', _kvm_addr_space),
+        ('__KVM_NET_BRIDGE_NAME__', '%s0' % kargs['network_name']),
+        ('__VNIC_DEFAULT_GW__', vnic['virtualRouterIp']),
+        ('__NET_DEV__' , vf_dev),
+        ('__RT_TABLE_NAME__' , vf_dev),
+        ('__VNIC_PRIVATE_IP__' , vnic['privateIp'])
     ))
 
     # define the libvirt network
@@ -960,20 +960,17 @@ def create_virtual_network(**kargs):
 
     os.remove(tf.name)
 
-
-    kvm_init_script.setStartRunlevels([2 ,3 ,4 ,5])
-    kvm_init_script.setStopRunlevels([0,1,6])
-    kvm_init_script.addRequiredDependency('libvirtd')
+    kvm_sysd_svc.addRequiredDependency('libvirtd')
 
     try:
-        kvm_init_script.generate()
+        kvm_sysd_svc.generate()
     except StandardError, e:
         print_error('Failed to generate the init script : %s' % str(e))
         delete_route_table(vf_dev)
         destroy_networking(vf_dev, vnic['vlanTag'])
         return 1
     try:
-        InitScriptManager('kvm_net_%s' % kargs['network_name']).start()
+        SystemdServiceManager('kvm_net_%s' % kargs['network_name']).start()
     except StandardError, e:
         print_error('Failed to start the network init script')
         delete_route_table(vf_dev)
@@ -1069,8 +1066,8 @@ def delete_virtual_network(**kargs):
     _logger.debug('destroying VF interfaces')
     destroy_networking(vf_dev, vlanTag)
 
-    InitScriptManager('kvm_net_%s' % kargs['network_name']).stop()
-    InitScriptManager('kvm_net_%s' % kargs['network_name']).remove()
+    SystemdServiceManager('kvm_net_%s' % kargs['network_name']).stop()
+    SystemdServiceManager('kvm_net_%s' % kargs['network_name']).remove()
 
     _logger.debug('Virtual network deleted')
     return 0

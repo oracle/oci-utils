@@ -581,6 +581,7 @@ class InstanceMetadata(object):
             boolean
                 True for success, False for failure.
         """
+        _logger.debug('refreshing metada')
         metadata = {}
         result = True
 
@@ -615,6 +616,7 @@ class InstanceMetadata(object):
         if metadata:
             self._metadata = OCIMetadata(metadata)
 
+        _logger.debug('metadata after refresh [%s]' % str(self._metadata))
         return result
 
     def filter(self, keys):

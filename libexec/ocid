@@ -34,7 +34,6 @@ from oci_utils import vnicutils
 from oci_utils.cache import get_timestamp, load_cache, write_cache
 
 __ocid_logger = logging.getLogger('oci-utils.ocid')
-__log_level = logging.INFO
 
 
 def parse_args():
@@ -56,8 +55,6 @@ def parse_args():
                         'public_ip')
     parser.add_argument('--no-daemon', action='store_true',
                         help='run ocid in the foreground, useful for debugging')
-    parser.add_argument('--debug', action='store_true',
-                        help=argparse.SUPPRESS),
     parser.add_argument('--test', action='store_true', help=argparse.SUPPRESS)
 
     args = parser.parse_args()
@@ -70,13 +67,6 @@ def parse_args():
             sys.stderr.write('Invalid choice for --refresh\n')
             sys.exit(1)
 
-    try:
-        true_list = ['true', 'True', 'TRUE']
-        dbg = OCIUtilsConfiguration.get('ocid', 'debug') in true_list
-        if dbg:
-            args.debug = True
-    except Exception:
-        pass
     return args
 
 
@@ -92,8 +82,6 @@ class OcidThread(threading.Thread):
         The function to be executed.
     context : dict
         The function context.
-    debug : bool
-        Flag to switch on debugging, if set.
     sleeptime : int
         Interval to wait after each iteration.
     repeat : int
@@ -131,7 +119,6 @@ class OcidThread(threading.Thread):
         self.thread_name = name
         self.ocidfunc = ocidfunc
         self.context = context
-        self.debug = False
         if sleeptime < 1:
             self.sleeptime = 1
         else:
@@ -143,6 +130,7 @@ class OcidThread(threading.Thread):
         self.active = False
         self.first_iter_done = False
         self.threadLock = threading.Lock()
+        self.thr_logger = logging.getLogger('oci-utils.ocid.%s' % self.name)
 
     def __str__(self):
         return self.thread_name
@@ -157,21 +145,6 @@ class OcidThread(threading.Thread):
             The thread name.
         """
         return self.thread_name
-
-    def set_debug(self, val):
-        """
-        Set or reset the debug flag.
-
-        Parameters
-        ----------
-        val : bool
-            True or False.
-
-        Returns
-        -------
-            No return value.
-        """
-        self.debug = val
 
     def stop(self):
         """
@@ -200,21 +173,6 @@ class OcidThread(threading.Thread):
         self.threadLock.release()
         return ctx
 
-    def set_logger(self, logger):
-        """
-        Set the logger name.
-
-        Parameters
-        ----------
-        logger : Logger
-            The logger name.
-
-        Returns
-        -------
-            No return message.
-        """
-        self.logger = logger
-
     def is_first_iter_done(self):
         """
         Verify the end of the first iteration.
@@ -235,22 +193,21 @@ class OcidThread(threading.Thread):
             No return value.
         """
         self.active = True
-        self.logger.info("Starting ocid thread '%s'" % self.thread_name)
+        self.thr_logger.info("Starting ocid thread '%s'" % self.thread_name)
         while True:
-            self.logger.debug("Running thread func for "
-                              "thread %s" % self.thread_name)
+            self.thr_logger.debug("Running thread func for "
+                                  "thread %s" % self.thread_name)
             self.threadLock.acquire()
             if not self.active:
                 # shutting down.
                 self.threadLock.release()
                 sys.exit(0)
             try:
-                self.context = self.ocidfunc(self.context)
+                self.context = self.ocidfunc(self.context, self.thr_logger)
             except Exception as e:
-                self.logger.error("Error running ocid "
-                                  "thread '%s': %s" % (self.thread_name, e))
-                if self.debug:
-                    self.logger.exception(e)
+                self.thr_logger.error("Error running ocid "
+                                      "thread '%s': %s" % (self.thread_name, e))
+                self.thr_logger.exception(e)
             self.threadLock.release()
             # ocidfunc completed at least once
             self.first_iter_done = True
@@ -297,7 +254,7 @@ def test_func(context):
     return context
 
 
-def public_ip_func(context):
+def public_ip_func(context, func_logger):
     """
     OCID thread function for refreshing the instance metadata.
 
@@ -326,7 +283,7 @@ def public_ip_func(context):
     return {'publicIp': external_ip}
 
 
-def iscsi_func(context):
+def iscsi_func(context, func_logger):
     """
     OCID thread function for discovering and attaching/detaching block
     volumes; context must include 'max_volumes' and 'auto_detach'.
@@ -365,9 +322,9 @@ def iscsi_func(context):
         except Exception:
             pass
         if max_volumes > _MAX_VOLUMES_LIMIT:
-            __ocid_logger.warn("Your configured max_volumes(%s) is over the "
-                               "limit(%s)\n" %
-                               (max_volumes, _MAX_VOLUMES_LIMIT))
+            func_logger.warn("Your configured max_volumes(%s) is over the "
+                             "limit(%s)\n" %
+                             (max_volumes, _MAX_VOLUMES_LIMIT))
             max_volumes = _MAX_VOLUMES_LIMIT
         context = {'ignore_file_ts': 0,
                    'ignore_iqns': [],
@@ -482,9 +439,9 @@ def iscsi_func(context):
                                               vol['iqn'],
                                               auto_startup=True)
             if attach_result != 0:
-                __ocid_logger.info("Failed to attach device: %s" %
-                                   oci_utils.iscsiadm.error_message_from_code(
-                                       attach_result))
+                func_logger.info("Failed to attach device: %s" %
+                                 oci_utils.iscsiadm.error_message_from_code(
+                                     attach_result))
                 attach_failed[vol['iqn']] = attach_result
                 cache_changed = True
 
@@ -511,34 +468,34 @@ def iscsi_func(context):
         if 'state' not in session_devs[iqn]:
             continue
         if session_devs[iqn]['state'] in ['blocked', 'transport-offline']:
-            __ocid_logger.debug("Checking iqn %s (state %s)\n" %
-                                (iqn, session_devs[iqn]['state']))
+            func_logger.debug("Checking iqn %s (state %s)\n" %
+                              (iqn, session_devs[iqn]['state']))
             # is the iqn discoverable at the portal?
             if iqn not in inst_volumes:
                 # Not found by iscsiadm discovery.
                 # To allow time for the volume to recover, wait for detach_retry
                 # iterations where the volume was offline before detaching it
                 if iqn not in context['offline_vols']:
-                    __ocid_logger.info("iSCSI volume appears to be "
-                                       "offline: %s" % iqn)
+                    func_logger.info("iSCSI volume appears to be "
+                                     "offline: %s" % iqn)
                     new_offline_vols[iqn] = 1
                     continue
                 elif context['offline_vols'][iqn] < detach_retry:
                     new_offline_vols[iqn] = context['offline_vols'][iqn] + 1
-                    __ocid_logger.info("iSCSI volume still offline (%d): %s"
-                                       % (new_offline_vols[iqn], iqn))
+                    func_logger.info("iSCSI volume still offline (%d): %s"
+                                     % (new_offline_vols[iqn], iqn))
                     continue
 
                 if not context['auto_detach']:
-                    __ocid_logger.info("Volume still offline, but iSCSI "
-                                       "auto_detach disabled: %s" % iqn)
+                    func_logger.info("Volume still offline, but iSCSI "
+                                     "auto_detach disabled: %s" % iqn)
                     new_offline_vols[iqn] = detach_retry + 1
                     continue
 
                 cache_changed = True
                 ipaddr = session_devs[iqn]['persistent_portal_ip']
-                __ocid_logger.info("Detaching iSCSI device: %s:%s (%s)" %
-                                   (ipaddr, "3260", iqn))
+                func_logger.info("Detaching iSCSI device: %s:%s (%s)" %
+                                 (ipaddr, "3260", iqn))
                 oci_utils.iscsiadm.detach(ipaddr, 3260, iqn)
                 # delete from list of previously offline volumes so it
                 # doesn't get reported as 'now online'
@@ -556,7 +513,7 @@ def iscsi_func(context):
     # (just for printing a message that it's now online)
     for iqn in context['offline_vols']:
         if iqn not in new_offline_vols:
-            __ocid_logger.info("iSCSI volume now online: %s" % iqn)
+            func_logger.info("iSCSI volume now online: %s" % iqn)
     context['offline_vols'] = new_offline_vols
 
     # check if the devices that were previously manually detached are still
@@ -564,7 +521,7 @@ def iscsi_func(context):
     inst_iqns = [vol['iqn'] for vol in inst_volumes]
     for iqn in ignore_iqns:
         if iqn not in inst_iqns:
-            __ocid_logger.debug("Removing iqn %s from ignore list" % iqn)
+            func_logger.debug("Removing iqn %s from ignore list" % iqn)
             ignore_iqns.remove(iqn)
             ign_changed = True
 
@@ -585,7 +542,7 @@ def iscsi_func(context):
         try:
             os.utime(oci_utils.iscsiadm.ISCSIADM_CACHE, None)
         except Exception as e:
-            __ocid_logger.warn("Failed to update cache timestamp: %s" % e)
+            func_logger.warn("Failed to update cache timestamp: %s" % e)
 
     return context
 
@@ -599,45 +556,43 @@ def get_metadata_vnics():
     list
         List of vnic's.
     """
-    vnics = oci_utils.metadata.InstanceMetadata(
-        get_public_ip=False).filter('vnics')
-    if vnics is not None and 'vnics' in vnics:
-        # deep copy
-        vnics_copy = [dict(x) for x in vnics['vnics']]
-    else:
-        vnics_copy = []
-
-    return vnics_copy
+    return oci_utils.metadata.InstanceMetadata(get_public_ip=False)['vnics']
 
 
-def vnic_func(context):
+def vnic_func(context, func_logger):
     """
     OCID thread function to track vnic configuration changes
-     context: {'vnic_utils': None, 'debug':debug, 'vf_net':vf_net}
+     context: {'vnic_utils': None, 'vf_net':vf_net, 'logger':logger}
     Parameters
     ----------
     context: dict
         The thread context.
-        # {'vnic_utils': None, 'debug':debug, 'vf_net':vf_net}
-
+        # {'vnic_utils': None, 'vf_net':vf_net}
+    func_logger: logger
+     logger to use for debug and info
     Returns
     -------
     dict
         The new context.
     """
+
+    func_logger.debug('Entering vnic_func, context == %s' % str(context))
+
     if context['vf_net']:
         # Don't do any network configuration if something
         # else is doing it
+        func_logger.debug("Don't do any network configuration if something else is doing it")
         return context
 
     if context['vnic_utils'] is None:
+        func_logger.debug("context['vnic_utils'] is None : first iteration")
         # first iteration
         oci_sess = None
         if oci_utils.oci_api.HAVE_OCI_SDK:
             try:
                 oci_sess = oci_utils.oci_api.OCISession()
             except Exception:
-                pass
+                func_logger.debug("error getting session")
         context['oci_sess'] = oci_sess
         context['vnic_utils'] = vnicutils.VNICUtils()
         context['vnic_info_ts'], context['vnic_info'] = \
@@ -645,9 +600,10 @@ def vnic_func(context):
         context['vnics'] = get_metadata_vnics()
         (ret, out) = context['vnic_utils'].auto_config([], False, False)
         if ret != 0:
-            __ocid_logger.warning("Failed to configure network interfaces")
+            func_logger.warning("Failed to configure network interfaces")
         if out is not None and out != "":
-            __ocid_logger.info("secondary VNIC script reports: %s" % out)
+            func_logger.info("secondary VNIC script reports: %s" % out)
+        func_logger.debug("Returning the context [%s]" % str(context))
         return context
 
     # If the vnic_info file changed then oci-network-config was invoked
@@ -655,55 +611,60 @@ def vnic_func(context):
     # the context instead.
     if vnicutils.VNICUtils.get_vnic_info_timestamp() > \
             context['vnic_info_ts']:
-        __ocid_logger.debug("vnic_info file changed, rebuilding context")
+        func_logger.debug("vnic_info file changed, rebuilding context")
         context['vnic_info_ts'], context['vnic_info'] = \
             context['vnic_utils'].get_vnic_info()
         context['vnics'] = get_metadata_vnics()
+        func_logger.debug("Returning the context [%s]" % str(context))
         return context
 
     vnics = get_metadata_vnics()
+
+    func_logger.debug("VNICs from metadata [%s]" % str(vnics))
 
     update_needed = False
 
     if vnics != context['vnics']:
         # VNIC configuration changed
-        __ocid_logger.info("VNIC configuration changed.")
+        func_logger.info("VNIC configuration changed.")
         update_needed = True
         context['vnics'] = vnics
 
     if context['oci_sess'] is not None:
-        # look for new or removed secondary private IP addresses
+        func_logger.debug("look for new or removed secondary private IP addresses")
         p_ips = context['oci_sess'].this_instance(). \
             all_private_ips(refresh=True)
         sec_priv_ip = \
             [[ip.get_address(), ip.get_vnic_ocid()] for ip in p_ips]
         for ip in sec_priv_ip:
             if ip not in context['vnic_info']['sec_priv_ip']:
-                __ocid_logger.info("New secondary private IP: %s" %
-                                   ip[0])
+                func_logger.info("New secondary private IP: %s" %
+                                 ip[0])
                 update_needed = True
         for ip in context['vnic_info']['sec_priv_ip']:
             if ip not in sec_priv_ip:
-                __ocid_logger.info("Secondary private IP "
-                                   "disconnected: %s" % ip[0])
+                func_logger.info("Secondary private IP "
+                                 "disconnected: %s" % ip[0])
                 update_needed = True
         if update_needed:
             # this one is used for comparing with the previous iteration
             context['vnic_info']['sec_priv_ip'] = sec_priv_ip
             context['vnic_utils'].set_private_ips(sec_priv_ip)
 
+    func_logger.debug('update_needed == %s' % str(update_needed))
+
     if update_needed:
-        __ocid_logger.info("updating network interfaces")
+        func_logger.info("updating network interfaces")
         (ret, out) = context['vnic_utils'].auto_config([], False, False)
         if ret != 0:
-            __ocid_logger.warning("Failed to configure network interfaces")
+            func_logger.warning("Failed to configure network interfaces")
         if out is not None and out != "":
-            __ocid_logger.info("secondary VNIC script reports: %s" % out)
+            func_logger.info("secondary VNIC script reports: %s" % out)
 
     return context
 
 
-def start_thread(name, repeat, debug=False):
+def start_thread(name, repeat):
     """
     Start a specific thread.
 
@@ -713,21 +674,16 @@ def start_thread(name, repeat, debug=False):
         The name of the thread.
     repeat: bool
         Repeat the thread if set.
-    debug: bool
-        Debug flag.
 
     Returns
     -------
     dict
         The thread object.
     """
-    global __log_level
 
     true_list = ['true', 'True', 'TRUE']
-    if debug:
-        __log_level = logging.DEBUG
+
     if name == 'test':
-        __log_level = logging.DEBUG
         th = OcidThread(name=name,
                         ocidfunc=test_func,
                         context={'fname': '/tmp/ocid-test', 'counter': 1},
@@ -772,20 +728,19 @@ def start_thread(name, repeat, debug=False):
         if is_enabled not in true_list:
             return None
         scan_interval = OCIUtilsConfiguration.get('vnic', 'scan_interval')
+        __ocid_logger.debug('scan interval for vnics: %s' % str(scan_interval))
         vf_net = OCIUtilsConfiguration.get('vnic', 'vf_net') in true_list
         th = OcidThread(name=name,
                         ocidfunc=vnic_func,
-                        context={'vnic_utils': None, 'debug': debug,
+                        context={'vnic_utils': None,
                                  'vf_net': vf_net},
                         sleeptime=scan_interval,
                         repeat=repeat)
     else:
         __ocid_logger.error('Internal error: unknown thread: %s' % name)
         return None
-    logging.getLogger('oci-utils').setLevel(__log_level)
-    th.set_logger(__ocid_logger)
+
     th.start()
-    th.set_debug(debug)
     return th
 
 
@@ -811,24 +766,28 @@ def start_threads(args, repeat):
 
     if args.test:
         # start the test thread
-        th = start_thread('test', repeat, args.debug)
+        __ocid_logger.debug('starting thread \'test\'')
+        th = start_thread('test', repeat)
         if th:
             threads['test'] = th
     if not args.refresh or args.refresh is True:
         # is not a refresh request or is a request to refresh all
         # so start all threads
-        th = start_thread('public_ip', repeat, args.debug)
+        __ocid_logger.debug('starting thread \'public_ip\'')
+        th = start_thread('public_ip', repeat)
         if th:
             threads['public_ip'] = th
-        th = start_thread('iscsi', repeat, args.debug)
+        __ocid_logger.debug('starting thread \'iscsi\'')
+        th = start_thread('iscsi', repeat)
         if th:
             threads['iscsi'] = th
-        th = start_thread('vnic', repeat, args.debug)
+        __ocid_logger.debug('starting thread \'vnic\'')
+        th = start_thread('vnic', repeat)
         if th:
             threads['vnic'] = th
     elif args.refresh:
         # start a specific thread only
-        th = start_thread(args.refresh, repeat, args.debug)
+        th = start_thread(args.refresh, repeat)
         if th:
             threads[args.refresh] = th
         return threads
@@ -917,7 +876,7 @@ def daemon_main(arguments):
         sys.exit(result)
 
     threads = start_threads(arguments, repeat=True)
-
+    __ocid_logger.debug('threads started')
     # wait for every thread to complete the ocid func at least once
     first_iter_done = False
     while not first_iter_done:
@@ -963,7 +922,7 @@ def main():
             if not args.refresh:
                 sys.stderr.write("ocid already running.\n")
                 return 1
-
+        __ocid_logger.debug('Starting daemon...')
         if args.no_daemon:
             daemon_main(args)
         else:

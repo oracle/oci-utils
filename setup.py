@@ -188,6 +188,7 @@ setup(
                   'libexec/oci-kvm-upgrade',
                   'libexec/oci-growfs',
                   'libexec/oci-kvm-config.sh',
+                  'libexec/oci-kvm-network-script'
                   ]),
                 ("/etc/systemd/system",
                  ['data/ocid.service', 'data/oci-kvm-config.service']),

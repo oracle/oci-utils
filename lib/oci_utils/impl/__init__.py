@@ -34,6 +34,7 @@ IP_CMD = '/usr/sbin/ip'
 BRIDGE_CMD = '/sbin/bridge'
 PARTED_CMD = '/sbin/parted'
 MK_XFS_CMD = '/sbin/mkfs.xfs'
+SYSTEMCTL_CMD = '/bin/systemctl'
 
 
 def print_error(msg, *args):

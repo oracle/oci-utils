@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+
+
+#
+#  KVM networks service command script
+#  script run by KVM network systemd unit created whiel creating a virtual nework
+#  This script handle the start, stop and status method
+#
+
+start() {
+    echo "Adding default route to ${__VNIC_DEFAULT_GW__}"
+    /usr/sbin/ip route add default via ${__VNIC_DEFAULT_GW__} dev ${__NET_DEV__} table ${__RT_TABLE_NAME__}
+    if [ $? -ne 0 ]
+    then
+        echo "Cannot add route : default ${__VNIC_DEFAULT_GW__} via dev ${__NET_DEV__} table ${__RT_TABLE_NAME__}"
+        return 1
+    fi
+    echo "Adding rule for ${__VNIC_PRIVATE_IP__}"
+    /usr/sbin/ip rule add from ${__VNIC_PRIVATE_IP__} lookup ${__RT_TABLE_NAME__}
+    if [ $? -ne 0 ]
+    then
+        echo "Cannot add rule : from ${__VNIC_PRIVATE_IP__} lookup ${__RT_TABLE_NAME__}"
+        return 1
+    fi
+    # Start the KVM network
+    echo "Starting the network"
+    /bin/virsh net-start --network ${__KVM_NETWORK_NAME__}
+    if [ $? -ne 0 ]
+    then
+        echo "Cannot start kvm network"
+        return 1
+    fi
+    echo "network started"
+
+    # Add routes for KVM
+    echo "Adding routes for KVM network"
+    /usr/sbin/ip route add ${__KVM_NET_ADDRESS_SPACE__} dev ${__KVM_NET_BRIDGE_NAME__} scope link proto kernel table ${__RT_TABLE_NAME__}
+    if [ $? -ne 0 ]
+    then
+        echo "Cannot add route : ${__KVM_NET_ADDRESS_SPACE__} dev ${__KVM_NET_BRIDGE_NAME__} scope link proto kernel table ${__RT_TABLE_NAME__}"
+        return 1
+    fi
+    /usr/sbin/ip rule add from ${__KVM_NET_ADDRESS_SPACE__} lookup ${__RT_TABLE_NAME__}
+    # Add firewall rules
+    echo "Adding iptables rules routes for KVM network"
+    /usr/sbin/iptables -t nat -A POSTROUTING -s ${__KVM_NET_ADDRESS_SPACE__} -d 224.0.0.0/24 -j ACCEPT
+    /usr/sbin/iptables -t nat -A POSTROUTING -s ${__KVM_NET_ADDRESS_SPACE__} -d 255.255.255.255/32 -j ACCEPT
+    /usr/sbin/iptables -t nat -A POSTROUTING -s ${__KVM_NET_ADDRESS_SPACE__} ! -d ${__KVM_NET_ADDRESS_SPACE__} -j MASQUERADE
+    return 0
+}
+
+
+stop() {
+   /usr/bin/virsh net-destroy --network ${__KVM_NETWORK_NAME__}
+   return $?
+}
+
+status() {
+    /usr/bin/virsh net-info --network ${__KVM_NETWORK_NAME__}
+    /usr/bin/virsh net-dhcp-leases --network ${__KVM_NETWORK_NAME__}
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status
+        ;;
+    *)
+        exit 1
+        ;;
+esac
+exit $?
+
+
+
