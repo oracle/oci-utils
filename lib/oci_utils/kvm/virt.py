@@ -922,7 +922,7 @@ def create_virtual_network(**kargs):
     _kvm_addr_space = '%s/%s' % (_net, kargs['ip_prefix'])
 
     kvm_sysd_svc = SystemdServiceGenerator('kvm_net_%s' % kargs['network_name'], "KVM network")
-    kvm_sysd_svc.setEnvironement(
+    kvm_sysd_svc.setEnvironment(
         (('__KVM_NETWORK_NAME__', kargs['network_name']),
         ('__KVM_NET_ADDRESS_SPACE__', _kvm_addr_space),
         ('__KVM_NET_BRIDGE_NAME__', '%s0' % kargs['network_name']),

@@ -168,7 +168,7 @@ setup(
     name="oci-utils",
     version="0.10.1",
     author="Laszlo Peter, Qing Lin",
-    author_email="laszlo.peter@oracle.com, qing.lin@oracle.com",
+    author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com, emmanuel.jannetti@oracle.com",
     description="Oracle Cloud Infrastructure utilities",
     license="UPL",
     install_requires=install_requirements,

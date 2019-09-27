@@ -81,7 +81,7 @@ class InitScriptManager(InitScriptBase, ServiceManager):
 
     def __init__(self, name):
         """
-        Instanciate a new manger
+        Instantiate a new manger
         parameter:
             name : service name , i.e filename
         """
@@ -173,7 +173,7 @@ class SystemdServiceGenerator(ServiceGenerator):
         file.close()
         sudo_utils.set_file_mode(_ouput_file, '755')
 
-    def setEnvironement(self, vars):
+    def setEnvironment(self, vars):
         """
         Sets environement variable for the servivce
         parameers:
