@@ -63,6 +63,19 @@ status() {
     /usr/bin/virsh net-dhcp-leases --network ${__KVM_NETWORK_NAME__}
 }
 
+
+if [ -z "${__KVM_NETWORK_NAME__}" ] || \
+   [ -z "${__KVM_NET_ADDRESS_SPACE__}" ] || \
+   [ -z "${__KVM_NET_BRIDGE_NAME__}" ] || \
+   [ -z "${__VNIC_DEFAULT_GW__}" ] || \
+   [ -z "${__NET_DEV__}" ] || \
+   [ -z "${__RT_TABLE_NAME__}" ] || \
+   [ -z "${__VNIC_PRIVATE_IP__}" ]
+then
+    echo "ERROR: Environment not set correctly!" >&2
+    exit 1
+fi
+
 case "$1" in
     start)
         start
