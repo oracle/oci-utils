@@ -45,3 +45,17 @@ class TestCliOciNetworkInspector(unittest.TestCase):
                 TestCliOciNetworkInspector.NETWORK_INSPECTOR, '--help'])
         except Exception, e:
             self.fail('Execution has failed: %s' % str(e))
+
+    def test_display_info(self):
+        """
+        Test displaying network info
+
+        Returns
+        -------
+            No return value.
+        """
+        try:
+            _ = subprocess.check_output([
+                TestCliOciNetworkInspector.NETWORK_INSPECTOR])
+        except Exception, e:
+            self.fail('Execution has failed: %s' % str(e))
