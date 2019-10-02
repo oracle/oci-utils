@@ -63,6 +63,10 @@ Requires: %{name} = %{version}-%{release}
 %description outest
 Utilities unit tests
 
+%pre
+# some old version of oci-utils, used to leave this behind.
+%{__rm} -f /var/tmp/oci-utils.log*
+
 %prep
 %setup -q -n %{name}-%{version}
 

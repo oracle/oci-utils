@@ -56,6 +56,20 @@ class TestCliOciIscsiConfig(unittest.TestCase):
         """
         try:
             _ = subprocess.check_output([TestCliOciIscsiConfig.ISCSI_CONFIG,
+                                         '--show'])
+        except Exception, e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_show_all_no_check(self):
+        """
+        Test basic run of --show command. We do not check out.
+
+        Returns
+        -------
+            No return value.
+        """
+        try:
+            _ = subprocess.check_output([TestCliOciIscsiConfig.ISCSI_CONFIG,
                                          '--show', '--all'])
         except Exception, e:
             self.fail('Execution has failed: %s' % str(e))

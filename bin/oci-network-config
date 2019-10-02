@@ -173,10 +173,13 @@ def api_show_network_config():
         print "     MAC address: %s" % vnic.get_mac_address()
         print "     Public IP address: %s" % vnic.get_public_ip()
         print "     Private IP address: %s" % vnic.get_private_ip()
+       
         _subn = vnic.get_subnet()
         if _subn is not None:
             print "     Subnet: %s (%s)" % (_subn.get_display_name(),
-                                            _subn.get_cidr_block())
+        else:
+            print "     Subnet: Not found"
+
         privips = vnic.all_private_ips()
         if len(privips) > 0:
             print "     Private IP addresses:"

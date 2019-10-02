@@ -76,7 +76,6 @@ class OCICompartment(OCIAPIAbstractResource):
         self._vcns = None
         self._vnics = None
         self._volumes = None
-        self.data = compartment_data
 
     def __str__(self):
         """
@@ -1483,17 +1482,25 @@ class OCIPrivateIP(OCIAPIAbstractResource):
 
     def get_vnic(self):
         """
-        Get the virtual network interface card data.
+        Get the vNIC of this private ip.
 
         Returns
         -------
-            dict
-                The VNIC data.
+            OCIVNIC
+                The VNIC instance.
         """
         return self._oci_session.get_vnic(self._data.vnic_id)
 
     def get_vnic_ocid(self):
-        return self.data.vnic_id
+        """
+        Gets the VNIC id.
+        Note : return the value defined in the metadata which may differ
+               from instance returned by get_vnic() method
+        returns:
+        --------
+            str : vnic ocid
+        """
+        return self._data.vnic_id
 
     def get_address(self):
         """
@@ -1813,6 +1820,15 @@ class OCISubnet(OCIAPIAbstractResource):
                 The cidr block.
         """
         return self._data.cidr_block
+    def is_public_ip_on_vnic_allowed(self):
+        """
+        Checks if public PI allowed in vnic of this subnet
+        Returns:
+        --------
+            bool
+                True if allowed
+        """
+        return not self._data.prohibit_public_ip_on_vnic
 
     def get_vcn_id(self):
         """
