@@ -19,9 +19,12 @@ from time import sleep
 
 from ..exceptions import OCISDKError
 
-__all__ = ['lock_thread', 'release_thread', 'read_config', 'SUDO_CMD', 'CAT_CMD', 'SH_CMD', 'CP_CMD']
+__all__ = ['lock_thread', 'release_thread', 'read_config', 'SUDO_CMD',
+           'CAT_CMD', 'SH_CMD', 'CP_CMD', 'TOUCH_CMD', 'CHMOD_CMD']
 
 CAT_CMD = '/usr/bin/cat'
+TOUCH_CMD = '/usr/bin/touch'
+CHMOD_CMD = '/usr/bin/chmod'
 RM_CMD = '/bin/rm'
 CP_CMD = '/bin/cp'
 SH_CMD = '/bin/sh'
@@ -31,6 +34,7 @@ IP_CMD = '/usr/sbin/ip'
 BRIDGE_CMD = '/sbin/bridge'
 PARTED_CMD = '/sbin/parted'
 MK_XFS_CMD = '/sbin/mkfs.xfs'
+SYSTEMCTL_CMD = '/bin/systemctl'
 
 
 def print_error(msg, *args):
@@ -263,8 +267,9 @@ def setup_logging(forceDebug=False):
                     '/var/tmp/oci-utils.log', mode='a', maxBytes=1024 * 1024, backupCount=3)
                 handler.setFormatter(formatter)
                 handler.setLevel(logging.NOTSET)
-            except StandardError, e:
-                print 'warning, cannot setup debug file : %s' % str(e)
+            except StandardError, ignored:
+                # keep it silent
+                pass
 
     logger = logging.getLogger('oci-utils')
     logger.setLevel(logging.INFO)

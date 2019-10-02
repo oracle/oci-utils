@@ -168,7 +168,7 @@ setup(
     name="oci-utils",
     version="0.10.1",
     author="Laszlo Peter, Qing Lin",
-    author_email="laszlo.peter@oracle.com, qing.lin@oracle.com",
+    author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com, emmanuel.jannetti@oracle.com",
     description="Oracle Cloud Infrastructure utilities",
     license="UPL",
     install_requires=install_requirements,
@@ -188,6 +188,7 @@ setup(
                   'libexec/oci-kvm-upgrade',
                   'libexec/oci-growfs',
                   'libexec/oci-kvm-config.sh',
+                  'libexec/oci-kvm-network-script'
                   ]),
                 ("/etc/systemd/system",
                  ['data/ocid.service', 'data/oci-kvm-config.service']),
