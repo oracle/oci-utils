@@ -1690,6 +1690,8 @@ class OCISecurityList(OCIAPIAbstractResource):
             prot = OCISecurityList.protocol.get(rule.protocol, rule.protocol)
             des = rule.destination
             src = "---"
+            desport = "-"
+            srcport = "-"
             if rule.protocol == 6 or rule.protocol == 17:
                 if rule.protocol == 6:
                     option = rule.tcp_options
