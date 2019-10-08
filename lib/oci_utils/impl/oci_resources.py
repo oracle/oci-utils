@@ -1692,8 +1692,8 @@ class OCISecurityList(OCIAPIAbstractResource):
             src = "---"
             desport = "-"
             srcport = "-"
-            if rule.protocol == 6 or rule.protocol == 17:
-                if rule.protocol == 6:
+            if rule.protocol == "6" or rule.protocol == "17":
+                if rule.protocol == "6":
                     option = rule.tcp_options
                 else:
                     option = rule.udp_options
@@ -1718,7 +1718,7 @@ class OCISecurityList(OCIAPIAbstractResource):
 
                 except Exception:
                     srcport = "-"
-            elif rule.protocol == 1:
+            elif rule.protocol == "1":
                 srcport = "-"
                 option = rule.icmp_options
                 try:
