@@ -87,9 +87,16 @@ def main():
             comp = sess.find_compartments(args.compartment)
             if comp is not None:
                 comps += comp
+        if len(comps) == 0:
+            __logger.error("Compartement [%s] not found\n" % args.compartment)
+            return 1
     else:
         comp = sess.all_compartments()
         comps += comp
+
+    if len(comps) == 0:
+        __logger.error("No compartements found\n")
+        return 1
 
     vcns = []
     if args.vcn:
