@@ -492,7 +492,7 @@ def api_display_available_devices(sess, args):
                 break
             if cspec.startswith('ocid1.compartment.oc1..'):
                 # compartment specified with its ocid
-                comp = sess.get_compartment(compartment_id=cspec)
+                comp = sess.get_compartment(ocid=cspec)
                 if comp is None:
                     _logger.error("OCI SDK Error:Compartment "
                                      "not found: %s\n" % cspec)

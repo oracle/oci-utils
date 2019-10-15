@@ -79,17 +79,18 @@ def main():
 
     comps = []
     if args.compartment:
-        if args.compartment.startswith('ocid1.compartment.oc1..'):
-            comp = sess.get_compartment(compartment_id=args.compartment)
-            if comp is not None:
-                comps.append(comp)
-        else:
-            comp = sess.find_compartments(args.compartment)
-            if comp is not None:
-                comps += comp
+        comp = sess.get_compartment(ocid=args.compartment)
+        if comp is None:
+            __logger.error("Compartment [%s] not found\n" % args.compartment)
+            return 1
+        comps.append(comp)
     else:
         comp = sess.all_compartments()
-        comps += comp
+        comps.extend(comp)
+
+    if len(comps) == 0:
+        __logger.error("No Compartment found\n")
+        return 1
 
     vcns = []
     if args.vcn:
@@ -100,7 +101,10 @@ def main():
         else:
             vcn = sess.find_vcns(args.vcn)
             if vcn is not None:
-                vcns += vcn
+                vcns.extend(vcn)
+        if len(vcns) == 0:
+            __logger.error("VCN not found: %s\n" % args.vcn)
+            return 1
     else:
         # get all vcns for the compartment.
         for comp in comps:
@@ -116,6 +120,7 @@ def main():
     comp_ocid = None
     for vcn in vcns:
         _compartment = vcn.get_compartment()
+
         if _compartment.get_ocid() != comp_ocid:
             print ""
             print "Compartment: %s (%s)" % \
