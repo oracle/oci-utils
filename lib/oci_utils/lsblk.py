@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # oci-utils
 #
 # Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
@@ -53,8 +51,8 @@ def list():
                 ['/bin/lsblk', '-S', '--pairs', '--noheadings',
                  '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME'], stderr=DEVNULL)
         devices = {}
-
-        for line in output.split('\n'):
+        # with python3, outoput id byte-like object, cast it ot str
+        for line in str(output).split('\n'):
             match = _LSBLK_PATTERN.match(line.strip())
             if match:
                 dev = match.group(1)

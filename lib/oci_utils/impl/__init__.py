@@ -166,25 +166,7 @@ def release_thread():
 
 
 # oci-utils configuration defaults
-__oci_utils_defaults = """
-[auth]
-auth_method = auto
-oci_sdk_user = opc
-[iscsi]
-enabled = true
-scan_interval = 60
-max_volumes = 8
-auto_resize = true
-auto_detach = true
-detach_retry = 5
-[vnic]
-enabled = true
-scan_interval = 60
-vf_net = false
-[public_ip]
-enabled = true
-refresh_interval = 600
-"""
+
 
 # oci-utils config file
 __oci_utils_conf_d = "/etc/oci-utils.conf.d"
@@ -208,11 +190,25 @@ def read_config():
         return oci_utils_config
 
     oci_utils_config = ConfigParser()
-    try:
-        oci_utils_config.readfp(io.BytesIO(__oci_utils_defaults))
-    except Exception:
-        raise
-
+    # assign default
+    oci_utils_config.add_section('auth')
+    oci_utils_config.set('auth','auth_method','auto')
+    oci_utils_config.set('auth','oci_sdk_user','opc')
+    oci_utils_config.add_section('iscsi')
+    oci_utils_config.set('iscsi','enabled','true')
+    oci_utils_config.set('iscsi','scan_interval','60')
+    oci_utils_config.set('iscsi','max_volumes','8')
+    oci_utils_config.set('iscsi','auto_resize','true')
+    oci_utils_config.set('iscsi','auto_detach','true')
+    oci_utils_config.set('iscsi','detach_retry','5')
+    oci_utils_config.add_section('vnic')
+    oci_utils_config.set('vnic','enabled','true')
+    oci_utils_config.set('vnic','scan_interval','60')
+    oci_utils_config.set('vnic','vf_net','false')
+    oci_utils_config.add_section('public_ip')
+    oci_utils_config.set('public_ip','enabled','true')
+    oci_utils_config.set('public_ip','refresh_interval','600')
+    
     if not os.path.exists(__oci_utils_conf_d):
         return oci_utils_config
 
