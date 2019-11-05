@@ -22,7 +22,7 @@ class TestPlatformHelpers(unittest.TestCase):
         """
         import oci_utils.impl.platform_helpers
         self.assertIsNotNone(oci_utils.impl.platform_helpers.get_phys_device(),
-                             'None returned by get_block_device()')
+                             'None returned by get_phys_device()')
 
     @skipUnlessOCI()
     def test_get_block_device(self):
