@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# oci-utils
+#
+# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown
+# at http://oss.oracle.com/licenses/upl.
+
+
+# Launsh ocid daemon with appropriate python program
+
+_CUT=/usr/bin/cut
+_PY=/usr/bin/python
+_PY2=/usr/bin/python2
+_PY3=/usr/bin/python3
+
+. /etc/os-release
+major=`echo $VERSION_ID | ${_CUT} -d. -f1`
+if [ ${major} -ge 8 ] && [ -x ${_PY3} ]
+then
+   #priority given to python3
+  _PY=${_PY3}
+else
+    if [ -x ${_PY2} ]
+    then
+	_PY=${_PY2}
+    fi
+fi
+exec ${_PY} /usr/libexec/ocid $@

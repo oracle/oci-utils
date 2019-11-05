@@ -178,6 +178,7 @@ setup(
     long_description=read('README'),
     data_files=[(os.path.join(sys.prefix, 'libexec'),
                  ['libexec/ocid',
+                  'libexec/ocid-launcher',
                   'libexec/secondary_vnic_all_configure.sh',
                   'libexec/oci-image-cleanup',
                   'libexec/oci-utils-config-helper',

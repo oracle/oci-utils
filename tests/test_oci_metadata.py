@@ -28,7 +28,7 @@ class TestOciMetadata(unittest.TestCase):
         self.assertIn(u'region', metadata['instance'],
                       'metadata do not contain region information')
         self.assertIn(metadata['instance']['region'],
-                      ['phx', 'iad', 'fra', 'lhr'],
+                      ['phx', 'iad', 'fra', 'lhr', 'uk-london-1'],
                       'instance region [%s] not part of possible values [%s]'
                       % (
                       metadata['instance']['region'],

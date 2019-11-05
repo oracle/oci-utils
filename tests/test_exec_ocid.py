@@ -5,14 +5,16 @@
 import os
 import subprocess
 import unittest
+from decorators import skipUnlessRoot
 
 
 class TestExecOcid(unittest.TestCase):
     """ libexec/ocid tests.
     """
 
-    OCID = '/usr/libexec/ocid'
+    OCID = '/usr/libexec/ocid-launcher'
 
+    @skipUnlessRoot()
     def setUp(self):
         """
         Test initialisation.
