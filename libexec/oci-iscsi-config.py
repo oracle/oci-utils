@@ -165,7 +165,7 @@ def nvl(value, defval="Unknown"):
 def ocid_refresh(wait=False, debug=False):
     """
     Refresh OCID cached information; it runs
-    /usr/libexec/ocid command line with --refresh option
+    /usr/libexec/ocid-launcher command line with --refresh option
 
     Parameters
     ----------
@@ -189,13 +189,13 @@ def ocid_refresh(wait=False, debug=False):
 
     try:
         if wait:
-            output = subprocess.check_output(['/usr/libexec/ocid',
+            output = subprocess.check_output(['/usr/libexec/ocid-launcher',
                                               '--no-daemon',
                                               '--refresh',
                                               'iscsi'] + debug_opt,
                                              stderr=subprocess.STDOUT)
         else:
-            output = subprocess.check_output(['/usr/libexec/ocid',
+            output = subprocess.check_output(['/usr/libexec/ocid-launcher',
                                               '--refresh',
                                               'iscsi'] + debug_opt,
                                              stderr=subprocess.STDOUT)
