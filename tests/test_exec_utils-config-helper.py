@@ -3,6 +3,7 @@
 # http://oss.oracle.com/licenses/upl.
 
 import os
+import sys
 import subprocess
 import unittest
 
@@ -40,6 +41,6 @@ class TestExecConfigHelper(unittest.TestCase):
         """
         try:
             _ = subprocess.check_output(
-                [TestExecConfigHelper.OCI_UTILS_CONFIG_HELPER, '--help'])
+                [sys.executable, TestExecConfigHelper.OCI_UTILS_CONFIG_HELPER, '--help'])
         except Exception, e:
             self.fail('Execution has failed: %s' % str(e))

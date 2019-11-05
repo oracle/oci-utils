@@ -10,7 +10,7 @@
 import json
 import os
 import subprocess
-
+import sys
 from ..exceptions import OCISDKError
 
 _HELPER_SCRIPT = '/usr/libexec/oci-utils-config-helper'
@@ -20,6 +20,7 @@ class OCIAuthProxy(object):
     """
     Read the OCI config and authenticate with OCI services as another user
     """
+
     def __init__(self, user):
         """
         Initialisation of a OCIAuthProxy object.
@@ -59,7 +60,7 @@ class OCIAuthProxy(object):
                                             '-',
                                             self.user,
                                             '-c',
-                                            _HELPER_SCRIPT],
+                                            '%s %s' % (sys.executable, _HELPER_SCRIPT)],
                                            stdin=subprocess.PIPE,
                                            stdout=subprocess.PIPE,
                                            stderr=dev_null,
