@@ -44,7 +44,7 @@ How to test ocid:
 
     Run is manually, with debug messages:
 
-    sudo /usr/libexec/ocid  --no-daemon
+    sudo /usr/libexec/ocid-launcher  --no-daemon
 
 
 Enabling debug information in syslogd:
