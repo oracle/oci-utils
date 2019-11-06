@@ -4,7 +4,7 @@ After=iscsid.service
 
 [Service]
 Type=notify
-ExecStart=/usr/libexec/ocid-launcher
+ExecStart=/usr/libexec/ocid
 PIDFile=/var/run/ocid.pid
 Restart=always
 StandardOutput=syslog

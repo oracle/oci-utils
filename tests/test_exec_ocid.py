@@ -12,7 +12,7 @@ class TestExecOcid(unittest.TestCase):
     """ libexec/ocid tests.
     """
 
-    OCID = '/usr/libexec/ocid-launcher'
+    OCID = '/usr/libexec/ocid'
 
     @skipUnlessRoot()
     def setUp(self):

@@ -29,10 +29,10 @@ BuildRequires: systemd
 %if 0%{?rhel} >= 8
 BuildRequires: python3-devel
 BuildRequires: python3-setuptools
-#BuildRequires: python3-flake8
+BuildRequires: python3-flake8
 Requires: python3
-Requires: python2-daemon
-Requires: python2-sdnotify
+Requires: python3-daemon
+Requires: python3-sdnotify
 Requires: python3-six
 Requires: python3-enum34
 # Oracle Linux 7
@@ -101,7 +101,6 @@ Utilities unit tests
 /usr/bin/2to3 --no-diffs --write --nobackups  %{buildroot}
 # force run on ones not suffixed by .py
 /usr/bin/2to3 --no-diffs --write --nobackups  %{buildroot}/%{_libexecdir}/oci-utils-config-helper
-/usr/bin/2to3 --no-diffs --write --nobackups  %{buildroot}/%{_libexecdir}/ocid
 %endif
 
 %clean
