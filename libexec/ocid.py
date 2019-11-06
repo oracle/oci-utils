@@ -696,7 +696,7 @@ def start_thread(name, repeat):
         th = OcidThread(name=name,
                         ocidfunc=public_ip_func,
                         context={},
-                        sleeptime=refresh_interval,
+                        sleeptime=int(refresh_interval),
                         repeat=repeat)
     elif name == 'iscsi':
         max_volumes = OCIUtilsConfiguration.get('iscsi', 'max_volumes')
@@ -719,7 +719,7 @@ def start_thread(name, repeat):
                         ocidfunc=iscsi_func,
                         context={'max_volumes': max_volumes,
                                  'auto_detach': auto_detach, },
-                        sleeptime=scan_interval,
+                        sleeptime=int(scan_interval),
                         repeat=repeat)
     elif name == 'vnic':
         is_enabled = OCIUtilsConfiguration.get('vnic', 'enabled')
@@ -732,7 +732,7 @@ def start_thread(name, repeat):
                         ocidfunc=vnic_func,
                         context={'vnic_utils': None,
                                  'vf_net': vf_net},
-                        sleeptime=scan_interval,
+                        sleeptime=int(scan_interval),
                         repeat=repeat)
     else:
         __ocid_logger.error('Internal error: unknown thread: %s' % name)
