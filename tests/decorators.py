@@ -76,7 +76,7 @@ def skipUnlessOCISDKInstalled():
     if __sdk_installed is None:
         try:
             # --GT-- not used
-            # import oci
+            import oci
             __sdk_installed = True
         except ImportError:
             __sdk_installed = False

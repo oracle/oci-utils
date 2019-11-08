@@ -16,7 +16,7 @@ __lsblk_logger = logging.getLogger('oci-utils.lsblk')
 
 _LSBLK_PATTERN = re.compile(
     r'^NAME="([^"]*)" FSTYPE="([^"]*)" MOUNTPOINT="([^"]*)" '
-    r'SIZE="([^"]*)" PKNAME="([^"]*)"')
+    r'SIZE="([^"]*)" PKNAME="([^"]*)"', flags=re.UNICODE)
 
 
 def list():
@@ -48,10 +48,10 @@ def list():
     try:
         with open(os.devnull, 'w') as DEVNULL:
             output = subprocess.check_output(
-                ['/bin/lsblk', '-S', '--pairs', '--noheadings',
-                 '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME'], stderr=DEVNULL)
+                ['/bin/lsblk', '--scsi', '--pairs', '--noheadings',
+                 '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME'], stderr=DEVNULL).decode('utf-8')
         devices = {}
-        # with python3, outoput id byte-like object, cast it ot str
+        # with python3, output id byte-like object, cast it ot str
         for line in str(output).split('\n'):
             match = _LSBLK_PATTERN.match(line.strip())
             if match:
