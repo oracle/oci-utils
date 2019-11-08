@@ -17,7 +17,7 @@ class TestOCISession(unittest.TestCase):
     """
 
     def setUp(self):
-        self.Session = None
+        self._session = None
 
     def setUpSession(self):
         if self._session is None:
