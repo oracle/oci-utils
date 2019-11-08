@@ -21,4 +21,5 @@ class TestAuthHelpers(unittest.TestCase):
         -------
             No return value.
         """
+        unittest.skip('Need user password')
         print(OCIAuthProxy('opc').get_config())
