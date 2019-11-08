@@ -17,25 +17,13 @@ class TestOCISession(unittest.TestCase):
     """
 
     def setUp(self):
-        """
-        Test initalisation.
+        self.Session = None
 
-        Returns
-        -------
-            No return value.
-        """
-        self._session = oci_utils.oci_api.OCISession(
-            auth_method=oci_utils.oci_api.DIRECT)
-
-    def tearDown(self):
-        """
-        Test destruction.
-
-        Returns
-        -------
-            No return value.
-        """
-        pass
+    def setUpSession(self):
+        if self._session is None:
+            self._session = oci_utils.oci_api.OCISession(
+                auth_method=oci_utils.oci_api.DIRECT)
+        return self._session
 
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
@@ -135,9 +123,9 @@ class TestOCISession(unittest.TestCase):
         -------
             No return value.
         """
-        _all = self._session.all_compartments()
+        _all = self.setUpSession().all_compartments()
         self.assertIsNotNone(_all, 'None list of compartment returned')
-        _this_compartement = self._session.this_compartment()
+        _this_compartement = self.setUpSession().this_compartment()
         self.assertIsNotNone(_this_compartement, 'Cannot fetch our compartment')
         _my_compartment_ocid = _this_compartement.get_ocid()
         _found = False
@@ -160,9 +148,9 @@ class TestOCISession(unittest.TestCase):
         -------
             No return value.
         """
-        _c = self._session.this_compartment()
+        _c = self.setUpSession().this_compartment()
         self.assertIsNotNone(_c, 'Cannot fetch our compartment')
-        _c_list = self._session.find_compartments(_c.get_display_name())
+        _c_list = self.setUpSession().find_compartments(_c.get_display_name())
         self.assertTrue(len(_c_list) == 1, 'wrong list length returned')
         self.assertTrue(_c_list[0] == _c, 'wrong self compartment returned')
 
@@ -176,7 +164,7 @@ class TestOCISession(unittest.TestCase):
         -------
             No return value.
         """
-        _c_list = self._session.find_compartments('_do_not_exits__')
+        _c_list = self.setUpSession().find_compartments('_do_not_exits__')
         self.assertTrue(len(_c_list) == 0,
                         'wrong list length returned, shoudl be empty')
 
@@ -190,7 +178,7 @@ class TestOCISession(unittest.TestCase):
         -------
             No return value.
         """
-        _all = self._session.all_vcns()
+        _all = self.setUpSession().all_vcns()
         self.assertIsNotNone(_all, 'None list of VCNS returned')
         for _c in _all:
             self.assertTrue(isinstance(_c, oci_utils.impl.oci_resources.OCIVCN),
@@ -206,9 +194,9 @@ class TestOCISession(unittest.TestCase):
         -------
              No return value.
         """
-        _all = self._session.all_vcns()
+        _all = self.setUpSession().all_vcns()
         if len(_all) > 0:
-            _c_list = self._session.find_vcns(_all[0].get_display_name())
+            _c_list = self.setUpSession().find_vcns(_all[0].get_display_name())
             self.assertTrue(len(_c_list) == 1, 'wrong list length returned')
             self.assertTrue(_c_list[0] == _all[0],
                             'wrong self compartment returned')
@@ -224,7 +212,7 @@ class TestOCISession(unittest.TestCase):
             No return value.
         """
 
-        _c_list = self._session.find_vcns('_do_not_exits__')
+        _c_list = self.setUpSession().find_vcns('_do_not_exits__')
         self.assertTrue(len(_c_list) == 0,
                         'wrong list length returned, shoudl be empty')
 
@@ -238,7 +226,7 @@ class TestOCISession(unittest.TestCase):
         -------
             No return value.
         """
-        _all = self._session.all_subnets()
+        _all = self.setUpSession().all_subnets()
         self.assertIsNotNone(_all, 'None list of subnets returned')
 
     @skipUnlessOCI()
@@ -251,9 +239,9 @@ class TestOCISession(unittest.TestCase):
         -------
             No return value.
         """
-        _all = self._session.all_subnets()
+        _all = self.setUpSession().all_subnets()
         if len(_all) > 0:
-            _s = self._session.get_subnet(_all[0].get_ocid())
+            _s = self.setUpSession().get_subnet(_all[0].get_ocid())
             self.assertEqual(_s, _all[0],
                              'Wrong subnet returned by search by id')
 
@@ -267,9 +255,9 @@ class TestOCISession(unittest.TestCase):
         -------
             No return value.
         """
-        _all = self._session.all_subnets()
+        _all = self.setUpSession().all_subnets()
         if len(_all) > 0:
-            _s = self._session.find_subnets('%s*' % _all[0].get_display_name())
+            _s = self.setUpSession().find_subnets('%s*' % _all[0].get_display_name())
             self.assertEqual(_s[0], _all[0], 'Wrong subnet returned by search')
 
     @skipUnlessOCI()
@@ -282,7 +270,7 @@ class TestOCISession(unittest.TestCase):
         -------
             No return value.
         """
-        _s = self._session.find_subnets('__do_not_exits__')
+        _s = self.setUpSession().find_subnets('__do_not_exits__')
         self.assertIsNotNone(_s, 'None returned empty list expected')
         self.assertTrue(len(_s) == 0,
                         'not empty list returned empty list expected')
@@ -297,10 +285,10 @@ class TestOCISession(unittest.TestCase):
         -------
             No return value.
         """
-        _all = self._session.all_instances()
+        _all = self.setUpSession().all_instances()
         self.assertIsNotNone(_all, 'None list of instances returned')
         self.assertTrue(len(_all) >= 1, 'empy list of instances returned')
-        self.assertTrue(self._session.this_instance() in _all,
+        self.assertTrue(self.setUpSession().this_instance() in _all,
                         'our instance not returned as part of all instances')
 
     @skipUnlessOCI()
@@ -313,11 +301,11 @@ class TestOCISession(unittest.TestCase):
         -------
             No return value.
         """
-        _f = self._session.find_instances(
-            self._session.this_instance().get_display_name())
+        _f = self.setUpSession().find_instances(
+            self.setUpSession().this_instance().get_display_name())
         self.assertIsNotNone(_f, 'None list of instances returned')
-        self.assertTrue(_f[0] == self._session.this_instance())
+        self.assertTrue(_f[0] == self.setUpSession().this_instance())
 
-        _all_wildcard = sorted(self._session.find_instances('*'))
-        _all = sorted(self._session.all_instances())
+        _all_wildcard = sorted(self.setUpSession().find_instances('*'))
+        _all = sorted(self.setUpSession().all_instances())
         self.assertFalse(cmp(_all_wildcard, _all))

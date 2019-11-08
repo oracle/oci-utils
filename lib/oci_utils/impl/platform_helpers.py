@@ -32,7 +32,7 @@ def get_phys_device():
         return None
     phys_dev = None
     output = sudo_utils.call_output([IP_CMD, '-o', '-4', 'addr', 'show'])
-    lines = output.split('\n')
+    lines = str(output).split('\n')
     for line in lines:
         if private_ip in line.strip():
             phys_dev = line.strip().split()[1]
