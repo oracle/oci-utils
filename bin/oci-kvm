@@ -4,7 +4,6 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-_SUDO=/usr/bin/sudo
 _CUT=/usr/bin/cut
 _pY=/usr/bin/python
 _PY2=/usr/bin/python2
@@ -24,6 +23,6 @@ else
     fi
 fi
 
-exec ${_SUDO} ${_PY} /usr/libexec/oci-kvm.py $@
+exec ${_PY} /usr/libexec/oci-kvm.py $@
 
 
