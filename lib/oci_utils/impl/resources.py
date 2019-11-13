@@ -209,3 +209,6 @@ class OCIAPIAbstractResource(object):
             'wrong type in comparison'
         # at abstract level not much sense sorting: sort OCIDs then
         return self._ocid < other._ocid
+
+    def __hash__(self):
+        return hash(self._ocid)

@@ -456,6 +456,7 @@ def main():
         try:
             do_create_vnic(args)
         except StandardError as e:
+            __logger.debug('cannot create the VNIC', exc_info=True)
             __logger.error('cannot create the VNIC: %s' % str(e))
             return 1
     try:
