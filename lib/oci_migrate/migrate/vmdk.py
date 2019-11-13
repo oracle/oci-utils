@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+# #!/usr/bin/env python
 
 # oci-utils
 #
@@ -13,14 +13,11 @@ import logging
 import os
 import re
 import struct
-import sys
 
-# for the sake of testing
-sys.path.append('/omv/data/git_pycharm/oci-utils/lib')
-from oci_utils.migrate import gen_tools
-from oci_utils.migrate.migrate_utils import gigabyte as gigabyte
-from oci_utils.migrate.imgdevice import DeviceData
-from oci_utils.migrate.migrate_utils import OciMigrateException
+from oci_migrate.migrate import gen_tools
+from oci_migrate.migrate.imgdevice import DeviceData
+from oci_migrate.migrate.migrate_utils import gigabyte as gigabyte
+from oci_migrate.migrate.migrate_utils import OciMigrateException
 
 """
 typedef uint64 SectorType;

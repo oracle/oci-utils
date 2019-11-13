@@ -166,7 +166,7 @@ class sync_rpm(create_rpm):
 
 setup(
     name="oci-utils",
-    version="0.10.1",
+    version="0.10.2",
     author="Laszlo Peter, Qing Lin, Guido Tijskens",
     author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com",
     description="Oracle Cloud Infrastructure utilities",
@@ -176,8 +176,7 @@ setup(
     url="http://github.com/oracle/oci-utils/",
     package_dir={'': 'lib'},
     packages=find_packages('lib'),
-    setup_requires=[
-        "flake8"],
+    setup_requires=["flake8"],
     long_description=read('README'),
     data_files=[(os.path.join(sys.prefix, 'libexec'),
                  ['libexec/ocid',
@@ -226,7 +225,7 @@ setup(
              'bin/oci-image-migrate',
              ],
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         'Environment :: Console',
         'Intended Audience :: Developers',
         'Intended Audience :: Information Technology',

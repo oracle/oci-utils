@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+# #!/usr/bin/env python
 
 # oci-utils
 #
@@ -19,26 +19,14 @@ import threading
 import time
 from glob import glob as glob
 
-# for the sake of testing
-sys.path.append('/omv/data/git_pycharm/oci-utils/lib')
-from oci_utils.migrate import migrate_utils as migrate_utils
-from oci_utils.migrate.exception import OciMigrateException
-from oci_utils.migrate import gen_tools
-from oci_utils.migrate import configdata
-from oci_utils.migrate import reconfigure_network
+import six
+from oci_migrate.migrate import configdata
+from oci_migrate.migrate import gen_tools
+from oci_migrate.migrate import migrate_utils as migrate_utils
+from oci_migrate.migrate import reconfigure_network
+from oci_migrate.migrate.exception import OciMigrateException
 
 _logger = logging.getLogger('oci-image-migrate.')
-
-
-def test():
-    """
-    Placeholder
-
-    Returns
-    -------
-        No return value
-    """
-    gen_tools.result_msg(msg=__name__)
 
 
 class UpdateImage(threading.Thread):
@@ -346,8 +334,8 @@ class DeviceData(object):
                                           'operation.'
                                           % (parttype, partitionname))
         else:
-        #    raise OciMigrateException('FS type missing from partition '
-        #                              'information %s' % partitionname)
+            # raise OciMigrateException('FS type missing from partition '
+            #                           'information %s' % partitionname)
             part_info['supported'] = False
             part_info['usage'] = 'na'
             self._logger.debug('No partition type specified, skipping')
@@ -504,7 +492,7 @@ class DeviceData(object):
                 self._logger.debug('Partition info: %s' % sfdisk_info)
                 self._logger.debug('Partition info: %s'
                                    % self.img_info['partitions'])
-                for k, v in self.img_info['partitions'].iteritems():
+                for k, v in six.iteritems(self.img_info['partitions']):
                     self._logger.debug('%s - %s' % (k, v))
                     v['usage'] = 'na'
                     v['supported'] = False
@@ -551,7 +539,8 @@ class DeviceData(object):
         # partition contains a LVM2 physical volume, add the partition to the
         # lvm list for later use.
         success = True
-        for devname, devdetail in self.img_info['partitions'].iteritems():
+        gen_tools.pause_msg(self.img_info['partitions'])
+        for devname, devdetail in six.iteritems(self.img_info['partitions']):
             self._logger.debug('Device: %s' % devname)
             self._logger.debug('Details:\n %s' % devdetail)
             gen_tools.result_msg(msg='Partition %s' % devname)
@@ -601,7 +590,7 @@ class DeviceData(object):
         #
         # loop through the volume group list, identify the logical volumes
         # and mount them if they host a supported file system.
-        for vg, lv in self.img_info['volume_groups'].iteritems():
+        for vg, lv in six.iteritems(self.img_info['volume_groups']):
             self._logger.debug('volume group %s' % vg)
             for part in lv:
                 partname = '/dev/mapper/%s' % part[1]
@@ -657,7 +646,7 @@ class DeviceData(object):
         # The list is sorted to avoid overwriting subdirectory mounts like
         # /var, /var/log, /van/log/auto,.....
         mountlist = []
-        for k, v in self.img_info['partitions'].iteritems():
+        for k, v in six.iteritems(self.img_info['partitions']):
             self._logger.debug('remount?? %s' % k)
             self._logger.debug('remount?? %s' % v)
             if 'ID_FS_TYPE' not in v:
@@ -757,7 +746,7 @@ class DeviceData(object):
                                  % osrelease['ID']
             else:
                 self.img_info['ostype'] = \
-                    importlib.import_module('oci_utils.migrate.' + os_spec_mod)
+                    importlib.import_module('oci_migrate.migrate.' + os_spec_mod)
                 self._logger.debug('OS type: %s' % self.img_info['ostype'])
                 self.img_info['ostype'].os_banner()
             #
@@ -834,7 +823,7 @@ class DeviceData(object):
             tuple: partition, mountpoint on success, None otherwise.
         """
         thepartitions = self.img_info['partitions']
-        for k, v in thepartitions.iteritems():
+        for k, v in six.iteritems(thepartitions):
             if 'usage' in v:
                 if v['usage'] == mnt:
                     self._logger.debug('Found %s in %s' % (mnt, v['mountpoint']))
@@ -959,7 +948,7 @@ class DeviceData(object):
             uuid_x = re.split('\\bUUID=\\b', uuidornameorlabel)[1]
             self._logger.debug('%s contains a UUID: %s'
                                % (uuidornameorlabel, uuid_x))
-            for partition, partdata in self.img_info['partitions'].iteritems():
+            for partition, partdata in six.iteritems(self.img_info['partitions']):
                 if self.skip_partition(partdata):
                     self._logger.debug('Skipping %s' % partition)
                 elif 'ID_FS_UUID' in partdata.keys():
@@ -978,7 +967,7 @@ class DeviceData(object):
             label_x = re.split('\\bLABEL=\\b', uuidornameorlabel)[1]
             self._logger.debug('%s contains a LABEL: %s'
                                % (uuidornameorlabel, label_x))
-            for partition, partdata in self.img_info['partitions'].iteritems():
+            for partition, partdata in six.iteritems(self.img_info['partitions']):
                 if self.skip_partition(partdata):
                     self._logger.debug('Skipping %s' % partition)
                 elif 'ID_FS_LABEL' in partdata.keys():
@@ -997,7 +986,7 @@ class DeviceData(object):
             lv_x = label_x = re.split('\\bmapper/\\b', uuidornameorlabel)
             self._logger.debug('%s contains a logical volune: %s'
                                % (uuidornameorlabel, lv_x))
-            for partition, partdata in self.img_info['partitions'].iteritems():
+            for partition, partdata in six.iteritems(self.img_info['partitions']):
                 if self.skip_partition(partdata):
                     self._logger.debug('Skipping %s' % partition)
                 elif partition == uuidornameorlabel:
@@ -1271,7 +1260,7 @@ class DeviceData(object):
                 self._logger.debug('Fstabline: %s' % line)
                 if 'UUID' in line[0]:
                     uuid_x = re.split('\\bUUID=\\b', line[0])[1]
-                    for _, part in partitiondata.iteritems():
+                    for _, part in six.iteritems(partitiondata):
                         self._logger.debug('partition: %s' % part)
                         if 'ID_FS_UUID' in part:
                             if part['ID_FS_UUID'] == uuid_x:
@@ -1282,7 +1271,7 @@ class DeviceData(object):
                                 break
                 elif 'LABEL' in line[0]:
                     label_x = re.split('\\bLABEL=\\b', line[0])[1]
-                    for _, part in partitiondata.iteritems():
+                    for _, part in six.iteritems(partitiondata):
                         self._logger.debug('partition: %s' % part)
                         if 'ID_FS_LABEL' in part:
                             if part['ID_FS_LABEL'] == label_x:
@@ -1293,7 +1282,7 @@ class DeviceData(object):
                                 break
                 elif 'mapper' in line[0]:
                     lv_x = re.split('\\bmapper/\\b', line[0])[1]
-                    for part, _ in partitiondata.iteritems():
+                    for part, _ in six.iteritems(partitiondata):
                         self._logger.debug('partition: %s' % part)
                         if lv_x in part:
                             part_pass = True
@@ -1378,7 +1367,7 @@ class DeviceData(object):
             osdata = self.img_info['osinformation']
             os_pass = False
             os_name = 'notsupportedos'
-            for k, v in osdata.iteritems():
+            for k, v in six.iteritems(osdata):
                 self._logger.debug('%s %s' % (k, v))
                 if k.upper() == 'NAME':
                     vu = v.upper().strip()

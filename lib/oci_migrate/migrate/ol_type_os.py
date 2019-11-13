@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+# #!/usr/bin/env python
 
 # oci-utils
 #
@@ -9,12 +9,11 @@
 """ Module containing Oracle Linux type specific OS methods.
 """
 import logging
-import sys
+
 # for the sake of testing
-sys.path.append('/omv/data/git_pycharm/oci-utils/lib')
-from oci_utils.migrate import configdata
-from oci_utils.migrate import gen_tools
-from oci_utils.migrate.exception import OciMigrateException
+from oci_migrate.migrate import configdata
+from oci_migrate.migrate import gen_tools
+from oci_migrate.migrate.exception import OciMigrateException
 
 logger = logging.getLogger('oci-image-migrate')
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+# #!/usr/bin/env python
 
 # oci-utils
 #
@@ -174,7 +174,7 @@ default_interfaces_config = [
     'iface lo inet loopback',
     '# The primary network interface',
     'auto _XXXX_',
-    'iface _XXXX_ inet dhcp',]
+    'iface _XXXX_ inet dhcp', ]
 #
 # netplan
 default_netplan = '/etc/netplan'
@@ -201,7 +201,7 @@ default_systemd_config = [
     '[Match]',
     'Name=_XXXX_',
     '[Network]',
-    'DHCP=ipv4',]
+    'DHCP=ipv4', ]
 #
 # list of supported operating systems.
 valid_os = ['ORACLE LINUX SERVER',
@@ -211,4 +211,4 @@ valid_os = ['ORACLE LINUX SERVER',
 #
 # flag verified if upload can proceed.
 migrate_prepartion = True
-migrate_non_upload_reason=''
+migrate_non_upload_reason = ''

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+# #!/usr/bin/env python
 
 # oci-utils
 #
@@ -14,12 +14,13 @@ import stat
 import subprocess
 import sys
 import termios
+import threading
 import time
 import tty
-import threading
 from datetime import datetime
-from oci_utils.migrate.exception import NoSuchCommand
-from oci_utils.migrate.exception import OciMigrateException
+
+from oci_migrate.migrate.exception import NoSuchCommand
+from oci_migrate.migrate.exception import OciMigrateException
 
 logger = logging.getLogger('oci-image-migrate')
 debugflag = False
@@ -86,11 +87,12 @@ def pause_msg(msg=None):
     -------
         No return value.
     """
-    logger.debug('%s' % msg)
-    ban0 = '\n  Press a key to continue'
-    if msg is not None:
-        ban0 = '\n  %s' % msg + ban0
-    _ = read_yn(ban0, False)
+    if os.environ.get('OCIPAUSE'):
+        logger.debug('%s' % msg)
+        ban0 = '\n  Press a key to continue'
+        if msg is not None:
+            ban0 = '\n  %s' % msg + ban0
+        _ = read_yn(ban0, False)
 
 
 def error_msg(msg=None):

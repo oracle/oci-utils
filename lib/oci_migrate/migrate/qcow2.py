@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+# #!/usr/bin/env python
 
 # oci-utils
 #
@@ -12,15 +12,11 @@ Module to handle QCOW2 formatted virtual disk images.
 import logging
 import os
 import struct
-import sys
 
-# for the sake of testing
-sys.path.append('/omv/data/git_pycharm/oci-utils/lib')
-from oci_utils.migrate import gen_tools
-from oci_utils.migrate.migrate_utils import gigabyte as gigabyte
-from oci_utils.migrate import migrate_utils as migrate_utils
-from oci_utils.migrate.imgdevice import DeviceData
-from oci_utils.migrate.migrate_utils import OciMigrateException
+from oci_migrate.migrate import gen_tools
+from oci_migrate.migrate.imgdevice import DeviceData
+from oci_migrate.migrate.migrate_utils import gigabyte as gigabyte
+from oci_migrate.migrate.migrate_utils import OciMigrateException
 
 """
   typedef struct QCowHeader {
@@ -192,8 +188,7 @@ class Qcow2Head(DeviceData):
         else:
             msg += 'Image size of %.2f GB below maximum allowed size ' \
                    'of %.2f GB, OK.\n' % \
-                   (sizes['logical'],
-                    prerequisites['MAX_IMG_SIZE_GB'])
+                   (sizes['logical'], prerequisites['MAX_IMG_SIZE_GB'])
         return supp, msg
 
     def image_data(self):

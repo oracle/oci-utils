@@ -26,12 +26,11 @@ import os
 import pkgutil
 import sys
 import time
-# for the sake of testing
-sys.path.append('/omv/data/git_pycharm/oci-utils/lib')
-from oci_utils.migrate import gen_tools
-from oci_utils.migrate import migrate_utils as migrate_utils
-from oci_utils.migrate import configdata
-from oci_utils.migrate.exception import OciMigrateException
+
+from oci_migrate.migrate import configdata
+from oci_migrate.migrate import gen_tools
+from oci_migrate.migrate import migrate_utils as migrate_utils
+from oci_migrate.migrate.exception import OciMigrateException
 
 try:
     import yaml
@@ -157,7 +156,7 @@ def import_formats():
     """
     attr_format = 'format_data'
     imagetypes = dict()
-    packagename = 'oci_utils.migrate'
+    packagename = 'oci_migrate.migrate'
     pkg = __import__(packagename)
     logger.debug('pkg name: %s' % pkg)
     path = os.path.dirname(sys.modules.get(packagename).__file__)
@@ -416,6 +415,7 @@ def main():
         gen_tools.exit_msg('An error occured while trying to read magic '
                            'number of File %s.' % args.inputimage)
     else:
+        gen_tools.pause_msg('Image Magic Number: %s' % fn_magic)
         logger.debug('Magic number %s successfully read' % fn_magic)
     #
     # Verify if image type is supported.
@@ -429,9 +429,10 @@ def main():
     imageclazz = supported_formats[fn_magic]
     gen_tools.result_msg(msg='Type of image %s identified as %s'
                              % (imagepath, imageclazz['name']), result=True)
+    gen_tools.pause_msg('Image type is %s' % imageclazz['name'])
     #
     # Locate the class and module
-    imageclassdef = getattr(sys.modules['oci_utils.migrate.%s'
+    imageclassdef = getattr(sys.modules['oci_migrate.migrate.%s'
                                         % supported_formats[fn_magic]['name']],
                             imageclazz['clazz'])
     imageobject = imageclassdef(imagepath, logger)
@@ -499,7 +500,7 @@ def main():
     # Ask for agreement to proceed.
     if not gen_tools.read_yn('\n  Agree to proceed uploading %s to %s as %s?'
                              % (imagepath, bucketname, outputname)):
-            gen_tools.exit_msg('\n  Exiting.')
+        gen_tools.exit_msg('\n  Exiting.')
     #
     # Prerequisite verification and essential image updates passed, uploading
     # image.

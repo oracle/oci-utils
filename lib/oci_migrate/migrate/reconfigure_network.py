@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+# #!/usr/bin/env python
 
 # oci-utils
 #
@@ -10,23 +10,21 @@
 Module containing methods for the configuration of the networking with
 respect to upload to the Oracle Cloud Infrastructure.
 """
-import datetime
 import logging
 import os
 import shutil
-import sys
 import stat
 import yaml
-from ConfigParser import ConfigParser
 from glob import glob
 
-sys.path.append('/omv/data/git_pycharm/oci-utils/lib')
-from oci_utils.migrate import gen_tools
-from oci_utils.migrate import configdata
-from oci_utils.migrate.exception import OciMigrateException
-
+import six
+from oci_migrate.migrate import configdata
+from oci_migrate.migrate import gen_tools
+from oci_migrate.migrate.exception import OciMigrateException
+from six.moves import configparser
 
 logger = logging.getLogger('oci-image-migrate')
+ConfigParser = configparser.ConfigParser
 
 
 def reconfigure_ifcfg_config(rootdir):
@@ -152,7 +150,9 @@ def reconfigure_netplan(rootdir):
                 #
                 if 'network' in thisyaml:
                     if 'ethernets' in thisyaml['network']:
-                        for k,_ in sorted(thisyaml['network']['ethernets'].iteritems()):
+                        for k,_ in sorted(
+                                six.iteritems(thisyaml['network']['ethernets'])
+                                ):
                             netplan_nics.append(k)
                     else:
                         logger.debug('ethernets key missing.')

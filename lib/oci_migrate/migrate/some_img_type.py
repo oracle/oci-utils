@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+# #!/usr/bin/env python
 
 # oci-utils
 #
@@ -12,13 +12,10 @@ Module to handle sometype formatted virtual disk images, intended as a template.
 import logging
 import os
 import struct
-import sys
 
-# for the sake of testing
-sys.path.append('/omv/data/git_pycharm/oci-utils/lib')
-from oci_utils.migrate import gen_tools
-from oci_utils.migrate.imgdevice import DeviceData
-from oci_utils.migrate.migrate_utils import OciMigrateException
+from oci_migrate.migrate import gen_tools
+from oci_migrate.migrate.imgdevice import DeviceData
+from oci_migrate.migrate.migrate_utils import OciMigrateException
 
 """  
 typedef struct SometypeHeader {
@@ -59,8 +56,8 @@ class SomeTypeHead(DeviceData):
             The image file stat data.
         img_tag: str
             The bare file name.
-        qcowhead_dict: dict
-            The VMDK file header as a dictionary.
+        somehead_dict: dict
+            The SomeType file header as a dictionary.
     """
     # sometype header definition:
     uint32_t = 'I'  # 32bit unsigned int

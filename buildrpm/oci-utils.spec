@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.10.1
+Version: 0.10.2
 Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -7,7 +7,11 @@ License: UPL
 Group: Development/Tools
 Source: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
-%{!?python2_sitelib: %global python2_sitelib %(%{__python2} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
+# Oracle Linux 7
+%if 0%{?rhel} <= 7
+%{!?python2_sitelib: %global python2_sitelib %(%{__python2} -c "from distutils .sysconfig import get_python_lib; print(get_python_lib())")}
+%{!?python2_sitearch: %global python2_sitearch %(%{__python2} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
+%endif
 %{?systemd_requires}
 
 BuildArch: noarch
@@ -15,15 +19,16 @@ BuildArch: noarch
 BuildRequires: systemd
 # Oracle Linux 8
 %if 0%{?rhel} >= 8
-BuildRequires: python2-devel
-BuildRequires: python2-setuptools
-BuildRequires: python2-flake8
-Requires: python2
-Requires: python2-daemon
-Requires: python2-lockfile
-Requires: python2-sdnotify
-Requires: python2-six
-Requires: python2-enum34
+BuildRequires: python36-devel
+BuildRequires: python3-setuptools
+BuildRequires: python3-flake8
+Requires: python3
+Requires: python3-daemon
+Requires: python3-lockfile
+Requires: python3-sdnotify
+Requires: python3-six
+Requires: python3-enum34
+Requires: python3-libvirt
 # Oracle Linux 7
 %else
 BuildRequires: python-devel
@@ -61,7 +66,9 @@ Utilities unit tests
 %package migrate
 Summary: Migrate vm from on-premise to the OCI
 Group: Development/Tools
-# Requires: %{name} = %{version}-%{release}
+Requires: qemu-img
+Requires: util-linux
+Requires: parted
 %description migrate
 Utilities for migrating on-premise guests to Oracle Cloud Infrastructure.
 
@@ -69,11 +76,24 @@ Utilities for migrating on-premise guests to Oracle Cloud Infrastructure.
 %setup -q -n %{name}-%{version}
 
 %build
+# Oracle Linux 8
+%if 0%{?rhel} >= 8
+%{__python3} setup.py build
+# Oracle Linux 7
+%else
 %{__python2} setup.py build
+%endif
 
 %install
+# Oracle Linux 8
+%if 0%{?rhel} >= 8
+%{__python3} setup.py install -O1 --prefix=%{_prefix} --root=%{buildroot}
+# Oracle Linux 7
+%else
 %{__python2} setup.py install -O1 --prefix=%{_prefix} --root=%{buildroot}
+%endif
 %{__mkdir_p} %{buildroot}%{_localstatedir}/lib/oci-utils
+%{__mkdir_p} %{buildroot}%{_localstatedir}/lib/oci-migrate
 # use for outest package
 %{__mkdir_p} $RPM_BUILD_ROOT/opt/oci-utils
 %{__mkdir_p} $RPM_BUILD_ROOT/opt/oci-utils/lib
@@ -87,14 +107,31 @@ Utilities for migrating on-premise guests to Oracle Cloud Infrastructure.
 rm -rf %{buildroot}
 
 %files
+# Oracle Linux 8
+%if 0%{?rhel} >= 8
+%exclude %dir %{python3_sitelib}/oci_utils/kvm
+%exclude %{python3_sitelib}/oci_utils/kvm/*
+%exclude %{python3_sitelib}/oci_migrate/migrate
+%exclude %{python3_sitelib}/oci_migrate/migrate/*
+# Oracle Linux 7
+%else
 %exclude %dir %{python2_sitelib}/oci_utils/kvm
 %exclude %{python2_sitelib}/oci_utils/kvm/*
+%exclude %{python2_sitelib}/oci_migrate/migrate
+%exclude %{python2_sitelib}/oci_migrate/migrate/*
+%endif
 %exclude %{_bindir}/oci-kvm
 %exclude %{_bindir}/oci-image-migrate
 %exclude %{_datadir}/man/man1/oci-kvm.1.gz
 %exclude %{_datadir}/man/man1/oci-image-migrate.1.gz
 %defattr(-,root,root)
+# Oracle Linux 8
+%if 0%{?rhel} >= 8
+%{python3_sitelib}/oci_utils*
+# Oracle Linux 7
+%else
 %{python2_sitelib}/oci_utils*
+%endif
 %{_bindir}/oci-*
 %exclude %{_bindir}/oci-kvm
 %exclude %{_bindir}/oci-image-migrate
@@ -113,7 +150,13 @@ rm -rf %{buildroot}
 %files kvm
 %{_bindir}/oci-kvm
 %{_libexecdir}/oci-kvm-config.sh
+# Oracle Linux 8
+%if 0%{?rhel} >= 8
+%{python3_sitelib}/oci_utils/kvm*
+# Oracle Linux 7
+%else
 %{python2_sitelib}/oci_utils/kvm*
+%endif
 %{_datadir}/man/man1/oci-kvm.1.gz
 %{_sysconfdir}/systemd/system/oci-kvm-config.service
 %{_prefix}/lib/systemd/system-preset/91-oci-kvm.preset
@@ -124,7 +167,13 @@ rm -rf %{buildroot}
 
 %files migrate
 %{_bindir}/oci-image-migrate
-%{python_sitelib}/oci_utils/migrate*
+# Oracle Linux 8
+%if 0%{?rhel} >= 8
+%{python3_sitelib}/oci_migrate/*
+# Oracle Linux 7
+%else
+%{python2_sitelib}/oci_migrate/*
+%endif
 %{_datadir}/man/man1/oci-image-migrate.1.gz
 
 %post kvm
@@ -134,6 +183,9 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+* Fri Nov 8 2019 Guido Tijskens <guido.tijskens@oracle.com> --0.10.2-0
+- build for python3 as well as for python2
+
 * Mon Jun 03 2019 Guido Tijskens <guido.tijskens@oracle.com> --0.10.1-0
 - LINUX-1931 - update setup.py and oci-utils.spec file to build oci-utils-migrate rpm
 

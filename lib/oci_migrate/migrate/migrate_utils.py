@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+# #!/usr/bin/env python
 
 # oci-utils
 #
@@ -10,23 +10,26 @@
 Module containing generic data and code with respect to the migration to the
 Oracle Cloud Infrastructure.
 """
+import json
 import logging
 import os
 import pkgutil
+import re
+import subprocess
 import sys
 import time
-import re
-import json
-import subprocess
 from functools import wraps
 from glob import glob
-from ConfigParser import ConfigParser
-from oci_utils.migrate import configdata
-from oci_utils.migrate.exception import OciMigrateException
-from oci_utils.migrate.exception import NoSuchCommand
-from oci_utils.migrate import gen_tools
+
+import six
+from oci_migrate.migrate import configdata
+from oci_migrate.migrate import gen_tools
+from oci_migrate.migrate.exception import NoSuchCommand
+from oci_migrate.migrate.exception import OciMigrateException
+from six.moves import configparser
 
 logger = logging.getLogger('oci-image-migrate')
+ConfigParser = configparser.ConfigParser
 
 gigabyte = 2**30
 rmmod_max_count = 4
@@ -36,7 +39,7 @@ qemu_max_count = 2
 loopback_root = '/mnt'
 #
 # the root of the migrate related packages.
-module_home = 'oci_utils.migrate'
+module_home = 'oci_migrate.migrate'
 
 # global verboseflag
 
@@ -224,7 +227,8 @@ def exec_rmmod(module):
         if rmmod_result == 0:
             logger.debug('Successfully removed %s' % module)
         else:
-            logger.error('Error removing %s, exit code %s, ignoring.' % (cmd, str(rmmod_result)))
+            logger.error('Error removing %s, exit code %s, ignoring.'
+                         % (cmd, str(rmmod_result)))
     except Exception as e:
         logger.error('Failed: %s, ignoring.' % str(e))
     #
@@ -248,6 +252,7 @@ def exec_qemunbd(qemunbd_args):
 
     """
     cmd = ['qemu-nbd'] + qemunbd_args
+    gen_tools.pause_msg(cmd)
     try:
         qemunbd_res = gen_tools.run_popen_cmd(cmd)
         logger.debug('success: %s' % qemunbd_res)
@@ -325,6 +330,7 @@ def exec_blkid(blkid_args):
     cmd = ['blkid'] + blkid_args
     try:
         logger.debug('running %s' % cmd)
+        gen_tools.pause_msg('test nbd devs')
         blkid_res = gen_tools.run_popen_cmd(cmd)
         logger.debug('success\n%s' % blkid_res)
         return blkid_res
@@ -348,6 +354,7 @@ def exec_lsblk(lsblk_args):
        dict: blkid return value on success, None otherwise.
     """
     cmd = ['lsblk'] + lsblk_args
+    gen_tools.pause_msg(cmd)
     try:
         logger.debug('running %s' % cmd)
         lsblk_res = gen_tools.run_popen_cmd(cmd)
@@ -379,7 +386,7 @@ def create_nbd():
         return False
 
 
-state_loop(3)
+@state_loop(3)
 def rm_nbd():
     """
     Unload kernel module nbd.
@@ -455,9 +462,11 @@ def exec_parted(devname):
         dict: The device data from parted utility on success, None otherwise.
     """
     cmd = ['parted', devname, 'print']
+    gen_tools.pause_msg(cmd)
     logger.debug('%s' % cmd)
     try:
         result = gen_tools.run_popen_cmd(cmd)
+        logger.debug('parted: %s' % result)
         devdata = dict()
         for devx in result.splitlines():
             if 'Model' in devx:
@@ -469,6 +478,7 @@ def exec_parted(devname):
             else:
                 logger.debug('Ignoring %s' % devx)
         logger.debug(devdata)
+        gen_tools.pause_msg(devdata)
         return devdata
     except Exception as e:
         logger.error('Failed to collect parted %s device data: %s'
@@ -492,6 +502,7 @@ def exec_sfdisk(devname):
     """
     cmd = ['sfdisk', '-d', devname]
     logger.debug('%s' % cmd)
+    gen_tools.pause_msg(cmd)
     try:
         result = gen_tools.run_popen_cmd(cmd)
         partdata = dict()
@@ -555,6 +566,7 @@ def mount_imgfn(imgname):
     gen_tools.result_msg(msg='Mount image %s' % imgname, result=True)
     try:
         qemucmd = ['-c', devpath, imgname]
+        gen_tools.pause_msg(qemucmd)
         z = exec_qemunbd(qemucmd)
         gen_tools.thissleep(4, 'Mounting %s ' % imgname)
         logger.debug('qemu-nbd %s succeeded' % qemucmd)
@@ -586,6 +598,7 @@ def unmount_imgfn(devname):
         #
         # release device
         qemucmd = ['-d', devname]
+        gen_tools.pause_msg(qemucmd)
         z = exec_qemunbd(qemucmd)
         logger.debug('qemu-nbd %s succeeded: %s' % (qemucmd, str(z)))
         #
@@ -644,6 +657,7 @@ def mount_partition(devname, mountpoint=None):
     #
     # actual mount
     cmd = ['mount', devname, mntpoint]
+    gen_tools.pause_msg(cmd)
     try:
         logger.debug('command: %s' % cmd)
         output = gen_tools.run_popen_cmd(cmd)
@@ -733,9 +747,10 @@ def mount_pseudo(rootdir):
 
     pseudomounts = []
     logger.debug('Mounting: %s' % pseudodict)
-    for dirs, cmd_par in pseudodict.iteritems():
+    for dirs, cmd_par in six.iteritems(pseudodict):
         cmd = ['mount'] + cmd_par
         logger.debug('Mounting %s' % dirs)
+        gen_tools.pause_msg(cmd)
         try:
             logger.debug('Command: %s' % cmd)
             output = gen_tools.run_popen_cmd(cmd)
@@ -761,6 +776,7 @@ def mount_fs(mountpoint):
         bool: True on success, False otherwise
     """
     cmd = ['mount', mountpoint]
+    gen_tools.pause_msg(cmd)
     logger.debug('Mounting %s' % mountpoint)
     try:
         logger.debug('Command: %s' % cmd)
@@ -793,6 +809,7 @@ def unmount_something(mountpoint):
         return True
     #
     cmd = ['umount', mountpoint]
+    gen_tools.pause_msg(cmd)
     try:
         logger.debug('command: %s' % cmd)
         output = gen_tools.run_popen_cmd(cmd)
@@ -841,6 +858,7 @@ def exec_pvscan(devname=None):
         cmd = ['pvscan', '--cache', devname]
     else:
         cmd = ['pvscan', '--cache']
+    gen_tools.pause_msg(cmd)
     try:
         logger.debug('command: %s' % cmd)
         output = gen_tools.run_popen_cmd(cmd)
@@ -865,6 +883,7 @@ def exec_vgscan():
         bool: True on success, raises an exeception on failure.
     """
     cmd = ['vgscan', '--verbose']
+    gen_tools.pause_msg(cmd)
     try:
         logger.debug('command: %s' % cmd)
         output = gen_tools.run_popen_cmd(cmd)
@@ -888,6 +907,7 @@ def exec_lvscan():
         volumes on success, raises an exeception on failure.
     """
     cmd = ['lvscan', '--verbose']
+    gen_tools.pause_msg(cmd)
     try:
         logger.debug('command: %s' % cmd)
         output = gen_tools.run_popen_cmd(cmd)
@@ -936,6 +956,7 @@ def exec_vgchange(changecmd):
     """
     cmd = ['vgchange'] + changecmd
     logger.debug('vgchange command: %s' % cmd)
+    gen_tools.pause_msg(cmd)
     try:
         output = gen_tools.run_popen_cmd(cmd)
         logger.debug('vgchange result: %s' % output)
@@ -1132,6 +1153,7 @@ def upload_image(imgname, bucketname, ociname):
     logger.debug('Uploading %s to %s as %s.' % (imgname, bucketname, ociname))
     cmd = ['oci', 'os', 'object', 'put', '--bucket-name',
            bucketname, '--file', imgname, '--name', ociname, '--no-multipart']
+    gen_tools.pause_msg(cmd)
     try:
         uploadresult = gen_tools.run_popen_cmd(cmd)
         logger.debug('Successfully uploaded %s to %s as %s: %s.'
@@ -1194,6 +1216,7 @@ def unmount_part(devname):
     """
     mntpoint = loopback_root + '/' + devname.rsplit('/')[-1]
     cmd = ['umount', mntpoint]
+    gen_tools.pause_msg(cmd)
     try:
         logger.debug('command: %s' % cmd)
         if gen_tools.run_call_cmd(cmd) == 0:
@@ -1244,7 +1267,7 @@ def show_image_data(imgobj):
         No return value.
     """
     print_header('Components collected.')
-    for k, v in sorted(imgobj.img_info.iteritems()):
+    for k, v in sorted(six.iteritems(imgobj.img_info)):
         gen_tools.result_msg(msg='  %30s' % k, result=True)
 
     logger.debug('show data')
@@ -1491,7 +1514,7 @@ def show_parted_data(parted_dict):
     -------
         No return value.
     """
-    for k, v in sorted(parted_dict.iteritems()):
+    for k, v in sorted(six.iteritems(parted_dict)):
         gen_tools.result_msg(msg='%30s : %s' % (k, v), result=True)
     gen_tools.result_msg(msg='\n', result=True)
 
@@ -1509,7 +1532,7 @@ def show_lvm2_data(lvm2_data):
     -------
         No return value.
     """
-    for k, v in sorted(lvm2_data.iteritems()):
+    for k, v in sorted(six.iteritems(lvm2_data)):
         gen_tools.result_msg(msg='\n  Volume Group: %s:' % k, result=True)
         for t in v:
             gen_tools.result_msg(msg='%40s : %-30s' % (t[0], t[1]), result=True)
@@ -1529,10 +1552,10 @@ def show_partition_data(partition_dict):
     -------
         No return value
     """
-    for k, v in sorted(partition_dict.iteritems()):
+    for k, v in sorted(six.iteritems(partition_dict)):
         gen_tools.result_msg(msg='%30s :\n%s'
                                  % ('partition %s' % k, '-'*60), result=True)
-        for x, y in sorted(v.iteritems()):
+        for x, y in sorted(six.iteritems(v)):
             gen_tools.result_msg(msg='%30s : %s' % (x, y), result=True)
         gen_tools.result_msg(msg='\n', result=True)
     gen_tools.result_msg(msg='\n', result=True)
@@ -1551,9 +1574,9 @@ def show_network_data(networkdata):
     -------
         No return value.
     """
-    for nic, nicdata in sorted(networkdata.iteritems()):
+    for nic, nicdata in sorted(six.iteritems(networkdata)):
         gen_tools.result_msg(msg='  %20s:' % nic, result=True)
-        for k, v in sorted(nicdata.iteritems()):
+        for k, v in sorted(six.iteritems(nicdata)):
             gen_tools.result_msg(msg='  %30s = %s' % (k, v), result=True)
 
 
