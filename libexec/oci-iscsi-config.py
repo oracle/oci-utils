@@ -435,7 +435,8 @@ def do_destroy_volume(sess, ocid, interactive=False):
     try:
         vol = sess.get_volume(ocid)
     except Exception:
-        _logger.error("Failed to retrieve Volume details: %s\n" % vol)
+        _logger.debug("Failed to retrieve Volume details", exc_info=True)
+        _logger.error("Failed to retrieve Volume details: %s" % vol)
         return 1
 
     if vol is None:
@@ -456,6 +457,7 @@ def do_destroy_volume(sess, ocid, interactive=False):
     try:
         vol.destroy()
     except Exception as e:
+        _logger.debug("Failed to destroy volume", exc_info=True)
         _logger.error("Failed to destroy volume: %s" % e)
         return 1
 
@@ -647,8 +649,8 @@ def api_detach(sess, iqn):
                 v.detach()
                 return True
             except OCISDKError as e:
-                _logger.error("Failed to disconnect volume %s from this "
-                                 "instance: %s\n" % (iqn, e))
+                _logger.debug("Failed to disconnect volume", exc_info=True)
+                _logger.error("Failed to disconnect volume %s from this instance: %s" % (iqn, e))
                 return False
     _logger.error("Volume not found...\n")
     return False
@@ -763,13 +765,14 @@ def do_create_volume(sess, size, display_name, use_chap=False):
         print "Creating a new %d GB volume" % size
         inst = sess.this_instance()
         if inst is None:
-            _logger.error("OCI SDK error: couldn't get instance info. \n")
+            _logger.error("OCI SDK error: couldn't get instance info.")
             return False
 
         vol = inst.create_volume(size=size,
                                  display_name=display_name)
     except Exception as e:
-        _logger.error("Failed to create volume: %s\n" % e)
+        _logger.debug("Failed to create volume", exc_info=True)
+        _logger.error("Failed to create volume: %s" % e)
         return False
 
     print "Volume %s created" % vol.get_display_name()
@@ -795,7 +798,8 @@ def do_create_volume(sess, size, display_name, use_chap=False):
     try:
         vol.destroy()
     except Exception as e:
-        _logger.error("Failed to destroy volume: %s\n" % e)
+        _logger.debug("Failed to destroy volume", exc_info=True)
+        _logger.error("Failed to destroy volume: %s" % e)
 
     return False
 
@@ -842,7 +846,7 @@ def get_chap_secret(iqn):
             The (timestamp, password) on success, (None,None) otherwise.
 
     """
-    timestamp, chap_passwords = \
+    _, chap_passwords = \
         load_cache(oci_utils.__chap_password_file)
     if chap_passwords is None:
         return None, None
