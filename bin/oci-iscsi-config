@@ -8,7 +8,6 @@
 # This utility assists with configuring iscsi storage on Oracle Cloud
 # Infrastructure instances.  See the manual page for more information.
 
-_SUDO=/usr/bin/sudo
 _CUT=/usr/bin/cut
 _PY=/usr/bin/python
 _PY2=/usr/bin/python2
@@ -28,5 +27,5 @@ else
     fi
 fi
 
-exec ${_SUDO} ${_PY} /usr/libexec/oci-iscsi-config.py $@
+exec ${_PY} /usr/libexec/oci-iscsi-config.py $@
 
