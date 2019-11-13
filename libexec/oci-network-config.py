@@ -216,7 +216,7 @@ def do_show_network_config(vnic_utils):
     if ret:
         __logger.error("Failed to execute the VNIC configuration script.")
     else:
-        print "%s" % out
+        print "%s" % out.decode('utf-8')
 
 
 def do_detach_vnic(detach_options, vnic_utils):
