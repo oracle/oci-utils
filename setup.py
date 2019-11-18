@@ -119,7 +119,7 @@ class print_recorded_commands(Command):
 
     def run(self):
         import xml.dom.minidom
-        print xml.dom.minidom.parse(os.path.join(self.tests_base, 'commands.xml')).toprettyxml()
+        print (xml.dom.minidom.parse(os.path.join(self.tests_base, 'commands.xml')).toprettyxml())
 
 
 class create_rpm(Command):
