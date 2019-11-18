@@ -4,15 +4,21 @@
 
 """ Build an rpm from oci-utils.
 """
+import fnmatch
+
 import os
 import subprocess
 import sys
+import logging
 from distutils.core import Command
 from distutils.errors import DistutilsExecError
+
+from setuptools.command.test import test as TestCommand
 
 from distutils import log
 
 sys.path.insert(0, os.path.abspath('lib'))
+sys.path.insert(0, os.path.abspath('tools'))
 
 try:
     from setuptools import setup, find_packages
@@ -44,6 +50,76 @@ def read(fname):
         The contents of the file.
     """
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
+
+
+def get_content(base, pattern):
+    '''
+    get all python files in dir and subdir
+    parameter
+        base str
+           basedirectory
+        pattern str
+            filename pattern like *.py
+    return
+    -------
+      list of files
+    '''
+    tools_l = []
+    for (dirpath, dirnames, filenames) in os.walk(base):
+        for filename in filenames:
+            if fnmatch.fnmatch(filename, pattern):
+                tools_l.append(os.path.join(dirpath, filename))
+    return tools_l
+
+
+class oci_tests(TestCommand):
+    description = 'run OC unittest'
+
+    TestCommand.user_options.extend([
+        ('tests-base=', None, 'Specify the namespace for test properties')
+    ])
+
+    def initialize_options(self):
+        TestCommand.initialize_options(self)
+        self.tests_base = None
+
+    def finalize_options(self):
+        TestCommand.finalize_options(self)
+        if self.tests_base == None or not os.path.isdir(self.tests_base):
+            self.tests_base = None
+            log.warn('Warning: tests_base not found or missing !!')
+        else:
+            from execution.store import (setCommandStore, Store)
+            setCommandStore(Store(os.path.join(self.tests_base, 'commands.xml')))
+        if self.test_runner:
+            import tools.decorators
+            tools.decorators._run_under_recorder = True
+
+    def run(self):
+        logging.basicConfig(level=logging.DEBUG)
+        if self.tests_base:
+            from oci_test_case import OciTestCase
+            OciTestCase._set_base(self.tests_base)
+        TestCommand.run(self)
+
+
+class print_recorded_commands(Command):
+    description = 'pretty print of recorded commands'
+    user_options = [
+        ('tests-base=', None, 'Specify the namespace for test properties')
+    ]
+
+    def finalize_options(self):
+        if self.tests_base and not os.path.isdir(self.tests_base):
+            self.tests_base = None
+            log.warn('Warning: tests_base not found')
+
+    def initialize_options(self):
+        self.tests_base = None
+
+    def run(self):
+        import xml.dom.minidom
+        print xml.dom.minidom.parse(os.path.join(self.tests_base, 'commands.xml')).toprettyxml()
 
 
 class create_rpm(Command):
@@ -216,7 +292,11 @@ setup(
                  ['man/man8/ocid.8',
                   'man/man8/oci-growfs.8',
                   'man/man8/oci-image-cleanup.8',
-                  ])],
+                  ]),
+                (os.path.join("/opt", "oci-utils", "tools"),
+                 get_content('tools', '*.py')),
+                (os.path.join("/opt", "oci-utils", "tests"),
+                 get_content('tests/data', '*'))],
     scripts=['bin/oci-public-ip',
              'bin/oci-metadata',
              'bin/oci-iscsi-config',
@@ -237,4 +317,4 @@ setup(
         'Topic :: System :: Systems Administration',
         'Topic :: Utilities',
         'License :: OSI Approved :: Universal Permissive License (UPL)'],
-    cmdclass={'create_rpm': create_rpm, 'sync_rpm': sync_rpm})
+    cmdclass={'create_rpm': create_rpm, 'sync_rpm': sync_rpm, 'print_rcmds': print_recorded_commands, 'oci_tests': oci_tests})

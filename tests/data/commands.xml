@@ -1,0 +1,217 @@
+<commands><command exec="/bin/oci-network-inspector" key="5394a530c9fa34183ffb23ed57565b73"><arguments><argument>--help</argument></arguments><output>usage: oci-network-inspector [-C OCID] [-N OCID] [--help]
+
+Utility for exploring the network, its subnets and ips assigned for a given
+compartment or network.
+
+optional arguments:
+  -C OCID, --compartment OCID
+                        ocid of a compartment you like to explore
+  -N OCID, --vcn OCID   ocid of a given Virtual Cloud Network
+  --help                Display this help
+</output><error /><exitCode value="0" /></command><command exec="/bin/sudo" key="5c679fc375de82db796d2aa65bfcabe9"><arguments><argument>/bin/ls</argument><argument>/</argument></arguments><output>bin
+boot
+dev
+etc
+home
+lib
+lib64
+media
+mnt
+opt
+proc
+root
+run
+sbin
+srv
+sys
+tmp
+usr
+var
+</output><error /><exitCode value="0" /></command><command exec="/usr/libexec/ocid" key="78fe0db84e381a466d4148d93ae2c183"><arguments><argument>--help</argument></arguments><output>usage: ocid [-h] [--refresh [FUNC]] [--no-daemon]
+
+oci-utils daemon
+
+optional arguments:
+  -h, --help        show this help message and exit
+  --refresh [FUNC]  refresh cached data for the given function, or all
+                    functions if FUNC is not specified, and exit. Possible
+                    values for FUNC: vnic, iscsi, public_ip
+  --no-daemon       run ocid in the foreground
+</output><error /><exitCode value="0" /></command><command exec="/usr/libexec/ocid" key="72638b2fda13a226ebaf4b13a3e768f4"><arguments><argument>--no-daemon</argument><argument>--refresh</argument></arguments><output>send: 'CONNECT iaas.us-ashburn-1.oraclecloud.com:443 HTTP/1.0\r\n'
+send: '\r\n'
+send: 'GET /20160918/instances/ocid1.instance.oc1.iad.abuwcljrcoaozqfqcqqcjqhqyf26w52a5d4dmwh4bpfmo457lkgbu5s47cia HTTP/1.1\r\nconnection: keep-alive\r\naccept-encoding: gzip, deflate\r\naccept: application/json\r\nuser-agent: Oracle-PythonSDK/2.1.2 (python 2.7.5; x86_64-Linux)\r\nopc-request-id: E8062F1661194E10BFB7DC1345F78257\r\nopc-client-info: Oracle-PythonSDK/2.1.2\r\ncontent-type: application/json\r\ndate: Thu, 24 Jan 2019 17:41:33 GMT\r\nhost: iaas.us-ashburn-1.oraclecloud.com\r\nauthorization: Signature algorithm="rsa-sha256",headers="date (request-target) host",keyId="ocid1.tenancy.oc1..aaaaaaaaojlj67jpdjvx7wszzrnwnooss3xxt66oldeyt2x35a6gthqdfr4q/ocid1.user.oc1..aaaaaaaahraqlb5i5c2wdmyjwpqoi5wujry25zjyjio2rlmne6hdvkwwfsba/72:58:bc:dc:8c:62:df:bf:1c:ee:49:f9:88:98:69:e7",signature="lK292UhXI+DU/TE1p4MZArFd0XH8vFiBv4zgYjSfkhHoTCFO+ieMZ+HzulpQlhVx/clt8+asUNZboTLC48HlKz9nieaU34nu1aFeA+2gqqApyv41sYOnjXWMNq5BVKW2M3LON7IB9kE4vvL1ly/Jb/bMSLewzd6a9VL98zQlml3ecLj9Baam/fQUexr7oEXUBb6PmdhdRzpZK6JAYTXCCkUrS/wwyUv+rrp0f8a8VZ86eNt5+u2tfuUSd2B7La66TwNZbDWL6VFJ3zIVwbL1ADjlYst8pDSJacTqXNbYHaNm3boDm8Fg0iM4OJNCFPcUJmRfjbcqRWtslZsAWaK+Bw==",version="1"\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Date: Thu, 24 Jan 2019 17:41:33 GMT
+header: Content-Type: application/json
+header: Content-Length: 1714
+header: Connection: keep-alive
+header: opc-request-id: E8062F1661194E10BFB7DC1345F78257/36FDD14A463BA26199EB99460CCD43B7/771F30B953ECE35A7E67CFC2DDAE3FB8
+header: ETag: c11f3e58f3052d6553b0b503c2c7b8c9acdab2646e60e595530017c6420ebdb5
+header: X-Content-Type-Options: nosniff
+send: 'GET /20160918/vnicAttachments/?instanceId=ocid1.instance.oc1.iad.abuwcljrcoaozqfqcqqcjqhqyf26w52a5d4dmwh4bpfmo457lkgbu5s47cia&amp;compartmentId=ocid1.compartment.oc1..aaaaaaaawzn525kzymvcso4rxdfkdgkoscbuqam42dwihe3kzm44iv7mjnta HTTP/1.1\r\nconnection: keep-alive\r\naccept-encoding: gzip, deflate\r\naccept: application/json, application/x-json-stream\r\nuser-agent: Oracle-PythonSDK/2.1.2 (python 2.7.5; x86_64-Linux)\r\nopc-request-id: 5FAA3E9581F9437FA81AE5A0150F77F1\r\nopc-client-info: Oracle-PythonSDK/2.1.2\r\ncontent-type: application/json\r\ndate: Thu, 24 Jan 2019 17:41:34 GMT\r\nhost: iaas.us-ashburn-1.oraclecloud.com\r\nauthorization: Signature algorithm="rsa-sha256",headers="date (request-target) host",keyId="ocid1.tenancy.oc1..aaaaaaaaojlj67jpdjvx7wszzrnwnooss3xxt66oldeyt2x35a6gthqdfr4q/ocid1.user.oc1..aaaaaaaahraqlb5i5c2wdmyjwpqoi5wujry25zjyjio2rlmne6hdvkwwfsba/72:58:bc:dc:8c:62:df:bf:1c:ee:49:f9:88:98:69:e7",signature="EzUXpK+iWu7Zee6dMFUOXRgrc6iDnO89H78myeZY4WQwL+gB8EjogD4FYVFsqvX/CCGeMJVxEUyAE7NtM9gnittfiJw2LA65qhWS94CJ9cLSyp1JaKcGyJ1iGBbJF9ZhsFYuEKjbTn5gfJvoAQaVJfaljuFk0yufq/Y0McONYER/xGwCQwhM0ZSAyRRBk2Cbx8JwX/PeM++KumJIRLagTA1LCHPXM9VXbwOP+Obp04+NG4pKS35WHAqAkXTjjpHYxMeFbd9Tft4CHToEZJRzxMUf0WHiW5WH3+bpwZbxWavn8PNckwCqrIPOo275M2994SRJ7eeWfqqSGBOPSYnJCQ==",version="1"\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Date: Thu, 24 Jan 2019 17:41:34 GMT
+header: Content-Type: application/json
+header: Content-Length: 645
+header: Connection: keep-alive
+header: opc-request-id: 5FAA3E9581F9437FA81AE5A0150F77F1/A9FB2055D07FAEBBADB781CE66630586/DE82C09E693F74262D66FC0F72477EDA
+header: X-Content-Type-Options: nosniff
+send: 'CONNECT iaas.us-ashburn-1.oraclecloud.com:443 HTTP/1.0\r\n'
+send: '\r\n'
+send: 'GET /20160918/vnics/ocid1.vnic.oc1.iad.abuwcljrgbjkgxww6clsqedrwyc7oczti3ufoqt66wwesnh3kmebrrbb27hq HTTP/1.1\r\nconnection: keep-alive\r\naccept-encoding: gzip, deflate\r\naccept: application/json\r\nuser-agent: Oracle-PythonSDK/2.1.2 (python 2.7.5; x86_64-Linux)\r\nopc-request-id: 5A0D40C7E10545A6AA6062970716EE71\r\nopc-client-info: Oracle-PythonSDK/2.1.2\r\ncontent-type: application/json\r\ndate: Thu, 24 Jan 2019 17:41:34 GMT\r\nhost: iaas.us-ashburn-1.oraclecloud.com\r\nauthorization: Signature algorithm="rsa-sha256",headers="date (request-target) host",keyId="ocid1.tenancy.oc1..aaaaaaaaojlj67jpdjvx7wszzrnwnooss3xxt66oldeyt2x35a6gthqdfr4q/ocid1.user.oc1..aaaaaaaahraqlb5i5c2wdmyjwpqoi5wujry25zjyjio2rlmne6hdvkwwfsba/72:58:bc:dc:8c:62:df:bf:1c:ee:49:f9:88:98:69:e7",signature="iSbIpCbcwbunC9yPsbWVstyr7t8Hhm6gU0zD/DDSkxJXe+inB6whGeYvEiwHya8gn0Z8wy+XWJTt0uX0P7yaGgA0wPm74zENOYFoHWhdbFFsuqSBvQ/ZyXf6Z+VnuzSP9CRZvpk90/xGrIrskN7ximkROBfu6fKbENSFoj5q8v0tX+Pr+TwSOBkcNnTEiQG6pk/saXhk8RdfzEV0ySc7bZYKHfBOpep1fBYflEZiXcNRys9r7h7jE4D7xbFw8EelZjb54fXMMuZ/VdpxU4H5bPUAzzompWWsh4gCeBiq9OVY06jQJ+FCHhl8VpiPDD2eDW6k3ja7rQh0EsqQIRO2PQ==",version="1"\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Date: Thu, 24 Jan 2019 17:41:35 GMT
+header: Content-Type: application/json
+header: Content-Length: 665
+header: Connection: keep-alive
+header: opc-request-id: 5A0D40C7E10545A6AA6062970716EE71/FC1209BC04ABC75003CC2310C8235451/F70349C397CF459AB97551F1CA5AE3C7
+header: ETag: be013940
+header: X-Content-Type-Options: nosniff
+send: 'CONNECT iaas.us-ashburn-1.oraclecloud.com:443 HTTP/1.0\r\n'
+send: '\r\n'
+send: 'GET /20160918/instances/ocid1.instance.oc1.iad.abuwcljrcoaozqfqcqqcjqhqyf26w52a5d4dmwh4bpfmo457lkgbu5s47cia HTTP/1.1\r\nconnection: keep-alive\r\naccept-encoding: gzip, deflate\r\naccept: application/json\r\nuser-agent: Oracle-PythonSDK/2.1.2 (python 2.7.5; x86_64-Linux)\r\nopc-request-id: A28CA231FE7C4027BCDA94D925AA63BC\r\nopc-client-info: Oracle-PythonSDK/2.1.2\r\ncontent-type: application/json\r\ndate: Thu, 24 Jan 2019 17:41:35 GMT\r\nhost: iaas.us-ashburn-1.oraclecloud.com\r\nauthorization: Signature algorithm="rsa-sha256",headers="date (request-target) host",keyId="ocid1.tenancy.oc1..aaaaaaaaojlj67jpdjvx7wszzrnwnooss3xxt66oldeyt2x35a6gthqdfr4q/ocid1.user.oc1..aaaaaaaahraqlb5i5c2wdmyjwpqoi5wujry25zjyjio2rlmne6hdvkwwfsba/72:58:bc:dc:8c:62:df:bf:1c:ee:49:f9:88:98:69:e7",signature="VXTl87XB+7q5Q3+/PNjTt9URd1Terj0d1vm3uo72JU4iLVtdcDpq+QzR/MN7f3e860ZDs02PTgeLZkjuOJZ+jnxMYVGCAzWrlt9E+BuAw5j+sH5pGMfYucSc9vsyvk3GC7n6MKkFiRhBzbx2AEIdGg7M6zYDj2ccOPPUtRufvH/Q4S7XvW6rKsR/wmycXrKPcH3FuhQgAsUDTsdt+DUGVZLO/fuIphi8C2EYwGhiWw1Ab8sy8Hj4+bbuIzUFv2NGqx17CMaIypA105V08MqR7q5a2/zvj+50Jp5/bm4CQUfVEQJIeVkre2RmPWyT45sfCw7OOkENTHAQhEP6izKDew==",version="1"\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Date: Thu, 24 Jan 2019 17:41:37 GMT
+header: Content-Type: application/json
+header: Content-Length: 1714
+header: Connection: keep-alive
+header: opc-request-id: A28CA231FE7C4027BCDA94D925AA63BC/CAA100284C628A43E7391AE5F4A150E2/2CB59C5566FC0BEDF003E898894FA80E
+header: ETag: c11f3e58f3052d6553b0b503c2c7b8c9acdab2646e60e595530017c6420ebdb5
+header: X-Content-Type-Options: nosniff
+send: 'GET /20160918/volumeAttachments/?instanceId=ocid1.instance.oc1.iad.abuwcljrcoaozqfqcqqcjqhqyf26w52a5d4dmwh4bpfmo457lkgbu5s47cia&amp;compartmentId=ocid1.compartment.oc1..aaaaaaaawzn525kzymvcso4rxdfkdgkoscbuqam42dwihe3kzm44iv7mjnta HTTP/1.1\r\nconnection: keep-alive\r\naccept-encoding: gzip, deflate\r\naccept: application/json, application/x-json-stream\r\nuser-agent: Oracle-PythonSDK/2.1.2 (python 2.7.5; x86_64-Linux)\r\nopc-request-id: 47D3E0B8022A4E388728241D9E3A0145\r\nopc-client-info: Oracle-PythonSDK/2.1.2\r\ncontent-type: application/json\r\ndate: Thu, 24 Jan 2019 17:41:37 GMT\r\nhost: iaas.us-ashburn-1.oraclecloud.com\r\nauthorization: Signature algorithm="rsa-sha256",headers="date (request-target) host",keyId="ocid1.tenancy.oc1..aaaaaaaaojlj67jpdjvx7wszzrnwnooss3xxt66oldeyt2x35a6gthqdfr4q/ocid1.user.oc1..aaaaaaaahraqlb5i5c2wdmyjwpqoi5wujry25zjyjio2rlmne6hdvkwwfsba/72:58:bc:dc:8c:62:df:bf:1c:ee:49:f9:88:98:69:e7",signature="JHdlLlkkSGRwok8pwQYuiTjsyFfmt7LIuW6OTekQcSZ571EGnel5xsUF3DHYBQxwjYg4J61hzlnpIL8vu8jzkWshNc1FxDjTvFQnn0QE2EUkA7KWdw2hj1Pw6qkyLfI7iTJFpPC/QtB/C6i4W9IjSSOw2kPxm3keREesxJdh2bvQCKuUJj08Di0OzxRzP1XYi1p3WfGXLEcXAM8Q+0wMpR6YTFBa0WPZJw5AHK7qmdLmFSD3echx7olQv4x1cfJghLoY16AIxL8yEFTNmlsLBVDK6VXbq+C735LT+ujKF6120z5Tx8lFL/w9KdLQ0zIZKNP2Ky4lqxXh86beZNkcYg==",version="1"\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Date: Thu, 24 Jan 2019 17:41:37 GMT
+header: Content-Type: application/json
+header: Content-Length: 798
+header: Connection: keep-alive
+header: opc-request-id: 47D3E0B8022A4E388728241D9E3A0145/98B63C358D6796AA7D5578AC09ACF41F/E39426A57FDA8A02942483B26D0CC58A
+header: X-Content-Type-Options: nosniff
+send: 'CONNECT iaas.us-ashburn-1.oraclecloud.com:443 HTTP/1.0\r\n'
+send: '\r\n'
+send: 'GET /20160918/volumes/ocid1.volume.oc1.iad.abuwcljrjsm4gfcazll3aqu5x2g5z6xh5ozi4gyyyfwesbc7nm7dl6dncdyq HTTP/1.1\r\nconnection: keep-alive\r\naccept-encoding: gzip, deflate\r\naccept: application/json\r\nuser-agent: Oracle-PythonSDK/2.1.2 (python 2.7.5; x86_64-Linux)\r\nopc-request-id: 87B7FFF72D744E2D84B48099AC5F1890\r\nopc-client-info: Oracle-PythonSDK/2.1.2\r\ncontent-type: application/json\r\ndate: Thu, 24 Jan 2019 17:41:37 GMT\r\nhost: iaas.us-ashburn-1.oraclecloud.com\r\nauthorization: Signature algorithm="rsa-sha256",headers="date (request-target) host",keyId="ocid1.tenancy.oc1..aaaaaaaaojlj67jpdjvx7wszzrnwnooss3xxt66oldeyt2x35a6gthqdfr4q/ocid1.user.oc1..aaaaaaaahraqlb5i5c2wdmyjwpqoi5wujry25zjyjio2rlmne6hdvkwwfsba/72:58:bc:dc:8c:62:df:bf:1c:ee:49:f9:88:98:69:e7",signature="rCgOfyQtiU1bD4zNYVceg34detBLHP0tp+EmpjD0ctq8Q+UGVZB5rXUrld0/rYgXjZWxi3bND8r6saeMHQc9awEi0Oe3+Dbb/zRfx8hcPsvCZ1sgie/8m5LQhk7vwHvmJ9m829MZ5m9xxvr9N5mYLauRo7NlbB2PkoGk5OWDpv5oU72Szz9cbVJexuoiw8OJqQRCF46TLswv9e8MdI41quObtmB3ONMEaUKqhFNxVvr9aDN7nGtMuWhPJe4yFaZ3hghSrX3mSH9nVvxP7IgpF9gA6Ry+suUa+bDNTgg0aAPxBB+3/SR3F9P0HLBra+RNk3q+1XgAP6vs70Pbg3FaGg==",version="1"\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Date: Thu, 24 Jan 2019 17:41:38 GMT
+header: Content-Type: application/json
+header: Content-Length: 562
+header: Connection: keep-alive
+header: opc-request-id: 87B7FFF72D744E2D84B48099AC5F1890/02F6FAF07EAA30F8213A632319DAE770/15B56A83AD7B4CAF66D5AC8F69087528
+header: ETag: -1169140116
+header: X-Content-Type-Options: nosniff
+</output><error /><exitCode value="0" /></command><command exec="/bin/sudo" key="84df3d21ba42a728019aafe51f7232ad"><arguments><argument>/bin/systemctl</argument><argument>start</argument><argument>ocid.service</argument></arguments><output /><error /><exitCode value="0" /></command><command exec="/bin/sudo" key="fcd06a23297937ba9a315b78958ff73d"><arguments><argument>/bin/systemctl</argument><argument>show</argument><argument>--property=ActiveState</argument><argument>ocid.service</argument></arguments><output>ActiveState=active
+</output><error /><exitCode value="0" /></command><command exec="exit" key="0d53ea2d2e456cbb8323f696202f09dd"><arguments><argument>12</argument></arguments><output /><error /><exitCode value="12" /></command><command exec="/bin/python" key="11d826143f20986628420a1d57257181"><arguments><argument>I_no_not_exists_</argument></arguments><output /><error>/bin/python: can't open file 'I_no_not_exists_': [Errno 2] No such file or directory
+</error><exitCode value="2" /></command><command exec="/bin/ls" key="ecda4503fa074f1644fcc7a2dbfce4f7"><arguments><argument>/etc/systemd</argument></arguments><output>bootchart.conf
+coredump.conf
+journald.conf
+logind.conf
+system
+system.conf
+user
+user.conf
+</output><error /><exitCode value="0" /></command><command exec="/usr/sbin/iscsiadm" key="a9232d1dff7691715ba167e689b715a2"><arguments><argument>-m</argument><argument>session</argument><argument>-P</argument><argument>3</argument></arguments><output>iSCSI Transport Class version 2.0-870
+version 6.2.0.874-7
+Target: iqn.2015-02.oracle.boot:uefi (non-flash)
+	Current Portal: 169.254.0.2:3260,1
+	Persistent Portal: 169.254.0.2:3260,1
+		**********
+		Interface:
+		**********
+		Iface Name: default
+		Iface Transport: tcp
+		Iface Initiatorname: iqn.1988-12.com.oracle:1b20c47768a2
+		Iface IPaddress: 100.100.230.224
+		Iface HWaddress: &lt;empty&gt;
+		Iface Netdev: &lt;empty&gt;
+		SID: 1
+		iSCSI Connection State: LOGGED IN
+		iSCSI Session State: LOGGED_IN
+		Internal iscsid Session State: NO CHANGE
+		*********
+		Timeouts:
+		*********
+		Recovery Timeout: 6000
+		Target Reset Timeout: 30
+		LUN Reset Timeout: 30
+		Abort Timeout: 15
+		*****
+		CHAP:
+		*****
+		username: &lt;empty&gt;
+		password: ********
+		username_in: &lt;empty&gt;
+		password_in: ********
+		************************
+		Negotiated iSCSI params:
+		************************
+		HeaderDigest: None
+		DataDigest: None
+		MaxRecvDataSegmentLength: 262144
+		MaxXmitDataSegmentLength: 8192
+		FirstBurstLength: 65536
+		MaxBurstLength: 262144
+		ImmediateData: Yes
+		InitialR2T: Yes
+		MaxOutstandingR2T: 1
+		************************
+		Attached SCSI devices:
+		************************
+		Host Number: 2	State: running
+		scsi2 Channel 00 Id 0 Lun: 0
+		scsi2 Channel 00 Id 0 Lun: 1
+			Attached scsi disk sda		State: running
+Target: iqn.2015-12.com.oracleiaas:1a4bfdc4-ad3d-41ac-8823-8fef4ae46d48 (non-flash)
+	Current Portal: 169.254.2.4:3260,1
+	Persistent Portal: 169.254.2.4:3260,1
+		**********
+		Interface:
+		**********
+		Iface Name: default
+		Iface Transport: tcp
+		Iface Initiatorname: iqn.2010-04.org.ipxe:080020ff-ffff-ffff-ffff-0010e0bf6faa
+		Iface IPaddress: 100.100.230.224
+		Iface HWaddress: &lt;empty&gt;
+		Iface Netdev: &lt;empty&gt;
+		SID: 2
+		iSCSI Connection State: LOGGED IN
+		iSCSI Session State: LOGGED_IN
+		Internal iscsid Session State: NO CHANGE
+		*********
+		Timeouts:
+		*********
+		Recovery Timeout: 6000
+		Target Reset Timeout: 30
+		LUN Reset Timeout: 30
+		Abort Timeout: 15
+		*****
+		CHAP:
+		*****
+		username: &lt;empty&gt;
+		password: ********
+		username_in: &lt;empty&gt;
+		password_in: ********
+		************************
+		Negotiated iSCSI params:
+		************************
+		HeaderDigest: None
+		DataDigest: None
+		MaxRecvDataSegmentLength: 262144
+		MaxXmitDataSegmentLength: 8192
+		FirstBurstLength: 65536
+		MaxBurstLength: 262144
+		ImmediateData: Yes
+		InitialR2T: Yes
+		MaxOutstandingR2T: 1
+		************************
+		Attached SCSI devices:
+		************************
+		Host Number: 3	State: running
+		scsi3 Channel 00 Id 0 Lun: 0
+		scsi3 Channel 00 Id 0 Lun: 1
+			Attached scsi disk sdb		State: running
+</output><error /><exitCode value="0" /></command><command exec="/bin/lsblk" key="85337d002ff3e84f016301a6e86a6491"><arguments><argument>--pairs</argument><argument>--noheadings</argument><argument>-o</argument><argument>NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME</argument></arguments><output>NAME="sdb" FSTYPE="" MOUNTPOINT="" SIZE="53G" PKNAME=""
+NAME="sda" FSTYPE="" MOUNTPOINT="" SIZE="46.6G" PKNAME=""
+NAME="sda2" FSTYPE="swap" MOUNTPOINT="[SWAP]" SIZE="8G" PKNAME="sda"
+NAME="sda3" FSTYPE="xfs" MOUNTPOINT="/" SIZE="38.4G" PKNAME="sda"
+NAME="sda1" FSTYPE="vfat" MOUNTPOINT="/boot/efi" SIZE="200M" PKNAME="sda"
+</output><error /><exitCode value="0" /></command><command exec="/bin/sudo" key="b033433ed2cac5e80c11bced2faafc60"><arguments><argument>/usr/sbin/ip</argument><argument>-o</argument><argument>-4</argument><argument>addr</argument><argument>show</argument></arguments><output>1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
+2: ens3    inet 100.100.230.224/23 brd 100.100.231.255 scope global dynamic ens3\       valid_lft 83795sec preferred_lft 83795sec
+</output><error /><exitCode value="0" /></command></commands>

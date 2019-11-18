@@ -68,3 +68,74 @@ Enabling debug messages in ocid:
 
     sudo systemctl restart ocid.service
 
+How to test oci-utils.
+
+    Writting Unit tests
+        All unit tests must be located under <wks>/tests. There is a special class OciTestCase all unit test must
+        inherit from. Tis class is responsible to :
+            - instanciate a logger for the (child) test class
+            - setup the TreeConfigParser instance to hold test configurations.
+                    A TreeConfigParser maintain a set of key/value pair configuration items for tests. see
+                    'Unit tests configuration' section for details
+        It is important that any tests which has a set-up phase (has a setUp method) call the the one from OciTestCase first
+
+    Unit tests configuration
+
+        Tests configuration are managed by a TreeConfigParser. This parser acts exactly as a configparser.ConfigParser class
+        Execept that it handle mutliple configuration files at once. Each file been specific to a test, test class, test class module
+        and overall test run base. This allows to define per test configuration value with default values on a hierarchical structure
+            ex: test call Foo on bar.py module
+              class Foo:
+                __name__ = my_foo
+
+              c = TreeConfigParser('/var/tmp/',Foo())
+
+              The configuration base (root directory for configuration files) is /var/tmp . Configuration files are expected as follow
+              (each level in the hierarchy is optional)
+                  /var/tmp/properties.cfg
+                  /var/tmp/bar/properties.cfg
+                  /var/tmp/bar/Foo/properties.cfg
+                  /var/tmp/bar/Foo/my_foo/properties.cfg
+
+              Configuration files will sourced from the highest level to the lowest
+              This allow test developper to have fine graine test confiration values
+
+              example: Let's assume we need to define a timout for a remote service. This timeout has a value of 60 secs for the overall
+                test suite. We need this timeout to be lower down to 10 secs for all test under 'bar' module. Finally one test under 'bar' module
+                need an infinite timeout
+                /var/tmp/properties.cfg
+                    [mysection]
+                       rest-timeout-secs=60
+                /var/tmp/bar/properties.cfg
+                    [mysection]
+                       rest-timeout-secs=10
+                /var/tmp/bar/Foo/properties.cfg
+                    [mysection]
+                       rest-timeout-secs=-1
+
+                - Querying the value for 'rest-timeout-secs' within a Foo instance will give back -1
+                - Querying the value for 'rest-timeout-secs' within an instance of a calss other than Foo in bar module will give back 10
+                - A default value for rest-timeout-secs is 60
+
+  Running tests
+
+        A new setuptool command has been defined : "oci_tests". This comamnd is an extension of the 'test' command
+        Two new options are define:
+            --tests-base: this is used to specified the base directory where tests configuration files and recorded command repository is
+            --test-runner: this is used to change the default test runner and to record or replay command lines.
+                    two runner classes are available:
+                        * test_runnner:OciUtilsTestRunnerRecord
+                                This runner will insure that all command lines execution (output , error and exit code ) will be
+                                recorded to the repository.
+                        * test_runnner:OciUtilsTestRunnerReplay
+                                This runner will insure that all command lines execution will be intercepted and that replaced
+                                by reading output and exit code from teh repository (i.e form a previous use of the OciUtilsTestRunnerRecord runner)
+                    These custom runners will allow tests to be executed without any platform requirement. I.e CLIs and the results
+                    will be "replayed" as if they were actually run on the platform. Test relying on specific platform resource or CLI behavior
+                    can then be run anywhere.
+
+        example
+            python setup.py oci_tests --test-runner=test_runnner:OciUtilsTestRunnerRecord --tests-base=/tmp/oci-tests
+            python setup.py oci_tests --test-runner=test_runnner:OciUtilsTestRunnerReplay --tests-base=/tmp/oci-tests
+
+
