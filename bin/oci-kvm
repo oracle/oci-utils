@@ -22,7 +22,8 @@ else
 	_PY=${_PY2}
     fi
 fi
-
-exec ${_PY} /usr/libexec/oci-kvm.py $@
+# find where actual script is.
+s_dir=`${_PY} -c 'import os.path ; import oci_utils.impl.virt ; print (os.path.dirname(oci_utils.impl.virt.__file__))'`
+exec ${_PY}  ${s_dir}/oci-kvm-main.py $@
 
 

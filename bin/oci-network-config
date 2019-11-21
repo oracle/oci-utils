@@ -23,6 +23,7 @@ else
     fi
 fi
 
-exec ${_PY} /usr/libexec/oci-network-config.py $@
-
+# find where actual script is.
+s_dir=`${_PY} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))'`
+exec ${_PY}  ${s_dir}/oci-network-config-main.py $@
 

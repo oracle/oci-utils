@@ -131,7 +131,6 @@ rm -rf %{buildroot}
 %{_bindir}/oci-kvm
 %{_libexecdir}/oci-kvm-config.sh
 %{_libexecdir}/oci-kvm-network-script
-%{_libexecdir}/oci-kvm.py
 %{__l_python_sitelib}/oci_utils/kvm*
 %{_datadir}/man/man1/oci-kvm.1.gz
 %{_sysconfdir}/systemd/system/oci-kvm-config.service
