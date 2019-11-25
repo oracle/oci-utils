@@ -1,5 +1,3 @@
-# #!/usr/bin/env python
-
 # oci-utils
 #
 # Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
@@ -15,7 +13,7 @@ import logging
 from oci_migrate.migrate import gen_tools
 from oci_migrate.migrate.exception import OciMigrateException
 
-logger = logging.getLogger('oci-image-migrate')
+logger = logging.getLogger('oci-utils.oci-image-migrate')
 
 _os_type_tag_csl_tag_type_os_ = 'sometype,'
 

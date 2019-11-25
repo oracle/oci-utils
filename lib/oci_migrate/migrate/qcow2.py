@@ -1,5 +1,3 @@
-# #!/usr/bin/env python
-
 # oci-utils
 #
 # Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
@@ -42,17 +40,6 @@ format_data = {'514649fb': {'name': 'qcow2',
                             'prereq': {'MAX_IMG_SIZE_GB': 300.0}}}
 
 
-def test():
-    """
-    Placeholder
-
-    Returns
-    -------
-        No return value
-    """
-    gen_tools.result_msg(msg=__name__)
-
-
 class Qcow2Head(DeviceData):
     """
     Class to analyse header of qcow2 image file
@@ -61,8 +48,6 @@ class Qcow2Head(DeviceData):
     ----------
         filename: str
             The full path of the vmdk image file.
-        logger: logger
-            The logger.
         stat: tuple
             The image file stat data.
         img_tag: str
@@ -94,9 +79,10 @@ class Qcow2Head(DeviceData):
 
     # struct format string
     qcowhead_fmt = '>' + ''.join(f[0] for f in header2_structure)
-    _logger = logging.getLogger('oci-image-migrate.Qcow2Head')
+    head_size = struct.calcsize((qcowhead_fmt))
+    _logger = logging.getLogger('oci-utils.oci-image-migrate')
 
-    def __init__(self, filename, logger=None):
+    def __init__(self, filename):
         """
         Initialisation of the qcow2 header analysis.
 
@@ -104,13 +90,10 @@ class Qcow2Head(DeviceData):
         ----------
         filename: str
             Full path of the qcow2 image file.
-        logger: loggername
-            The logging specification.
         """
-        super(Qcow2Head, self).__init__(filename, logger)
+        self._logger.info('qcow2 header size: %d bytes' % self.head_size)
+        super(Qcow2Head, self).__init__(filename)
         head_size = struct.calcsize(Qcow2Head.qcowhead_fmt)
-
-        self._logger.info('qcow2 header size: %d bytes' % head_size)
 
         try:
             with open(self.fn, 'rb') as f:

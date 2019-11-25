@@ -11,6 +11,7 @@ include libexec/secondary_vnic_all_configure.sh
 include tests/*.py
 include data/*.service
 include data/oci-image-cleanup.conf
+include data/oci-migrate-conf.yaml
 include data/00-oci-utils.conf
 include data/10-oci-kvm.conf
 include data/91-oci-kvm.preset

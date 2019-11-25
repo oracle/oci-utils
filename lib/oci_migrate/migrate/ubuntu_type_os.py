@@ -1,5 +1,3 @@
-# #!/usr/bin/env python
-
 # oci-utils
 #
 # Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
@@ -10,11 +8,11 @@
 """
 import logging
 
-from oci_migrate.migrate import configdata
+from oci_migrate.migrate import config
 from oci_migrate.migrate import gen_tools
 from oci_migrate.migrate.exception import OciMigrateException
 
-logger = logging.getLogger('oci-image-migrate')
+logger = logging.getLogger('oci-utils.oci-image-migrate')
 
 _os_type_tag_csl_tag_type_os_ = 'ubuntu, debian,'
 
@@ -82,8 +80,8 @@ def install_cloud_init(*args):
                 break
         if not cloud_init_present:
             logger.error('The deb package cloud-init is missing.')
-            configdata.migrate_prepartion = False
-            configdata.migrate_non_upload_reason += '\n  The deb package cloud-init ' \
+            config.migrate_preparation = False
+            config.migrate_non_upload_reason += '\n  The deb package cloud-init ' \
                                               'is missing from the repository.'
             raise OciMigrateException('The deb package cloud-init is missing '
                                       'from the repository.')

@@ -1,5 +1,3 @@
-# #!/usr/bin/env python
-
 # oci-utils
 #
 # Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
@@ -31,17 +29,6 @@ format_data = {'01234567': {'name': 'sometype',
                             'prereq': {'MAX_IMG_SIZE_GB': 300.0}}}
 
 
-def test():
-    """
-    Placeholder
-
-    Returns
-    -------
-        No return value
-    """
-    gen_tools.result_msg(msg=__name__)
-
-
 class SomeTypeHead(DeviceData):
     """
     Class to analyse header of sometype image file; ref whatever..
@@ -50,8 +37,6 @@ class SomeTypeHead(DeviceData):
     ----------
         filename: str
             The full path of the vmdk image file.
-        logger: logger
-            The logger.
         stat: tuple
             The image file stat data.
         img_tag: str
@@ -69,9 +54,10 @@ class SomeTypeHead(DeviceData):
 
     # struct format string
     sometypehead_fmt = '>' + ''.join(f[0] for f in header2_structure)
-    _logger = logging.getLogger('oci-image-migrate.Qcow2Head')
+    head_size = struct.calcsize(sometypehead_fmt)
+    _logger = logging.getLogger('oci-utils.oci-image-migrate')
 
-    def __init__(self, filename, logger=None):
+    def __init__(self, filename):
         """
         Initialisation of the sometype header analysis.
 
@@ -79,17 +65,13 @@ class SomeTypeHead(DeviceData):
         ----------
         filename: str
             Full path of the qcow2 image file.
-        logger: loggername
-            The logging specification.
         """
-        super(SomeTypeHead, self).__init__(filename, logger)
-        head_size = struct.calcsize(SomeTypeHead.qcowhead_fmt)
-
-        self._logger.info('sometype header size: %d bytes' % head_size)
+        super(SomeTypeHead, self).__init__(filename)
+        self._logger.info('sometype header size: %d bytes' % self.head_size)
 
         try:
             with open(self.fn, 'rb') as f:
-                head_bin = f.read(head_size)
+                head_bin = f.read(self.head_size)
                 self._logger.debug('%s header successfully read' % self.fn)
         except Exception as e:
             self._logger.critical('Failed to read header of %s: %s'

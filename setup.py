@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
 
 """ Build an rpm from oci-utils.
@@ -192,6 +190,7 @@ setup(
                  ['data/ocid.service', 'data/oci-kvm-config.service']),
                 ("/etc/oci-utils",
                  ['data/oci-image-cleanup.conf',
+                  'data/oci-migrate-conf.yaml',
                   ]),
                 ("/etc/oci-utils.conf.d",
                  ['data/00-oci-utils.conf',

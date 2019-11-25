@@ -1,5 +1,3 @@
-# #!/usr/bin/env python
-
 # oci-utils
 #
 # Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
@@ -53,17 +51,6 @@ format_data = {'4b444d56': {'name': 'vmdk',
                                             'streamOptimized']}}}
 
 
-def test():
-    """
-    Placeholder
-
-    Returns
-    -------
-        No return value
-    """
-    gen_tools.result_msg(msg=__name__)
-
-
 class VmdkHead(DeviceData):
     """
     Class to analyse header of vmdk image file.
@@ -72,8 +59,6 @@ class VmdkHead(DeviceData):
     ----------
         filename: str
             The full path of the vmdk image file.
-        logger: logger
-            The logger.
         stat: tuple
             The image file stat data.
         img_tag: str
@@ -115,9 +100,10 @@ class VmdkHead(DeviceData):
     #
     # struct format string
     vmdkhead_fmt = '<' + ''.join(f[0] for f in header0_structure)
-    _logger = logging.getLogger('oci-image-migrate.VmdkHead')
+    head_size = struct.calcsize(vmdkhead_fmt)
+    _logger = logging.getLogger('oci-utils.oci-image-migrate')
 
-    def __init__(self, filename, logger=None):
+    def __init__(self, filename):
         """
         Initialisation of the vmdk header analysis.
 
@@ -128,14 +114,12 @@ class VmdkHead(DeviceData):
         logger: loggername
             The logging specification.
         """
-        super(VmdkHead, self).__init__(filename, logger)
-        head_size = struct.calcsize(VmdkHead.vmdkhead_fmt)
-
-        self._logger.info('vmdk header size: %d bytes' % head_size)
+        super(VmdkHead, self).__init__(filename)
+        self._logger.info('VMDK header size: %d bytes' % self.head_size)
 
         try:
             with open(self.fn, 'rb') as f:
-                head_bin = f.read(head_size)
+                head_bin = f.read(self.head_size)
                 self._logger.debug('%s header successfully read' % self.fn)
         except Exception as e:
             self._logger.critical(

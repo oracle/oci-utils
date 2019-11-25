@@ -1,5 +1,3 @@
-# #!/usr/bin/env python
-
 # oci-utils
 #
 # Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
@@ -20,26 +18,28 @@ import time
 from glob import glob as glob
 
 import six
-from oci_migrate.migrate import configdata
+from oci_migrate.migrate import config
 from oci_migrate.migrate import gen_tools
 from oci_migrate.migrate import migrate_utils as migrate_utils
 from oci_migrate.migrate import reconfigure_network
 from oci_migrate.migrate.exception import OciMigrateException
 
-_logger = logging.getLogger('oci-image-migrate.')
-
 
 class UpdateImage(threading.Thread):
+    """ Class to update the virtual disk image in a chroot jail.
     """
-    Class to update the virtual disk image in a chroot jail.
+    _logger = logging.getLogger('oci-utils.oci-image-migrate')
 
-    Attributes
-    ----------
-    """
-    def __init__(self, vdiskdata, logger=None):
-        """ Initialisation of the UpdateImage object.
+    def __init__(self, vdiskdata):
         """
-        self._logger = logger or logging.getLogger(__name__)
+        Initialisation of the UpdateImage object.
+
+        Parameters:
+        ----------
+            vdiskdata: dict
+                Information about the virtual image as described in the
+                readme.txt, img_info.
+        """
         self.imgdata = vdiskdata
         threading.Thread.__init__(self)
 
@@ -48,12 +48,6 @@ class UpdateImage(threading.Thread):
         """
         gen_tools.result_msg(msg='Opening Thread.')
         self.chrootjail_ops()
-
-#    def join(self, timeout=None):
-#        """ Terminate
-#        """
-#        gen_tools.result_msg('Joining Thread.')
-#        threading.Thread.join(self, timeout)
 
     def wait4end(self):
         """ Stop
@@ -120,7 +114,8 @@ class UpdateImage(threading.Thread):
                 raise OciMigrateException('Failed to install cloud init')
         except Exception as e:
             self._logger.critical('*** ERROR *** Unable to perform image '
-                                  'update operations: %s' % str(e))
+                                  'update operations: %s' % str(e),
+                                  exc_info=True)
         finally:
             if gen_tools.isthreadrunning(cloud_init_install):
                 cloud_init_install.stop()
@@ -136,18 +131,17 @@ class DeviceData(object):
     """
     Class to handle the data of device and partitions in an virtual disk
     image file. Contains methods shared by various image file types.
-
-    Attributes
-    ----------
-        filename: str
-            The full path of the virtual image file.
-        logger: logger
-            The logger.
     """
-    def __init__(self, filename, logger=None):
-        """ Initialisation of the generic header.
+    _logger = logging.getLogger('oci-utils.oci-image-migrate')
+
+    def __init__(self, filename):
         """
-        self._logger = logger or logging.getLogger(__name__)
+        Parameters:
+        ----------
+            Initialisation of the generic header.
+            filename: str
+                The full path of the virtual disk image file.
+        """
         self.fn = filename
         self.devicename = None
         self.img_info = dict()
@@ -185,7 +179,7 @@ class DeviceData(object):
                 self._logger.debug('%s successfully unmounted' % nbd)
                 return True
             else:
-                self._logger.error('Failed to unmount %s' % nbd)
+                self._logger.error('Failed to unmount %s' % nbd, exc_info=True)
                 return False
         except Exception as e:
             raise OciMigrateException(str(e))
@@ -254,8 +248,9 @@ class DeviceData(object):
             # type
             typeflag = partentry[8:10].lower()
             self._logger.debug('type? : %s' % typeflag)
-            if typeflag in configdata.partition_types:
-                part['type'] = configdata.partition_types[typeflag]
+            parttypes = config.get_config_data('partition_types')
+            if typeflag in parttypes:
+                part['type'] = parttypes[typeflag]
             else:
                 part['type'] = 'unknown'
 
@@ -303,17 +298,17 @@ class DeviceData(object):
             #
             # verify partition type is supported
             gen_tools.result_msg(msg='Partition type %s' % parttype)
-            if parttype in configdata.filesystem_types:
+            if parttype in config.get_config_data('filesystem_types'):
                 self._logger.debug('Partition %s contains filesystem %s'
                                    % (partitionname, parttype))
                 part_info['supported'] = True
                 part_info['usage'] = 'standard'
-            elif parttype in configdata.logical_vol_types:
+            elif parttype in config.get_config_data('logical_vol_types'):
                 self._logger.debug('Partition %s contains a logical volume %s'
                                    % (partitionname, parttype))
                 part_info['supported'] = True
                 part_info['usage'] = 'standard'
-            elif parttype in configdata.partition_to_skip:
+            elif parttype in config.get_config_data('partition_to_skip'):
                 self._logger.debug('Partition %s harmless: %s'
                                    % (partitionname, parttype))
                 part_info['supported'] = False
@@ -403,7 +398,8 @@ class DeviceData(object):
             return True
         except Exception as e:
             self._logger.critical('Image %s handling failed: %s'
-                                  % (self.img_info['img_name'], str(e)))
+                                  % (self.img_info['img_name'], str(e)),
+                                  exc_info=True)
             return False
         finally:
             #
@@ -515,7 +511,7 @@ class DeviceData(object):
             #
             # need to release mount of image file and exit
             self._logger.critical('Initial partition data collection '
-                                  'failed: %s' % str(e))
+                                  'failed: %s' % str(e), exc_info=True)
             raise OciMigrateException('Initial partition data collection '
                                       'failed:\n %s' % str(e))
 
@@ -546,7 +542,7 @@ class DeviceData(object):
             gen_tools.result_msg(msg='Partition %s' % devname)
             try:
                 if 'ID_FS_TYPE' in devdetail:
-                    if devdetail['ID_FS_TYPE'] in configdata.filesystem_types:
+                    if devdetail['ID_FS_TYPE'] in config.get_config_data('filesystem_types'):
                         self._logger.debug('File system %s detected'
                                            % devdetail['ID_FS_TYPE'])
                         thismountpoint = migrate_utils.mount_partition(devname)
@@ -564,7 +560,7 @@ class DeviceData(object):
                             self._logger.critical('Failed to mount %s'
                                                   % devname)
                             success = False
-                    elif devdetail['ID_FS_TYPE'] in configdata.logical_vol_types:
+                    elif devdetail['ID_FS_TYPE'] in config.get_config_data('logical_vol_types'):
                         self._logger.debug('Logical volume %s detected'
                                            % devdetail['ID_FS_TYPE'])
                         gen_tools.result_msg(msg='Logical volume %s'
@@ -602,7 +598,7 @@ class DeviceData(object):
                 devdetail = self.get_partition_info(partname)
                 try:
                     if 'ID_FS_TYPE' in devdetail:
-                        if devdetail['ID_FS_TYPE'] in configdata.filesystem_types:
+                        if devdetail['ID_FS_TYPE'] in config.get_config_data('filesystem_types'):
                             self._logger.debug('file system %s detected'
                                                % devdetail['ID_FS_TYPE'])
                             thismountpoint = migrate_utils.mount_partition(partname)
@@ -652,7 +648,7 @@ class DeviceData(object):
             if 'ID_FS_TYPE' not in v:
                 self._logger.debug('%s is not in use' % k)
             else:
-                if v['ID_FS_TYPE'] in configdata.filesystem_types:
+                if v['ID_FS_TYPE'] in config.get_config_data('filesystem_types'):
                     if v['usage'] not in ['root', 'na']:
                         mountlist.append((v['usage'], k, v['mountpoint']))
                     else:
@@ -678,21 +674,24 @@ class DeviceData(object):
                                              result=True)
                         self.img_info['remountlist'].append(resultmnt)
                     else:
-                        self._logger.error('Failed to mount %s.' % mountdir)
+                        self._logger.error('Failed to mount %s.' % mountdir,
+                                           exc_info=True)
                         raise OciMigrateException('Failed to mount %s'
                                                   % mountdir)
                 except Exception as e:
                     self._logger.error('Failed to mount %s: %s.'
-                                       % (mountdir, str(e)))
+                                       % (mountdir, str(e)), exc_info=True)
                     # not sure where to go from here
             else:
-                self._logger.error('Something wrong, %s does not exist.')
+                self._logger.error('Something wrong, %s does not exist.' %
+                                   mountdir)
 
         return True
 
     def unmount_partitions(self):
         """
-        Unmount partitions mounted earlier.
+        Unmount partitions mounted earlier and listed in image info dict as
+        'remountlist'.
 
         Returns
         -------
@@ -710,7 +709,8 @@ class DeviceData(object):
                     self._logger.debug('Successfully released %s.' % part)
                 else:
                     self._logger.error('Failed to release %s, might prevent '
-                                       'clean termination.' % part)
+                                       'clean termination.' % part,
+                                       exc_info=True)
                     ret = False
         else:
             self._logger.debug('No remountlist.')
@@ -718,7 +718,8 @@ class DeviceData(object):
 
     def collect_os_data(self):
         """
-        Collect the relevant OS data.
+        Collect OS data relevant for the migration of the image to OCI and
+        save it in the img_info dictionary.
 
         Returns
         -------
@@ -787,20 +788,19 @@ class DeviceData(object):
             self.img_info['grubdata'] = self.get_grub_data(self.img_info['rootmnt'][1])
             #
         except Exception as e:
-            self._logger.critical('Failed to collect os data: %s' % str(e))
+            self._logger.critical('Failed to collect os data: %s' % str(e),
+                                  exc_info=True)
             raise OciMigrateException('Failed to collect os data: %s' % str(e))
         return True
 
     def update_image(self):
         """
-        Prepare the image for migration.
+        Prepare the image for migration by installing the cloud-init package.
 
         Returns
         -------
             No return value, raises an exception on failure
         """
-        # os_type = self.img_info['ostype']
-
         try:
             self._logger.debug('Updating image.')
             updimg = UpdateImage(self.img_info)
@@ -809,14 +809,20 @@ class DeviceData(object):
             updimg.wait4end()
 
         except Exception as e:
-            self._logger.error('Failed: %s' % str(e))
+            self._logger.error('Failed: %s' % str(e), exc_info=True)
             raise OciMigrateException(str(e))
         finally:
             self._logger.debug('NOOP')
 
     def get_partition(self, mnt):
         """
-        Find the definition of the boot partition in the device data structure.
+        Find the partition in the device data structure which has a usage
+        specified in 'mnt'.
+
+        Parameters:
+        ----------
+            mnt: str
+                The usage as specified in the img_info.partitions info
 
         Returns
         -------
@@ -852,7 +858,7 @@ class DeviceData(object):
             for mnt in self.mountpoints:
                 etcdir = mnt + '/etc'
                 self._logger.debug('Looking in partition %s' % mnt)
-                fstab = migrate_utils.exec_find(thisfile, etcdir)
+                fstab = migrate_utils.exec_search(thisfile, etcdir)
                 if fstab is not None:
                     #
                     # found fstab, reading it
@@ -861,7 +867,7 @@ class DeviceData(object):
                     self.img_info['fstab'] = fstabdata
                     for line in fstabdata:
                         self._logger.debug('Checking %s' % line)
-                        if line[1] in configdata.partition_to_skip:
+                        if line[1] in config.get_config_data('partition_to_skip'):
                             self._logger.debug('Skipping %s' % line)
                         elif line[1] == '/':
                             self._logger.debug('Root partition is %s.' % line[0])
@@ -919,7 +925,7 @@ class DeviceData(object):
         # gen_tools.result_msg('skip: ')
         if 'ID_FS_TYPE' in partdata:
             self._logger.debug('Skip %s?' % partdata['ID_FS_TYPE'])
-            if partdata['ID_FS_TYPE'] not in configdata.partition_to_skip:
+            if partdata['ID_FS_TYPE'] not in config.get_config_data('partition_to_skip'):
                 self._logger.debug('No skip')
                 skip_part = False
             else:
@@ -1007,10 +1013,16 @@ class DeviceData(object):
     def get_grub_data(self, rootdir):
         """
         Collect data related to boot and grub.
+        Parameters:
+        ----------
+            rootdir: str
+                Mountpoint of the root partition.
 
         Returns
         -------
-            list: List with relevant data from the grub config file.
+            list: List with relevant data from the grub config file:
+               boot type, BIOS or EFI,
+               boot instructions
         """
         #
         # find grub.cfg, grub.conf, ...
@@ -1021,7 +1033,7 @@ class DeviceData(object):
                              rootdir + '/grub',
                              rootdir + '/grub2']:
                 self._logger.debug('Looking for %s in %s' % (grubname, grubroot))
-                grubconf = migrate_utils.exec_find(grubname, grubroot)
+                grubconf = migrate_utils.exec_search(grubname, grubroot)
                 if grubconf is not None:
                     grub_cfg_path = grubconf
                     self._logger.debug('Found grub config file: %s' % grub_cfg_path)
@@ -1137,7 +1149,7 @@ class DeviceData(object):
         # hostnamectl is a systemd command, not available in OL/RHEL/CentOS 6
         try:
             for mnt in self.mountpoints:
-                osdata = migrate_utils.exec_find('os-release', mnt)
+                osdata = migrate_utils.exec_search('os-release', mnt)
                 if osdata is not None:
                     with open(osdata, 'rb') as f:
                         osreleasedata = [line.strip()
@@ -1149,7 +1161,8 @@ class DeviceData(object):
                 else:
                     self._logger.debug('os-release not found in %s' % mnt)
         except Exception as e:
-            self._logger.error('Failed to collect os data: %s' % str(e))
+            self._logger.error('Failed to collect os data: %s' % str(e),
+                               exc_info=True)
         self._logger.debug('os data: %s' % osdict)
         return osdict
 
@@ -1195,7 +1208,7 @@ class DeviceData(object):
         #
         # BIOS boot
         if 'boot_type' in self.img_info:
-            if self.img_info['boot_type'] in configdata.valid_boot_types:
+            if self.img_info['boot_type'] in config.get_config_data('valid_boot_types'):
                 self._logger.debug('Boot type is %s, ok'
                                    % self.img_info['boot_type'])
                 gen_tools.result_msg(msg='Boot type is %s, ok'
@@ -1373,7 +1386,7 @@ class DeviceData(object):
                     vu = v.upper().strip()
                     os_name = v
                     self._logger.debug('OS name: %s' % vu)
-                    if vu in configdata.valid_os:
+                    if vu in config.get_config_data('valid_os'):
                         gen_tools.result_msg(msg='OS is a %s: valid' % v,
                                              result=True)
                         os_pass = True

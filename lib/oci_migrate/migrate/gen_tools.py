@@ -1,5 +1,3 @@
-# #!/usr/bin/env python
-
 # oci-utils
 #
 # Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
@@ -19,10 +17,11 @@ import time
 import tty
 from datetime import datetime
 
+import six
 from oci_migrate.migrate.exception import NoSuchCommand
 from oci_migrate.migrate.exception import OciMigrateException
 
-logger = logging.getLogger('oci-image-migrate')
+logger = logging.getLogger('oci-utils.oci-image-migrate')
 debugflag = False
 verboseflag = False
 thistime = datetime.now().strftime('%Y%m%d%H%M')
@@ -139,7 +138,7 @@ def exit_msg(msg, exitcode=1):
     exit(exitcode)
 
 
-def result_msg(msg, flags='ab', result=False):
+def result_msg(msg, flags='a', result=False):
     """
     Write information to the log file, the result file and the console if the
     result flag is set.
@@ -313,12 +312,11 @@ def get_magic_data(image):
         str: Magic string on success, None otherwise.
     """
     magic_hex = None
-    #
-    # is readable
+    bytes_to_hex_str = lambda b: ''.join('%02x' % i for i in six.iterbytes(b))
     try:
         with open(image, 'rb') as f:
             magic = f.read(4)
-            magic_hex = magic.encode("hex")
+            magic_hex =bytes_to_hex_str(magic)
             logger.debug('Image magic number: %8s' % magic_hex)
     except Exception as e:
         logger.critical('Image %s is not accessible: 0X%s' % (image, str(e)))
@@ -418,17 +416,17 @@ def run_call_cmd(command):
                                          shell=False)
         except subprocess.CalledProcessError as chkcallerr:
             logger.error('Subprocess error encountered while running '
-                         '%s: %s' % (command, str(chkcallerr)))
+                         '%s: %s' % (command, str(chkcallerr)), exc_info=True)
             raise OciMigrateException('Subprocess error encountered while '
                                       'running %s: %s' % (command, str(chkcallerr)))
         except OSError as oserr:
             logger.error('OS error encountered while running '
-                         '%s: %s' % (command, str(oserr)))
+                         '%s: %s' % (command, str(oserr)), exc_info=True)
             raise OciMigrateException('OS error encountered while running '
                                       '%s: %s' % (command, str(oserr)))
         except Exception as e:
             logger.error('Error encountered while running '
-                         '%s: %s' % (command, str(e)))
+                         '%s: %s' % (command, str(e)), exc_info=True)
             raise OciMigrateException('Error encountered while running '
                                       '%s: %s' % (command, str(e)))
     else:
@@ -464,7 +462,7 @@ def run_popen_cmd(command):
                 if error:
                     logger.error('Error occured while '
                                  'running %s: %s - %s'
-                                 % (command, retcode, error))
+                                 % (command, retcode, error), exc_info=True)
                 raise OciMigrateException('Error encountered while '
                                           'running %s: %s - %s'
                                           % (command, retcode, error))
@@ -494,7 +492,7 @@ def get_nameserver():
     dnslist = []
     cmd = ['nmcli', 'dev', 'show']
     try:
-        nmlist = run_popen_cmd(cmd).split('\n')
+        nmlist = run_popen_cmd(cmd).decode().split('\n')
         for nmitem in nmlist:
             if 'DNS' in nmitem.split(':')[0]:
                 dnslist.append(nmitem.split(':')[1].lstrip().rstrip())

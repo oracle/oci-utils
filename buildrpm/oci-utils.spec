@@ -66,9 +66,9 @@ Utilities unit tests
 %package migrate
 Summary: Migrate vm from on-premise to the OCI
 Group: Development/Tools
-Requires: qemu-img
 Requires: util-linux
 Requires: parted
+Requires: qemu-img >= 3.1
 %description migrate
 Utilities for migrating on-premise guests to Oracle Cloud Infrastructure.
 
@@ -175,6 +175,8 @@ rm -rf %{buildroot}
 %{python2_sitelib}/oci_migrate/*
 %endif
 %{_datadir}/man/man1/oci-image-migrate.1.gz
+%config %{_sysconfdir}/oci-utils/oci-migrate-conf.yaml
+
 
 %post kvm
 %systemd_post oci-kvm-config.service

@@ -1,5 +1,3 @@
-# #!/usr/bin/env python
-
 # oci-utils
 #
 # Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
@@ -14,6 +12,7 @@ import json
 import logging
 import os
 import pkgutil
+import shutil
 import re
 import subprocess
 import sys
@@ -22,13 +21,13 @@ from functools import wraps
 from glob import glob
 
 import six
-from oci_migrate.migrate import configdata
+from oci_migrate.migrate import config
 from oci_migrate.migrate import gen_tools
 from oci_migrate.migrate.exception import NoSuchCommand
 from oci_migrate.migrate.exception import OciMigrateException
 from six.moves import configparser
 
-logger = logging.getLogger('oci-image-migrate')
+logger = logging.getLogger('oci-utils.oci-image-migrate')
 ConfigParser = configparser.ConfigParser
 
 gigabyte = 2**30
@@ -40,9 +39,6 @@ loopback_root = '/mnt'
 #
 # the root of the migrate related packages.
 module_home = 'oci_migrate.migrate'
-
-# global verboseflag
-
 
 def state_loop(maxloop, intsec=1):
     """
@@ -78,19 +74,6 @@ def state_loop(maxloop, intsec=1):
                     time.sleep(intsec)
         return loop_func
     return wrap
-
-
-def exec_df():
-    """
-    Run df command -- for testing purposes.
-
-    Returns
-    -------
-        No return value.
-    """
-    cmd = ['df', '-h']
-    df_res = gen_tools.run_popen_cmd(cmd)
-    gen_tools.result_msg(mag='\n%s' % df_res)
 
 
 def enter_chroot(newroot):
@@ -171,9 +154,9 @@ def leave_chroot(root2return):
         OciMigrateException('Failed to return from chroot: %s' % str(e))
 
 
-def exec_find(thisfile, rootdir='/'):
+def exec_search(thisfile, rootdir='/'):
     """
-    find the filename in the rootdir tree.
+    Find the filename in the rootdir tree.
 
     Parameters
     ----------
@@ -230,7 +213,7 @@ def exec_rmmod(module):
             logger.error('Error removing %s, exit code %s, ignoring.'
                          % (cmd, str(rmmod_result)))
     except Exception as e:
-        logger.error('Failed: %s, ignoring.' % str(e))
+        logger.debug('Failed: %s, ignoring.' % str(e))
     #
     # ignoring eventual errors, which will be caused by module already removed.
     return True
@@ -276,13 +259,12 @@ def exec_mkdir(dirname):
         bool:
            True on success, False otherwise.
     """
-    cmd = ['mkdir', '-p']
-    cmd.append(dirname)
-    logger.debug('%s' % cmd)
+    logger.debug('Creating %s.' % dirname)
     try:
-        if gen_tools.run_call_cmd(cmd) == 0:
-            return True
-        return False
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        else:
+            logger.debug('Directory %s already exists' % dirname)
     except Exception as e:
         raise OciMigrateException(str(e))
 
@@ -302,13 +284,11 @@ def exec_rmdir(dirname):
         bool:
            True on success, raises an exception otherwise.
     """
+    logger.debug('Removing directory tree.')
     cmd = ['rmdir']
-    cmd.append(dirname)
-    logger.debug('%s' % cmd)
     try:
-        if gen_tools.run_call_cmd(cmd) == 0:
-            return True
-        return False
+        shutil.rmtree(dirname)
+        return True
     except Exception as e:
         raise OciMigrateException(str(e))
 
@@ -1057,18 +1037,20 @@ def get_oci_config(section='DEFAULT'):
     -------
         dict: the contents of the configuration file as a dictionary.
     """
-    logger.debug('Reading the %s configuration file.' % configdata.ociconfigfile)
+    logger.debug('Reading the %s configuration file.' %
+                 config.get_config_data('ociconfigfile'))
     thisparser = ConfigParser()
     try:
-        rf = thisparser.read(configdata.ociconfigfile)
+        rf = thisparser.read(config.get_config_data('ociconfigfile'))
         sectiondata = dict(thisparser.items(section))
         logger.debug('OCI configuration: %s' % sectiondata)
         return sectiondata
     except Exception as e:
         logger.error('Failed to read OCI configuration %s: %s.' %
-                     (configdata.ociconfigfile, str(e)))
+                     (config.get_config_data('ociconfigfile'), str(e)))
         raise OciMigrateException('Failed to read OCI configuration %s: %s.' %
-                                  (configdata.ociconfigfile, str(e)))
+                                  (config.get_config_data('ociconfigfile'),
+                                   str(e)))
 
 
 def bucket_exists(bucketname):
@@ -1095,6 +1077,7 @@ def bucket_exists(bucketname):
         logger.error('Cannot find oci anymore: %s' % str(e))
 
     cmd = ['oci', 'os', 'object', 'list', '--bucket-name', bucketname]
+    gen_tools.pause_msg(cmd)
     try:
         bucketresult = gen_tools.run_popen_cmd(cmd)
         logger.debug('Result: \n%s' % bucketresult)
@@ -1126,9 +1109,14 @@ def object_exists(bucket, object_name):
     logger.debug('Testing if %s already exists.' % object_name)
     testresult_json = json.loads(bucket)
     logger.debug('Result: \n%s', testresult_json)
-    for res in testresult_json['data']:
-        if str(res['name']) == object_name:
-            return True
+    if 'data' in testresult_json:
+        for res in testresult_json['data']:
+            if str(res['name']) == object_name:
+                return True
+            else:
+                logger.debug('%s not found' % object_name)
+    else:
+        logger.debug('Bucket %s is empty.' % bucket)
     return False
 
 
