@@ -52,7 +52,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-def get_content(base, pattern):
+def get_content(base, pattern, recursive=True):
     '''
     get all python files in dir and subdir
     parameter
@@ -60,15 +60,23 @@ def get_content(base, pattern):
            basedirectory
         pattern str
             filename pattern like *.py
+        recursive boolean
+            do search down to subdirs
     return
     -------
       list of files
     '''
     tools_l = []
-    for (dirpath, dirnames, filenames) in os.walk(base):
-        for filename in filenames:
-            if fnmatch.fnmatch(filename, pattern):
-                tools_l.append(os.path.join(dirpath, filename))
+    if recursive:
+        for (dirpath, dirnames, filenames) in os.walk(base):
+            for filename in filenames:
+                if fnmatch.fnmatch(filename, pattern):
+                    tools_l.append(os.path.join(dirpath, filename))
+
+    else:
+        for entry in os.listdir(base):
+            if os.path.isfile(os.path.join(base, entry)) and fnmatch.fnmatch(entry, pattern):
+                tools_l.append(os.path.join(base, entry))
     return tools_l
 
 
@@ -293,10 +301,15 @@ setup(
                   'man/man8/oci-growfs.8',
                   'man/man8/oci-image-cleanup.8',
                   ]),
-                (os.path.join("/opt", "oci-utils", "tools"),
-                 get_content('tools', '*.py')),
+                  (os.path.join("/opt", "oci-utils", "tools"),
+                 get_content('tools', '*.py', False)),
+                (os.path.join("/opt", "oci-utils", "tools", "execution"),
+                 get_content('tools/execution', '*', False)),
                 (os.path.join("/opt", "oci-utils", "tests"),
-                 get_content('tests/data', '*'))],
+                 get_content('tests', '*', False)),
+                (os.path.join("/opt", "oci-utils", "tests", "data"),
+                 get_content('tests/data', '*'))
+                 ],
     scripts=['bin/oci-public-ip',
              'bin/oci-metadata',
              'bin/oci-iscsi-config',
