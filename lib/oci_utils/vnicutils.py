@@ -10,13 +10,14 @@ import os.path
 import subprocess
 
 import cache
+import oci_utils
 from oci_utils import _configuration as OCIUtilsConfiguration
 from .oci_api import HAVE_OCI_SDK, OCISession
 
 # TODO: can we move this under 'impl' ?
 
 _logger = logging.getLogger('oci-utils.vnicutils')
-
+_secondary_vnic_all_configure_path = os.path.join(os.path.dirname(oci_utils.__file__), 'impl', '.vnic_script.sh')
 
 class VNICUtils(object):
     """Class for managing VNICs
@@ -147,7 +148,7 @@ class VNICUtils(object):
             _logger.debug(
                 'Skipping execution of the secondary vnic script')
             return 0, 'Info: vf_net is enabled in the oci-utils configuration'
-        all_args = ['/usr/libexec/secondary_vnic_all_configure.sh']
+        all_args = [_secondary_vnic_all_configure_path]
         all_args += script_args
         if "-c" in script_args:
             if 'sshd' in self.vnic_info:

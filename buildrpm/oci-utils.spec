@@ -84,6 +84,9 @@ Utilities unit tests
 %{__cp} -r setup.py %{buildroot}/opt/oci-utils
 %{__cp} -r requirements.txt %{buildroot}/opt/oci-utils
 %{__cp} -r README %{buildroot}/opt/oci-utils
+# temporary workaround to EOL vnic script: move it else where
+%{__mv} %{buildroot}/usr/libexec/secondary_vnic_all_configure.sh %{buildroot}%{python2_sitelib}/oci_utils/impl/.vnic_script.sh
+
 
 %clean
 rm -rf %{buildroot}
