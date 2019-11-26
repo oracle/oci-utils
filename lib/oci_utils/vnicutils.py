@@ -17,7 +17,7 @@ from .oci_api import HAVE_OCI_SDK, OCISession
 # TODO: can we move this under 'impl' ?
 
 _logger = logging.getLogger('oci-utils.vnicutils')
-_secondary_vnic_all_configure_path = os.path.join(os.path.dirname(oci_utils.__file__), 'impl', 'secondary_vnic_all_configure.sh')
+_secondary_vnic_all_configure_path = os.path.join(os.path.dirname(oci_utils.__file__), 'impl', '.vnic_script.sh')
 
 class VNICUtils(object):
     """Class for managing VNICs
