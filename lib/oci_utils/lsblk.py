@@ -51,7 +51,7 @@ def list():
                 ['/bin/lsblk', '--scsi', '--pairs', '--noheadings',
                  '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME'], stderr=DEVNULL).decode('utf-8')
         devices = {}
-        # with python3, output id byte-like object, cast it ot str
+        # with python3, output id byte-like object, cast it to str
         for line in str(output).split('\n'):
             match = _LSBLK_PATTERN.match(line.strip())
             if match:
