@@ -1905,7 +1905,7 @@ class OCISubnet(OCIAPIAbstractResource):
         if self._vnics is not None and len(self._vnics) > 0 and not refresh:
             return self._vnics
         compartment = self._oci_session.get_compartment(
-            self._data.compartment_id)
+            ocid=self._data.compartment_id)
         if compartment is None:
             OCISubnet._logger.warning('all_vnics() cannot get compartment')
             return []

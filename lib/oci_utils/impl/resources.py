@@ -126,7 +126,7 @@ class OCIAPIAbstractResource(object):
             str
                 The compartment id.
         """
-        return self._oci_session.get_compartment(self._data.compartment_id)
+        return self._oci_session.get_compartment(ocid=self._data.compartment_id)
 
     def __str__(self):
         """

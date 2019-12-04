@@ -96,12 +96,17 @@ Utilities unit tests
 %{__cp} -r setup.py %{buildroot}/opt/oci-utils
 %{__cp} -r requirements.txt %{buildroot}/opt/oci-utils
 %{__cp} -r README %{buildroot}/opt/oci-utils
+
 %if 0%{?rhel} >= 8
 %{echo: "Running python3 convertion tool"}
 /usr/bin/2to3 --no-diffs --write --nobackups  %{buildroot}
 # force run on ones not suffixed by .py
 /usr/bin/2to3 --no-diffs --write --nobackups  %{buildroot}/%{_libexecdir}/oci-utils-config-helper
 %endif
+
+# temporary workaround to EOL vnic script: move it else where
+%{__mv} %{buildroot}/usr/libexec/secondary_vnic_all_configure.sh %{buildroot}%{python2_sitelib}/oci_utils/impl/.vnic_script.sh
+
 
 %clean
 rm -rf %{buildroot}
