@@ -322,7 +322,7 @@ def remove_static_ip_rules(link_name):
         _command.extend(re.compile("\d:\t").split(_line.strip())[1].replace('[detached] ', '').split(' '))
         _out = sudo_utils.call_output(_command)
         if _out is not None and len(_out) > 0:
-            _logger.warning('cannot delete rule [%s]: %s' % (' '.join(_command), str(e)))
+            _logger.warning('cannot delete rule [%s]: %s' % (' '.join(_command), str(_out)))
 
 
 def add_static_ip_rule(*args, **kwargs):

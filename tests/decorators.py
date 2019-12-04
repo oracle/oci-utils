@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
@@ -78,7 +76,7 @@ def skipUnlessOCISDKInstalled():
     if __sdk_installed is None:
         try:
             # --GT-- not used
-            # import oci
+            import oci
             __sdk_installed = True
         except ImportError:
             __sdk_installed = False

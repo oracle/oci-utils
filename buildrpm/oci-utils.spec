@@ -6,8 +6,20 @@ Summary: Oracle Cloud Infrastructure utilities
 License: UPL
 Group: Development/Tools
 Source: %{name}-%{version}.tar.gz
+
+# Oracle Linux 8
+%if 0%{?rhel} >= 8
+%define __l_python %{__python3}
+%define __l_python_sitelib %{python3_sitelib}
+%else
+%define __l_python %{__python2}
+%define __l_python_sitelib %{python2_sitelib}
+%endif
+
+
+
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
-%{!?python2_sitelib: %global python2_sitelib %(%{__python2} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
+
 %{?systemd_requires}
 
 BuildArch: noarch
@@ -15,15 +27,14 @@ BuildArch: noarch
 BuildRequires: systemd
 # Oracle Linux 8
 %if 0%{?rhel} >= 8
-BuildRequires: python2-devel
-BuildRequires: python2-setuptools
-BuildRequires: python2-flake8
-Requires: python2
-Requires: python2-daemon
-Requires: python2-lockfile
-Requires: python2-sdnotify
-Requires: python2-six
-Requires: python2-enum34
+BuildRequires: python3-devel
+BuildRequires: python3-setuptools
+BuildRequires: python3-flake8
+Requires: python3
+Requires: python3-daemon
+Requires: python3-sdnotify
+Requires: python3-six
+Requires: python3-enum34
 # Oracle Linux 7
 %else
 BuildRequires: python-devel
@@ -41,6 +52,7 @@ Requires: util-linux
 # for iscsiadm
 Requires: iscsi-initiator-utils
 
+
 %description
 A package with useful scripts for querying/validating the state of Oracle Cloud Infrastructure instances running Oracle Linux and facilitating some common configuration tasks.
 
@@ -49,7 +61,7 @@ Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure
 Group: Development/Tools
 Requires: %{name} = %{version}-%{release}
 %if 0%{?rhel} >= 8
-Requires: python2-netaddr
+Requires: python3-netaddr
 %else
 Requires: python-netaddr
 %endif
@@ -71,10 +83,10 @@ Utilities unit tests
 %setup -q -n %{name}-%{version}
 
 %build
-%{__python2} setup.py build
+%{__l_python} setup.py build
 
 %install
-%{__python2} setup.py install -O1 --prefix=%{_prefix} --root=%{buildroot}
+%{__l_python} setup.py install -O1 --prefix=%{_prefix} --root=%{buildroot}
 %{__mkdir_p} %{buildroot}%{_localstatedir}/lib/oci-utils
 # use for outest package
 %{__mkdir_p} $RPM_BUILD_ROOT/opt/oci-utils
@@ -84,20 +96,28 @@ Utilities unit tests
 %{__cp} -r setup.py %{buildroot}/opt/oci-utils
 %{__cp} -r requirements.txt %{buildroot}/opt/oci-utils
 %{__cp} -r README %{buildroot}/opt/oci-utils
+
+%if 0%{?rhel} >= 8
+%{echo: "Running python3 convertion tool"}
+/usr/bin/2to3 --no-diffs --write --nobackups  %{buildroot}
+# force run on ones not suffixed by .py
+/usr/bin/2to3 --no-diffs --write --nobackups  %{buildroot}/%{_libexecdir}/oci-utils-config-helper
+%endif
+
 # temporary workaround to EOL vnic script: move it else where
-%{__mv} %{buildroot}/usr/libexec/secondary_vnic_all_configure.sh %{buildroot}%{python2_sitelib}/oci_utils/impl/.vnic_script.sh
+%{__mv} %{buildroot}/usr/libexec/secondary_vnic_all_configure.sh %{buildroot}%{__l_python_sitelib}/oci_utils/impl/.vnic_script.sh
 
 
 %clean
 rm -rf %{buildroot}
 
 %files
-%exclude %dir %{python2_sitelib}/oci_utils/kvm
-%exclude %{python2_sitelib}/oci_utils/kvm/*
+%exclude %dir %{__l_python_sitelib}/oci_utils/kvm
+%exclude %{__l_python_sitelib}/oci_utils/kvm/*
 %exclude %{_bindir}/oci-kvm
 %exclude %{_datadir}/man/man1/oci-kvm.1.gz
 %defattr(-,root,root)
-%{python2_sitelib}/oci_utils*
+%{__l_python_sitelib}/oci_utils*
 %{_bindir}/oci-*
 %exclude %{_bindir}/oci-kvm
 %{_libexecdir}/
@@ -116,7 +136,7 @@ rm -rf %{buildroot}
 %{_bindir}/oci-kvm
 %{_libexecdir}/oci-kvm-config.sh
 %{_libexecdir}/oci-kvm-network-script
-%{python2_sitelib}/oci_utils/kvm*
+%{__l_python_sitelib}/oci_utils/kvm*
 %{_datadir}/man/man1/oci-kvm.1.gz
 %{_sysconfdir}/systemd/system/oci-kvm-config.service
 %{_prefix}/lib/systemd/system-preset/91-oci-kvm.preset
