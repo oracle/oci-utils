@@ -4,23 +4,39 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-_PY=/usr/bin/python
+
+# utility assists with configuring iscsi storage on Oracle Cloud
+# Infrastructure instances.  See the manual page for more information.
+
+_PY=""
 _PY2=/usr/bin/python2
 _PY3=/usr/bin/python3
+s_dir=""
 
 # priority given to python3 
 if [ -x ${_PY3} ]
 then
-  _PY=${_PY3}
-else
+        # also be sure that py3 compatible code is installed
+        s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
+        if [ -n "${s_dir}" ]
+        then
+	   _PY=${_PY3}
+        fi
+fi
+if [ -z ${PY} ]
+then
+   # still have to look for correct py
    if [ -x ${_PY2} ]
    then
-     _PY=${_PY2}
+      _PY=${_PY2}
+   else
+      _PY=/usr/bin/python
    fi
+   # find where actual script is.
+   s_dir=`${_PY} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))'`
+
 fi
 
-# find where actual script is.
-s_dir=`${_PY} -c 'import os.path ; import oci_utils.impl.virt ; print (os.path.dirname(oci_utils.impl.virt.__file__))'`
-exec ${_PY}  ${s_dir}/oci-kvm-main.py $@
+exec ${_PY}  ${s_dir}/virt/oci-kvm-main.py $@
 
 
