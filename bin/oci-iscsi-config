@@ -23,7 +23,7 @@ then
 	   _PY=${_PY3}
         fi
 fi
-if [ -z ${PY} ]
+if [ -z ${_PY} ]
 then
    # still have to look for correct py
    if [ -x ${_PY2} ]
