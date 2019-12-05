@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
@@ -30,7 +28,7 @@ class TestOciMetadata(unittest.TestCase):
         self.assertIn(u'region', metadata['instance'],
                       'metadata do not contain region information')
         self.assertIn(metadata['instance']['region'],
-                      ['phx', 'iad', 'fra', 'lhr'],
+                      ['phx', 'iad', 'fra', 'lhr', 'uk-london-1'],
                       'instance region [%s] not part of possible values [%s]'
                       % (
                       metadata['instance']['region'],

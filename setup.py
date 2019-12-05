@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
 
 """ Build an rpm from oci-utils.
@@ -176,8 +174,7 @@ setup(
     url="http://github.com/oracle/oci-utils/",
     package_dir={'': 'lib'},
     packages=find_packages('lib'),
-    setup_requires=[
-        "flake8"],
+    setup_requires=[],
     long_description=read('README'),
     data_files=[(os.path.join(sys.prefix, 'libexec'),
                  ['libexec/ocid',
@@ -190,7 +187,7 @@ setup(
                   'libexec/oci-kvm-config.sh',
                   'libexec/oci-kvm-network-script'
                   ]),
-                ("/etc/systemd/system",
+                 ("/etc/systemd/system",
                  ['data/ocid.service', 'data/oci-kvm-config.service']),
                 ("/etc/oci-utils",
                  ['data/oci-image-cleanup.conf',
@@ -232,7 +229,8 @@ setup(
         'Intended Audience :: System Administrators',
         'Natural Language :: English',
         'Operating System :: POSIX',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
         'Topic :: System :: Installation/Setup',
         'Topic :: System :: Systems Administration',
         'Topic :: Utilities',

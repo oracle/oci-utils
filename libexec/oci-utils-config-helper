@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # oci-utils
 #
 # Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
@@ -37,26 +35,6 @@ def response(status, **kwargs):
     for key, val in kwargs.iteritems():
         resp[key] = val
     sys.stdout.write(json.dumps(resp) + '\n')
-    sys.stdout.flush()
-
-
-def debug_print(msg):
-    """
-    Print a JSON formatted debug message.
-
-    Parameters
-    ----------
-    msg: str
-        The debug message.
-
-    Returns
-    -------
-        No return value.
-    """
-    global debug
-    if not debug:
-        return
-    sys.stdout.write(json.dumps({'status': 'DEBUG', 'message': msg}) + '\n')
     sys.stdout.flush()
 
 
