@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.10.1
+Version: 0.10.2
 Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -152,6 +152,9 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+* Wed Dec 4 2019 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.10.2
+- Update to use Python 3 on OL8
+
 * Mon Sep 9 2019 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.10.1
 - Added support of libvirt network for KVM guests
 
