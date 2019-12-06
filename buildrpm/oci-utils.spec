@@ -98,7 +98,6 @@ Utilities unit tests
 %{__cp} -r README %{buildroot}/opt/oci-utils
 
 %if 0%{?rhel} >= 8
-%{echo: "Running python3 convertion tool"}
 /usr/bin/2to3 --no-diffs --write --nobackups  %{buildroot}
 # force run on ones not suffixed by .py
 /usr/bin/2to3 --no-diffs --write --nobackups  %{buildroot}/%{_libexecdir}/oci-utils-config-helper
