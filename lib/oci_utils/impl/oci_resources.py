@@ -138,7 +138,8 @@ class OCICompartment(OCIAPIAbstractResource):
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
             # permission to list the instances in the compartment
-            pass
+            OCICompartment._logger.debug('user has no permission to list the instances in the compartment')
+            
         self._instances = instances
         return instances
 
@@ -237,7 +238,8 @@ class OCICompartment(OCIAPIAbstractResource):
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
             # permission to list the vcns in the compartment
-            pass
+            OCICompartment._logger.debug('current user has no permission to list the vcns in the compartment')
+            
         self._vcns = vcns
         return vcns
 
@@ -300,6 +302,7 @@ class OCICompartment(OCIAPIAbstractResource):
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
             # permission to list the volumes in the compartment
+            OCICompartment._logger.debug('current user has no permission to list the volumes in the compartment')
             pass
         if availability_domain is None:
             self._volumes = bs
@@ -530,6 +533,7 @@ class OCIInstance(OCIAPIAbstractResource):
             except oci_sdk.exceptions.ServiceError:
                 # ignore these, it means the current user has no
                 # permission to list the instances in the compartment
+                OCIInstance._logger.debug('current user has no permission to list the vcns in the compartment')
                 pass
         self._vnics = vnics
         return self._vnics
