@@ -122,7 +122,7 @@ def parse_args():
     parser.add_argument('--help', action='help',
                         help='Display this help')
 
-    return parser.parse_args()
+    return parser
 
 
 def create_vm(args):
@@ -319,7 +319,11 @@ def main():
                    _create_network: _create_network_vm,
                    _delete_network: _delete_network_vm}
 
-    args = parse_args()
+    parser = parse_args()
+    args = parser.parse_args()
+    if args.mode is None:
+        parser.print_help()
+        sys.exit(0)
 
     return subcommands[args.mode](args)
 
