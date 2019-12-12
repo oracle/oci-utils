@@ -15,7 +15,7 @@ oci-image-migrate prepares the image of an on-premise vm for being migrate to
 
     # oci-image-migrate --help
     usage: oci-image-migrate [-i INPUTIMAGE] [-b BUCKETNAME] [-o OUTPUTIMAGE]
-                             [--quiet] [--verbose] [--help]
+                             [--verbose] [--help]
 
     Utility to support preparation of on-premise legacy images for importing in
     the Oracle Cloud Infrastructure.
@@ -28,22 +28,22 @@ oci-image-migrate prepares the image of an on-premise vm for being migrate to
                             image.
       -o OUTPUTIMAGE, --oimage OUTPUTIMAGE
                             The output image name.
-      --quiet, -q           Suppress information messages
       --verbose, -v         Show verbose information.
       --help                Display this help`
 
-The environment variable LOGLEVEL changes the logging level of the python 
-code, if set to a valid value. The default log level is ERROR, the debug
-flag changes it to INFO, the quiet flag to CRITICAL.
+The environment variable _OCI_UTILS_DEBUG changes the logging level of
+the python code. The default log level is ERROR, the debug flag changes
+it to INFO, the quiet flag to CRITICAL.
  
 ## The image type
 
 The image type specific code has
 
-1. a dictionary **format-data** containing 1 key, the **magic number** and a 
-value which contains the dictionary of mandatory and optional data. Mandatory 
-are the **name**, the **module** name, the **class** name. The **prereq** key 
-is also optional and its value is structure of image type prerequisites.
+1. a dictionary **format_data** containing 1 key, the **magic number**
+   and a value which contains the dictionary of mandatory and optional
+   data. Mandatory are the **name**, the **module** name, the **class**
+   name. The **prereq** key is also optional and its value is structure
+   of image type prerequisites.
 
     format_data = {'01234567': {'name': 'sometype',
                                 'module': 'sometype',

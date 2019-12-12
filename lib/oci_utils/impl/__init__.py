@@ -19,14 +19,22 @@ from time import sleep
 
 from ..exceptions import OCISDKError
 
-__all__ = ['lock_thread', 'release_thread', 'read_config', 'SUDO_CMD']
+__all__ = ['lock_thread', 'release_thread', 'read_config', 'SUDO_CMD',
+           'CAT_CMD', 'SH_CMD', 'CP_CMD', 'TOUCH_CMD', 'CHMOD_CMD']
 
+CAT_CMD = '/usr/bin/cat'
+TOUCH_CMD = '/usr/bin/touch'
+CHMOD_CMD = '/usr/bin/chmod'
+RM_CMD = '/bin/rm'
+CP_CMD = '/bin/cp'
+SH_CMD = '/bin/sh'
 SUDO_CMD = '/bin/sudo'
 VIRSH_CMD = '/usr/bin/virsh'
 IP_CMD = '/usr/sbin/ip'
 BRIDGE_CMD = '/sbin/bridge'
 PARTED_CMD = '/sbin/parted'
 MK_XFS_CMD = '/sbin/mkfs.xfs'
+SYSTEMCTL_CMD = '/bin/systemctl'
 
 
 def print_error(msg, *args):
@@ -158,25 +166,7 @@ def release_thread():
 
 
 # oci-utils configuration defaults
-__oci_utils_defaults = """
-[auth]
-auth_method = auto
-oci_sdk_user = opc
-[iscsi]
-enabled = true
-scan_interval = 60
-max_volumes = 8
-auto_resize = true
-auto_detach = true
-detach_retry = 5
-[vnic]
-enabled = true
-scan_interval = 60
-vf_net = false
-[public_ip]
-enabled = true
-refresh_interval = 600
-"""
+
 
 # oci-utils config file
 __oci_utils_conf_d = "/etc/oci-utils.conf.d"
@@ -200,11 +190,25 @@ def read_config():
         return oci_utils_config
 
     oci_utils_config = ConfigParser()
-    try:
-        oci_utils_config.readfp(io.BytesIO(__oci_utils_defaults))
-    except Exception:
-        raise
-
+    # assign default
+    oci_utils_config.add_section('auth')
+    oci_utils_config.set('auth','auth_method','auto')
+    oci_utils_config.set('auth','oci_sdk_user','opc')
+    oci_utils_config.add_section('iscsi')
+    oci_utils_config.set('iscsi','enabled','true')
+    oci_utils_config.set('iscsi','scan_interval','60')
+    oci_utils_config.set('iscsi','max_volumes','8')
+    oci_utils_config.set('iscsi','auto_resize','true')
+    oci_utils_config.set('iscsi','auto_detach','true')
+    oci_utils_config.set('iscsi','detach_retry','5')
+    oci_utils_config.add_section('vnic')
+    oci_utils_config.set('vnic','enabled','true')
+    oci_utils_config.set('vnic','scan_interval','60')
+    oci_utils_config.set('vnic','vf_net','false')
+    oci_utils_config.add_section('public_ip')
+    oci_utils_config.set('public_ip','enabled','true')
+    oci_utils_config.set('public_ip','refresh_interval','600')
+    
     if not os.path.exists(__oci_utils_conf_d):
         return oci_utils_config
 
@@ -253,13 +257,15 @@ def setup_logging(forceDebug=False):
         handler = logging.handlers.SysLogHandler(address='/dev/log',
                                                  facility=logging.handlers.SysLogHandler.LOG_DAEMON)
     else:
-        try:
-            handler = logging.handlers.RotatingFileHandler(
-                '/var/tmp/oci-utils.log', mode='a', maxBytes=1024 * 1024, backupCount=3)
-            handler.setFormatter(formatter)
-            handler.setLevel(logging.NOTSET)
-        except StandardError, e:
-            print 'warning, cannot setup debug file : %s' % str(e)
+        if forceDebug:
+            try:
+                handler = logging.handlers.RotatingFileHandler(
+                    '/var/tmp/oci-utils.log', mode='a', maxBytes=1024 * 1024, backupCount=3)
+                handler.setFormatter(formatter)
+                handler.setLevel(logging.NOTSET)
+            except StandardError, ignored:
+                # keep it silent
+                pass
 
     logger = logging.getLogger('oci-utils')
     logger.setLevel(logging.INFO)

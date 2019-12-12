@@ -76,7 +76,6 @@ class OCICompartment(OCIAPIAbstractResource):
         self._vcns = None
         self._vnics = None
         self._volumes = None
-        self.data = compartment_data
 
     def __str__(self):
         """
@@ -139,7 +138,8 @@ class OCICompartment(OCIAPIAbstractResource):
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
             # permission to list the instances in the compartment
-            pass
+            OCICompartment._logger.debug('user has no permission to list the instances in the compartment')
+            
         self._instances = instances
         return instances
 
@@ -238,7 +238,8 @@ class OCICompartment(OCIAPIAbstractResource):
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
             # permission to list the vcns in the compartment
-            pass
+            OCICompartment._logger.debug('current user has no permission to list the vcns in the compartment')
+            
         self._vcns = vcns
         return vcns
 
@@ -301,6 +302,7 @@ class OCICompartment(OCIAPIAbstractResource):
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
             # permission to list the volumes in the compartment
+            OCICompartment._logger.debug('current user has no permission to list the volumes in the compartment')
             pass
         if availability_domain is None:
             self._volumes = bs
@@ -516,6 +518,7 @@ class OCIInstance(OCIAPIAbstractResource):
                 compartment_id=self._data.compartment_id,
                 instance_id=self._ocid)
         except Exception as e:
+            OCIInstance._logger.debug('sdk call failed',exc_info=True)
             OCIInstance._logger.warning('sdk call failed [%s]' % str(e))
             return []
         for v_a_data in vnic_atts.data:
@@ -530,6 +533,7 @@ class OCIInstance(OCIAPIAbstractResource):
             except oci_sdk.exceptions.ServiceError:
                 # ignore these, it means the current user has no
                 # permission to list the instances in the compartment
+                OCIInstance._logger.debug('current user has no permission to list the vcns in the compartment')
                 pass
         self._vnics = vnics
         return self._vnics
@@ -600,7 +604,9 @@ class OCIInstance(OCIAPIAbstractResource):
 
         subnets = set()
         for vnic in self.all_vnics(refresh=refresh):
-            subnets.add(vnic.get_subnet())
+            # discard vnic with no subnet
+            if vnic.get_subnet() is not None:
+                subnets.add(vnic.get_subnet())
         self._subnets = list(subnets)
         return self._subnets
 
@@ -633,6 +639,7 @@ class OCIInstance(OCIAPIAbstractResource):
                 instance_id=self._ocid).data
         except oci_sdk.exceptions.ServiceError:
             # the user has no permission to list volumes
+            OCIInstance._logger.debug('the user has no permission to list volumes', exc_info=True)
             self._volumes = []
             return self._volumes
 
@@ -661,6 +668,7 @@ class OCIInstance(OCIAPIAbstractResource):
                     bsc.get_volume,
                     volume_id=vol_id).data
             except oci_sdk.exceptions.ServiceError:
+                OCIInstance._logger.debug('exc getting volume', exc_info=True)
                 continue
             vols.append(OCIVolume(self._oci_session,
                                   volume_data=vol_data,
@@ -712,6 +720,7 @@ class OCIInstance(OCIAPIAbstractResource):
             return self._oci_session.get_volume(vol_att.data.volume_id,
                                                 refresh=True)
         except oci_sdk.exceptions.ServiceError as e:
+            OCIInstance._logger.debug('Failed to attach volume', exc_info=True)
             raise OCISDKError('Failed to attach volume: %s' % e.message)
 
     def attach_vnic(self, private_ip=None, subnet_id=None, nic_index=0,
@@ -767,6 +776,10 @@ class OCIInstance(OCIAPIAbstractResource):
         # step 1: choose a subnet
         if subnet_id is None:
             instance_subnets = self.all_subnets()
+            if len(instance_subnets) == 0:
+                # subnet id is not provided, if instance has no subnet
+                # no need to go further
+                raise OCISDKError('No suitable subnet found for this instance')
             if private_ip is not None:
                 # choose the subnet that the ip belongs to
                 for sn in instance_subnets:
@@ -810,6 +823,7 @@ class OCIInstance(OCIAPIAbstractResource):
                                                        resp.data.id)
             return self._oci_session.get_vnic(v_att.data.vnic_id, refresh=True)
         except oci_sdk.exceptions.ServiceError as e:
+            OCIInstance._logger.debug('Failed to attach new VNIC', exc_info=True)
             raise OCISDKError('Failed to attach new VNIC: %s' % e.message)
 
     def max_volumes_reached(self):
@@ -857,6 +871,7 @@ class OCIInstance(OCIAPIAbstractResource):
         try:
             vol = vol.attach_to(instance_id=self.get_ocid())
         except Exception as e:
+            OCIInstance._logger.debug('cannot attach BV', exc_info=True)
             OCIInstance._logger.warning('cannot attach BV [%s]' % str(e))
             vol.destroy()
             return None
@@ -1008,6 +1023,7 @@ class OCIVCN(OCIAPIAbstractResource):
             for s_data in subnets_data.data:
                 subnets.append(OCISubnet(self._oci_session, s_data))
         except oci_sdk.exceptions.ServiceError:
+            OCIVCN._logger.debug('service error', exc_info=True)
             # ignore these, it means the current user has no
             # permission to list the instances in the compartment
             pass
@@ -1046,6 +1062,7 @@ class OCIVCN(OCIAPIAbstractResource):
                                           OCISecurityList(self._oci_session,
                                                           s_data))
         except oci_sdk.exceptions.ServiceError:
+            OCIVCN._logger.debug('service error', exc_info=True)
             # ignore these, it means the current user has no
             # permission to list the instances in the compartment
             pass
@@ -1183,6 +1200,7 @@ class OCIVNIC(OCIAPIAbstractResource):
                 cc.get_vnic_attachment,
                 vnic_attachment_id=self._att_data.id)
         except Exception as e:
+            OCIVNIC._logger.debug('refresh failed', exc_info=True)
             OCIVNIC._logger.warning('refresh failed [%s]' % str(e))
 
     def get_private_ip(self):
@@ -1287,6 +1305,7 @@ class OCIVNIC(OCIAPIAbstractResource):
             return OCIPrivateIP(session=self._oci_session,
                                 private_ip_data=private_ip.data)
         except oci_sdk.exceptions.ServiceError as e:
+            OCIVNIC._logger.debug('Failed to add private IP', exc_info=True)
             raise OCISDKError("Failed to add private IP: %s" % e.message)
         # FIXME: wait not implemented!
 
@@ -1336,6 +1355,8 @@ class OCIVNIC(OCIAPIAbstractResource):
                 nc.list_private_ips,
                 vnic_id=self.get_ocid()).data
         except Exception as e:
+            OCIVNIC._logger.debug(
+                'sdk_call failed for all_private_ips',exc_info=True)
             OCIVNIC._logger.warning(
                 'sdk_call failed for all_private_ips [%s]' % str(e))
             return []
@@ -1375,6 +1396,8 @@ class OCIVNIC(OCIAPIAbstractResource):
             self._oci_session.sdk_call(cc.detach_vnic,
                                        vnic_attachment_id=self._att_data.id)
         except Exception as e:
+            OCIVNIC._logger.debug(
+                'Failed to detach VNIC',exc_info=True)
             raise OCISDKError("Failed to detach VNIC: %s" % e)
 
         if wait:
@@ -1390,7 +1413,7 @@ class OCIVNIC(OCIAPIAbstractResource):
                     self._att_data = vnic_att
             except Exception as e:
                 OCIVNIC._logger.debug(
-                    'sdk_call failed for detach() [%s]' % str(e))
+                    'sdk_call failed for detach() [%s]' % str(e),exc_info=True)
 
         return True
 
@@ -1478,22 +1501,31 @@ class OCIPrivateIP(OCIAPIAbstractResource):
                 self.get_ocid())
             return True
         except Exception as e:
+            OCIPrivateIP._logger.debug('delete failed', exc_info=True)
             OCIPrivateIP._logger.warning('delete failed [%s]' % str(e))
             return False
 
     def get_vnic(self):
         """
-        Get the virtual network interface card data.
+        Get the vNIC of this private ip.
 
         Returns
         -------
-            dict
-                The VNIC data.
+            OCIVNIC
+                The VNIC instance.
         """
         return self._oci_session.get_vnic(self._data.vnic_id)
 
     def get_vnic_ocid(self):
-        return self.data.vnic_id
+        """
+        Gets the VNIC id.
+        Note : return the value defined in the metadata which may differ
+               from instance returned by get_vnic() method
+        returns:
+        --------
+            str : vnic ocid
+        """
+        return self._data.vnic_id
 
     def get_address(self):
         """
@@ -1653,6 +1685,7 @@ class OCISecurityList(OCIAPIAbstractResource):
                     else:
                         desport = option.destination_port_range.min
                 except Exception:
+                    OCISecurityList._logger.debug('error during print', exc_info=True)
                     pass
 
                 try:
@@ -1663,6 +1696,7 @@ class OCISecurityList(OCIAPIAbstractResource):
                     else:
                         srcport = option.source_port_range.min
                 except Exception:
+                    OCISecurityList._logger.debug('error during print', exc_info=True)
                     pass
             elif rule.protocol == "1":
                 srcport = "-"
@@ -1671,6 +1705,7 @@ class OCISecurityList(OCIAPIAbstractResource):
                 try:
                     desport = "type-%s" % option.type
                 except Exception:
+                    OCISecurityList._logger.debug('error during print', exc_info=True)
                     pass
                 try:
                     des = "code-%s" % option.code
@@ -1683,8 +1718,10 @@ class OCISecurityList(OCIAPIAbstractResource):
             prot = OCISecurityList.protocol.get(rule.protocol, rule.protocol)
             des = rule.destination
             src = "---"
-            if rule.protocol == 6 or rule.protocol == 17:
-                if rule.protocol == 6:
+            desport = "-"
+            srcport = "-"
+            if rule.protocol == "6" or rule.protocol == "17":
+                if rule.protocol == "6":
                     option = rule.tcp_options
                 else:
                     option = rule.udp_options
@@ -1709,7 +1746,7 @@ class OCISecurityList(OCIAPIAbstractResource):
 
                 except Exception:
                     srcport = "-"
-            elif rule.protocol == 1:
+            elif rule.protocol == "1":
                 srcport = "-"
                 option = rule.icmp_options
                 try:
@@ -1813,6 +1850,15 @@ class OCISubnet(OCIAPIAbstractResource):
                 The cidr block.
         """
         return self._data.cidr_block
+    def is_public_ip_on_vnic_allowed(self):
+        """
+        Checks if public PI allowed in vnic of this subnet
+        Returns:
+        --------
+            bool
+                True if allowed
+        """
+        return not self._data.prohibit_public_ip_on_vnic
 
     def get_vcn_id(self):
         """
@@ -1863,7 +1909,7 @@ class OCISubnet(OCIAPIAbstractResource):
         if self._vnics is not None and len(self._vnics) > 0 and not refresh:
             return self._vnics
         compartment = self._oci_session.get_compartment(
-            self._data.compartment_id)
+            ocid=self._data.compartment_id)
         if compartment is None:
             OCISubnet._logger.warning('all_vnics() cannot get compartment')
             return []
@@ -1939,6 +1985,8 @@ class OCISubnet(OCIAPIAbstractResource):
                 nc.list_private_ips,
                 subnet_id=self.get_ocid()).data
         except Exception as e:
+            OCISubnet._logger.debug(
+                'all_private_ips() sdk_call failed', exc_info=True)
             OCISubnet._logger.warning(
                 'all_private_ips() sdk_call failed [%s]' % str(e))
             return []
@@ -1974,6 +2022,8 @@ class OCISubnet(OCIAPIAbstractResource):
                 nc.list_private_ips,
                 subnet_id=self.get_ocid()).data
         except Exception as e:
+            OCISubnet._logger.debug(
+                'all_private_ips() sdk_call failed', exc_info=True)
             OCISubnet._logger.warning(
                 'all_private_ips() sdk_call failed [%s]' % str(e))
             return []
@@ -2313,6 +2363,8 @@ class OCIVolume(OCIAPIAbstractResource):
             return self._oci_session.get_volume(vol_att.data.volume_id,
                                                 refresh=True)
         except oci_sdk.exceptions.ServiceError as e:
+            OCIVolume._logger.debug(
+                'Failed to attach volume', exc_info=True)
             raise OCISDKError('Failed to attach volume: %s' % e.message)
 
     def detach(self, wait=True):
@@ -2349,6 +2401,8 @@ class OCIVolume(OCIAPIAbstractResource):
                 cc.detach_volume,
                 volume_attachment_id=self.att_data.id)
         except oci_sdk.exceptions.ServiceError as e:
+            OCIVolume._logger.debug(
+                'Failed to detach volume', exc_info=True)
             raise OCISDKError('Failed to detach volume: %s' % e.message)
         _tries = 3
         vol_att = None
@@ -2359,6 +2413,7 @@ class OCIVolume(OCIAPIAbstractResource):
                         cc.get_volume_attachment,
                         self.att_data.id).data
                 except Exception as e:
+                    OCIVolume._logger.debug('sdk_call failed', exc_info=True)
                     OCIVolume._logger.warning(
                         'sdk_call failed checking state of '
                         'volume [%s]' % str(e))
@@ -2393,4 +2448,5 @@ class OCIVolume(OCIAPIAbstractResource):
             self._oci_session.sdk_call(bsc.delete_volume,
                                        volume_id=self._ocid)
         except Exception as e:
+            OCIVolume._logger.debug('Failed to destroy volume', exc_info=True)
             raise OCISDKError("Failed to destroy volume: %s" % e)

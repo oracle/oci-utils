@@ -6,7 +6,6 @@
 
 """ Module with oci migrate related exceptions.
 """
-import sys
 
 
 class OciMigrateException(Exception):
@@ -23,11 +22,11 @@ class OciMigrateException(Exception):
         message: str
             The exception message.
         """
-        self.message = message
-        assert (self.message is not None), 'No exception message given'
+        self._message = message
+        assert (self._message is not None), 'No exception message given'
 
-        if self.message is None:
-            self.message = 'An exception occurred, no further information'
+        if self._message is None:
+            self._message = 'An exception occurred, no further information'
 
     def __str__(self):
         """
@@ -38,7 +37,8 @@ class OciMigrateException(Exception):
         str
             The error message.
         """
-        return str(self.message)
+        return str(self._message)
+
 
 class NoSuchCommand(OciMigrateException):
     """ Exception for command not found.
@@ -52,9 +52,8 @@ class NoSuchCommand(OciMigrateException):
         command: str
             The missing command, exec or script.
         """
-        self.command = command
-        assert (self.command is not None), 'No command given'
-
+        self._command = command
+        assert (self._command is not None), 'No command given'
 
     def __str__(self):
         """

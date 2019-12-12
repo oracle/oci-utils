@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # oci-utils
 #
 # Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
@@ -290,7 +288,7 @@ class OCIMetadata(dict):
                 The converted metadata.
         """
         # merge extendedMetadata into metadata
-        if 'instance' in metadata:
+        if 'instance' in metadata and metadata['instance'] is not None:
             if 'metadata' in metadata['instance']:
                 if 'extendedMetadata' in metadata['instance']:
                     v = metadata['instance'].pop('extendedMetadata')
@@ -360,8 +358,11 @@ class OCIMetadata(dict):
         for key in keys:
             key = key.replace("extendedMetadata", "metadata").replace(
                 "extendedmetadata", "metadata")
-            if key.find('-') >= 0:
-                key = key.replace('-', '_')
+            #
+            # fixing issues with oci-metadata not working with hyphenated
+            # keys; this was done initially to be consistent with the OCI SDK.
+            # if key.find('-') >= 0:
+            #     key = key.replace('-', '_')
 
             if key.find('/') >= 0:
                 # key is a path
@@ -561,7 +562,7 @@ class InstanceMetadata(object):
             self.refresh()
         else:
             assert type(oci_metadata) is \
-                   OCIMetadata, "input should be an OCIMetadata object"
+                OCIMetadata, "input should be an OCIMetadata object"
             self._metadata = oci_metadata
 
     def refresh(self, get_public_ip=False):
@@ -578,6 +579,7 @@ class InstanceMetadata(object):
             boolean
                 True for success, False for failure.
         """
+        _logger.debug('refreshing metada')
         metadata = {}
         result = True
 
@@ -612,6 +614,7 @@ class InstanceMetadata(object):
         if metadata:
             self._metadata = OCIMetadata(metadata)
 
+        _logger.debug('metadata after refresh [%s]' % str(self._metadata))
         return result
 
     def filter(self, keys):

@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
@@ -47,6 +45,20 @@ class TestCliOciIscsiConfig(unittest.TestCase):
             self.fail('Execution has failed: %s' % str(e))
 
     def test_show_no_check(self):
+        """
+        Test basic run of --show command. We do not check out.
+
+        Returns
+        -------
+            No return value.
+        """
+        try:
+            _ = subprocess.check_output([TestCliOciIscsiConfig.ISCSI_CONFIG,
+                                         '--show'])
+        except Exception, e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_show_all_no_check(self):
         """
         Test basic run of --show command. We do not check out.
 

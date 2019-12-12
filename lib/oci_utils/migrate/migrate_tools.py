@@ -8,90 +8,25 @@
 """
 import logging
 import os
+import six
 import stat
 import subprocess
 import sys
-import termios
 import threading
 import time
-import tty
+
 from datetime import datetime
+from oci_utils.migrate.exception import NoSuchCommand
+from oci_utils.migrate.exception import OciMigrateException
 
-import six
-from oci_migrate.migrate.exception import NoSuchCommand
-from oci_migrate.migrate.exception import OciMigrateException
-
-logger = logging.getLogger('oci-utils.oci-image-migrate')
+_logger = logging.getLogger('oci-utils.migrate-tools')
 debugflag = False
 verboseflag = False
 thistime = datetime.now().strftime('%Y%m%d%H%M')
-resultfilename = '/tmp/oci_image_migrate_' + thistime
+resultfilename = '/tmp/oci_image_migrate_result.dat'
 nameserver = '8.8.8.8'
-
-
-def getch():
-    """
-    Read a single keypress from stdin.
-
-    Returns
-    -------
-        The resulting character.
-    """
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-    try:
-        tty.setraw(fd)
-        ch = sys.stdin.read(1)
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    return ch
-
-
-def read_yn(prompt, yn=True):
-    """
-    Read yes or no form stdin, No being the default.
-
-    Parameters
-    ----------
-        prompt: str
-            The message.
-        yn: bool
-            Add (y/N) to the prompt if True.
-    Returns
-    -------
-        bool: True on yes, False otherwise.
-    """
-    thisprmpt = prompt + ' '
-    if yn:
-        thisprmpt += ' (y/N) '
-    sys.stdout.write(thisprmpt)
-    yn = getch()
-    sys.stdout.write('\n')
-    if yn.upper() == 'Y':
-        return True
-    else:
-        return False
-
-
-def pause_msg(msg=None):
-    """
-    pause function.
-
-    Parameters
-    ----------
-    msg: str
-        Eventual pause message.
-
-    Returns
-    -------
-        No return value.
-    """
-    if os.environ.get('OCIPAUSE'):
-        logger.debug('%s' % msg)
-        ban0 = '\n  Press a key to continue'
-        if msg is not None:
-            ban0 = '\n  %s' % msg + ban0
-        _ = read_yn(ban0, False)
+migrate_preparation = True
+migrate_non_upload_reason = ''
 
 
 def error_msg(msg=None):
@@ -107,7 +42,7 @@ def error_msg(msg=None):
     -------
         No return value
     """
-    logger.error('%s' % msg)
+    _logger.error('%s' % msg)
     if msg is not None:
         msg = '  *** ERROR *** %s' % msg
     else:
@@ -116,26 +51,6 @@ def error_msg(msg=None):
     sys.stderr.flush()
     result_msg(msg=msg)
     time.sleep(1)
-
-
-def exit_msg(msg, exitcode=1):
-    """
-    Post a message on stdout and exit.
-
-    Parameters
-    ----------
-    msg: str
-        The exit message.
-    exitcode: int
-        The exit code, default is 1.
-
-    Returns
-    -------
-        No return value.
-    """
-    logger.critical('%s' % msg)
-    sys.stderr.write('\n  %s\n' % msg)
-    exit(exitcode)
 
 
 def result_msg(msg, flags='a', result=False):
@@ -156,12 +71,12 @@ def result_msg(msg, flags='a', result=False):
     -------
         No return value.
     """
-    logger.debug('%s' % msg)
+    _logger.debug('%s' % msg)
     try:
         with open(resultfilename, flags) as f:
-            f.write('%s\n' % msg)
+            f.write('  %s\n' % msg)
     except Exception as e:
-        logger.error('Failed to write to %s: %s' % (resultfilename, str(e)))
+        _logger.error('Failed to write to %s: %s' % (resultfilename, str(e)))
     if result:
         if msg is not None:
             print('  %s' % msg)
@@ -225,23 +140,14 @@ def dir_exists(dirpath):
     -------
         bool: True on success, False otherwise.
     """
-    logger.info('Directory full path name: %s' % dirpath)
+    _logger.debug('Directory full path name: %s' % dirpath)
     #
-    # path exists
-    if os.path.exists(dirpath):
-        logger.debug('Path %s exists' % dirpath)
-    else:
-        logger.debug('Path %s does not exist.' % dirpath)
+    try:
+        return stat.S_ISDIR(os.stat(dirpath).st_mode)
+    except Exception as e:
+        _logger.debug('Path %s does not exist or is not a valid directory: %s' %
+                     (dirpath, str(e)))
         return False
-    #
-    # is a directory
-    image_st = os.stat(dirpath)[stat.ST_MODE]
-    if stat.S_ISDIR(image_st):
-        logger.debug('Path %s is directory.' % dirpath)
-    else:
-        logger.debug('Path %s is not a directory.' % dirpath)
-        return False
-    return True
 
 
 def file_exists(filepath):
@@ -257,23 +163,14 @@ def file_exists(filepath):
     -------
         bool: True on success, False otherwise.
     """
-    logger.info('File full path name: %s' % filepath)
+    _logger.debug('File full path name: %s' % filepath)
     #
-    # file exists
-    if os.path.exists(filepath):
-        logger.debug('File %s exists' % filepath)
-    else:
-        logger.debug('File %s does not exist.' % filepath)
+    try:
+        return stat.S_ISREG(os.stat(filepath).st_mode)
+    except Exception as e:
+        _logger.debug('Path %s does not exist or is not a valid regular file: '
+                     '%s' % (filepath, str(e)))
         return False
-    #
-    # is a regular file
-    image_st = os.stat(filepath)[stat.ST_MODE]
-    if stat.S_ISREG(image_st):
-        logger.debug('File %s is regular file' % filepath)
-    else:
-        logger.debug('File %s is not a regular file.' % filepath)
-        return False
-    return True
 
 
 def link_exists(linkpath):
@@ -289,18 +186,18 @@ def link_exists(linkpath):
     -------
         bool: True on success, false otherwise.
     """
-    logger.info('Link full path name: %s' % linkpath)
-    if os.path.islink(linkpath):
-        logger.debug('%s is a symbolic link' % linkpath)
-        return True
-    else:
-        logger.debug('%s does not exist or is not a symbolic link.' % linkpath)
+    _logger.debug('Link full path name: %s' % linkpath)
+    try:
+        return os.path.islink(linkpath)
+    except Exception as e:
+        _logger.debug('%s is not a symbolic link or does not exist: %s' %
+                     (linkpath, str(e)))
         return False
 
 
 def get_magic_data(image):
     """
-    Perform elementary on the file.
+    Collect the magic number of the image file.
 
     Parameters
     ----------
@@ -316,10 +213,10 @@ def get_magic_data(image):
     try:
         with open(image, 'rb') as f:
             magic = f.read(4)
-            magic_hex =bytes_to_hex_str(magic)
-            logger.debug('Image magic number: %8s' % magic_hex)
+            magic_hex = bytes_to_hex_str(magic)
+            _logger.debug('Image magic number: %8s' % magic_hex)
     except Exception as e:
-        logger.critical('Image %s is not accessible: 0X%s' % (image, str(e)))
+        _logger.critical('Image %s is not accessible: 0X%s' % (image, str(e)))
     return magic_hex
 
 
@@ -364,74 +261,33 @@ def exec_rename(fromname, toname):
         #
         # if file or directory
         if os.path.exists(toname):
-            logger.debug('%s already exists' % toname)
+            _logger.debug('%s already exists' % toname)
             if os.path.isfile(toname):
                 os.remove(toname)
             elif os.path.isdir(toname):
                 os.rmdir(toname)
             else:
-                logger.error('Failed to remove %s.' % toname)
+                _logger.error('Failed to remove %s.' % toname)
         if os.path.islink(toname):
-            logger.debug('%s already exists as a symbolic link.' % toname)
+            _logger.debug('%s already exists as a symbolic link.' % toname)
             if os.unlink(toname):
-                logger.debug('Removed symbolic link %s' % toname)
+                _logger.debug('Removed symbolic link %s' % toname)
             else:
-                logger.error('Failed to remove symbolic link %s' % toname)
+                _logger.error('Failed to remove symbolic link %s' % toname)
 
         if os.path.exists(fromname) or os.path.islink(fromname):
-            logger.debug('%s exists and is a file.' % fromname)
+            _logger.debug('%s exists and is a file.' % fromname)
             os.rename(fromname, toname)
-            logger.debug('Renamed %s to %s.' % (fromname, toname))
+            _logger.debug('Renamed %s to %s.' % (fromname, toname))
             return True
         else:
-            logger.error('%s does not exists' % fromname)
+            _logger.error('%s does not exists' % fromname)
 
     except Exception as e:
-        logger.error('Failed to rename %s to %s: %s' % (fromname, toname, str(e)))
+        _logger.error('Failed to rename %s to %s: %s' % (fromname, toname, str(e)))
         raise OciMigrateException('Failed to rename %s to %s: %s'
                                   % (fromname, toname, str(e)))
     return False
-
-
-def run_call_cmd(command):
-    """
-    Execute an os command with as only return True or False.
-
-    Parameters
-    ----------
-    command: list
-        The os command and its arguments.
-
-    Returns
-    -------
-        int: The return value from the command.
-    """
-    logger.debug('%s' % command)
-    if exec_exists(command[0]):
-        logger.debug('running %s' % command)
-        try:
-            return subprocess.check_call(command,
-                                         stdout=open(os.devnull, 'wb'),
-                                         stderr=open(os.devnull, 'wb'),
-                                         shell=False)
-        except subprocess.CalledProcessError as chkcallerr:
-            logger.error('Subprocess error encountered while running '
-                         '%s: %s' % (command, str(chkcallerr)), exc_info=True)
-            raise OciMigrateException('Subprocess error encountered while '
-                                      'running %s: %s' % (command, str(chkcallerr)))
-        except OSError as oserr:
-            logger.error('OS error encountered while running '
-                         '%s: %s' % (command, str(oserr)), exc_info=True)
-            raise OciMigrateException('OS error encountered while running '
-                                      '%s: %s' % (command, str(oserr)))
-        except Exception as e:
-            logger.error('Error encountered while running '
-                         '%s: %s' % (command, str(e)), exc_info=True)
-            raise OciMigrateException('Error encountered while running '
-                                      '%s: %s' % (command, str(e)))
-    else:
-        logger.critical('%s not found.' % command[0])
-        raise NoSuchCommand(command[0])
 
 
 def run_popen_cmd(command):
@@ -448,19 +304,19 @@ def run_popen_cmd(command):
         <type>: The output of the command on success, raises an exception on
         failure.
     """
-    logger.debug('%s command' % command)
+    _logger.debug('%s command' % command)
     if exec_exists(command[0]):
-        logger.debug('running %s' % command)
+        _logger.debug('running %s' % command)
         try:
             thisproc = subprocess.Popen(command,
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE)
             output, error = thisproc.communicate()
             retcode = thisproc.returncode
-            logger.debug('return code for %s: %s' % (command, retcode))
+            _logger.debug('return code for %s: %s' % (command, retcode))
             if retcode != 0:
                 if error:
-                    logger.error('Error occured while '
+                    _logger.debug('Error occured while '
                                  'running %s: %s - %s'
                                  % (command, retcode, error), exc_info=True)
                 raise OciMigrateException('Error encountered while '
@@ -475,7 +331,7 @@ def run_popen_cmd(command):
             raise OciMigrateException('Error encountered while running %s: %s'
                                       % (command, str(e)))
     else:
-        logger.critical('%s not found.' % command[0])
+        _logger.critical('%s not found.' % command[0])
         raise NoSuchCommand(command[0])
 
 
@@ -488,7 +344,7 @@ def get_nameserver():
     bool: True on success, False otherwise.
     """
     global nameserver
-    logger.debug("Getting nameservers.")
+    _logger.debug("Getting nameservers.")
     dnslist = []
     cmd = ['nmcli', 'dev', 'show']
     try:
@@ -497,10 +353,10 @@ def get_nameserver():
             if 'DNS' in nmitem.split(':')[0]:
                 dnslist.append(nmitem.split(':')[1].lstrip().rstrip())
         nameserver = dnslist[0]
-        logger.debug('Nameserver set to %s' % nameserver)
+        _logger.debug('Nameserver set to %s' % nameserver)
         return True
     except Exception as e:
-        logger.error('Failed to identify nameserver: %s.' % str(e))
+        _logger.error('Failed to identify nameserver: %s.' % str(e))
         return False
 
 
@@ -522,7 +378,7 @@ def set_nameserver():
                 or os.path.isdir(resolvpath):
             exec_rename(resolvpath, resolvpath + '_' + thistime)
         else:
-            logger.debug('No %s found' % resolvpath)
+            _logger.debug('No %s found' % resolvpath)
         #
         # write new
         with open(resolvpath, 'wb') as f:
@@ -550,13 +406,13 @@ def restore_nameserver():
         if file_exists(resolvpath):
             exec_rename(resolvpath, resolvpath + '_temp_' + thistime)
         else:
-            logger.debug('No %s found.' % resolvpath)
+            _logger.debug('No %s found.' % resolvpath)
         #
         # restore original one
         if file_exists(resolvpath + '_' + thistime):
             exec_rename(resolvpath + '_' + thistime, resolvpath)
         else:
-            logger.debug('No %s found.' % resolvpath + '_' + thistime)
+            _logger.debug('No %s found.' % resolvpath + '_' + thistime)
         return True
     except Exception as e:
         error_msg('Failed to restore nameserver: %s'
@@ -578,39 +434,46 @@ def isthreadrunning(threadid):
     -------
         bool: True on success, False otherwise.
     """
-    logger.debug('Testing thread.')
+    _logger.debug('Testing thread.')
     if threadid in threading.enumerate():
         return True
     else:
         return False
 
 
-class ProGressBar(threading.Thread):
+class ProgressBar(threading.Thread):
     """
     Class to generate an indication of progress, does not actually
     measure real progress, just shows the process is not hanging.
-
-    Attributes
-    ----------
-    llength: int
-        Length of the progress bar.
-    iinterval: float
-        Interval in sec of change.
-    progarr: list
-        List of char or str to use; the list is mirrored before use.
     """
-    def __init__(self, llength, iinterval, progarr=None):
+    _default_progress_chars = ['-', '/', '|', '\\']
+
+    def __init__(self, bar_length, progress_interval, progress_chars=None):
+        """
+        Progressbar initialisation.
+
+        Parameters:
+        ----------
+        bar_length: int
+            Length of the progress bar.
+        progress_interval: float
+            Interval in sec of change.
+        progress_chars: list
+            List of char or str to use; the list is mirrored before use.
+        """
         self._stopthread = threading.Event()
         threading.Thread.__init__(self)
-        self.llen = llength
-        self.iint = iinterval
-        if progarr is None:
-            self.prog2 = ['-', '/', '|', '\\']
+        self._bar_len = bar_length
+        self._prog_int = progress_interval
+        if progress_chars is None:
+            self.prog_chars = self._default_progress_chars
         else:
-            self.prog2 = progarr
-            lll = len(progarr)
-            for i in range(1, lll-1):
-                self.prog2.append(progarr[lll-i-1])
+            #
+            # compose list of characters to use in progress bar.
+            self.prog_chars = progress_chars
+            prog_char_len = len(self.progress_chars)
+            for i in range(1, prog_char_len-1):
+                self.prog_chars.append(progress_chars[prog_char_len-i-1])
         self.stopthis = False
 
     def run(self):
@@ -621,26 +484,28 @@ class ProGressBar(threading.Thread):
         -------
             No return value.
         """
-        ll = len(self.prog2)
-        lt = len(self.prog2[0]) * self.llen
-        empty = ' '*lt
+        prog_char_len = len(self.prog_chars)
+        prog_bar_len = len(self.prog_chars[0]) * self._bar_len
+        empty = ' '*prog_bar_len
         sys.stdout.write('  [%s]\r  [' % empty)
         sys.stdout.flush()
         i = 0
-        j = i%ll
+        j = i%prog_char_len
         k = 0
         while True:
-            sys.stdout.write('%s' % self.prog2[j])
+            sys.stdout.write('%s' % self.prog_chars[j])
             sys.stdout.flush()
             k += 1
-            if k == self.llen:
+            if k == self._bar_len:
                 k = 0
                 i += 1
-                j = i%ll
+                j = i%prog_char_len
                 sys.stdout.write(']\r  [')
                 sys.stdout.flush()
-            time.sleep(self.iint)
+            time.sleep(self._prog_int)
             if self.stopthis:
+                sys.stdout.write('\r  [%s]\r  [' % empty)
+                sys.stdout.flush()
                 break
 
     def stop(self):

@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # oci-utils
 #
 # Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
@@ -12,9 +10,9 @@
 import logging
 import subprocess
 import os
-from . import SUDO_CMD
+from . import (SUDO_CMD, CAT_CMD, RM_CMD, SH_CMD, CP_CMD, TOUCH_CMD, CHMOD_CMD)
 
-__all__ = ['call', 'call_output', 'call_popen_output']
+__all__ = ['call', 'call_output', 'call_popen_output', 'delete_file', 'copy_file', 'write_to_file']
 
 _logger = logging.getLogger('oci-utils.sudo')
 
@@ -150,4 +148,89 @@ def delete_file(path):
     -------
         The return code fo the delete command.
     """
-    return call(['/bin/rm', '-f', path])
+    return call([RM_CMD, '-f', path])
+
+
+def copy_file(path, newpath):
+    """
+    Copy a file.
+
+    Parameters
+    ----------
+    path: str
+        The full path of the file.
+    newpath: str
+        The full destination path.
+    Returns
+    -------
+        The return code fo the delete command.
+    """
+    return call([CP_CMD, '--archive', path, newpath])
+
+
+def write_to_file(path, content):
+    """
+    Overwrite content of a file with given content
+
+    Parameters
+    ----------
+    path: str
+        The full path of the file.
+    content: str
+        The text to be writen
+
+    Returns
+    -------
+        The return code fo the cat(1) command.
+    """
+
+    _c = _prepare_command([SH_CMD, '-c', '%s > %s' % (CAT_CMD, path)])
+    (_, err) = subprocess.Popen(_c,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                stdin=subprocess.PIPE).communicate(content)
+    if err:
+        _logger.debug("Error writing content to file: %s" % err)
+        return 1
+    return 0
+
+
+def create_file(path, mode=None):
+    """
+    create a file
+
+    Parameters
+    ----------
+    path: str
+        The full path of the file.
+    mode: str
+        the mode to apply to the file
+
+    Returns
+    -------
+        The return code fo the cat(1) command.
+    """
+    _logger.debug("creating file : %s" % path)
+    res = call([TOUCH_CMD,  path])
+    if res == 0 and mode is not None:
+        res = set_file_mode(path, mode)
+    return res
+
+
+def set_file_mode(path, mode=None):
+    """
+    set access mode of a  file
+
+    Parameters
+    ----------
+    path: str
+        The full path of the file.
+    mode: str
+        the mode to apply to the file
+
+    Returns
+    -------
+        The return code fo the chmod(1) command.
+    """
+    _logger.debug("applying mode  %s to file %s" % (mode, path))
+    return call([CHMOD_CMD, mode, path])

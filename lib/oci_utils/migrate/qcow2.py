@@ -11,10 +11,10 @@ import logging
 import os
 import struct
 
-from oci_migrate.migrate import gen_tools
-from oci_migrate.migrate.imgdevice import DeviceData
-from oci_migrate.migrate.migrate_utils import gigabyte as gigabyte
-from oci_migrate.migrate.migrate_utils import OciMigrateException
+from oci_utils.migrate import migrate_tools
+from oci_utils.migrate.imgdevice import DeviceData
+from oci_utils.migrate.migrate_utils import gigabyte as gigabyte
+from oci_utils.migrate.migrate_utils import OciMigrateException
 
 """
   typedef struct QCowHeader {
@@ -39,6 +39,8 @@ format_data = {'514649fb': {'name': 'qcow2',
                             'clazz': 'Qcow2Head',
                             'prereq': {'MAX_IMG_SIZE_GB': 300.0}}}
 
+_logger = logging.getLogger('oci-utils.qcow2')
+
 
 class Qcow2Head(DeviceData):
     """
@@ -46,14 +48,12 @@ class Qcow2Head(DeviceData):
 
     Attributes
     ----------
-        filename: str
-            The full path of the vmdk image file.
         stat: tuple
             The image file stat data.
         img_tag: str
             The bare file name.
         qcowhead_dict: dict
-            The VMDK file header as a dictionary.
+            The qcow2 file header as a dictionary.
     """
     # qcow2 header definition:
     uint32_t = 'I'  # 32bit unsigned int
@@ -79,8 +79,7 @@ class Qcow2Head(DeviceData):
 
     # struct format string
     qcowhead_fmt = '>' + ''.join(f[0] for f in header2_structure)
-    head_size = struct.calcsize((qcowhead_fmt))
-    _logger = logging.getLogger('oci-utils.oci-image-migrate')
+    head_size = struct.calcsize(qcowhead_fmt)
 
     def __init__(self, filename):
         """
@@ -91,29 +90,29 @@ class Qcow2Head(DeviceData):
         filename: str
             Full path of the qcow2 image file.
         """
-        self._logger.info('qcow2 header size: %d bytes' % self.head_size)
+        _logger.debug('qcow2 header size: %d bytes' % self.head_size)
         super(Qcow2Head, self).__init__(filename)
         head_size = struct.calcsize(Qcow2Head.qcowhead_fmt)
 
         try:
-            with open(self.fn, 'rb') as f:
+            with open(self._fn, 'rb') as f:
                 head_bin = f.read(head_size)
-                self._logger.debug('%s header successfully read' % self.fn)
+                _logger.debug('%s header successfully read' % self._fn)
         except Exception as e:
-            self._logger.critical(
-                'Failed to read header of %s: %s' % (self.fn, str(e)))
+            _logger.critical(
+                'Failed to read header of %s: %s' % (self._fn, str(e)))
             raise OciMigrateException(
-                'Failed to read the header of %s: %s' % (self.fn, str(e)))
+                'Failed to read the header of %s: %s' % (self._fn, str(e)))
 
         qcow2header = struct.unpack(Qcow2Head.qcowhead_fmt, head_bin)
 
-        self.stat = os.stat(self.fn)
-        self.img_tag = os.path.splitext(os.path.split(self.fn)[1])[0]
+        self.stat = os.stat(self._fn)
+        self.img_tag = os.path.splitext(os.path.split(self._fn)[1])[0]
         self.qcowhead_dict = dict((name[2], qcow2header[i]) for i, name in
                                   enumerate(Qcow2Head.header2_structure))
         self.img_header = dict()
         self.img_header['head'] = self.qcowhead_dict
-        gen_tools.result_msg(msg='Got image %s header' % filename, result=True)
+        migrate_tools.result_msg(msg='Got image %s header' % filename, result=True)
 
     def show_header(self):
         """
@@ -123,11 +122,11 @@ class Qcow2Head(DeviceData):
         -------
             No return value.
         """
-        gen_tools.result_msg(msg='\n  %30s\n  %30s'
+        migrate_tools.result_msg(msg='\n  %30s\n  %30s'
                                  % ('QCOW2 file header data', '-'*30),
                              result=False)
         for f in Qcow2Head.header2_structure:
-            gen_tools.result_msg(msg=''.join(["  %-30s" % f[2], f[1]
+            migrate_tools.result_msg(msg=''.join(["  %-30s" % f[2], f[1]
                                               % self.qcowhead_dict[f[2]]]),
                                  result=False)
 
@@ -144,7 +143,7 @@ class Qcow2Head(DeviceData):
         img_sz = {'physical': float(self.stat.st_size)/gigabyte,
                   'logical': float(self.qcowhead_dict['size'])/gigabyte}
 
-        gen_tools.result_msg(
+        migrate_tools.result_msg(
             msg='Image size: physical %10.2f GB, logical %10.2f GB' %
             (img_sz['physical'], img_sz['logical']), result=True)
         return img_sz
@@ -183,22 +182,22 @@ class Qcow2Head(DeviceData):
             bool: True on success, False otherwise;
             dict: The image data.
         """
-        self._logger.debug('image data: %s' % self.fn)
+        _logger.debug('image data: %s' % self._fn)
         # self.devicename = None
         #
         # initialise the dictionary for the image data
-        self.img_info['img_name'] = self.fn
-        self.img_info['img_type'] = 'qcow2'
-        self.img_info['img_header'] = self.img_header
-        self.img_info['img_size'] = self.image_size()
+        self._img_info['img_name'] = self._fn
+        self._img_info['img_type'] = 'qcow2'
+        self._img_info['img_header'] = self.img_header
+        self._img_info['img_size'] = self.image_size()
         #
         # mount the image using the nbd.
         try:
             result = self.handle_image()
         except Exception as e:
-            self._logger.critical('ERROR %s' % str(e))
+            _logger.critical('ERROR %s' % str(e))
             raise OciMigrateException(str(e))
-        return result, self.img_info
+        return result, self._img_info
 
     def type_specific_prereq_test(self):
         """
@@ -214,18 +213,18 @@ class Qcow2Head(DeviceData):
         #
         # size:
         thispass = True
-        if self.img_info['img_size']['logical'] > prereqs['MAX_IMG_SIZE_GB']:
-            self._logger.critical(
+        if self._img_info['img_size']['logical'] > prereqs['MAX_IMG_SIZE_GB']:
+            _logger.critical(
                 'Image size %8.2f GB exceeds maximum allowed %8.2f GB'
                 % (prereqs['MAX_IMG_SIZE_GB'],
-                   self.img_info['img_size']['logical']))
+                   self._img_info['img_size']['logical']))
             failmsg += '\n  Image size %8.2f GB exceeds maximum allowed ' \
                        '%8.2f GB' % (prereqs['MAX_IMG_SIZE_GB'],
-                                     self.img_info['img_size']['logical'])
+                                     self._img_info['img_size']['logical'])
             thispass = False
         else:
             failmsg += '\n  Image size %8.2f GB meets maximum allowed size ' \
-                       'of %8.2f GB' % (self.img_info['img_size']['logical'],
+                       'of %8.2f GB' % (self._img_info['img_size']['logical'],
                                         prereqs['MAX_IMG_SIZE_GB'])
 
         return thispass, failmsg

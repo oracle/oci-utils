@@ -4,7 +4,6 @@ After=iscsid.service
 
 [Service]
 Type=notify
-Environment=PYTHONUNBUFFERED=true
 ExecStart=/usr/libexec/ocid
 PIDFile=/var/run/ocid.pid
 Restart=always

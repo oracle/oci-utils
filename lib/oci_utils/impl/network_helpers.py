@@ -14,6 +14,7 @@ import logging
 import shutil
 from socket import inet_ntoa
 from struct import pack
+import sudo_utils
 import re
 
 __all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route_table',
@@ -88,7 +89,7 @@ def get_interfaces():
                 for line in subprocess.check_output(
                         ['/usr/sbin/ip', 'link', 'show', n]).splitlines():
                     line = line.strip()
-                    if not line.startswith('vf '):
+                    if not str(line).startswith('vf '):
                         continue
 
                     ents = line.split(' ')
@@ -168,8 +169,10 @@ def add_route_table(table_name):
 
     # first , find a free number for the table
     tables_num = []
+    _all_new_lines = []
     with open('/etc/iproute2/rt_tables') as f:
         for line in f.readlines():
+            _all_new_lines.append(line)
             if len(line.strip()) > 0 and not line.startswith('#'):
                 # trust the format of that file
                 tables_num.append(int(line.split()[0]))
@@ -179,8 +182,17 @@ def add_route_table(table_name):
             _new_table_num_to_use = n
             break
     _logger.debug('new table index : %d' % _new_table_num_to_use)
-    with open('/etc/iproute2/rt_tables', 'a') as f:
-        f.write('%d\t%s\n' % (_new_table_num_to_use, table_name))
+    _all_new_lines.append('%d\t%s\n' % (_new_table_num_to_use, table_name))
+
+    if sudo_utils.copy_file('/etc/iproute2/rt_tables', '/etc/iproute2/rt_tables.bck') != 0:
+        _logger.debug('cannot backup file [%s] to %s' % ('/etc/iproute2/rt_tables', '/etc/iproute2/rt_tables.bck'))
+        return False
+    if sudo_utils.write_to_file('/etc/iproute2/rt_tables', ''.join(_all_new_lines)) != 0:
+        _logger.debug('cannot write new content to  file [%s]' '/etc/iproute2/rt_tables')
+        sudo_utils.copy_file('/etc/iproute2/rt_tables.bck', '/etc/iproute2/rt_tables')
+        return False
+    else:
+        sudo_utils.delete_file('/etc/iproute2/rt_tables.bck')
 
     return True
 
@@ -209,22 +221,15 @@ def delete_route_table(table_name):
                 continue
             _all_new_lines.append(line)
 
-    shutil.copy2('/etc/iproute2/rt_tables', '/etc/iproute2/rt_tables.bck')
-
-    table_file = None
-    _something_wrong = False
-    try:
-        table_file = open('/etc/iproute2/rt_tables', 'w')
-        table_file.writelines(_all_new_lines)
-    except:
-        _something_wrong = True
-    finally:
-        if table_file:
-            table_file.close()
-        if _something_wrong:
-            shutil.move('/etc/iproute2/rt_tables.bck', '/etc/iproute2/rt_tables')
-        else:
-            os.remove('/etc/iproute2/rt_tables.bck')
+    if sudo_utils.copy_file('/etc/iproute2/rt_tables', '/etc/iproute2/rt_tables.bck') != 0:
+        _logger.debug('cannot backup file [%s] to %s' % ('/etc/iproute2/rt_tables', '/etc/iproute2/rt_tables.bck'))
+        return False
+    if sudo_utils.write_to_file('/etc/iproute2/rt_tables', ''.join(_all_new_lines)) != 0:
+        _logger.debug('cannot write new content to  file [%s]' '/etc/iproute2/rt_tables')
+        sudo_utils.copy_file('/etc/iproute2/rt_tables.bck', '/etc/iproute2/rt_tables')
+        return False
+    else:
+        sudo_utils.delete_file('/etc/iproute2/rt_tables.bck')
 
     return True
 
@@ -260,12 +265,11 @@ def remove_static_ip_routes(link_name):
         pass
     _logger.debug('routes found [%s]' % _lines)
     for _line in _lines:
-        try:
-            _command = ['/sbin/ip', 'route', 'del']
-            _command.extend(_line.strip().split(' '))
-            subprocess.check_output(_command)
-        except subprocess.CalledProcessError, e:
-            _logger.warning('cannot delete route [%s]: %s' % (_line, str(e)))
+        _command = ['/sbin/ip', 'route', 'del']
+        _command.extend(_line.strip().split(' '))
+        _out = sudo_utils.call_output(_command)
+        if _out is not None and len(_out) > 0:
+            _logger.warning('removal of ip route (%s) failed' % _line)
 
 
 def add_static_ip_route(*args, **kwargs):
@@ -282,10 +286,10 @@ def add_static_ip_route(*args, **kwargs):
     routing_cmd = ['/usr/sbin/ip', 'route', 'add']
     routing_cmd.extend(args)
     _logger.debug('adding route : [%s]' % ' '.join(args))
-    try:
-        subprocess.check_output(routing_cmd, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        return (1, e.output)
+    _out = sudo_utils.call_output(routing_cmd)
+    if _out is not None and len(_out) > 0:
+        _logger.warning('add of ip route failed')
+        return (1, _out)
 
     if kwargs.get('script'):
         kwargs.get('script').write(' '.join(routing_cmd))
@@ -311,14 +315,14 @@ def remove_static_ip_rules(link_name):
         pass
     _logger.debug('rules found [%s]' % _lines)
     for _line in _lines:
-        try:
-            _command = ['/sbin/ip', 'rule', 'del']
-            # all line listed are like '<rule number>:\t<rule as string> '
-            # when underlying device is down (i.e virtual network is down) the command append '[detached]' we have to remove this
-            _command.extend(re.compile("\d:\t").split(_line.strip())[1].replace('[detached] ', '').split(' '))
-            subprocess.check_output(_command)
-        except subprocess.CalledProcessError, e:
-            _logger.warning('cannot delete rule [%s]: %s' % (' '.join(_command), str(e)))
+
+        _command = ['/sbin/ip', 'rule', 'del']
+        # all line listed are like '<rule number>:\t<rule as string> '
+        # when underlying device is down (i.e virtual network is down) the command append '[detached]' we have to remove this
+        _command.extend(re.compile("\d:\t").split(_line.strip())[1].replace('[detached] ', '').split(' '))
+        _out = sudo_utils.call_output(_command)
+        if _out is not None and len(_out) > 0:
+            _logger.warning('cannot delete rule [%s]: %s' % (' '.join(_command), str(_out)))
 
 
 def add_static_ip_rule(*args, **kwargs):
@@ -335,10 +339,10 @@ def add_static_ip_rule(*args, **kwargs):
     ip_rule_cmd = ['/usr/sbin/ip', 'rule', 'add']
     ip_rule_cmd.extend(args)
     _logger.debug('adding rule : [%s]' % ' '.join(args))
-    try:
-        subprocess.check_output(ip_rule_cmd, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        return (1, e.output)
+    _out = sudo_utils.call_output(ip_rule_cmd)
+    if _out is not None and len(_out) > 0:
+        _logger.warning('add of ip rule failed')
+        return (1, _out)
 
     if kwargs.get('script'):
         kwargs.get('script').write(' '.join(ip_rule_cmd))
@@ -360,10 +364,10 @@ def add_firewall_rule(*args, **kwargs):
     fw_rule_cmd = ['/usr/sbin/iptables']
     fw_rule_cmd.extend(args)
     _logger.debug('adding fw rule : [%s]' % ' '.join(args))
-    try:
-        subprocess.check_output(fw_rule_cmd, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        return (1, e.output)
+    _out = sudo_utils.call_output(fw_rule_cmd)
+    if _out is not None and len(_out) > 0:
+        _logger.warning('add of firewall rule failed')
+        return (1, _out)
 
     if kwargs.get('script'):
         kwargs.get('script').write(' '.join(fw_rule_cmd))
@@ -383,10 +387,9 @@ def remove_firewall_rule(*args):
     fw_rule_cmd = ['/usr/sbin/iptables']
     fw_rule_cmd.extend(args)
     _logger.debug('removing fw rule : [%s]' % ' '.join(args))
-    try:
-        subprocess.check_output(fw_rule_cmd, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        _logger.warning('removal of firewall rule failed: %s' % e.output)
-        return (1, e.output)
+    _out = sudo_utils.call_output(fw_rule_cmd)
+    if _out is not None and len(_out) > 0:
+        _logger.warning('removal of firewall rule failed')
+        return (1, _out)
 
     return (0, '')

@@ -6,12 +6,16 @@
 
 import six
 
+import logging
+
 
 class OCIAPIAbstractResource(object):
     """ Ancestor class for most OCI objects
     """
     _ignore_dict_items = ["swagger_types", "attribute_map"]
     _complex_items = ["launch_options", "source_details"]
+
+    _logger = logging.getLogger('oci-utils.OCIAPIAbstractResource')
 
     def __init__(self, data, session):
         """
@@ -32,7 +36,9 @@ class OCIAPIAbstractResource(object):
             'Invalid type for session'
         self._data = data
         self._oci_session = session
-        self._ocid = self._data.id
+        # While doing recursive things we may have to instanciate simple dict as OCIAPIAbstractResource
+        # in that case we do not have 'id'.
+        self._ocid = getattr(self._data, 'id', None)
 
     def __dict__(self):
         """
@@ -81,12 +87,12 @@ class OCIAPIAbstractResource(object):
                 elif value is None:
                     data_dict[key] = ''
                 elif key in OCIAPIAbstractResource._complex_items:
-                    data_dict[key] = OCIAPIAbstractResource._get_dict_recursive(
-                        value)
+                    data_dict[key] = OCIAPIAbstractResource(value, self._oci_session).__dict__()
                 else:
                     data_dict[key] = value
             return data_dict
-        except Exception:
+        except Exception, e:
+            OCIAPIAbstractResource._logger.debug('error calling __dict__: %s' % str(e))
             return None
 
     def get_display_name(self):
@@ -120,7 +126,7 @@ class OCIAPIAbstractResource(object):
             str
                 The compartment id.
         """
-        return self._oci_session.get_compartment(self._data.compartment_id)
+        return self._oci_session.get_compartment(ocid=self._data.compartment_id)
 
     def __str__(self):
         """
@@ -203,3 +209,6 @@ class OCIAPIAbstractResource(object):
             'wrong type in comparison'
         # at abstract level not much sense sorting: sort OCIDs then
         return self._ocid < other._ocid
+
+    def __hash__(self):
+        return hash(self._ocid)

@@ -11,9 +11,9 @@ import logging
 import os
 import struct
 
-from oci_migrate.migrate import gen_tools
-from oci_migrate.migrate.imgdevice import DeviceData
-from oci_migrate.migrate.migrate_utils import OciMigrateException
+from oci_utils.migrate import migrate_tools
+from oci_utils.migrate.imgdevice import DeviceData
+from oci_utils.migrate.migrate_utils import OciMigrateException
 
 """  
 typedef struct SometypeHeader {
@@ -27,6 +27,8 @@ format_data = {'01234567': {'name': 'sometype',
                             'module': 'sometype',
                             'clazz': 'SomeTypeHead',
                             'prereq': {'MAX_IMG_SIZE_GB': 300.0}}}
+
+_logger = logging.getLogger('oci-utils.some-img-type')
 
 
 class SomeTypeHead(DeviceData):
@@ -55,7 +57,6 @@ class SomeTypeHead(DeviceData):
     # struct format string
     sometypehead_fmt = '>' + ''.join(f[0] for f in header2_structure)
     head_size = struct.calcsize(sometypehead_fmt)
-    _logger = logging.getLogger('oci-utils.oci-image-migrate')
 
     def __init__(self, filename):
         """
@@ -67,38 +68,38 @@ class SomeTypeHead(DeviceData):
             Full path of the qcow2 image file.
         """
         super(SomeTypeHead, self).__init__(filename)
-        self._logger.info('sometype header size: %d bytes' % self.head_size)
+        _logger.debug('sometype header size: %d bytes' % self.head_size)
 
         try:
-            with open(self.fn, 'rb') as f:
+            with open(self._fn, 'rb') as f:
                 head_bin = f.read(self.head_size)
-                self._logger.debug('%s header successfully read' % self.fn)
+                _logger.debug('%s header successfully read' % self._fn)
         except Exception as e:
-            self._logger.critical('Failed to read header of %s: %s'
-                                  % (self.fn, str(e)))
+            _logger.critical('Failed to read header of %s: %s'
+                                  % (self._fn, str(e)))
             raise OciMigrateException('Failed to read the header of %s: %s'
-                                      % (self.fn, str(e)))
+                                      % (self._fn, str(e)))
 
         sometypeheader = struct.unpack(SomeTypeHead.sometypehead_fmt, head_bin)
 
-        self.stat = os.stat(self.fn)
-        self.img_tag = os.path.splitext(os.path.split(self.fn)[1])[0]
+        self.stat = os.stat(self._fn)
+        self.img_tag = os.path.splitext(os.path.split(self._fn)[1])[0]
         self.somehead_dict = dict((name[2], sometypeheader[i])
                                   for i, name
                                   in enumerate(SomeTypeHead.header2_structure))
         self.img_header = dict()
         self.img_header['head'] = self.somehead_dict
-        gen_tools.result_msg(msg='Got image %s header' % filename, result=True)
+        migrate_tools.result_msg(msg='Got image %s header' % filename, result=True)
         #
         # mount the image using the nbd
         try:
             self.devicename = self.mount_img()
-            self._logger.debug('Image data %s' % self.devicename)
-            gen_tools.result_msg(msg='Mounted %s' % self.devicename,
+            _logger.debug('Image data %s' % self.devicename)
+            migrate_tools.result_msg(msg='Mounted %s' % self.devicename,
                                  result=True)
             deviceinfo = self.handle_image()
         except Exception as e:
-            self._logger.critical('error %s' % str(e))
+            _logger.critical('error %s' % str(e))
             raise OciMigrateException(str(e))
 
     def show_header(self):

@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
@@ -31,10 +29,11 @@ class TestIScsiAdm(unittest.TestCase):
                         'No LUNs discovered against [%s]' %
                         TestIScsiAdm._discovery_address)
         self.assertIn(TestIScsiAdm._lun_iqn, iqns[0],
-                      '[%s] not the first IQN discovered' %
-                      TestIScsiAdm._lun_iqn)
+                      '[%s] not the first IQN discovered: <> [%s]' %
+                      (TestIScsiAdm._lun_iqn, iqns[0]))
 
     @skipUnlessOCI()
+    @skipUnlessRoot()
     def test_session(self):
         """
         Tests iscsiadm.session.
@@ -45,8 +44,8 @@ class TestIScsiAdm(unittest.TestCase):
         """
         iqns = oci_utils.iscsiadm.session()
         self.assertIn(TestIScsiAdm._lun_iqn, iqns,
-                      '[%s] not the first IQN discovered' %
-                      TestIScsiAdm._lun_iqn)
+                      'boot diks lun [%s] not found in IQN discovered [%s]' %
+                      (TestIScsiAdm._lun_iqn, iqns))
         self.assertEqual(iqns['iqn.2015-02.oracle.boot:uefi']
                          ['current_portal_ip'], '169.254.0.2')
 

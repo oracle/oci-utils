@@ -10,10 +10,11 @@ template.
 """
 import logging
 
-from oci_migrate.migrate import gen_tools
-from oci_migrate.migrate.exception import OciMigrateException
+from oci_utils.migrate import console_msg
+from oci_utils.migrate import migrate_tools
+from oci_utils.migrate.exception import OciMigrateException
 
-logger = logging.getLogger('oci-utils.oci-image-migrate')
+_logger = logging.getLogger('oci-utils.some-type-os')
 
 _os_type_tag_csl_tag_type_os_ = 'sometype,'
 
@@ -25,8 +26,7 @@ def os_banner():
     -------
         No return value.
     """
-    gen_tools.result_msg(msg='OS is one of %s' % _os_type_tag_csl_tag_type_os_,
-                         result=True)
+    console_msg('OS is one of %s' % _os_type_tag_csl_tag_type_os_)
 
 
 def install_cloud_init(*args):
@@ -38,6 +38,6 @@ def install_cloud_init(*args):
 
     Returns
     -------
-
+        bool: True on success, False otherwise.
     """
     pass

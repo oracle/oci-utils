@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
@@ -43,5 +41,75 @@ class TestCliOciMetadata(unittest.TestCase):
         try:
             _ = subprocess.check_output([TestCliOciMetadata.metadata_cli,
                                          '--help'])
+        except Exception, e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_human_readable(self):
+        """
+        Test displaying metadata values .
+
+        Returns
+        -------
+        No return value.
+        """
+        try:
+            _ = subprocess.check_output([TestCliOciMetadata.metadata_cli,
+                                         '--human-readable'])
+        except Exception, e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_display_json(self):
+        """
+        Test displaying metadata values in JSON .
+
+        Returns
+        -------
+        No return value.
+        """
+        try:
+            _ = subprocess.check_output([TestCliOciMetadata.metadata_cli,
+                                         '--json'])
+        except Exception, e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_metadata(self):
+        """
+        Test displaying 'instance' metadata
+
+        Returns
+        -------
+        No return value.
+        """
+        try:
+            _ = subprocess.check_output([TestCliOciMetadata.metadata_cli,
+                                         '--get', 'instance'])
+        except Exception, e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_metadata_only_values(self):
+        """
+        Test displaying 'instance' metadata
+
+        Returns
+        -------
+        No return value.
+        """
+        try:
+            _ = subprocess.check_output([TestCliOciMetadata.metadata_cli,
+                                         '--get', 'instance', '--value-only'])
+        except Exception, e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_all_vnics(self):
+        """
+        Test displaying instance VNICs metadata
+
+        Returns
+        -------
+        No return value.
+        """
+        try:
+            _ = subprocess.check_output([TestCliOciMetadata.metadata_cli,
+                                         '--get', 'vnics', '--value-only', '--trim'])
         except Exception, e:
             self.fail('Execution has failed: %s' % str(e))

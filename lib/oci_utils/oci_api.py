@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # oci-utils
 #
 # Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
@@ -21,7 +19,7 @@ from . import OCI_RESOURCE_STATE
 from .exceptions import OCISDKError
 from .impl import lock_thread, release_thread
 from .impl.auth_helper import OCIAuthProxy
-from .impl.oci_resources import (OCICompartment, OCIInstance, OCIVolume)
+from .impl.oci_resources import (OCICompartment, OCIInstance, OCIVolume, OCISubnet)
 
 HAVE_OCI_SDK = True
 try:
@@ -46,6 +44,7 @@ class OCISession(object):
     """
     High level OCI Cloud API operations
     """
+
     def __init__(self, config_file='~/.oci/config', config_profile='DEFAULT',
                  auth_method=None, debug=False):
         """
@@ -866,15 +865,7 @@ class OCISession(object):
             _logger.error('no compartement ID information in metadata')
             return None
 
-        try:
-            comp_data = self._identity_client.get_compartment(
-                compartment_id=my_compartment_id).data
-        except Exception as e:
-            _logger.error("cannot get compartment: %s" % str(e))
-            return None
-
-        return OCICompartment(session=self,
-                              compartment_data=comp_data)
+        return self.get_compartment(ocid=my_compartment_id)
 
     def this_availability_domain(self):
         """
@@ -968,10 +959,15 @@ class OCISession(object):
         -------
             The subnet object or None if not found.
         """
-        # FIXME: use virtual_network_client.get_subnet directly
-        for sn in self.all_subnets(refresh=refresh):
-            if sn.get_ocid() == subnet_id:
-                return sn
+        nc = self.get_network_client()
+        try:
+            sn_data = self.sdk_call(nc.get_subnet,
+                                    subnet_id=subnet_id).data
+            return OCISubnet(self, subnet_data=sn_data)
+        except oci_sdk.exceptions.ServiceError:
+            _logger.debug('failed to get subnet', exc_info=True)
+            return None
+
         return None
 
     def get_volume(self, volume_id, refresh=False):
@@ -1001,6 +997,7 @@ class OCISession(object):
             vol_data = self.sdk_call(bsc.get_volume,
                                      volume_id=volume_id).data
         except oci_sdk.exceptions.ServiceError:
+            _logger.debug('failed to get volume', exc_info=True)
             return None
 
         if OCI_RESOURCE_STATE[vol_data.lifecycle_state] \
@@ -1028,31 +1025,17 @@ class OCISession(object):
                          volume_data=vol_data,
                          attachment_data=v_att_data)
 
-    def get_compartment(self, compartment_id, refresh=False):
-        """
-        Get compartment by ID
+    def get_compartment(self, **kargs):
+        if 'ocid' not in kargs:
+            # for now make it mandatory
+            raise StandardError('ocid must be provided')
 
-        Parameters
-        ----------
-        compartment_id : str
-            The ID of the wanted compartment.
-        refresh : bool
-            Flag, refresh the information if set.
-
-        Returns
-        -------
-        OCICompartment
-            The OCI compartment  or None if it is not found.
-        """
-        if not refresh and self._compartments:
-            # return from cache
-            for i in self._compartments:
-                if i.get_ocid() == compartment_id:
-                    return i
-        for c in self.all_compartments(refresh=refresh):
-            if c.get_ocid() == compartment_id:
-                return c
-        return None
+        try:
+            c_data = self._identity_client.get_compartment(compartment_id=kargs['ocid']).data
+            return OCICompartment(session=self, compartment_data=c_data)
+        except Exception as e:
+            _logger.error('error getting compartment: %s' % e)
+            return None
 
     def get_vcn(self, vcn_id, refresh=False):
         """

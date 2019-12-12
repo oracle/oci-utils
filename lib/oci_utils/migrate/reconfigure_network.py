@@ -11,17 +11,17 @@ respect to upload to the Oracle Cloud Infrastructure.
 import logging
 import os
 import shutil
+import six
 import stat
 import yaml
-from glob import glob
 
-import six
-from oci_migrate.migrate import config
-from oci_migrate.migrate import gen_tools
-from oci_migrate.migrate.exception import OciMigrateException
+from glob import glob
+from oci_utils.migrate import get_config_data
+from oci_utils.migrate import migrate_tools
+from oci_utils.migrate.exception import OciMigrateException
 from six.moves import configparser
 
-logger = logging.getLogger('oci-utils.oci-image-migrate')
+_logger = logging.getLogger('oci-utils.reconfigure-network')
 ConfigParser = configparser.ConfigParser
 
 
@@ -42,13 +42,13 @@ def reconfigure_ifcfg_config(rootdir):
     """
     #
     # Rename the config files
-    gen_tools.result_msg(msg='The network ifcfg configuration.', result=True)
+    _logger.debug('The network ifcfg configuration.')
     ifcfg_list = list()
     ifcfg_data = dict()
-    ifrootdir = rootdir + config.get_config_data('default_ifcfg')
-    if gen_tools.dir_exists(ifrootdir):
+    ifrootdir = rootdir + get_config_data('default_ifcfg')
+    if migrate_tools.dir_exists(ifrootdir):
         for cfgfile in glob(ifrootdir + '/ifcfg-*'):
-            logger.debug('Checking configfile: %s' % cfgfile)
+            _logger.debug('Checking configfile: %s' % cfgfile)
             try:
                 with open(cfgfile, 'rb') as f:
                     nl = filter(None, [x[:x.find('#')] for x in f])
@@ -56,17 +56,16 @@ def reconfigure_ifcfg_config(rootdir):
                 if 'DEVICE' in ifcfg:
                     devname = ifcfg['DEVICE']
                 else:
-                    logger.debug('Missing device name in %s' % cfgfile)
+                    _logger.debug('Missing device name in %s' % cfgfile)
                     devname = cfgfile.split('/')[-1]
                 ifcfg_list.append(devname)
                 ifcfg_data[devname] = ifcfg
-                gen_tools.result_msg(msg='  Network interface: %s' % devname)
+                _logger.debug('Network interface: %s' % devname)
             except Exception as e:
-                logger.error('Problem reading network configuration file %s: '
+                _logger.error('Problem reading network configuration file %s: '
                              '%s' % (cfgfile, str(e)))
     else:
-        gen_tools.result_msg(msg='  No ifcfg network configuration.',
-                             result=True)
+        _logger.debug('No ifcfg network configuration.')
     #
     # backup
     for fn in glob(ifrootdir + '/ifcfg-*'):
@@ -75,37 +74,36 @@ def reconfigure_ifcfg_config(rootdir):
                      + '/bck_' \
                      + os.path.split(fn)[1] \
                      + '_' \
-                     + gen_tools.thistime
-            if gen_tools.exec_rename(fn, fn_bck):
-                logger.debug('Network config file %s successfully '
+                     + migrate_tools.thistime
+            if migrate_tools.exec_rename(fn, fn_bck):
+                _logger.debug('Network config file %s successfully '
                              'renamed to %s' % (fn, fn_bck))
             else:
-                gen_tools.error_msg('Failed to backup network configuration '
+                migrate_tools.error_msg('Failed to backup network configuration '
                                     'file %s to %s.' % (fn, fn_bck))
                 raise OciMigrateException('Failed to rename network config '
                                           'file %s to %s' % (fn, fn_bck))
         else:
-            logger.debug('ifcfg-lo found.')
+            _logger.debug('ifcfg-lo found.')
     #
     # Generate new default network configuration.
     if len(ifcfg_list) > 0:
         nic0 = sorted(ifcfg_list)[0]
         dhcpniccfg = ifrootdir + '/ifcfg-%s' % nic0
-        logger.debug('Replacing network config file %s' % dhcpniccfg)
+        _logger.debug('Replacing network config file %s' % dhcpniccfg)
         try:
             with open(dhcpniccfg, 'wb') as f:
                 f.writelines(ln.replace('_XXXX_', nic0) + '\n'
-                             for ln in config.get_config_data('default_ifcfg_config'))
-            gen_tools.result_msg(msg='  Replaced ifcfg network configuration.',
-                                 result=True)
+                             for ln in get_config_data('default_ifcfg_config'))
+            migrate_tools.result_msg(msg='Replaced ifcfg network configuration.',
+                                     result=True)
         except Exception as e:
-            logger.error('Failed to write %s/ifcfg-eth0' % ifrootdir)
-            gen_tools.error_msg('Failed to write %s: %s' % (dhcpniccfg, str(e)))
+            _logger.error('Failed to write %s/ifcfg-eth0' % ifrootdir)
+            migrate_tools.error_msg('Failed to write %s: %s' % (dhcpniccfg, str(e)))
             raise OciMigrateException('Failed to write %s: %s'
                                       % (dhcpniccfg, str(e)))
     else:
-        gen_tools.result_msg(msg='  No ifcfg definitions found.',
-                             result=True)
+        _logger.debug('No ifcfg definitions found.')
     #
     return ifcfg_list, ifcfg_data
 
@@ -125,12 +123,12 @@ def reconfigure_netplan(rootdir):
         dict: the netplan network configurations.
     """
 
-    gen_tools.result_msg(msg='The netplan configuration.', result=True)
+    _logger.debug('The netplan configuration.')
     netplan_data = dict()
     netplan_nics = list()
-    thisroot = rootdir + config.get_config_data('default_netplan')
-    if gen_tools.dir_exists(thisroot):
-        logger.debug('netplan directory exists.')
+    thisroot = rootdir + get_config_data('default_netplan')
+    if migrate_tools.dir_exists(thisroot):
+        _logger.debug('netplan directory exists.')
         #
         # contains yaml files?
         yaml_files = glob(thisroot + '/*.yaml')
@@ -140,10 +138,10 @@ def reconfigure_netplan(rootdir):
                     with open(yf, 'r') as yfd:
                         thisyaml = yaml.safe_load(yfd)
                         netplan_data[yf] = thisyaml
-                        logger.debug('netplan: %s' % thisyaml)
+                        _logger.debug('netplan: %s' % thisyaml)
                 except Exception as e:
-                    logger.error('Failed to parse %s: %s' % (yf, str(e)))
-                    gen_tools.error_msg('Failed to parse %s: %s' % (yf, str(e)))
+                    _logger.error('Failed to parse %s: %s' % (yf, str(e)))
+                    migrate_tools.error_msg('Failed to parse %s: %s' % (yf, str(e)))
                     break
                 #
                 if 'network' in thisyaml:
@@ -153,12 +151,11 @@ def reconfigure_netplan(rootdir):
                                 ):
                             netplan_nics.append(k)
                     else:
-                        logger.debug('ethernets key missing.')
+                        _logger.debug('ethernets key missing.')
                 else:
-                    logger.debug('network key missing.')
+                    _logger.debug('network key missing.')
             if len(netplan_nics) == 0:
-                gen_tools.result_msg(msg='  No netplan definitions found in %s'
-                                     % thisroot, result=True)
+                _logger.debug('No netplan definitions found in %s' % thisroot)
             else:
                 nicname = sorted(netplan_nics)[0]
                 #
@@ -166,11 +163,11 @@ def reconfigure_netplan(rootdir):
                 try:
                     #
                     # backup
-                    gen_tools.exec_rename(thisroot, os.path.split(thisroot)[0]
+                    migrate_tools.exec_rename(thisroot, os.path.split(thisroot)[0]
                                           + '/bck_'
                                           + os.path.split(thisroot)[1]
                                           + '_'
-                                          + gen_tools.thistime)
+                                          + migrate_tools.thistime)
                     #
                     # recreate dir
                     os.mkdir(thisroot)
@@ -180,28 +177,26 @@ def reconfigure_netplan(rootdir):
                     os.chmod(thisroot, mode755)
                     #
                     # recreate netplan config
-                    this_netplan = config.get_config_data('default_netplan_config')
+                    this_netplan = get_config_data('default_netplan_config')
                     this_netplan['network']['ethernets'][nicname] \
                         = this_netplan['network']['ethernets'].pop('_XXXX_')
                     with open(thisroot + '/'
-                              + config.get_config_data('default_netplan_file'), 'w') \
+                              + get_config_data('default_netplan_file'), 'w') \
                             as yf:
                         yaml.safe_dump(this_netplan, yf, default_flow_style=False)
-                    gen_tools.result_msg(msg='  Netplan network configuration '
+                    migrate_tools.result_msg(msg='Netplan network configuration '
                                              'files replaced.', result=True)
                 except Exception as e:
-                    gen_tools.error_msg('Failed to write new netplan '
+                    migrate_tools.error_msg('Failed to write new netplan '
                                         'configuration file %s: %s'
-                                        % (config.get_config_data('default_netplan_file'), str(e)))
+                                        % (get_config_data('default_netplan_file'), str(e)))
                     raise OciMigrateException('Failed to write new netplan '
                                               'configuration file %s: %s'
-                                              % (config.get_config_data('default_netplan_file'), str(e)))
+                                              % (get_config_data('default_netplan_file'), str(e)))
         else:
-            gen_tools.result_msg(msg='  No netplan yaml config files found.',
-                                 result=True)
+            _logger.error('No netplan yaml config files found.')
     else:
-        gen_tools.result_msg(msg='  No netplan configuration found.',
-                             result=True)
+        _logger.debug('No netplan configuration found.')
 
     return netplan_nics, netplan_data
 
@@ -220,41 +215,51 @@ def reconfigure_networkmanager(rootdir):
         list: list of nic.
         dict: the network manager system-connections configurations
     """
-    gen_tools.result_msg(msg='The NetworkManager configuration.', result=True)
+    _logger.debug('The NetworkManager configuration.')
     netwmg_data = dict()
     netwmg_nics = list()
-    thisdir = rootdir + config.get_config_data('default_nwconnections')
-    logger.debug('Network manager dir: %s' % thisdir)
-    thiscfg = rootdir + config.get_config_data('default_nwmconfig')
-    logger.debug('Network manager conf: %s' % thiscfg)
+    thisdir = rootdir + get_config_data('default_nwconnections')
+    _logger.debug('Network manager dir: %s' % thisdir)
+    thiscfg = rootdir + get_config_data('default_nwmconfig')
+    _logger.debug('Network manager conf: %s' % thiscfg)
     #
     # backup
     try:
         #
         # copy
-        if gen_tools.file_exists(thiscfg):
+        if migrate_tools.file_exists(thiscfg):
+            _logger.debug('Copy %s %s' % (thiscfg, os.path.split(thiscfg)[0]
+                                          + '/bck_'
+                                          + os.path.split(thiscfg)[1]
+                                          + '_'
+                                          + migrate_tools.thistime))
             shutil.copy(thiscfg, os.path.split(thiscfg)[0]
                         + '/bck_'
                         + os.path.split(thiscfg)[1]
                         + '_'
-                        + gen_tools.thistime)
+                        + migrate_tools.thistime)
         else:
-            logger.debug('No %s found.' % thiscfg)
-        if gen_tools.dir_exists(thisdir):
+            _logger.debug('No %s found.' % thiscfg)
+        if migrate_tools.dir_exists(thisdir):
+            _logger.debug('Copytree %s %s' % (thisdir, os.path.split(thisdir)[0]
+                                              + '/bck_'
+                                              + os.path.split(thisdir)[1]
+                                              + '_'
+                                              + migrate_tools.thistime))
             shutil.copytree(thisdir, os.path.split(thisdir)[0]
                             + '/bck_'
                             + os.path.split(thisdir)[1]
                             + '_'
-                            + gen_tools.thistime)
+                            + migrate_tools.thistime)
         else:
-            logger.debug('%s not found.' % thisdir)
+            _logger.debug('%s not found.' % thisdir)
     except Exception as e:
-        gen_tools.error_msg('Failed to backup the networkmanager  '
+        migrate_tools.error_msg('Failed to backup the networkmanager '
                             'configuration: %s' % str(e))
     #
     #
-    if gen_tools.dir_exists(thisdir):
-        logger.debug('NetworkManager/%s directory exists.' % thisdir)
+    if migrate_tools.dir_exists(thisdir):
+        _logger.debug('NetworkManager/%s directory exists.' % thisdir)
         #
         # contains nwm keyfiles?
         nwm_files = glob(thisdir + '/*')
@@ -268,27 +273,25 @@ def reconfigure_networkmanager(rootdir):
                         ifname = thispars.get('connection', 'interface-name')
                         netwmg_nics.append(ifname)
                     else:
-                        logger.debug('No connection section in %s' % nwkf)
+                        _logger.debug('No connection section in %s' % nwkf)
 
                     for sec in thispars.sections():
                         netwmg_data[nwkf][sec] = thispars.items(sec)
-                        logger.debug('%s' % netwmg_data[nwkf][sec])
+                        _logger.debug('%s' % netwmg_data[nwkf][sec])
                     #
                     # remove macaddress ref
                     if thispars.has_option('ethernet', 'mac-address'):
                         thispars.remove_option('ethernet', 'mac-address')
                         with open(nwkf, 'wb') as kf:
                             thispars.write(kf)
-                        gen_tools.result_msg(msg='  Removed reference to mac '
-                                              'address in %s' % nwkf)
+                        _logger.debug('Removed reference to mac address in %s' % nwkf)
                     else:
-                        logger.debug('No ethernet - mac-address section in %s'
+                        _logger.debug('No ethernet - mac-address section in %s'
                                      % nwkf)
                 except Exception as e:
-                    logger.error('Some error reading %s: %s' % (nwkf, str(e)))
+                    _logger.error('Some error reading %s: %s' % (nwkf, str(e)))
         else:
-            gen_tools.result_msg(msg='  No network manager keyfiles found.')
-            # logger.debug('No network manager keyfiles found.')
+            _logger.debug('No network manager keyfiles found.')
         #
         # update networkmanager configuration
         if len(nwm_files) > 1:
@@ -301,16 +304,16 @@ def reconfigure_networkmanager(rootdir):
                     #
                     # add section
                     configpars.add_section('keyfile')
-                    logger.debug('Added keyfile section.')
+                    _logger.debug('Added keyfile section.')
                 else:
-                    logger.debug('keyfile section present.')
+                    _logger.debug('keyfile section present.')
                 #
                 # unmanaged?
                 if configpars.has_option('keyfile', 'unmanaged-devices'):
                     #
                     # key is present, update
                     unmdev = configpars.get('keyfile', 'unmanaged-devices')
-                    logger.debug('Unmanaged devices found: %s' % unmdev)
+                    _logger.debug('Unmanaged devices found: %s' % unmdev)
                     unmdev += ';' if unmdev is not '' else unmdev
                 else:
                     #
@@ -323,21 +326,19 @@ def reconfigure_networkmanager(rootdir):
                 unmdev = unmdev[:-1] if unmdev[-1:] == ';' else unmdev
 
                 configpars.set('keyfile', 'unmanaged-devices', '%s' % unmdev)
-                logger.debug('Added %s to unmanaged interface list.' % unmdev)
+                _logger.debug('Added %s to unmanaged interface list.' % unmdev)
                 with open(thiscfg, 'wb') as nwc:
                     configpars.write(nwc)
-                gen_tools.result_msg(msg='  Updated network manager config '
-                                         'file %s' % thiscfg, result=True)
+                _logger.debug('Updated network manager config file %s' % thiscfg)
             except Exception as e:
-                gen_tools.error_msg('Error rewriting network manager '
+                migrate_tools.error_msg('Error rewriting network manager '
                                     'configuration file: %s' % str(e))
         else:
-            gen_tools.result_msg(msg='  Network manager configuration updated.',
-                                 result=True)
-            logger.debug('Zero or 1 network interface defined.')
+            migrate_tools.result_msg(msg='Networkmanager configuration updated.',
+                          result=True)
+            _logger.debug('Zero or 1 network interface defined.')
     else:
-        gen_tools.result_msg(msg='  No NetworkManager configuration present.',
-                             result=True)
+        _logger.debug(msg='  No NetworkManager configuration present.')
 
     return netwmg_nics, netwmg_data
 
@@ -356,41 +357,44 @@ def reconfigure_interfaces(rootdir):
         list: list of nic.
         dict: the interfaces configuration.
     """
-    gen_tools.result_msg(msg='The network interfaces configuration.',
-                         result=True)
+    _logger.debug('The network interfaces configuration.')
     int_data = dict()
     int_nics = list()
-    thisroot = rootdir + config.get_config_data('default_interfaces')
+    thisroot = rootdir + get_config_data('default_interfaces')
     thisinterfaces = thisroot + '/interfaces'
 
-    if gen_tools.file_exists(thisinterfaces):
-        int_data[config.get_config_data('default_interfaces')] = list()
-        logger.debug('%s file exists' % thisinterfaces)
+    if migrate_tools.file_exists(thisinterfaces):
+        int_data[get_config_data('default_interfaces')] = list()
+        _logger.debug('%s file exists' % thisinterfaces)
         try:
             with open(thisinterfaces, 'r') as inf:
                 for ln in inf:
-                    int_data[config.config.get_config_data('default_interfaces')].append(ln)
+                    int_data[get_config_data('default_interfaces')].append(ln)
                     if 'iface' in ln.split():
                         if ln.split()[1] != 'lo':
                             int_nics.append(ln.split()[1])
                     else:
-                        logger.debug('no iface in %s' % ln)
+                        _logger.debug('no iface in %s' % ln)
         except Exception as e:
-            logger.error('Error occured while reading %s: %s'
+            _logger.error('Error occured while reading %s: %s'
                          % (thisinterfaces, str(e)))
         #
         # rewrite
         if len(int_nics) == 0:
-            gen_tools.result_msg(msg='  No interface definitions found in %s'
-                                 % thisinterfaces, result=True)
+            _logger.debug('No interface definitions found in %s' %
+                          thisinterfaces)
         else:
             try:
                 #
                 # backup
+                _logger.debug('Copytree %s %s' % (thisroot, os.path.split(thisroot)[0]
+                                                  + '/bck_'
+                                                  + os.path.split(thisroot)[1]
+                                                  + migrate_tools.thistime))
                 shutil.copytree(thisroot, os.path.split(thisroot)[0]
                                 + '/bck_'
                                 + os.path.split(thisroot)[1]
-                                + gen_tools.thistime)
+                                + migrate_tools.thistime)
                 #
                 # remove dir
                 shutil.rmtree(thisroot + '/interfaces.d')
@@ -398,16 +402,14 @@ def reconfigure_interfaces(rootdir):
                 # recreate interfaces config
                 with open(thisinterfaces, 'w') as fi:
                     fi.writelines(ln.replace('_XXXX_', int_nics[0]) + '\n'
-                                  for ln in config.get_config_data('default_interfaces_config'))
-                gen_tools.result_msg(msg='  Network interfaces file rewritten.',
+                                  for ln in get_config_data('default_interfaces_config'))
+                migrate_tools.result_msg(msg='Network interfaces file rewritten.',
                                      result=True)
             except Exception as e:
-                logger.error('Failed to write new interfaces configuration '
+                _logger.error('Failed to write new interfaces configuration '
                              'file %s: %s' % (thisinterfaces, str(e)))
     else:
-        gen_tools.result_msg(msg='  No network interfaces configuration.',
-                             result=True)
-        # logger.debug('%s does not exist.' % configdata.default_interfaces)
+        _logger.debug('No network interfaces configuration.')
     return int_nics, int_data
 
 
@@ -425,16 +427,15 @@ def reconfigure_systemd_networkd(rootdir):
         list: list of nic.
         dict: the interfaces configuration.
     """
-    gen_tools.result_msg(msg='The network systemd-networkd configuration.',
-                         result=True)
+    _logger.debug('The network systemd-networkd configuration.')
     sys_data = dict()
     sys_nics = list()
     nw_ignore = ['container-host0', 'container-ve', 'container-vz']
 
-    for thisroot in config.get_config_data('default_systemd'):
+    for thisroot in get_config_data('default_systemd'):
         networkd_root = rootdir + thisroot
-        if gen_tools.dir_exists(networkd_root):
-            logger.debug('systemd network directory exists.')
+        if migrate_tools.dir_exists(networkd_root):
+            _logger.debug('systemd network directory exists.')
             systemd_files = glob(thisroot + '/*.network')
             if len(systemd_files) > 0:
                 for sf in sorted(systemd_files):
@@ -452,29 +453,28 @@ def reconfigure_systemd_networkd(rootdir):
                                 ifname = thispars.get('Match', 'Name')
                                 sys_nics.append(ifname)
                             else:
-                                logger.debug('-- No Match section in %s' % sf)
+                                _logger.debug('-- No Match section in %s' % sf)
                             #
                             for sec in thispars.sections():
                                 sys_data[sf][sec] = thispars.items(sec)
-                                logger.debug('%s' % sys_data[sf][sec])
+                                _logger.debug('%s' % sys_data[sf][sec])
                         except Exception as e:
-                            logger.error('Failed to parse %s: %s' % (sf, str(e)))
+                            _logger.error('Failed to parse %s: %s' % (sf, str(e)))
                         #
                         # rename - backup
                         bcknm = os.path.split(sf)[0] + '/bck_' \
                                 + os.path.split(sf)[1] + '_' \
-                                + gen_tools.thistime
-                        if gen_tools.exec_rename(sf, bcknm):
-                            gen_tools.result_msg(msg='  Network config file %s '
-                                                     'renamed to %s'
-                                                     % (sf, bcknm))
-                            logger.debug('Network config file %s successfully '
+                                + migrate_tools.thistime
+                        if migrate_tools.exec_rename(sf, bcknm):
+                            _logger.debug('Network config file %s renamed to %s'
+                                          % (sf, bcknm))
+                            _logger.debug('Network config file %s successfully '
                                          'renamed to %s'
                                          % (sf, os.path.split(sf)[0]
                                             + '/bck' + os.path.split(sf)[1]
                                             + '_bck'))
                         else:
-                            logger.error('Failed to rename %s to %s'
+                            _logger.error('Failed to rename %s to %s'
                                          % (sf, os.path.split(sf)[0]
                                             + '/bck'
                                             + os.path.split(sf)[1]
@@ -482,23 +482,21 @@ def reconfigure_systemd_networkd(rootdir):
                             raise OciMigrateException('Failed to rename %s '
                                                       'to %s' % (sf, bcknm))
             else:
-                gen_tools.result_msg(msg='  No systemd-networkd configuration.')
-                # logger.debug('No systemd network files found.')
+                _logger.debug('No systemd-networkd configuration.')
         else:
-            logger.debug('%s does not exist.'
-                         % config.get_config_data('default_systemd'))
+            _logger.debug('%s does not exist.'
+                         % get_config_data('default_systemd'))
     #
     # write new config
     if len(sys_nics) > 0:
         nicname = sorted(sys_nics)[0]
-        with open(rootdir + config.get_config_data('default_systemd_file'), 'w') as sdf:
+        with open(rootdir + get_config_data('default_systemd_file'), 'w') as sdf:
             sdf.writelines(ln.replace('_XXXX_', nicname) + '\n'
-                           for ln in config.get_config_data('default_systemd_config'))
-        gen_tools.result_msg(msg='  systemd-networkd configuration rewritten.',
+                           for ln in get_config_data('default_systemd_config'))
+        migrate_tools.result_msg(msg='systemd-networkd configuration rewritten.',
                              result=True)
     else:
-        gen_tools.result_msg(msg='  No systemd-networkd configuration.',
-                             result=True)
+        _logger.debug('No systemd-networkd configuration.')
     return sorted(sys_nics), sys_data
 
 
@@ -506,7 +504,7 @@ def update_network_config(rootdir):
     """
     Modify the network configuration in the image file to prevent conflicts
     during import. Currently
-    ifcfg, NetworkManger, netplan, network connections systemd-networkd and
+    ifcfg, NetworkManager, netplan, network connections systemd-networkd and
     interface
     file are scanned. Bonding and bridging are not supported for now,
     nor multiple ip per interface.
@@ -521,7 +519,7 @@ def update_network_config(rootdir):
         dict: List with dictionary representation of the network
         configuration files.
     """
-    gen_tools.result_msg(msg='Adjust network configuration.', result=True)
+    migrate_tools.result_msg(msg='Adjust network configuration.', result=True)
     network_config = dict()
     network_list = list()
     #
