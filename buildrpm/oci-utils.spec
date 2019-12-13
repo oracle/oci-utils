@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.10.2
+Version: 0.10.2-1
 Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -75,6 +75,15 @@ Requires: %{name} = %{version}-%{release}
 %description outest
 Utilities unit tests
 
+%package migrate
+Summary: Migrate vm from on-premise to the OCI
+Group: Development/Tools
+Requires: util-linux
+Requires: parted
+Requires: qemu-img >= 3.1
+%description migrate
+Utilities for migrating on-premise guests to Oracle Cloud Infrastructure.
+
 %pre
 # some old version of oci-utils, used to leave this behind.
 %{__rm} -f /var/tmp/oci-utils.log*
@@ -114,11 +123,14 @@ rm -rf %{buildroot}
 %exclude %dir %{__l_python_sitelib}/oci_utils/kvm
 %exclude %{__l_python_sitelib}/oci_utils/kvm/*
 %exclude %{_bindir}/oci-kvm
+%exclude %{_bindir}/oci-image-migrate
 %exclude %{_datadir}/man/man1/oci-kvm.1.gz
+%exclude %{_datadir}/man/man1/oci-image-migrate.1.gz
 %defattr(-,root,root)
 %{__l_python_sitelib}/oci_utils*
 %{_bindir}/oci-*
 %exclude %{_bindir}/oci-kvm
+%exclude %{_bindir}/oci-image-migrate
 %{_libexecdir}/
 %{_sysconfdir}/systemd/system/ocid.service
 %{_prefix}/lib/systemd/system-preset/91-oci-utils.preset
@@ -144,6 +156,12 @@ rm -rf %{buildroot}
 %files outest
 /opt/oci-utils
 
+%files migrate
+%{_bindir}/oci-image-migrate
+%{__l_python_sitelib}/oci_utils/migrate*
+%{_datadir}/man/man1/oci-image-migrate.1.gz
+%config %{_sysconfdir}/oci-utils/oci-migrate-conf.yaml
+
 %post kvm
 %systemd_post oci-kvm-config.service
 
@@ -151,6 +169,9 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+* Thu Dec 12 2019 Guido Tijskens <guido.tijskens@oracle.com> -- 0.10.2-1
+- Added oci-image-migrate utility.
+
 * Wed Dec 4 2019 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.10.2
 - Update to use Python 3 on OL8
 

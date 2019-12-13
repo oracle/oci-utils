@@ -1,0 +1,67 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-image-migrate.1
+.\"
+.\" Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+.\"
+
+.TH OCI-IMAGE-MIGRATE 1 "JUNE 2019" Linux "User Manuals"
+.SH NAME
+oci-image-migrate \- migrate on premise vm to the Oracle Cloud Infrastructure
+.SH SYNOPSIS
+.B oci-image-migrate [-i
+.I inputimage
+.B ] [-b
+.I bucketname
+.B ] [-o
+.I outputimage
+.B ] [ --quiet] [--verbose] [--help]
+
+
+Utility to support preparation of on-premise legacy images for importing in
+the Oracle Cloud Infrastructure.
+
+.SH DESCRIPTION
+The
+.B oci-image-migrate
+utility prepares the on-premise legacy images for importing in the Oracle Cloud
+Infrastructure.
+.B oci-image-migrate verifies and validates the prerequisites for the import of
+the image, installs the cloud-init software package and disables the network
+interfaces except the primary one which will be set up as a dhcp client.
+.B oci-image-migrate
+uploads the image file to the specified block storage location with a new image
+name if specified.
+
+The prerequites validated are:
+.IP
+The image is set up for BIOS boot.
+
+The size of the image is less or equal to 300GByte.
+
+The image contains only 1 virtual disk.
+
+The virtual disk contains an MBR boot loader.
+
+The boot process does not require additional data volumes for a successful boot.
+
+The disk image is not encrypted.
+
+The image is of type VMDK or QCOW2.
+
+The boot loader uses LVM or UUID to identify the boot volume.
+
+The network configuration does not refer explictly to hardware addresses.
+
+.SH EXAMPLES
+oci-image-migrate -i /data/images/ol7.qcow2 -b thisobjectstorate -o ol7atoci -v
+
+.SH SEE ALSO
+.BR ocid (8) oci-metadata (1)
+
+.SH BUGS
+
+.SH AUTHOR
+Guido Tijskens (guido.tijskens@oracle.com)
+
+.SH COPYRIGHT
+Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
