@@ -102,7 +102,7 @@ def discovery(ipaddr):
                                               '-p', ipaddr + ':3260'],
                                              stderr=dev_null)
         iqns = []
-        for line in output.split('\n'):
+        for line in str(output).split('\n'):
             if 'iqn' not in line:
                 continue
             match = _DISCOVERY_PATTERN.match(line.strip())
@@ -151,7 +151,7 @@ def session():
 
         device_info = {}
         target = None
-        for line in output.split('\n'):
+        for line in str(output).split('\n'):
             # new section describing a different Target is starting
             # save any data collected about the previous Target
             if 'Target:' in line:
