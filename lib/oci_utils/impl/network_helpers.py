@@ -89,7 +89,7 @@ def get_interfaces():
                 for line in subprocess.check_output(
                         ['/usr/sbin/ip', 'link', 'show', n]).splitlines():
                     line = line.strip()
-                    if not line.startswith('vf '):
+                    if not str(line).startswith('vf '):
                         continue
 
                     ents = line.split(' ')
