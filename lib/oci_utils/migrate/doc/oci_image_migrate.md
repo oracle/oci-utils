@@ -21,19 +21,18 @@ oci-image-migrate prepares the image of an on-premise vm for being migrate to
     the Oracle Cloud Infrastructure.
 
     optional arguments:
-      -i INPUTIMAGE, --iimage INPUTIMAGE
+      -i INPUTIMAGE, --input-mage INPUTIMAGE
                             The on-premise image for migration to OCI.
       -b BUCKETNAME, --bucket BUCKETNAME
                             The destination bucket in OCI to store the converted
                             image.
-      -o OUTPUTIMAGE, --oimage OUTPUTIMAGE
+      -o OUTPUTIMAGE, --output-image OUTPUTIMAGE
                             The output image name.
-      --verbose, -v         Show verbose information.
+      -v, --verbose         Show verbose information.
       --help                Display this help`
 
 The environment variable _OCI_UTILS_DEBUG changes the logging level of
-the python code. The default log level is ERROR, the debug flag changes
-it to INFO, the quiet flag to CRITICAL.
+the python code.
  
 ## The image type
 

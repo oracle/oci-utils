@@ -6,62 +6,90 @@
 
 .TH OCI-IMAGE-MIGRATE 1 "JUNE 2019" Linux "User Manuals"
 .SH NAME
-oci-image-migrate \- migrate on premise vm to the Oracle Cloud Infrastructure
+oci-image-migrate \- assist the migration of on premise virtual machines to the
+Oracle Cloud Infrastructure
 .SH SYNOPSIS
-.B oci-image-migrate [-i
+.B oci-image-migrate [-i|--input-image
 .I inputimage
-.B ] [-b
+.B ] [-b|--bucket
 .I bucketname
-.B ] [-o
+.B ] [-o|--output-image
 .I outputimage
-.B ] [ --quiet] [--verbose] [--help]
-
-
-Utility to support preparation of on-premise legacy images for importing in
-the Oracle Cloud Infrastructure.
+.B ] [-v|--verbose] [--help]
 
 .SH DESCRIPTION
 The
 .B oci-image-migrate
-utility prepares the on-premise legacy images for importing in the Oracle Cloud
-Infrastructure.
-.B oci-image-migrate verifies and validates the prerequisites for the import of
+utility prepares an on-premise legacy image for importing into the
+.B Oracle Cloud Infrastructure.
+.B oci-image-migrate
+verifies and validates the prerequisites for the import of
 the image, installs the cloud-init software package and disables the network
 interfaces except the primary one which will be set up as a dhcp client.
 .B oci-image-migrate
 uploads the image file to the specified block storage location with a new image
 name if specified.
 
-The prerequites validated are:
-.IP
-The image is set up for BIOS boot.
+.B oci-image-migrate
+must be run with root priviliges, either as user root or using
+.BR sudo(8)
+on an on-premise physical or virtual server.
+.B oci-image-migrate
+requires the
+.B oci-cli
+utility installed and configured.
 
-The size of the image is less or equal to 300GByte.
+See
+.BR https://docs.cloud.oracle.com/iaas/Content/API/SDKDocs/cliinstall.htm
+or
+.BR https://docs.cloud.oracle.com/iaas/Content/API/SDKDocs/climanualinst.htm
+for more information.
 
-The image contains only 1 virtual disk.
+.B oci-image-migrate
+supports the migration of qcow2 and vmdk single file images.
 
-The virtual disk contains an MBR boot loader.
+.SH OPTIONS
+.IP "-i|--input-image"
+The full path name of the on-premise custom image. This option is mandatory.
+.IP "-b|--bucket"
+The name of the object storage or bucket in the
+.B Oracle Cloud Infrastructure,
+ the destination of the modified image file. This options is mandatory.
+.IP "-o|--output-image"
+The oci-image-name or the name of the image as it will be saved in the object
+storage in
+.B Oracle Cloud Infrastructure.
+This argument is optional, the default is the on-premise image name.
 
-The boot process does not require additional data volumes for a successful boot.
+.IP "-v|--verbose"
+Show information about the image file on the console. This information is also
+written to a result file in /var/tmp.
 
-The disk image is not encrypted.
+.IP "--help"
+Print a summary of the command line options.
 
-The image is of type VMDK or QCOW2.
-
-The boot loader uses LVM or UUID to identify the boot volume.
-
-The network configuration does not refer explictly to hardware addresses.
+.SH DIAGNOSTICS
+Returns an exit status of 0 for success or 1 if an error occured.
 
 .SH EXAMPLES
-oci-image-migrate -i /data/images/ol7.qcow2 -b thisobjectstorate -o ol7atoci -v
+.PP
+.nf
+.RS
+oci-image-migrate -i /data/images/ol7.qcow2 -b thisobjectstorage -o ol7atoci -v
+.RE
+.fi
+.PP
+Verifies if the conditions for import of the image file /data/images/ol7.qcow2
+in the
+.B Oracle Cloud Infrastructure
+are met, updates the network configuration, installs the cloud-init package,
+sets a default cloud user and uploads the modified file to the object storage
+thisobjectstorage as ol7atoci.
 
 .SH SEE ALSO
-.BR ocid (8) oci-metadata (1)
+.BR ocid (8)
+.BR oci-metadata (1)
 
-.SH BUGS
-
-.SH AUTHOR
-Guido Tijskens (guido.tijskens@oracle.com)
 
 .SH COPYRIGHT
 Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.

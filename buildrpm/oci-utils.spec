@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.10.2-1
-Release: 1%{?dist}
+Version: 0.10.2
+Release: 2%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -169,7 +169,7 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
-* Thu Dec 12 2019 Guido Tijskens <guido.tijskens@oracle.com> -- 0.10.2-1
+* Thu Dec 12 2019 Guido Tijskens <guido.tijskens@oracle.com> -- 0.10.2-2
 - Added oci-image-migrate utility.
 
 * Wed Dec 4 2019 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.10.2
