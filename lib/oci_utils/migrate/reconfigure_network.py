@@ -18,6 +18,7 @@ import yaml
 from glob import glob
 from oci_utils.migrate import get_config_data
 from oci_utils.migrate import migrate_tools
+from oci_utils.migrate import migrate_utils
 from oci_utils.migrate.exception import OciMigrateException
 from six.moves import configparser
 
@@ -264,79 +265,19 @@ def reconfigure_networkmanager(rootdir):
         # contains nwm keyfiles?
         nwm_files = glob(thisdir + '/*')
         if len(nwm_files) > 0:
-            for nwkf in sorted(nwm_files):
-                thispars = ConfigParser()
-                netwmg_data[nwkf] = dict()
-                try:
-                    rv = thispars.read(nwkf)
-                    if 'connection' in thispars.sections():
-                        ifname = thispars.get('connection', 'interface-name')
-                        netwmg_nics.append(ifname)
-                    else:
-                        _logger.debug('No connection section in %s' % nwkf)
-
-                    for sec in thispars.sections():
-                        netwmg_data[nwkf][sec] = thispars.items(sec)
-                        _logger.debug('%s' % netwmg_data[nwkf][sec])
-                    #
-                    # remove macaddress ref
-                    if thispars.has_option('ethernet', 'mac-address'):
-                        thispars.remove_option('ethernet', 'mac-address')
-                        with open(nwkf, 'wb') as kf:
-                            thispars.write(kf)
-                        _logger.debug('Removed reference to mac address in %s' % nwkf)
-                    else:
-                        _logger.debug('No ethernet - mac-address section in %s'
-                                     % nwkf)
-                except Exception as e:
-                    _logger.error('Some error reading %s: %s' % (nwkf, str(e)))
+            migrate_utils.exec_rmdir(thisdir)
+            migrate_utils.exec_mkdir(thisdir)
+            _logger.debug('%s emptied.' % thisdir)
         else:
             _logger.debug('No network manager keyfiles found.')
         #
         # update networkmanager configuration
-        if len(nwm_files) > 1:
-            #
-            # update unmanaged list
-            configpars = ConfigParser()
-            try:
-                rv = configpars.read(thiscfg)
-                if 'keyfile' not in configpars.sections():
-                    #
-                    # add section
-                    configpars.add_section('keyfile')
-                    _logger.debug('Added keyfile section.')
-                else:
-                    _logger.debug('keyfile section present.')
-                #
-                # unmanaged?
-                if configpars.has_option('keyfile', 'unmanaged-devices'):
-                    #
-                    # key is present, update
-                    unmdev = configpars.get('keyfile', 'unmanaged-devices')
-                    _logger.debug('Unmanaged devices found: %s' % unmdev)
-                    unmdev += ';' if unmdev is not '' else unmdev
-                else:
-                    #
-                    # add unmanaged-devices
-                    unmdev = ''
-
-                for nic in netwmg_nics[1:]:
-                    unmdev += 'interface-name:%s;' % nic \
-                        if 'interface-name:%s' % nic not in unmdev else unmdev
-                unmdev = unmdev[:-1] if unmdev[-1:] == ';' else unmdev
-
-                configpars.set('keyfile', 'unmanaged-devices', '%s' % unmdev)
-                _logger.debug('Added %s to unmanaged interface list.' % unmdev)
-                with open(thiscfg, 'wb') as nwc:
-                    configpars.write(nwc)
-                _logger.debug('Updated network manager config file %s' % thiscfg)
-            except Exception as e:
-                migrate_tools.error_msg('Error rewriting network manager '
-                                    'configuration file: %s' % str(e))
-        else:
+        # TODO: write config file with configparser
+        nwm_config_data = get_config_data('default_nwm_conf_file')
+        with open(thiscfg, 'w') as nwmf:
+            nwmf.write('\n'.join(str(x) for x in nwm_config_data))
             migrate_tools.result_msg(msg='Networkmanager configuration updated.',
                           result=True)
-            _logger.debug('Zero or 1 network interface defined.')
     else:
         _logger.debug(msg='  No NetworkManager configuration present.')
 

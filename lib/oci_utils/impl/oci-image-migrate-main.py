@@ -9,7 +9,7 @@
 """
 Script to migrate on-premise virtual servers to the Oracle Cloud
 Infrastructure. The candidate image needs to comply with:
-- BIOS boot;
+- BIOS or UEFI boot;
 - image size is maximum 300GB;
 - contain one disk containing Master Boot Record and boot loader;
 - no additional volumes are required to complete the boot process;
@@ -372,7 +372,7 @@ def main():
     # More on command line arguments.
     #
     # initialise output
-    migrate_tools.result_msg(msg='\n  Results are written to %s.' % resultfilename,
+    migrate_tools.result_msg(msg='Results are written to %s.' % resultfilename,
                          result=True)
     migrate_tools.result_msg(msg='Input image:  %s' % imagepath, result=True)
     #
@@ -452,13 +452,25 @@ def main():
             prereq_msg += msg
         #
         if imgres:
-            prereq_msg += '\n\n  + %s data collection and processing succeeded.' \
+            prereq_msg += '\n\n  %s data collection and processing succeeded.' \
                       % imagepath
         else:
             prereq_passed = False
         #
         if prereq_passed:
             migrate_tools.result_msg(msg=prereq_msg, result=True)
+            if imagedata['boot_type'] == 'BIOS':
+                migrate_tools.result_msg(msg='Boot type is BIOS, '
+                                             'use launch_mode PARAVIRTUALIZED '
+                                             '(or EMULATED) at import.',
+                                         result = True)
+            elif imagedata['boot_type'] == 'UEFI':
+                migrate_tools.result_msg(msg='Boot type is UEFI, '
+                                             'use launch_mode NATIVE at '
+                                             'import.', result=True)
+            else:
+                exit_with_msg('*** ERROR *** Something wrong checking the '
+                              'boot type')
         else:
             prereq_msg += '\n\n  + %s processing failed, check the logfile ' \
                           'and/or set environment variable _OCI_UTILS_DEBUG.' \

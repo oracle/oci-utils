@@ -1058,8 +1058,6 @@ class DeviceData(object):
             self._img_info['boot_type'] = 'UEFI'
         else:
             self._img_info['boot_type'] = 'BIOS'
-        # _logger.debug('Image boot type is %s' % self._img_info[
-        # 'boot_type'])
         migrate_tools.result_msg(msg='Image boot type: %s' % self._img_info[
             'boot_type'])
         #
@@ -1206,7 +1204,7 @@ class DeviceData(object):
         Returns
         -------
             bool: True or False.
-            str : The eventual message.
+            str : The eventual fail message.
         """
         thispass = True
         failmsg = ''

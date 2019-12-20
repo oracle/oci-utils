@@ -148,6 +148,7 @@ partition_types :
 # list of valid boot configurations.
 valid_boot_types : 
     - 'BIOS'
+    - 'UEFI'
 #
 # list of directories required for a normal boot of a linux type os; if
 # those directories reside in separate partitions, those partition have to
@@ -211,6 +212,9 @@ default_nwm_conf_file :
    - ''
    - '[ifupdown]'
    - 'managed=false'
+   - ''
+   - '[keyfile]'
+   - 'unmanaged-devices='
    - ''
    - '[device]'
    - 'wifi.scan-rand-mac-address=no'

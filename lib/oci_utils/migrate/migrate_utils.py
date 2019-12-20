@@ -289,7 +289,6 @@ def exec_rmdir(dirname):
            True on success, raises an exception otherwise.
     """
     _logger.debug('Removing directory tree.')
-    cmd = ['rmdir']
     try:
         shutil.rmtree(dirname)
         return True
