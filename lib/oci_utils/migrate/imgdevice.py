@@ -16,8 +16,8 @@ import six
 import sys
 import threading
 import time
-
 from glob import glob as glob
+
 from oci_utils.migrate import console_msg, pause_msg
 from oci_utils.migrate import get_config_data
 from oci_utils.migrate import migrate_tools
@@ -864,7 +864,7 @@ class DeviceData(object):
             for mnt in self._mountpoints:
                 etcdir = mnt + '/etc'
                 _logger.debug('Looking in partition %s' % mnt)
-                fstab = migrate_utils.exec_search(thisfile, etcdir)
+                fstab = migrate_utils.exec_search(thisfile, rootdir=etcdir)
                 if fstab is not None:
                     #
                     # found fstab, reading it
@@ -1015,18 +1015,18 @@ class DeviceData(object):
         _logger.debug('part found: %s' % part)
         return part, mount
 
-    def get_grub_data(self, rootdir):
+    def get_grub_data(self, loopdir):
         """
         Collect data related to boot and grub.
         Parameters:
         ----------
-            rootdir: str
+            loopdir: str
                 Mountpoint of the root partition.
 
         Returns
         -------
             list: List with relevant data from the grub config file:
-               boot type, BIOS or EFI,
+               boot type, BIOS or UEFI,
                boot instructions
         """
         #
@@ -1034,11 +1034,11 @@ class DeviceData(object):
         grubconflist = ['grub.cfg', 'grub.conf']
         grub_cfg_path = None
         for grubname in grubconflist:
-            for grubroot in [rootdir + '/boot',
-                             rootdir + '/grub',
-                             rootdir + '/grub2']:
+            for grubroot in [loopdir + '/boot',
+                             loopdir + '/grub',
+                             loopdir + '/grub2']:
                 _logger.debug('Looking for %s in %s' % (grubname, grubroot))
-                grubconf = migrate_utils.exec_search(grubname, grubroot)
+                grubconf = migrate_utils.exec_search(grubname, rootdir=grubroot)
                 if grubconf is not None:
                     grub_cfg_path = grubconf
                     _logger.debug('Found grub config file: %s' % grub_cfg_path)
@@ -1053,8 +1053,12 @@ class DeviceData(object):
             migrate_tools.result_msg(msg='Grub config file: %s' % grub_cfg_path,
                                  result=True)
         #
-        # investigate grub cfg path: contents of EFI/efi directory.
-        if 'EFI' in grub_cfg_path.split('/'):
+        # investigate /boot for EFI/efi directory.
+        #if 'EFI' in grub_cfg_path.split('/'):
+        efiboot = migrate_utils.exec_search('EFI',
+                                            rootdir=loopdir + '/boot',
+                                            dirnames=True)
+        if efiboot is not None:
             self._img_info['boot_type'] = 'UEFI'
         else:
             self._img_info['boot_type'] = 'BIOS'
@@ -1152,7 +1156,7 @@ class DeviceData(object):
         # hostnamectl is a systemd command, not available in OL/RHEL/CentOS 6
         try:
             for mnt in self._mountpoints:
-                osdata = migrate_utils.exec_search('os-release', mnt)
+                osdata = migrate_utils.exec_search('os-release', rootdir=mnt)
                 if osdata is not None:
                     with open(osdata, 'rb') as f:
                         osreleasedata = [line.strip()
@@ -1353,17 +1357,17 @@ class DeviceData(object):
                                         'partition via UUID.' % l)
                         elif l_split[0] == 'kernel':
                             grub_l += 1
-                            if len([a for a in l_split
-                                    if any(b in a
-                                           for b in ['root=UUID='])]) == 0:
-                                _logger.error('grub line ->%s<- does not '
+                            if len([a for a in l_split if any(b in a for b in
+                                                              ['root=UUID=',
+                                                               'root=/dev/mapper/'])]) == 0:
+                                _logger.debug('grub line ->%s<- does not '
                                                    'specify boot partition '
-                                                   'via UUID.' % l)
+                                                   'via UUID nor LVM2.' % l)
                                 grub_fail += 1
                             else:
                                 migrate_tools.result_msg(
                                     msg='grub line ->%s<- specifies boot '
-                                        'partition via UUID.' % l,
+                                        'partition via UUID or LVM2.' % l,
                                     result=True)
                         else:
                             _logger.debug('skipping %s' % l_split)
@@ -1373,7 +1377,7 @@ class DeviceData(object):
             elif grub_fail > 0:
                 thispass = False
                 failmsg += '\n  - grub config file does not guarantee booting ' \
-                           'using UUID'
+                           'using UUID or LVM2.'
             else:
                 _logger.debug('Grub config file ok.')
         else:

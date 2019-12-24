@@ -19,7 +19,7 @@ _logger = logging.getLogger('oci-utils.sudo')
 
 def _prepare_command(cmd):
     """
-    Prepare the command line to be executed prepend sudo if not alreary present.
+    Prepare the command line to be executed prepend sudo if not already present.
 
     Parameters
     ----------
@@ -130,7 +130,7 @@ def call_popen_output(cmd, log_output=True):
         return 404
     except subprocess.CalledProcessError as e:
         if log_output:
-            _logger.debug("Error execeuting {}: {}\n{}\n"
+            _logger.debug("Error executing {}: {}\n{}\n"
                           .format(_c, e.returncode, e.output))
         return None
 

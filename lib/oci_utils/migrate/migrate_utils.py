@@ -158,36 +158,42 @@ def leave_chroot(root2return):
         OciMigrateException('Failed to return from chroot: %s' % str(e))
 
 
-def exec_search(thisfile, rootdir='/'):
+def exec_search(thisname, rootdir='/', dirnames=False):
     """
     Find the filename in the rootdir tree.
 
     Parameters
     ----------
-    thisfile: str
+    thisname: str
         The filename to look for.
     rootdir: str
         The directory to start from, default is root.
+    dirnames: bool
+        If True, also consider directory names.
 
     Returns
     -------
         str: The full path of the filename if found, None otherwise.
     """
-    _logger.debug('Looking for %s in %s' % (thisfile, rootdir))
+    _logger.debug('Looking for %s in %s' % (thisname, rootdir))
     migrate_tools.result_msg(msg='Looking for %s in %s, might take a while.'
-                             % (thisfile, rootdir))
+                             % (thisname, rootdir))
     try:
         for thispath, directories, files in os.walk(rootdir):
             # _logger.debug('%s %s %s' % (thispath, directories, files))
-            if thisfile in files:
+            if thisname in files:
                 _logger.debug('Found %s'
-                             % os.path.join(rootdir, thispath, thisfile))
-                return os.path.join(rootdir, thispath, thisfile)
+                             % os.path.join(rootdir, thispath, thisname))
+                return os.path.join(rootdir, thispath, thisname)
+            if dirnames and thisname in directories:
+                _logger.debug('Found %s as directory.'
+                             % os.path.join(rootdir, thispath, thisname))
+                return os.path.join(rootdir, thispath, thisname)
     except Exception as e:
         _logger.error('Error while looking for %s: %s'
-                     % (thisfile, str(e)))
+                     % (thisname, str(e)))
         raise OciMigrateException('Error while looking for %s: %s'
-                                  % (thisfile, str(e)))
+                                  % (thisname, str(e)))
     return None
 
 

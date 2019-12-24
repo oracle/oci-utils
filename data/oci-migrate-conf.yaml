@@ -42,6 +42,10 @@ logical_vol_types :
 # partition names and types to be ignored.
 partition_to_skip : 
     - swap
+    - /dev/shm
+    - /sys
+    - /dev/pts
+    - /proc
     - none
     - dummy
 #
