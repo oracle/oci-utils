@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -9,7 +9,9 @@ Module containing methods for the configuration of the networking with
 respect to upload to the Oracle Cloud Infrastructure.
 """
 import logging
+import fnmatch
 import os
+import re
 import shutil
 import six
 import stat
@@ -24,6 +26,70 @@ from six.moves import configparser
 
 _logger = logging.getLogger('oci-utils.reconfigure-network')
 ConfigParser = configparser.ConfigParser
+
+
+def cleanup_udev(rootdir):
+    """
+    Cleanup eventual HWADDR - device name definitions in udev rules.
+
+    Parameters
+    ----------
+    rootdir: str
+        Full path of udev root dir.
+
+    Returns
+    -------
+
+    """
+    _logger.debug('Update network udev rules.')
+    udevrootdir = rootdir + '/etc/udev'
+    _logger.debug('udev root is %s' % udevrootdir)
+    pregex=fnmatch.translate('*rules')
+    rulefiles=[]
+    if migrate_tools.dir_exists(udevrootdir):
+        #
+        # Backup
+        shutil.copytree(udevrootdir, os.path.split(udevrootdir)[0] + '/bck_'
+                        + os.path.split(udevrootdir)[1]
+                        + '_'
+                        + migrate_tools.thistime)
+
+        for root, dirs, files in os.walk(udevrootdir):
+            for fn in files:
+                fullfn = os.path.join(root, fn)
+                #
+                # Look for .rules file
+                if re.search(pregex, fullfn):
+                    rulefiles.append(fullfn)
+                    macmatch = False
+                    with open(fullfn, 'rb') as g:
+                        #
+                        # Look for network naming rules
+                        for line in g:
+                            if re.match("(.*)KERNEL==\"eth(.*)", line):
+                                macmatch = True
+                                _logger.debug('Found rule in %s.' % fullfn)
+                                break
+                    if macmatch:
+                        #
+                        # Rewrite the network naming rules
+                        mv_fullfn = fullfn + '_save'
+                        try:
+                            shutil.move(fullfn, mv_fullfn)
+                            fndata = open(mv_fullfn, 'rb').read()
+                            newf = open(fullfn, 'wb')
+                            for lx in fndata.split('\n'):
+                                if not re.match("(.*)KERNEL==\"eth(.*)", lx):
+                                    newf.write('%s\n' % lx)
+                            newf.close()
+                            os.remove(mv_fullfn)
+                        except Exception as e:
+                            _logger.error('Failed to rewrite udev network '
+                                          'naming rules: %s' % str(e))
+                            return False
+    else:
+        _logger.debug('Directory %s not found.')
+    return True
 
 
 def reconfigure_ifcfg_config(rootdir):
@@ -335,6 +401,7 @@ def reconfigure_interfaces(rootdir):
                 shutil.copytree(thisroot, os.path.split(thisroot)[0]
                                 + '/bck_'
                                 + os.path.split(thisroot)[1]
+                                + '_'
                                 + migrate_tools.thistime)
                 #
                 # remove dir
@@ -463,6 +530,13 @@ def update_network_config(rootdir):
     migrate_tools.result_msg(msg='Adjust network configuration.', result=True)
     network_config = dict()
     network_list = list()
+    #
+    # Cleanup udev network device naming.
+    if cleanup_udev(rootdir):
+        _logger.debug('udev successfully modified.')
+    else:
+        _logger.debug('Failed to modify udev rules with respect to network '
+                      'device naming.')
     #
     # ifcfg
     ifcfg_nics, ifcfg_data = reconfigure_ifcfg_config(rootdir)

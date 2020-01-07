@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.10.2
-Release: 2%{?dist}
+Release: 3%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -158,6 +158,7 @@ rm -rf %{buildroot}
 
 %files migrate
 %{_bindir}/oci-image-migrate
+%{_bindir}/oci-image-migrate-import
 %{__l_python_sitelib}/oci_utils/__init__*
 %{__l_python_sitelib}/oci_utils/exceptions*
 %{__l_python_sitelib}/oci_utils/impl/__init__*
@@ -174,6 +175,9 @@ rm -rf %{buildroot}
 %systemd_preun oci-kvm-config.service
 
 %changelog
+* Tue Jan 7 2020 Guido Tijskens <guido.tijskens@oracle.com> -- 0.10.2-3
+- Added oci-image-migrate-import utility
+
 * Thu Dec 12 2019 Guido Tijskens <guido.tijskens@oracle.com> -- 0.10.2-2
 - Added oci-image-migrate utility.
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
 
 """ Build an rpm from oci-utils.
 """
@@ -223,6 +223,7 @@ setup(
              'bin/oci-network-inspector',
              'bin/oci-kvm',
              'bin/oci-image-migrate',
+             'bin/oci-image-migrate-import'
              ],
     classifiers=[
         "Development Status :: 3 - Alpha",
