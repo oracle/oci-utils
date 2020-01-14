@@ -138,4 +138,31 @@ How to test oci-utils.
             python setup.py oci_tests --test-runner=test_runnner:OciUtilsTestRunnerRecord --tests-base=/tmp/oci-tests
             python setup.py oci_tests --test-runner=test_runnner:OciUtilsTestRunnerReplay --tests-base=/tmp/oci-tests
 
+  Validation tests
+        This will generate an OCI instance and push oci_utils tests and run them
+            on the newly created instance.
+
+        requirements:
+                1. install terraform on your test machine
+                      https://learn.hashicorp.com/terraform/getting-started/install.html
+                2. configure the OCI cli client
+
+
+        Run the validation:
+            python setup.py oci_validation_tests [--rpm-dir=...] --tf-config=...
+
+            By default the command create all the RPMS. You can specify a directoy which already contains the RPMS using
+            the rpm-dir options
+            The command requires a terraform cofiguration file which contains all required properties.
+            A template file is available in tests/temaplates/instance.tfvars.json
+
+            #cp tests/templates/instance.tfvars.json /tmp/
+            # .... make change according to your setup
+            #python setup.py oci_validation_tests --tf-config=/tmp/instance.tfvars.json
+
+        See resources information:
+            #terraform output
+        destroy resources:
+            #terraform destroy -var oci_utils_rpms_dir=""  -var-file=tests/templates/instance.tfvars.json tools/provisionning/test_instance/
+
 

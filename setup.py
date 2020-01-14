@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.7
 
-# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
 
 """ Build an rpm from oci-utils.
 """
@@ -11,14 +11,37 @@ import subprocess
 import sys
 import logging
 from distutils.core import Command
+from distutils.dist import Distribution
 from distutils.errors import DistutilsExecError
 
 from setuptools.command.test import test as TestCommand
 
 from distutils import log
 
-sys.path.insert(0, os.path.abspath('lib'))
-sys.path.insert(0, os.path.abspath('tools'))
+
+def get_reloc_path(path):
+    """
+    for relative path get the absolute path computed
+    against the current nodule path
+
+    Parameters
+    ----------
+    path : str
+          path to be computed
+
+    Returns
+    -------
+        The absolute path
+
+    """
+
+    if os.path.isabs(path):
+        return path
+    return os.path.join(os.path.dirname(__file__), path)
+
+
+sys.path.insert(0, get_reloc_path('lib'))
+sys.path.insert(0, get_reloc_path('tools'))
 
 try:
     from setuptools import setup, find_packages
@@ -27,13 +50,6 @@ except ImportError:
           "your package manager (usually python-setuptools) or via pip (pip "
           "install setuptools).")
     sys.exit(1)
-
-with open('requirements.txt') as requirements_file:
-    install_requirements = requirements_file.read().splitlines()
-    if not install_requirements:
-        print("Unable to read requirements from the requirements.txt file "
-              "That indicates this copy of the source code is incomplete.")
-        sys.exit(2)
 
 
 def read(fname):
@@ -49,7 +65,10 @@ def read(fname):
     -------
         The contents of the file.
     """
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+    return open(get_reloc_path(fname)).read()
+
+
+install_requirements = read('requirements.txt').splitlines()
 
 
 def get_content(base, pattern, recursive=True):
@@ -81,7 +100,7 @@ def get_content(base, pattern, recursive=True):
 
 
 class oci_tests(TestCommand):
-    description = 'run OC unittest'
+    description = 'run OCI unittest'
 
     TestCommand.user_options.extend([
         ('tests-base=', None, 'Specify the namespace for test properties')
@@ -111,6 +130,64 @@ class oci_tests(TestCommand):
         TestCommand.run(self)
 
 
+class oci_validation_tests(Command):
+    """
+    Runs all OCI tests on newly provisionned instance
+    """
+    description = 'run OCI production tests'
+    user_options = [('rpm-dir=', None, 'directory where to find oci-utils rpms, of not provided, rpmn are created automatically'),
+                    ('tf-config=', None, 'path to provisionning and tests variables')]
+
+    def finalize_options(self):
+        """
+        No action.
+
+        Returns
+        -------
+            No return value.
+        """
+        pass
+
+    def initialize_options(self):
+        """
+        Initialisation.
+
+        Returns
+        -------
+            No return value.
+        """
+        self.rpm_dir = None
+        self.tf_config = None
+
+    def run(self):
+        """
+        Run the validation
+
+        Returns
+        -------
+            No return value.
+
+        Raises
+        ------
+            DistutilsExecError
+                On any error.
+        """
+        log.info("runnig oci_validation_tests command now...")
+        if self.rpm_dir is None:
+            log.info("Creating RPMs now...")
+            self.run_command('create_rpm')
+            self.rpm_dir = self.distribution.get_option_dict('create_rpm')['rpm_top_dir'][1]
+            self.rpm_dir = "%s/RPMS/noarch/" % self.rpm_dir
+
+        ec = subprocess.call(('/usr/local/bin/terraform', 'init', 'tools/provisionning/test_instance'))
+        if ec != 0:
+            raise DistutilsExecError("Terraform configuration initialisation failed")
+        ec = subprocess.call(('/usr/local/bin/terraform', 'apply', '-var', 'oci_utils_rpms_dir=%s' % self.rpm_dir, '-var-file=%s' %
+                              self.tf_config, '-auto-approve', 'tools/provisionning/test_instance/'))
+        if ec != 0:
+            raise DistutilsExecError("validation execution failed")
+
+
 class print_recorded_commands(Command):
     description = 'pretty print of recorded commands'
     user_options = [
@@ -127,7 +204,7 @@ class print_recorded_commands(Command):
 
     def run(self):
         import xml.dom.minidom
-        print (xml.dom.minidom.parse(os.path.join(self.tests_base, 'commands.xml')).toprettyxml())
+        print(xml.dom.minidom.parse(os.path.join(self.tests_base, 'commands.xml')).toprettyxml())
 
 
 class create_rpm(Command):
@@ -301,15 +378,15 @@ setup(
                   'man/man8/oci-growfs.8',
                   'man/man8/oci-image-cleanup.8',
                   ]),
-                  (os.path.join("/opt", "oci-utils", "tools"),
-                 get_content('tools', '*.py', False)),
+                (os.path.join("/opt", "oci-utils", "tools"),
+                 get_content(get_reloc_path('tools'), '*.py', False)),
                 (os.path.join("/opt", "oci-utils", "tools", "execution"),
-                 get_content('tools/execution', '*', False)),
+                 get_content(get_reloc_path('tools/execution'), '*', False)),
                 (os.path.join("/opt", "oci-utils", "tests"),
-                 get_content('tests', '*', False)),
+                 get_content(get_reloc_path('tests'), '*', False)),
                 (os.path.join("/opt", "oci-utils", "tests", "data"),
-                 get_content('tests/data', '*'))
-                 ],
+                 get_content(get_reloc_path('tests/data'), '*'))
+                ],
     scripts=['bin/oci-public-ip',
              'bin/oci-metadata',
              'bin/oci-iscsi-config',
@@ -330,4 +407,10 @@ setup(
         'Topic :: System :: Systems Administration',
         'Topic :: Utilities',
         'License :: OSI Approved :: Universal Permissive License (UPL)'],
-    cmdclass={'create_rpm': create_rpm, 'sync_rpm': sync_rpm, 'print_rcmds': print_recorded_commands, 'oci_tests': oci_tests})
+    cmdclass={'create_rpm': create_rpm,
+              'sync_rpm': sync_rpm,
+              'print_rcmds': print_recorded_commands,
+              'oci_tests': oci_tests,
+              'oci_validation_tests': oci_validation_tests
+              }
+)
