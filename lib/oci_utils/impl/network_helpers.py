@@ -89,7 +89,7 @@ def get_interfaces():
                 for line in subprocess.check_output(
                         ['/usr/sbin/ip', 'link', 'show', n]).splitlines():
                     line = line.strip()
-                    if not line.startswith('vf '):
+                    if not str(line).startswith('vf '):
                         continue
 
                     ents = line.split(' ')
@@ -322,7 +322,7 @@ def remove_static_ip_rules(link_name):
         _command.extend(re.compile("\d:\t").split(_line.strip())[1].replace('[detached] ', '').split(' '))
         _out = sudo_utils.call_output(_command)
         if _out is not None and len(_out) > 0:
-            _logger.warning('cannot delete rule [%s]: %s' % (' '.join(_command), str(e)))
+            _logger.warning('cannot delete rule [%s]: %s' % (' '.join(_command), str(_out)))
 
 
 def add_static_ip_rule(*args, **kwargs):

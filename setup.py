@@ -1,4 +1,3 @@
-#!/usr/bin/env python2.7
 
 # Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
 
@@ -335,8 +334,8 @@ class sync_rpm(create_rpm):
 
 setup(
     name="oci-utils",
-    version="0.10.1",
-    author="Laszlo Peter, Qing Lin",
+    version="0.10.2",
+    author="Laszlo Peter, Qing Lin, Guido Tijskens, Emmanuel Jannetti",
     author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com, emmanuel.jannetti@oracle.com",
     description="Oracle Cloud Infrastructure utilities",
     license="UPL",
@@ -345,8 +344,7 @@ setup(
     url="http://github.com/oracle/oci-utils/",
     package_dir={'': 'lib'},
     packages=find_packages('lib'),
-    setup_requires=[
-        "flake8"],
+    setup_requires=[],
     long_description=read('README'),
     data_files=[(os.path.join(sys.prefix, 'libexec'),
                  ['libexec/ocid',
@@ -410,7 +408,8 @@ setup(
         'Intended Audience :: System Administrators',
         'Natural Language :: English',
         'Operating System :: POSIX',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
         'Topic :: System :: Installation/Setup',
         'Topic :: System :: Systems Administration',
         'Topic :: Utilities',

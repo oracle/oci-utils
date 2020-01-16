@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 # oci-utils
 #
 # Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
@@ -922,15 +920,19 @@ def create_virtual_network(**kargs):
     _kvm_addr_space = '%s/%s' % (_net, kargs['ip_prefix'])
 
     kvm_sysd_svc = SystemdServiceGenerator('kvm_net_%s' % kargs['network_name'], "KVM network")
-    kvm_sysd_svc.setEnvironment(
-        (('__KVM_NETWORK_NAME__', kargs['network_name']),
+    svc_envs = [('__KVM_NETWORK_NAME__', kargs['network_name']),
         ('__KVM_NET_ADDRESS_SPACE__', _kvm_addr_space),
         ('__KVM_NET_BRIDGE_NAME__', '%s0' % kargs['network_name']),
         ('__VNIC_DEFAULT_GW__', vnic['virtualRouterIp']),
-        ('__NET_DEV__' , vf_dev),
-        ('__RT_TABLE_NAME__' , vf_dev),
-        ('__VNIC_PRIVATE_IP__' , vnic['privateIp'])
-    ))
+        ('__RT_TABLE_NAME__', vf_dev),
+        ('__VNIC_PRIVATE_IP__', vnic['privateIp'])]
+
+    if _is_bm_shape:
+        svc_envs.append(('__NET_DEV__', '%s.%s' % (vf_dev, vnic['vlanTag'])))
+    else:
+        svc_envs.append(('__NET_DEV__', vf_dev))
+
+    kvm_sysd_svc.setEnvironment(svc_envs)
 
     # define the libvirt network
     netXML = Element('network')

@@ -1,4 +1,3 @@
-#!/usr/bin/env python2.7
 # oci-utils
 #
 # Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.

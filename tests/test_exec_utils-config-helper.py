@@ -1,10 +1,9 @@
-#!/usr/bin/env python2.7
-
 # Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
 import os
+import sys
 import subprocess
 import unittest
 
@@ -42,6 +41,6 @@ class TestExecConfigHelper(unittest.TestCase):
         """
         try:
             _ = subprocess.check_output(
-                [TestExecConfigHelper.OCI_UTILS_CONFIG_HELPER, '--help'])
+                [sys.executable, TestExecConfigHelper.OCI_UTILS_CONFIG_HELPER, '--help'])
         except Exception, e:
             self.fail('Execution has failed: %s' % str(e))

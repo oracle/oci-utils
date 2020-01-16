@@ -151,6 +151,15 @@ oci_vcn_md_read() {
     MD_VNICS=($(grep -w vnicId "$tmpfile" | cut -f 4 -d '"'))
     MD_NIC_IS=($(grep -w nicIndex "$tmpfile" | cut -f 2 -d ':' | tr -d ' '))
 
+    # for VM shapes tags are not required
+    if [ ${#MD_NIC_IS[@]} -eq 0 ]; then
+        i=$((${#MD_MACS[@]} - ${#MD_VLTAGS[@]}))
+        while [[ $i -gt 0 ]]; do
+            MD_VLTAGS=(${MD_VLTAGS[@]} 1)
+            i=-1
+        done
+    fi
+
     # do some validity checks on md data
     [ ${#MD_MACS[@]} -eq ${#MD_ADDRS[@]} ] || oci_vcn_err "invalid metadata: MAC or IP addresses are missing"
     [ ${#MD_MACS[@]} -eq ${#MD_VLTAGS[@]} ] || oci_vcn_err "invalid metadata: MAC or VLAN tags are missing"

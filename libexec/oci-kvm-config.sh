@@ -63,4 +63,14 @@ do
 done
 
 # Perform any necessary upgrades
-python /usr/libexec/oci-kvm-upgrade
+
+. /etc/os-release
+major=`echo $VERSION_ID | ${_CUT} -d. -f1`
+if [ ${major} -ge 8 ]
+then
+   #priority given to python3
+   /usr/bin/python3  /usr/libexec/oci-kvm-upgrade
+else
+   /usr/bin/python2  /usr/libexec/oci-kvm-upgrade
+fi
+
