@@ -156,9 +156,28 @@ How to test oci-utils.
             The command requires a terraform cofiguration file which contains all required properties.
             A template file is available in tests/temaplates/instance.tfvars.json
 
+            What is expected in instance.tfvars.json ?
+                tenancy_ocid: The tenancy OCID in which to create the instance  (like for OCI sdk usage)
+                user_ocid : User OCID to use for remote connection (like for OCI sdk usage)
+                fingerprint: key fingerprint,
+                private_key_path: EPM format private key (like for OCI sdk usage)
+                region: OCI region to use for instance creation ex :"uk-london-1"
+                compartment_id: The compartment OCID in which to create the instance  (like for OCI sdk usage)
+                availability_domain_id: the availabilityu domain to hist the instance ex "VkEH:UK-LONDON-1-AD-1"
+                subnet_id: VCN subnet OCID for instance primary connection
+                instance_shape: the instance shape to use ex : "VM.Standard.E2.1"
+                instance_image_ocid: instance image ocid
+                ssh_private_key_path: local ssh private key
+                ssh_authorized_key_path: local ssh authorized key
+                ssh_user: user to use liekly "opc"
+
+
             #cp tests/templates/instance.tfvars.json /tmp/
             # .... make change according to your setup
             #python setup.py oci_validation_tests --tf-config=/tmp/instance.tfvars.json
+
+
+
 
         See resources information:
             #terraform output

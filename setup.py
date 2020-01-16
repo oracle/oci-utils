@@ -136,7 +136,9 @@ class oci_validation_tests(Command):
     """
     description = 'run OCI production tests'
     user_options = [('rpm-dir=', None, 'directory where to find oci-utils rpms, of not provided, rpmn are created automatically'),
-                    ('tf-config=', None, 'path to provisionning and tests variables')]
+                    ('tf-config=', None, 'path to provisionning and tests variables'),
+                    ('keep-instance', None, 'By default, when validation is successful, the oci instance is deleted. ')]
+    boolean_options = ['keep-instance']
 
     def finalize_options(self):
         """
@@ -146,7 +148,8 @@ class oci_validation_tests(Command):
         -------
             No return value.
         """
-        pass
+        if self.tf_config is None:
+            raise Exception("Parameter --tf-config is missing")
 
     def initialize_options(self):
         """
@@ -158,6 +161,7 @@ class oci_validation_tests(Command):
         """
         self.rpm_dir = None
         self.tf_config = None
+        self.keep_instance = False
 
     def run(self):
         """
@@ -173,6 +177,7 @@ class oci_validation_tests(Command):
                 On any error.
         """
         log.info("runnig oci_validation_tests command now...")
+
         if self.rpm_dir is None:
             log.info("Creating RPMs now...")
             self.run_command('create_rpm')
@@ -186,6 +191,9 @@ class oci_validation_tests(Command):
                               self.tf_config, '-auto-approve', 'tools/provisionning/test_instance/'))
         if ec != 0:
             raise DistutilsExecError("validation execution failed")
+
+        if not self.keep_instance:
+            subprocess.call(('/usr/local/bin/terraform', 'destroy', '-var-file=""', '-auto-approve'))
 
 
 class print_recorded_commands(Command):
