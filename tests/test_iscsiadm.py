@@ -5,7 +5,7 @@
 import unittest
 
 import oci_utils.iscsiadm
-from decorators import (skipUnlessOCI, skipUnlessRoot)
+from decorators import (skipUnlessOCI, skipUnlessRoot, skipItAsUnresolved)
 
 
 class TestIScsiAdm(unittest.TestCase):
@@ -14,6 +14,7 @@ class TestIScsiAdm(unittest.TestCase):
     _discovery_address = '169.254.0.2'
     _lun_iqn = 'iqn.2015-02.oracle.boot:uefi'
 
+    @skipItAsUnresolved()
     @skipUnlessOCI()
     @skipUnlessRoot()
     def test_discovery(self):
@@ -32,6 +33,7 @@ class TestIScsiAdm(unittest.TestCase):
                       '[%s] not the first IQN discovered: <> [%s]' %
                       (TestIScsiAdm._lun_iqn, iqns[0]))
 
+    @skipItAsUnresolved()
     @skipUnlessOCI()
     @skipUnlessRoot()
     def test_session(self):

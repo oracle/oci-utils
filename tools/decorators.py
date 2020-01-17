@@ -21,7 +21,8 @@ __all__ = ['skipUnlessRecorder',
            'skipUnlessRoot',
            'skipUnlessOCI',
            'needsOCICLI',
-           'skipUnlessOCISDKInstalled']
+           'skipUnlessOCISDKInstalled',
+           'skipItAsUnresolved']
 
 __can_connect_to_oci_sap = None
 
@@ -63,6 +64,13 @@ def skipUnlessVirSHInstalled():
     if not os.path.exists(VIRSH_CMD):
         return unittest.skip('virsh not installed')
     return lambda func: func
+
+
+def skipItAsUnresolved():
+    """
+    just skip the test
+    """
+    return unittest.skip("Unresolved")
 
 
 __current_user_id = None
