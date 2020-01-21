@@ -176,7 +176,8 @@ How to test oci-utils.
             # .... make change according to your setup
             #python setup.py oci_validation_tests --tf-config=/tmp/instance.tfvars.json
 
-
+            In case of success, the instance is automatically destroyed unless the '--keep-instance' option
+            is used.
 
 
         See resources information:
