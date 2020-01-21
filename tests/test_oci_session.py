@@ -8,7 +8,7 @@ import unittest
 
 import oci_utils
 import oci_utils.oci_api
-from decorators import skipUnlessOCI, skipUnlessOCISDKInstalled, skipUnlessRoot, skipItAsUnresolved
+from tools.decorators import skipUnlessOCI, skipUnlessOCISDKInstalled, skipUnlessRoot, skipItAsUnresolved
 from oci_utils.exceptions import OCISDKError
 
 
@@ -48,6 +48,7 @@ class TestOCISession(unittest.TestCase):
                          'Not expeceted instance hostname [%s <> %s]' % (
                          i.get_display_name(), socket.gethostname()))
 
+    @skipItAsUnresolved()
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
     def test_instance_principal_auth(self):
@@ -309,6 +310,6 @@ class TestOCISession(unittest.TestCase):
         self.assertIsNotNone(_f, 'None list of instances returned')
         self.assertTrue(_f[0] == self.setUpSession().this_instance())
 
-        _all_wildcard = sorted(self.setUpSession().find_instances('*'))
+        _all_wildcard = sorted(self.setUpSession().find_instances('.*'))
         _all = sorted(self.setUpSession().all_instances())
         self.assertFalse(cmp(_all_wildcard, _all))

@@ -5,7 +5,7 @@
 import unittest
 
 import oci_utils.iscsiadm
-from decorators import (skipUnlessOCI, skipUnlessRoot, skipItAsUnresolved)
+from tools.decorators import (skipUnlessOCI, skipUnlessRoot, skipItAsUnresolved)
 
 
 class TestIScsiAdm(unittest.TestCase):

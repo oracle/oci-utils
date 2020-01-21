@@ -192,7 +192,8 @@ class oci_validation_tests(Command):
             raise DistutilsExecError("validation execution failed")
 
         if not self.keep_instance:
-            subprocess.call(('/usr/local/bin/terraform', 'destroy', '-var-file=""', '-auto-approve'))
+            subprocess.call(('/usr/local/bin/terraform', 'destroy', '-var', 'oci_utils_rpms_dir=%s' % self.rpm_dir, '-var-file=%s' %
+                             self.tf_config, '-auto-approve', 'tools/provisionning/test_instance/'))
 
 
 class print_recorded_commands(Command):
