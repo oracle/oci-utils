@@ -187,7 +187,7 @@ setup(
                   'libexec/oci-kvm-config.sh',
                   'libexec/oci-kvm-network-script'
                   ]),
-                 ("/etc/systemd/system",
+                ("/etc/systemd/system",
                  ['data/ocid.service', 'data/oci-kvm-config.service']),
                 ("/etc/oci-utils",
                  ['data/oci-image-cleanup.conf',
@@ -229,7 +229,6 @@ setup(
         'Intended Audience :: System Administrators',
         'Natural Language :: English',
         'Operating System :: POSIX',
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
         'Topic :: System :: Installation/Setup',
         'Topic :: System :: Systems Administration',

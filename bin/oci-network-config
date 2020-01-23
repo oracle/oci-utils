@@ -7,34 +7,9 @@
 # This utility assists with configuring iscsi storage on Oracle Cloud
 # Infrastructure instances.  See the manual page for more information.
 
-_PY=""
-_PY2=/usr/bin/python2
 _PY3=/usr/bin/python3
-s_dir=""
+s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
 
-# priority given to python3 
-if [ -x ${_PY3} ]
-then
-        # also be sure that py3 compatible code is installed
-        s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
-        if [ -n "${s_dir}" ]
-        then
-	   _PY=${_PY3}
-        fi
-fi
-if [ -z ${_PY} ]
-then
-   # still have to look for correct py
-   if [ -x ${_PY2} ]
-   then
-      _PY=${_PY2}
-   else
-      _PY=/usr/bin/python
-   fi
-   # find where actual script is.
-   s_dir=`${_PY} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))'`
 
-fi
-
-exec ${_PY}  ${s_dir}/oci-network-config-main.py $@
+exec ${_PY3}  ${s_dir}/oci-network-config-main.py $@
 

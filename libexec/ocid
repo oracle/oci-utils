@@ -9,23 +9,8 @@
 
 # Launsh ocid daemon with appropriate python program
 
-_CUT=/usr/bin/cut
-_PY=/usr/bin/python
-_PY2=/usr/bin/python2
-_PY3=/usr/bin/python3
 
-. /etc/os-release
-major=`echo $VERSION_ID | ${_CUT} -d. -f1`
-if [ ${major} -ge 8 ] && [ -x ${_PY3} ]
-then
-   #priority given to python3
-  _PY=${_PY3}
-else
-    if [ -x ${_PY2} ]
-    then
-	_PY=${_PY2}
-    fi
-fi
-# find where actual script is.
-s_dir=`${_PY} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))'`
-exec ${_PY}  ${s_dir}/ocid-main.py $@
+_PY3=/usr/bin/python3
+s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))'`
+
+exec ${_PY3}  ${s_dir}/ocid-main.py $@
