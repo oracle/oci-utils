@@ -5,13 +5,12 @@
 import os
 import subprocess
 import unittest
+from tools.oci_test_case import OciTestCase
 
 
-class TestCliOciNetworkInspector(unittest.TestCase):
+class TestCliOciNetworkInspector(OciTestCase):
     """ oci-iscsi-inspector tests.
     """
-
-    NETWORK_INSPECTOR = '/bin/oci-network-inspector'
 
     def setUp(self):
         """
@@ -26,9 +25,10 @@ class TestCliOciNetworkInspector(unittest.TestCase):
         unittest.Skiptest
             If the NETWORK_INSPECTOR does not exist.
         """
-        if not os.path.exists(TestCliOciNetworkInspector.NETWORK_INSPECTOR):
-            raise unittest.SkipTest(
-                "%s not present" % TestCliOciNetworkInspector.NETWORK_INSPECTOR)
+        super(TestCliOciNetworkInspector, self).setUp()
+        self.oci_net_inspector = self.properties.get_property('oci-network-inspector')
+        if not os.path.exists(self.oci_net_inspector):
+            raise unittest.SkipTest("%s not present" % self.oci_net_inspector)
 
     def test_display_help(self):
         """
@@ -40,7 +40,7 @@ class TestCliOciNetworkInspector(unittest.TestCase):
         """
         try:
             _ = subprocess.check_output([
-                TestCliOciNetworkInspector.NETWORK_INSPECTOR, '--help'])
+                self.oci_net_inspector, '--help'])
         except Exception, e:
             self.fail('Execution has failed: %s' % str(e))
 
@@ -54,6 +54,6 @@ class TestCliOciNetworkInspector(unittest.TestCase):
         """
         try:
             _ = subprocess.check_output([
-                TestCliOciNetworkInspector.NETWORK_INSPECTOR])
+                self.oci_net_inspector])
         except Exception, e:
             self.fail('Execution has failed: %s' % str(e))

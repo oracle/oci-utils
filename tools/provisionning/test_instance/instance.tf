@@ -6,7 +6,7 @@ terraform {
     oci = ">= 3.56.0"
   }
 }
-
+variable "tests_tools_dir" {}
 variable "tenancy_ocid" {}
 variable "user_ocid" {}
 variable "fingerprint" {}
@@ -25,6 +25,12 @@ variable "ssh_user" {}
 variable "oci_utils_rpms_dir" {}
 
 
+variable "dns_search_domains" {}
+variable "dns_server_ip" {}
+variable "http_proxy_url" {}
+variable "https_proxy_url" {}
+
+
 provider "oci" {
   tenancy_ocid     = var.tenancy_ocid
   user_ocid        = var.user_ocid
@@ -41,8 +47,20 @@ data "oci_identity_availability_domains" "ad" {
   compartment_id = var.compartment_id
 }
 
-
-
+data "template_file" "resolver_config" {
+  template = file(join("/", [abspath(path.root), "userdata", "oci_resolver_config"]))
+  vars = {
+    dns_search_domains = var.dns_search_domains
+    dns_server_ip      = var.dns_server_ip
+  }
+}
+data "template_file" "tests_environement" {
+  template = file(join("/", [abspath(path.root), "userdata", "oci-tests-env"]))
+  vars = {
+    http_proxy_url  = var.http_proxy_url
+    https_proxy_url = var.https_proxy_url
+  }
+}
 
 resource "oci_core_instance" "test_instance" {
   count               = "1"
@@ -63,6 +81,7 @@ resource "oci_core_instance" "test_instance" {
   }
 
   preserve_boot_volume = false
+
   metadata = {
     ssh_authorized_keys = file(var.ssh_authorized_key_path)
   }
@@ -83,8 +102,8 @@ resource "null_resource" "deploy_test" {
   depends_on = [oci_core_instance.test_instance]
 
   provisioner "file" {
-    source      = var.oci_utils_rpms_dir
-    destination = "/tmp/"
+    source      = join("/", [var.oci_utils_rpms_dir, "/"])
+    destination = "/tmp"
 
     connection {
       type        = "ssh"
@@ -98,7 +117,7 @@ resource "null_resource" "deploy_test" {
   }
 
   provisioner "file" {
-    source      = join("/", [abspath(path.root), "userdata", "oci_resolver_config"])
+    content     = data.template_file.resolver_config.rendered
     destination = "/tmp/resolv.conf"
 
     connection {
@@ -112,8 +131,8 @@ resource "null_resource" "deploy_test" {
 
   }
   provisioner "file" {
-    source      = join("/", [abspath(path.root), "userdata", "proxied_cmd"])
-    destination = "/tmp/proxied_cmd"
+    content     = data.template_file.tests_environement.rendered
+    destination = "/tmp/oci-tests-env.sh"
 
     connection {
       type        = "ssh"
@@ -123,13 +142,10 @@ resource "null_resource" "deploy_test" {
       timeout     = "15m"
       private_key = file(var.ssh_private_key_path)
     }
-
   }
 
-  provisioner "file" {
-    source      = join("/", [abspath(path.root), "userdata", "proxied_oci_utils_cmd"])
-    destination = "/tmp/proxied_oci_utils_cmd"
-
+  // do this right now as other command may need it
+  provisioner "remote-exec" {
     connection {
       type        = "ssh"
       agent       = false
@@ -138,7 +154,11 @@ resource "null_resource" "deploy_test" {
       timeout     = "15m"
       private_key = file(var.ssh_private_key_path)
     }
-
+    inline = [
+      "/bin/sudo /bin/cp --force /tmp/oci-tests-env.sh /etc/profile.d",
+      "/bin/sudo /bin/cp --force /etc/resolv.conf /etc/resolv.conf.back",
+      "/bin/sudo /bin/cp --force /tmp/resolv.conf /etc/resolv.conf",
+    ]
   }
 
   provisioner "remote-exec" {
@@ -152,19 +172,18 @@ resource "null_resource" "deploy_test" {
     }
 
     inline = [
-      "/bin/sudo  /bin/cp -f /tmp/resolv.conf /etc/resolv.conf",
-      "/bin/sh /tmp/proxied_cmd /usr/bin/yum  install --quiet --assumeyes gcc",
-      "/bin/sh /tmp/proxied_cmd /usr/bin/yum  install --quiet --assumeyes python-devel",
-      "/bin/sh /tmp/proxied_cmd /usr/bin/yum  install --quiet --assumeyes python-pip",
-      "/bin/sh /tmp/proxied_cmd /usr/bin/yum  install --quiet --assumeyes python-oci-sdk",
-      "/bin/sh /tmp/proxied_cmd /usr/bin/yum  install --quiet --assumeyes libvirt",
-      "/bin/sh /tmp/proxied_cmd /usr/bin/yum  install --quiet --assumeyes libvirt-python",
-      "/bin/sh /tmp/proxied_cmd /usr/bin/pip  install --quiet --upgrade pip",
-      "/bin/sh /tmp/proxied_cmd /usr/bin/pip  install setuptools  --upgrade",
-      "/bin/sh /tmp/proxied_cmd /usr/bin/yum  localinstall --assumeyes /tmp/oci-utils-*.rpm",
-      "/bin/sh /tmp/proxied_cmd /usr/bin/systemctl enable --now ocid",
-      "/bin/sh /tmp/proxied_cmd /usr/bin/systemctl enable --now libvirtd",
-      "/bin/sh /tmp/proxied_cmd /usr/bin/pip  install wheel",
+      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes gcc",
+      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes python-devel",
+      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes python-pip",
+      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes python-oci-sdk",
+      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes libvirt",
+      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes libvirt-python",
+      "/bin/sudo --login /usr/bin/pip install --quiet --upgrade pip",
+      "/bin/sudo --login /usr/bin/pip install setuptools --upgrade",
+      "/bin/sudo --login /usr/bin/yum localinstall --assumeyes /tmp/oci-utils-*.rpm",
+      "/bin/sudo --login /usr/bin/systemctl enable --now ocid",
+      "/bin/sudo --login /usr/bin/systemctl enable --now libvirtd",
+      "/bin/sudo --login /usr/bin/pip install wheel",
     ]
   }
 
@@ -181,9 +200,9 @@ resource "null_resource" "run_test" {
       timeout     = "15m"
       private_key = file(var.ssh_private_key_path)
     }
-
+    // do not use --login as it make the shell to change dir
     inline = [
-      "/bin/sh /tmp/proxied_oci_utils_cmd /bin/python /opt/oci-utils/setup.py test"
+      "cd /opt/oci-utils/ && /bin/sudo --preserve-env /bin/python /opt/oci-utils/setup.py oci_tests --tests-base=/opt/oci-utils/tests/data"
     ]
   }
 

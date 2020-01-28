@@ -122,10 +122,10 @@ class oci_tests(TestCommand):
             tools.decorators._run_under_recorder = True
 
     def run(self):
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.WARNING)
         if self.tests_base:
-            from oci_test_case import OciTestCase
-            OciTestCase._set_base(self.tests_base)
+            import tools.oci_test_case
+            tools.oci_test_case.OciTestCase._set_base(self.tests_base)
         TestCommand.run(self)
 
 

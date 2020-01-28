@@ -9,14 +9,16 @@ import unittest
 import oci_utils
 import oci_utils.oci_api
 from tools.decorators import skipUnlessOCI, skipUnlessOCISDKInstalled, skipUnlessRoot, skipItAsUnresolved
+from tools.oci_test_case import OciTestCase
 from oci_utils.exceptions import OCISDKError
 
 
-class TestOCISession(unittest.TestCase):
+class TestOCISession(OciTestCase):
     """ OCI session Test case.
     """
 
     def setUp(self):
+        super(TestOCISession, self).setUp()
         self._session = None
 
     def setUpSession(self):

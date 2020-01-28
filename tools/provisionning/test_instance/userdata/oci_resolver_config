@@ -2,10 +2,8 @@
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
-search appad2iad.osdiad.oraclevcn.com osdiad.oraclevcn.com us.oracle.com
-nameserver      10.209.76.198
-nameserver      10.209.76.197
-nameserver      192.135.82.132
+search ${dns_search_domains}
+nameserver ${dns_server_ip}
 
 
 

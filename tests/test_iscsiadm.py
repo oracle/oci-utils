@@ -6,13 +6,12 @@ import unittest
 
 import oci_utils.iscsiadm
 from tools.decorators import (skipUnlessOCI, skipUnlessRoot, skipItAsUnresolved)
+from tools.oci_test_case import OciTestCase
 
 
-class TestIScsiAdm(unittest.TestCase):
+class TestIScsiAdm(OciTestCase):
     """ Test iscsiadm module.
     """
-    _discovery_address = '169.254.0.2'
-    _lun_iqn = 'iqn.2015-02.oracle.boot:uefi'
 
     @skipItAsUnresolved()
     @skipUnlessOCI()
@@ -25,13 +24,13 @@ class TestIScsiAdm(unittest.TestCase):
         -------
             No return value.
         """
-        iqns = oci_utils.iscsiadm.discovery(TestIScsiAdm._discovery_address)
+        iqns = oci_utils.iscsiadm.discovery(self.properties.get_property('discovery-address'))
         self.assertTrue(len(iqns) > 0,
                         'No LUNs discovered against [%s]' %
-                        TestIScsiAdm._discovery_address)
-        self.assertIn(TestIScsiAdm._lun_iqn, iqns[0],
+                        self.properties.get_property('discovery-address'))
+        self.assertIn(self.properties.get_property('lun_iqn'), iqns[0],
                       '[%s] not the first IQN discovered: <> [%s]' %
-                      (TestIScsiAdm._lun_iqn, iqns[0]))
+                      (self.properties.get_property('lun_iqn'), iqns[0]))
 
     @skipItAsUnresolved()
     @skipUnlessOCI()
@@ -45,9 +44,9 @@ class TestIScsiAdm(unittest.TestCase):
             No return value.
         """
         iqns = oci_utils.iscsiadm.session()
-        self.assertIn(TestIScsiAdm._lun_iqn, iqns,
+        self.assertIn(self.properties.get_property('lun_iqn'), iqns,
                       'boot diks lun [%s] not found in IQN discovered [%s]' %
-                      (TestIScsiAdm._lun_iqn, iqns))
+                      (self.properties.get_property('lun_iqn'), iqns))
         self.assertEqual(iqns['iqn.2015-02.oracle.boot:uefi']
                          ['current_portal_ip'], '169.254.0.2')
 

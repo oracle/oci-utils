@@ -7,28 +7,20 @@ import socket
 import unittest
 
 from oci_utils.impl.network_helpers import is_ip_reachable
+from tools.oci_test_case import OciTestCase
 
 
-class TestNetworkHelpers(unittest.TestCase):
+class TestNetworkHelpers(OciTestCase):
     """
     Test impl/network_helpers.py.
 
     Attributes
     ----------
-    _discovery_address: str
-        The IP address.
-    _lun_iqn: str
-        The iSCSI qualified name.
     _test_connect_remote: str
         The remote hostname.
     _test_connect_remote_port:
         The port to use for the test.
     """
-    _discovery_address = '169.254.0.2'
-    _lun_iqn = 'iqn.2015-02.oracle.boot:uefi'
-
-    _test_connect_remote = 'localhost'
-    _test_connect_remote_port = 10000
 
     def setUp(self):
         """
@@ -38,9 +30,10 @@ class TestNetworkHelpers(unittest.TestCase):
         -------
             No return value.
         """
+        super(TestNetworkHelpers, self).setUp()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.bind((TestNetworkHelpers._test_connect_remote,
-                        TestNetworkHelpers._test_connect_remote_port))
+        self.sock.bind((self.properties.get_property('connect_remote'),
+                        self.properties.get_property('connect_remote_port')))
         self.sock.listen(1)
 
     def tearDown(self):
@@ -61,7 +54,8 @@ class TestNetworkHelpers(unittest.TestCase):
         -------
             No return value.
         """
+
         self.assertTrue(is_ip_reachable(
-            TestNetworkHelpers._test_connect_remote,
-            TestNetworkHelpers._test_connect_remote_port))
+            self.properties.get_property('connect_remote'),
+            self.properties.getint('connect_remote_port')))
         self.assertFalse(is_ip_reachable('blabber', 80))

@@ -5,9 +5,9 @@
 import unittest
 
 from oci_utils.impl import lock_thread, release_thread
+from tools.oci_test_case import OciTestCase
 
-
-class TestLockThread(unittest.TestCase):
+class TestLockThread(OciTestCase):
     """ Test lock thread.
     """
     def test_unlock_unlocked(self):

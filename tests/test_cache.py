@@ -11,9 +11,10 @@ import uuid
 from datetime import timedelta
 
 from oci_utils.cache import get_newer, get_timestamp, load_cache, write_cache
+from tools.oci_test_case import OciTestCase
 
 
-class testOciCache(unittest.TestCase):
+class testOciCache(OciTestCase):
     """ OCI cache test case.
     """
     file1_content = {'foo': 2}
@@ -27,6 +28,7 @@ class testOciCache(unittest.TestCase):
         -------
             No return value.
         """
+        super(testOciCache, self).setUp()
         # create 2 files, one newer than the other to verify get_newer()
         self.file1 = "/tmp/oci-test-%s" % uuid.uuid1()
         self.file2 = "/tmp/oci-test-%s" % uuid.uuid1()
@@ -57,7 +59,7 @@ class testOciCache(unittest.TestCase):
                 try:
                     os.remove(_p)
                 except OSError, e:
-                    print ('warning, cannot delete %s: %s' % (_p, str(e)))
+                    print('warning, cannot delete %s: %s' % (_p, str(e)))
 
     def test_get_timestamp(self):
         """

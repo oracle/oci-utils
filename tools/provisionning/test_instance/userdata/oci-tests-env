@@ -5,14 +5,11 @@
 # http://oss.oracle.com/licenses/upl.
 
 
+# This file contains environement variables and script commands
+# to be push on remote instance within /etc/profile.d
 
-export http_proxy=http://www-proxy-hqdc.us.oracle.com:80
-export https_proxy=https://www-proxy-hqdc.us.oracle.com:80
-
-# find better later
-cd /opt/oci-utils/
-/bin/sudo --preserve-env $*
-
+export http_proxy=${http_proxy_url}
+export https_proxy=${https_proxy_url}
 
 
 

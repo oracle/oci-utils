@@ -6,9 +6,10 @@ import os
 import sys
 import subprocess
 import unittest
+from tools.oci_test_case import OciTestCase
 
 
-class TestExecConfigHelper(unittest.TestCase):
+class TestExecConfigHelper(OciTestCase):
     """ oci-utils-config-helper tests.
     """
 
@@ -27,6 +28,7 @@ class TestExecConfigHelper(unittest.TestCase):
         unittest.Skiptest
             If the OCI_UTILS_CONFIG_HELPER does not exist.
         """
+        super(TestExecConfigHelper, self).setUp()
         if not os.path.exists(TestExecConfigHelper.OCI_UTILS_CONFIG_HELPER):
             raise unittest.SkipTest(
                 "%s not present" % TestExecConfigHelper.OCI_UTILS_CONFIG_HELPER)

@@ -151,12 +151,14 @@ How to test oci-utils.
         Run the validation:
             python setup.py oci_validation_tests [--rpm-dir=...] --tf-config=...
 
-            By default the command create all the RPMS. You can specify a directoy which already contains the RPMS using
-            the rpm-dir options
+            By default the command create all the RPMS. You can specify a directoy which already contains (only) the RPMS using
+            the rpm-dir options (note : entire directory is copied over)
             The command requires a terraform cofiguration file which contains all required properties.
             A template file is available in tests/temaplates/instance.tfvars.json
 
+
             What is expected in instance.tfvars.json ?
+                tests_tools_dir: path to directory containing some tests conf scripts
                 tenancy_ocid: The tenancy OCID in which to create the instance  (like for OCI sdk usage)
                 user_ocid : User OCID to use for remote connection (like for OCI sdk usage)
                 fingerprint: key fingerprint,
@@ -170,10 +172,12 @@ How to test oci-utils.
                 ssh_private_key_path: local ssh private key
                 ssh_authorized_key_path: local ssh authorized key
                 ssh_user: user to use liekly "opc"
-
+                dns_search_domains: dns search order,
+                dns_server_ip: dns server,
+                http_proxy_url: http proxy url,
+                https_proxy_url: https proxy url
 
             #cp tests/templates/instance.tfvars.json /tmp/
-            # .... make change according to your setup
             #python setup.py oci_validation_tests --tf-config=/tmp/instance.tfvars.json
 
             In case of success, the instance is automatically destroyed unless the '--keep-instance' option

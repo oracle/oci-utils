@@ -5,9 +5,9 @@
 import unittest
 
 import oci_utils.lsblk
+from tools.oci_test_case import OciTestCase
 
-
-class TestLsBlk(unittest.TestCase):
+class TestLsBlk(OciTestCase):
     """ Test the lsblk module.
     """
 
