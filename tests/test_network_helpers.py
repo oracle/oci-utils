@@ -33,7 +33,7 @@ class TestNetworkHelpers(OciTestCase):
         super(TestNetworkHelpers, self).setUp()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((self.properties.get_property('connect_remote'),
-                        self.properties.get_property('connect_remote_port')))
+                        int(self.properties.get_property('connect_remote_port'))))
         self.sock.listen(1)
 
     def tearDown(self):
@@ -56,6 +56,6 @@ class TestNetworkHelpers(OciTestCase):
         """
 
         self.assertTrue(is_ip_reachable(
-            self.properties.get_property('connect_remote'),
-            self.properties.getint('connect_remote_port')))
+            str(self.properties.get_property('connect_remote')),
+            int(self.properties.get_property('connect_remote_port'))))
         self.assertFalse(is_ip_reachable('blabber', 80))
