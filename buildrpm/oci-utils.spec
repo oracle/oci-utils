@@ -18,6 +18,8 @@ BuildRequires: systemd
 BuildRequires: python3-devel
 BuildRequires: python3-setuptools
 BuildRequires: python3-flake8
+# for 2to3 on OL7
+BuildRequires: python-tools
 Requires: python3
 Requires: python3-daemon
 Requires: python3-sdnotify
@@ -39,11 +41,7 @@ A package with useful scripts for querying/validating the state of Oracle Cloud 
 Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure
 Group: Development/Tools
 Requires: %{name} = %{version}-%{release}
-%if 0%{?rhel} >= 8
 Requires: python3-netaddr
-%else
-Requires: python-netaddr
-%endif
 %description kvm
 Utilities for creating and managing KVM guests that use Oracle Cloud Infrastructure resources, such as block storage and networking, directly.
 
@@ -75,6 +73,12 @@ Utilities unit tests
 %{__cp} -r setup.py %{buildroot}/opt/oci-utils
 %{__cp} -r requirements.txt %{buildroot}/opt/oci-utils
 %{__cp} -r README %{buildroot}/opt/oci-utils
+
+# for now keep the call to 2to3 here
+# after all pending tasks committed, 2to3 will be un on the source tree for once and for all
+/usr/bin/2to3 --no-diffs --write --nobackups  %{buildroot}
+# force run on ones not suffixed by .py
+/usr/bin/2to3 --no-diffs --write --nobackups  %{buildroot}/%{_libexecdir}/oci-utils-config-helper
 
 # temporary workaround to EOL vnic script: move it else where
 %{__mv} %{buildroot}/usr/libexec/secondary_vnic_all_configure.sh %{buildroot}%{python3_sitelib}/oci_utils/impl/.vnic_script.sh
