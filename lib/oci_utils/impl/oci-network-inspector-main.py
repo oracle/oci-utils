@@ -117,7 +117,9 @@ def main():
     comp_ocid = None
     for vcn in vcns:
         _compartment = vcn.get_compartment()
-
+        if _compartment is None:
+            __logger.error("no compartment returned for VCN %s\n" % str(vcn))
+            continue
         if _compartment.get_ocid() != comp_ocid:
             print ""
             print "Compartment: %s (%s)" % \
