@@ -4,10 +4,10 @@
 
 import unittest
 from oci_utils.impl.auth_helper import OCIAuthProxy
-from decorators import skipUnlessOCI
+from tools.decorators import skipUnlessOCI
+from tools.oci_test_case import OciTestCase
 
-
-class TestAuthHelpers(unittest.TestCase):
+class TestAuthHelpers(OciTestCase):
     """
     Auth helpers Test cases.
     """

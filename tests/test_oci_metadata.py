@@ -4,11 +4,11 @@
 
 import unittest
 
-from decorators import skipUnlessOCI
+from tools.decorators import skipUnlessOCI
 from oci_utils.metadata import InstanceMetadata as InstanceMetadata
+from tools.oci_test_case import OciTestCase
 
-
-class TestOciMetadata(unittest.TestCase):
+class TestOciMetadata(OciTestCase):
     """ OCI client metadata tests.
     """
 

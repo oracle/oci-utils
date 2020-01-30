@@ -4,10 +4,11 @@
 
 import unittest
 
-from decorators import skipUnlessOCI
+from tools.decorators import skipUnlessOCI
+from tools.oci_test_case import OciTestCase
 
 
-class TestPlatformHelpers(unittest.TestCase):
+class TestPlatformHelpers(OciTestCase):
     """ Test around lib/oci_utils/impl/platform_helpers.py.
     """
 

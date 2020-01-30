@@ -5,10 +5,11 @@
 import os
 import subprocess
 import unittest
-from decorators import skipUnlessRoot
+from tools.decorators import skipUnlessRoot
+from tools.oci_test_case import OciTestCase
 
 
-class TestExecOcid(unittest.TestCase):
+class TestExecOcid(OciTestCase):
     """ libexec/ocid tests.
     """
 
@@ -23,8 +24,10 @@ class TestExecOcid(unittest.TestCase):
         -------
             No return value.
         """
-        if not os.path.exists(TestExecOcid.OCID):
-            raise unittest.SkipTest("%s not present" % TestExecOcid.OCID)
+        super(TestExecOcid, self).setUp()
+        self.ocid = self.properties.get_property('ocid-path')
+        if not os.path.exists(self.ocid):
+            raise unittest.SkipTest("%s not present" % self.ocid)
 
     def test_display_help(self):
         """
@@ -35,6 +38,6 @@ class TestExecOcid(unittest.TestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([TestExecOcid.OCID, '--help'])
+            _ = subprocess.check_output([self.ocid, '--help'])
         except Exception, e:
             self.fail('Execution has failed: %s' % str(e))

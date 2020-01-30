@@ -1,16 +1,46 @@
-# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+
+# Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
 
 """ Build an rpm from oci-utils.
 """
+import fnmatch
+
 import os
 import subprocess
 import sys
+import logging
 from distutils.core import Command
+from distutils.dist import Distribution
 from distutils.errors import DistutilsExecError
+
+from setuptools.command.test import test as TestCommand
 
 from distutils import log
 
-sys.path.insert(0, os.path.abspath('lib'))
+
+def get_reloc_path(path):
+    """
+    for relative path get the absolute path computed
+    against the current nodule path
+
+    Parameters
+    ----------
+    path : str
+          path to be computed
+
+    Returns
+    -------
+        The absolute path
+
+    """
+
+    if os.path.isabs(path):
+        return path
+    return os.path.join(os.path.dirname(__file__), path)
+
+
+sys.path.insert(0, get_reloc_path('lib'))
+sys.path.insert(0, get_reloc_path('tools'))
 
 try:
     from setuptools import setup, find_packages
@@ -19,13 +49,6 @@ except ImportError:
           "your package manager (usually python-setuptools) or via pip (pip "
           "install setuptools).")
     sys.exit(1)
-
-with open('requirements.txt') as requirements_file:
-    install_requirements = requirements_file.read().splitlines()
-    if not install_requirements:
-        print("Unable to read requirements from the requirements.txt file "
-              "That indicates this copy of the source code is incomplete.")
-        sys.exit(2)
 
 
 def read(fname):
@@ -41,7 +64,155 @@ def read(fname):
     -------
         The contents of the file.
     """
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+    return open(get_reloc_path(fname)).read()
+
+
+install_requirements = read('requirements.txt').splitlines()
+
+
+def get_content(base, pattern, recursive=True):
+    '''
+    get all python files in dir and subdir
+    parameter
+        base str
+           basedirectory
+        pattern str
+            filename pattern like *.py
+        recursive boolean
+            do search down to subdirs
+    return
+    -------
+      list of files
+    '''
+    tools_l = []
+    if recursive:
+        for (dirpath, dirnames, filenames) in os.walk(base):
+            for filename in filenames:
+                if fnmatch.fnmatch(filename, pattern):
+                    tools_l.append(os.path.join(dirpath, filename))
+
+    else:
+        for entry in os.listdir(base):
+            if os.path.isfile(os.path.join(base, entry)) and fnmatch.fnmatch(entry, pattern):
+                tools_l.append(os.path.join(base, entry))
+    return tools_l
+
+
+class oci_tests(TestCommand):
+    description = 'run OCI unittest'
+
+    TestCommand.user_options.extend([
+        ('tests-base=', None, 'Specify the namespace for test properties')
+    ])
+
+    def initialize_options(self):
+        TestCommand.initialize_options(self)
+        self.tests_base = None
+
+    def finalize_options(self):
+        TestCommand.finalize_options(self)
+        if self.tests_base == None or not os.path.isdir(self.tests_base):
+            self.tests_base = None
+            log.warn('Warning: tests_base not found or missing !!')
+        else:
+            from execution.store import (setCommandStore, Store)
+            setCommandStore(Store(os.path.join(self.tests_base, 'commands.xml')))
+        if self.test_runner:
+            import tools.decorators
+            tools.decorators._run_under_recorder = True
+
+    def run(self):
+        logging.basicConfig(level=logging.WARNING)
+        if self.tests_base:
+            import tools.oci_test_case
+            tools.oci_test_case.OciTestCase._set_base(self.tests_base)
+        TestCommand.run(self)
+
+
+class oci_validation_tests(Command):
+    """
+    Runs all OCI tests on newly provisionned instance
+    """
+    description = 'run OCI production tests'
+    user_options = [('rpm-dir=', None, 'directory where to find oci-utils rpms, of not provided, rpmn are created automatically'),
+                    ('tf-config=', None, 'path to provisionning and tests variables'),
+                    ('keep-instance', None, 'By default, when validation is successful, the oci instance is deleted. ')]
+    boolean_options = ['keep-instance']
+
+    def finalize_options(self):
+        """
+        No action.
+
+        Returns
+        -------
+            No return value.
+        """
+        if self.tf_config is None:
+            raise Exception("Parameter --tf-config is missing")
+
+    def initialize_options(self):
+        """
+        Initialisation.
+
+        Returns
+        -------
+            No return value.
+        """
+        self.rpm_dir = None
+        self.tf_config = None
+        self.keep_instance = False
+
+    def run(self):
+        """
+        Run the validation
+
+        Returns
+        -------
+            No return value.
+
+        Raises
+        ------
+            DistutilsExecError
+                On any error.
+        """
+        log.info("runnig oci_validation_tests command now...")
+
+        if self.rpm_dir is None:
+            log.info("Creating RPMs now...")
+            self.run_command('create_rpm')
+            self.rpm_dir = self.distribution.get_option_dict('create_rpm')['rpm_top_dir'][1]
+            self.rpm_dir = "%s/RPMS/noarch/" % self.rpm_dir
+
+        ec = subprocess.call(('/usr/local/bin/terraform', 'init', 'tools/provisionning/test_instance'))
+        if ec != 0:
+            raise DistutilsExecError("Terraform configuration initialisation failed")
+        ec = subprocess.call(('/usr/local/bin/terraform', 'apply', '-var', 'oci_utils_rpms_dir=%s' % self.rpm_dir, '-var-file=%s' %
+                              self.tf_config, '-auto-approve', 'tools/provisionning/test_instance/'))
+        if ec != 0:
+            raise DistutilsExecError("validation execution failed")
+
+        if not self.keep_instance:
+            subprocess.call(('/usr/local/bin/terraform', 'destroy', '-var', 'oci_utils_rpms_dir=%s' % self.rpm_dir, '-var-file=%s' %
+                             self.tf_config, '-auto-approve', 'tools/provisionning/test_instance/'))
+
+
+class print_recorded_commands(Command):
+    description = 'pretty print of recorded commands'
+    user_options = [
+        ('tests-base=', None, 'Specify the namespace for test properties')
+    ]
+
+    def finalize_options(self):
+        if self.tests_base and not os.path.isdir(self.tests_base):
+            self.tests_base = None
+            log.warn('Warning: tests_base not found')
+
+    def initialize_options(self):
+        self.tests_base = None
+
+    def run(self):
+        import xml.dom.minidom
+        print(xml.dom.minidom.parse(os.path.join(self.tests_base, 'commands.xml')).toprettyxml())
 
 
 class create_rpm(Command):
@@ -213,7 +384,16 @@ setup(
                  ['man/man8/ocid.8',
                   'man/man8/oci-growfs.8',
                   'man/man8/oci-image-cleanup.8',
-                  ])],
+                  ]),
+                (os.path.join("/opt", "oci-utils", "tools"),
+                 get_content(get_reloc_path('tools'), '*.py', False)),
+                (os.path.join("/opt", "oci-utils", "tools", "execution"),
+                 get_content(get_reloc_path('tools/execution'), '*', False)),
+                (os.path.join("/opt", "oci-utils", "tests"),
+                 get_content(get_reloc_path('tests'), '*', False)),
+                (os.path.join("/opt", "oci-utils", "tests", "data"),
+                 get_content(get_reloc_path('tests/data'), '*'))
+                ],
     scripts=['bin/oci-public-ip',
              'bin/oci-metadata',
              'bin/oci-iscsi-config',
@@ -234,4 +414,10 @@ setup(
         'Topic :: System :: Systems Administration',
         'Topic :: Utilities',
         'License :: OSI Approved :: Universal Permissive License (UPL)'],
-    cmdclass={'create_rpm': create_rpm, 'sync_rpm': sync_rpm})
+    cmdclass={'create_rpm': create_rpm,
+              'sync_rpm': sync_rpm,
+              'print_rcmds': print_recorded_commands,
+              'oci_tests': oci_tests,
+              'oci_validation_tests': oci_validation_tests
+              }
+)

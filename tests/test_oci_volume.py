@@ -7,11 +7,12 @@ import unittest
 
 import oci_utils
 import oci_utils.oci_api
-from decorators import needsOCICLI
+from tools.decorators import needsOCICLI
+from tools.oci_test_case import OciTestCase
 from oci_utils.exceptions import OCISDKError
 
 
-class TestOCIVolume(unittest.TestCase):
+class TestOCIVolume(OciTestCase):
     """ Test OCI block volume.
     """
 
@@ -24,7 +25,8 @@ class TestOCIVolume(unittest.TestCase):
         -------
             No return value.
         """
-        print 'creating test volume'
+        super(TestOCIVolume, self).setUp()
+        self.logger.info('creating test volume')
         self.testVol = None
         try:
             self.sess = oci_utils.oci_api.OCISession()
