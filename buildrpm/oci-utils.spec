@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.10.2
-Release: 3%{?dist}
+Version: 0.11.0
+Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -165,7 +165,7 @@ rm -rf %{buildroot}
 %{__l_python_sitelib}/oci_utils/impl/sudo_utils*
 %{__l_python_sitelib}/oci_utils/impl/oci-image-migrate*
 %{__l_python_sitelib}/oci_utils/migrate*
-%{_datadir}/man/man1/oci-image-migrate.1.gz
+%{_datadir}/man/man1/oci-image-migrate*1.gz
 %config %{_sysconfdir}/oci-utils/oci-migrate-conf.yaml
 
 %post kvm

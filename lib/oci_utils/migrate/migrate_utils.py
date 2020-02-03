@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -8,27 +8,26 @@
 Module containing generic data and code with respect to the migration to the
 Oracle Cloud Infrastructure.
 """
+import configparser
 import json
 import logging
 import os
 import pkgutil
 import re
 import shutil
-import six
 import subprocess
-import yaml
 import sys
 import time
-
+import yaml
 from functools import wraps
 from glob import glob
-from oci_utils.impl.sudo_utils import call as run_call_cmd
+
+from oci_utils.migrate import console_msg, read_yn
 from oci_utils.migrate import get_config_data
 from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import pause_msg
 from oci_utils.migrate.exception import NoSuchCommand
 from oci_utils.migrate.exception import OciMigrateException
-from six.moves import configparser
 
 _logger = logging.getLogger('oci-utils.migrate-utils')
 ConfigParser = configparser.ConfigParser
@@ -71,7 +70,7 @@ def state_loop(maxloop, intsec=1):
                     return funcret
                 except Exception as e:
                     _logger.debug('Failed, sleeping for %d sec: %s'
-                                 % (intsec, str(e)))
+                                  % (intsec, str(e)))
                     if i == maxloop - 1:
                         raise OciMigrateException('State Loop exhausted: %s'
                                                   % str(e))
@@ -105,7 +104,7 @@ def enter_chroot(newroot):
     except Exception as e:
         _logger.error('Failed to change root to %s: %s' % (newroot, str(e)))
         #
-        # need to return env.
+        # need to return environment.
         if root2return > 0:
             os.fchdir(root2return)
             os.chroot('.')
@@ -158,13 +157,13 @@ def leave_chroot(root2return):
         OciMigrateException('Failed to return from chroot: %s' % str(e))
 
 
-def exec_search(thisname, rootdir='/', dirnames=False):
+def exec_search(file_name, rootdir='/', dirnames=False):
     """
     Find the filename in the rootdir tree.
 
     Parameters
     ----------
-    thisname: str
+    file_name: str
         The filename to look for.
     rootdir: str
         The directory to start from, default is root.
@@ -175,25 +174,25 @@ def exec_search(thisname, rootdir='/', dirnames=False):
     -------
         str: The full path of the filename if found, None otherwise.
     """
-    _logger.debug('Looking for %s in %s' % (thisname, rootdir))
+    _logger.debug('Looking for %s in %s' % (file_name, rootdir))
     migrate_tools.result_msg(msg='Looking for %s in %s, might take a while.'
-                             % (thisname, rootdir))
+                             % (file_name, rootdir))
     try:
-        for thispath, directories, files in os.walk(rootdir):
-            # _logger.debug('%s %s %s' % (thispath, directories, files))
-            if thisname in files:
+        for path_name, directories, files in os.walk(rootdir):
+            # _logger.debug('%s %s %s' % (path_name, directories, files))
+            if file_name in files:
                 _logger.debug('Found %s'
-                             % os.path.join(rootdir, thispath, thisname))
-                return os.path.join(rootdir, thispath, thisname)
-            if dirnames and thisname in directories:
+                              % os.path.join(rootdir, path_name, file_name))
+                return os.path.join(rootdir, path_name, file_name)
+            if dirnames and file_name in directories:
                 _logger.debug('Found %s as directory.'
-                             % os.path.join(rootdir, thispath, thisname))
-                return os.path.join(rootdir, thispath, thisname)
+                              % os.path.join(rootdir, path_name, file_name))
+                return os.path.join(rootdir, path_name, file_name)
     except Exception as e:
         _logger.error('Error while looking for %s: %s'
-                     % (thisname, str(e)))
+                      % (file_name, str(e)))
         raise OciMigrateException('Error while looking for %s: %s'
-                                  % (thisname, str(e)))
+                                  % (file_name, str(e)))
     return None
 
 
@@ -214,14 +213,14 @@ def exec_rmmod(module):
     cmd = ['rmmod']
     cmd.append(module)
     try:
-        rmmod_result = subprocess.check_call(cmd, stdout=open(os.devnull, 'wb'),
-                                             stderr=open(os.devnull, 'wb'),
+        rmmod_result = subprocess.check_call(cmd, stdout=subprocess.DEVNULL,
+                                             stderr=subprocess.DEVNULL,
                                              shell=False)
         if rmmod_result == 0:
             _logger.debug('Successfully removed %s' % module)
         else:
             _logger.error('Error removing %s, exit code %s, ignoring.'
-                         % (cmd, str(rmmod_result)))
+                          % (cmd, str(rmmod_result)))
     except Exception as e:
         _logger.debug('Failed: %s, ignoring.' % str(e))
     #
@@ -241,15 +240,13 @@ def exec_qemunbd(qemunbd_args):
 
     Returns
     -------
-        int: 0 on success, non-zero return value otherwise.
+        int: 0 on success, raise exception otherwise.
 
     """
     cmd = ['qemu-nbd'] + qemunbd_args
     pause_msg(cmd)
     try:
-        qemunbd_res = migrate_tools.run_popen_cmd(cmd)
-        _logger.debug('success: %s' % qemunbd_res)
-        return qemunbd_res
+         return migrate_tools.run_call_cmd(cmd)
     except Exception as e:
         _logger.error('%s command failed: %s' % (cmd, str(e)))
         raise OciMigrateException('\n%s command failed: %s' % (cmd, str(e)))
@@ -320,7 +317,7 @@ def exec_blkid(blkid_args):
     try:
         _logger.debug('running %s' % cmd)
         pause_msg('test nbd devs')
-        blkid_res = migrate_tools.run_popen_cmd(cmd)
+        blkid_res = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('success\n%s' % blkid_res)
         return blkid_res
     except Exception as e:
@@ -346,7 +343,7 @@ def exec_lsblk(lsblk_args):
     pause_msg(cmd)
     try:
         _logger.debug('running %s' % cmd)
-        lsblk_res = migrate_tools.run_popen_cmd(cmd)
+        lsblk_res = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('success\n%s' % lsblk_res)
         return lsblk_res
     except Exception as e:
@@ -361,11 +358,12 @@ def create_nbd():
 
     Returns
     -------
-        bool: True on succes, False on failure.
+        bool: True on succes, False on failure, raise an exception on call
+        error.
     """
     cmd = ['modprobe', 'nbd', 'max_part=63']
     try:
-        if run_call_cmd(cmd) == 0:
+        if migrate_tools.run_call_cmd(cmd) == 0:
             return True
         else:
             _logger.critical('Failed to execute %s' % cmd)
@@ -414,29 +412,6 @@ def get_free_nbd():
                                   % str(e))
 
 
-def get_nameserver():
-    """
-    Find out if a nameserver is defined.
-
-    Returns
-    -------
-        str: The name server address on success, None otherwise.
-    """
-    cmd = ['nslookup', 'www.oracle.com']
-    nameserver = None
-    try:
-        result = migrate_tools.run_popen_cmd(cmd)
-        _logger.debug('ns data: %s' % result)
-        for resx in result.splitlines():
-            if 'Server' in resx:
-                nameserver = resx.split(':')[1]
-                break
-        return nameserver
-    except Exception as e:
-        _logger.error('Failed to identify nameserver: %s' % str(e))
-        raise OciMigrateException('Failed to identify nameserver: %s' % str(e))
-
-
 def exec_parted(devname):
     """
     Collect data about the device on the image using the parted utility.
@@ -454,7 +429,7 @@ def exec_parted(devname):
     pause_msg(cmd)
     _logger.debug('%s' % cmd)
     try:
-        result = migrate_tools.run_popen_cmd(cmd)
+        result = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('parted: %s' % result)
         devdata = dict()
         for devx in result.splitlines():
@@ -471,7 +446,7 @@ def exec_parted(devname):
         return devdata
     except Exception as e:
         _logger.error('Failed to collect parted %s device data: %s'
-                     % (devname, str(e)))
+                      % (devname, str(e)))
         return None
 
 
@@ -493,7 +468,7 @@ def exec_sfdisk(devname):
     _logger.debug('%s' % cmd)
     pause_msg(cmd)
     try:
-        result = migrate_tools.run_popen_cmd(cmd)
+        result = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         partdata = dict()
         for devx in result.split('\n'):
             if devx.startswith(devname):
@@ -520,7 +495,7 @@ def exec_sfdisk(devname):
         return partdata
     except Exception as e:
         _logger.error('Failed to collect sfdisk %s partition data: %s'
-                     % (devname, str(e)))
+                      % (devname, str(e)))
         return None
 
 
@@ -553,20 +528,33 @@ def mount_imgfn(imgname):
     #
     # link img with first free nbd device
     migrate_tools.result_msg(msg='Mount image %s' % imgname, result=True)
+    _, clmns = os.popen('stty size', 'r').read().split()
     try:
+        mountwait = migrate_tools.ProgressBar(int(clmns), 0.2,
+                                              progress_chars=['mounting image'])
+        mountwait.start()
         qemucmd = ['-c', devpath, imgname]
         pause_msg(qemucmd)
-        z = exec_qemunbd(qemucmd)
-        migrate_tools.thissleep(4, 'Mounting %s ' % imgname)
-        _logger.debug('qemu-nbd %s succeeded' % qemucmd)
-        return devpath
+        qemunbd_ret = exec_qemunbd(qemucmd)
+        if qemunbd_ret == 0:
+            time.sleep(5)
+            _logger.debug('qemu-nbd %s succeeded' % qemucmd)
+            return devpath
+        else:
+            _logger.critical('\nFailed to create nbd devices: %d'
+                        % qemunbd_ret)
+            raise Exception('Failed to create nbd devices: %d'
+                            % qemunbd_ret)
     except NoSuchCommand:
         _logger.critical('qemu-nbd does not exist')
         raise NoSuchCommand('qemu-nbd does not exist')
     except Exception as e:
         _logger.critical('\nSomething wrong with creating nbd devices: %s'
-                        % str(e))
+                         % str(e))
         raise OciMigrateException('Unable to create nbd devices: %s' % str(e))
+    finally:
+        if migrate_tools.isthreadrunning(mountwait):
+            mountwait.stop()
 
 
 @state_loop(3)
@@ -588,8 +576,12 @@ def unmount_imgfn(devname):
         # release device
         qemucmd = ['-d', devname]
         pause_msg(qemucmd)
-        z = exec_qemunbd(qemucmd)
-        _logger.debug('qemu-nbd %s succeeded: %s' % (qemucmd, str(z)))
+        qemunbd_ret = exec_qemunbd(qemucmd)
+        if qemunbd_ret == 0:
+            _logger.debug('qemu-nbd %s succeeded: %d'
+                          % (qemucmd, qemunbd_ret))
+        else:
+            raise Exception('%s returned %d' % (qemucmd, qemunbd_ret))
         #
         # clear lvm cache, if necessary.
         if exec_pvscan():
@@ -604,8 +596,8 @@ def unmount_imgfn(devname):
         else:
             _logger.debug('Successfully removed nbd module.')
     except Exception as e:
-        _logger.critical('Something wrong with removing nbd '
-                        'devices: %s' % str(e))
+        _logger.critical('Something wrong with removing nbd devices: %s'
+                         % str(e))
         raise OciMigrateException('\nSomething wrong with removing nbd '
                                   'devices: %s' % str(e))
     return True
@@ -638,7 +630,7 @@ def mount_partition(devname, mountpoint=None):
                 _logger.debug('Mountpoint: %s created.' % mntpoint)
         except Exception as e:
             _logger.critical('Failed to create mountpoint %s: %s'
-                            % (mntpoint, str(e)))
+                             % (mntpoint, str(e)))
             raise OciMigrateException('Failed to create mountpoint %s: %s'
                                       % (mntpoint, str(e)))
     else:
@@ -647,11 +639,18 @@ def mount_partition(devname, mountpoint=None):
     # actual mount
     cmd = ['mount', devname, mntpoint]
     pause_msg(cmd)
+    _, clmns = os.popen('stty size', 'r').read().split()
     try:
+        mountpart = migrate_tools.ProgressBar(int(clmns), 0.2,
+                                              progress_chars=['mount %s' % devname])
+        mountpart.start()
         _logger.debug('command: %s' % cmd)
-        output = migrate_tools.run_popen_cmd(cmd)
-        _logger.debug('%s mounted on %s: %s' % (devname, mntpoint, str(output)))
-        return mntpoint
+        cmdret = migrate_tools.run_call_cmd(cmd)
+        if cmdret == 0:
+            _logger.debug('%s mounted on %s.' % (devname, mntpoint))
+            return mntpoint
+        else:
+            raise Exception('Mount %s failed: %d' % (devname, cmdret))
     except Exception as e:
         #
         # mount failed, need to remove mountpoint.
@@ -661,6 +660,10 @@ def mount_partition(devname, mountpoint=None):
                 _logger.debug('%s removed' % mntpoint)
             else:
                 _logger.critical('Failed to remove mountpoint %s' % mntpoint)
+    finally:
+        if migrate_tools.isthreadrunning(mountpart):
+            mountpart.stop()
+
     return None
 
 
@@ -695,7 +698,7 @@ def find_os_specific(ostag):
             if module_name != thismodule:
                 modulefile = path + '/' + module_name + '.py'
                 if os.path.isfile(modulefile):
-                    with open(modulefile, 'rb') as f:
+                    with open(modulefile, 'r') as f:
                         for fline in f:
                             if '_os_type_tag_csl_tag_type_os_' in fline.strip():
                                 _logger.debug('Found os_type_tag in %s.'
@@ -712,7 +715,7 @@ def find_os_specific(ostag):
                     _logger.debug('No file found for module %s' % module_name)
     except Exception as e:
         _logger.critical('Failed to locate the OS type specific module: %s'
-                        % str(e))
+                         % str(e))
     return module
 
 
@@ -735,14 +738,17 @@ def mount_pseudo(rootdir):
 
     pseudomounts = []
     _logger.debug('Mounting: %s' % pseudodict)
-    for dirs, cmd_par in six.iteritems(pseudodict):
+    for dirs, cmd_par in list(pseudodict.items()):
         cmd = ['mount'] + cmd_par
         _logger.debug('Mounting %s' % dirs)
         pause_msg(cmd)
         try:
             _logger.debug('Command: %s' % cmd)
-            output = migrate_tools.run_popen_cmd(cmd)
-            _logger.debug('%s : %s' % (cmd, str(output)))
+            cmdret = migrate_tools.run_call_cmd(cmd)
+            _logger.debug('%s : %d' % (cmd, cmdret))
+            if cmdret != 0:
+                _logger.error('Failed to %s' % cmd )
+                raise Exception('%s Failed: %d' % (cmd, cmdret))
             pseudomounts.append(cmd_par[3])
         except Exception as e:
             _logger.critical('Failed to %s: %s' % (cmd, str(e)))
@@ -767,13 +773,23 @@ def mount_fs(mountpoint):
     pause_msg(cmd)
     _logger.debug('Mounting %s' % mountpoint)
     try:
+        _, clmns = os.popen('stty size', 'r').read().split()
+        mountwait = migrate_tools.ProgressBar(int(clmns), 0.2,
+                                              progress_chars=['mounting %s' % mountpoint])
+        mountwait.start()
         _logger.debug('Command: %s' % cmd)
-        output = migrate_tools.run_popen_cmd(cmd)
-        _logger.debug('%s success: %s' % (cmd, str(output)))
-        return True
+        cmdret = migrate_tools.run_call_cmd(cmd)
+        _logger.debug('%s returned %d' % (cmd, cmdret))
+        if cmdret == 0:
+            return True
+        else:
+            raise Exception('%s failed: %d' % (cmd, cmdret))
     except Exception as e:
         _logger.error('Failed to %s: %s' % (cmd, str(e)))
         return False
+    finally:
+        if migrate_tools.isthreadrunning(mountwait):
+            mountwait.stop()
 
 
 @state_loop(3)
@@ -800,8 +816,10 @@ def unmount_something(mountpoint):
     pause_msg(cmd)
     try:
         _logger.debug('command: %s' % cmd)
-        output = migrate_tools.run_popen_cmd(cmd)
-        _logger.debug('%s : %s' % (cmd, str(output)))
+        cmdret = migrate_tools.run_call_cmd(cmd)
+        _logger.debug('%s : %d' % (cmd, cmdret))
+        if cmdret != 0:
+            raise Exception('%s failed: %d' % (cmd, cmdret))
     except Exception as e:
         _logger.error('Failed to %s: %s' % (cmd, str(e)))
         return False
@@ -840,7 +858,7 @@ def exec_pvscan(devname=None):
 
     Returns
     -------
-        bool: True on success, raises an exeception on failure.
+        bool: True on success, raises an exception on failure.
     """
     if devname is not None:
         cmd = ['pvscan', '--cache', devname]
@@ -849,15 +867,17 @@ def exec_pvscan(devname=None):
     pause_msg(cmd)
     try:
         _logger.debug('command: %s' % cmd)
-        output = migrate_tools.run_popen_cmd(cmd)
-        _logger.debug('Physical volumes scanned on %s: %s'
-                     % (devname, str(output)))
+        cmdret = migrate_tools.run_call_cmd(cmd)
+        _logger.debug('Physical volumes scanned on %s: %d' % (devname, cmdret))
+        if cmdret != 0:
+            _logger.error('Physical volume scan failed.')
+            raise Exception('Physical volume scan failed.')
         return True
     except Exception as e:
         #
         # pvscan failed
-        _logger.critical('Failed to scan %s for physical '
-                        'volumes: %s' % (devname, str(e)))
+        _logger.critical('Failed to scan %s for physical volumes: %s'
+                         % (devname, str(e)))
         raise OciMigrateException('Failed to scan %s for physical '
                                   'volumes: %s' % (devname, str(e)))
 
@@ -874,7 +894,7 @@ def exec_vgscan():
     pause_msg(cmd)
     try:
         _logger.debug('command: %s' % cmd)
-        output = migrate_tools.run_popen_cmd(cmd)
+        output = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('Volume groups scanned: %s' % str(output))
         return True
     except Exception as e:
@@ -898,7 +918,7 @@ def exec_lvscan():
     pause_msg(cmd)
     try:
         _logger.debug('command: %s' % cmd)
-        output = migrate_tools.run_popen_cmd(cmd)
+        output = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('Logical volumes scanned: %s' % str(output))
         new_vgs = dict()
         for lvdevdesc in output.splitlines():
@@ -908,13 +928,12 @@ def exec_lvscan():
                 vgarr = re.sub(r"/", " ", lvdev).split()
                 vgdev = vgarr[1]
                 lvdev = vgarr[2]
-                # mapperdev = re.sub(r"-", "--", vgdev) + '-' + vgarr[2]
                 mapperdev = re.sub(r"-", "--", vgdev) \
                             + '-' \
                             + re.sub(r"-", "--", lvdev)
                 _logger.debug('vg %s lv %s mapper %s'
-                             % (vgdev, lvdev, mapperdev))
-                if vgdev not in new_vgs.keys():
+                              % (vgdev, lvdev, mapperdev))
+                if vgdev not in list(new_vgs.keys()):
                     new_vgs[vgdev] = [(lvdev, mapperdev)]
                 else:
                     new_vgs[vgdev].append((lvdev, mapperdev))
@@ -940,13 +959,13 @@ def exec_vgchange(changecmd):
 
     Returns
     -------
-
+        <> : vgchange output.
     """
     cmd = ['vgchange'] + changecmd
     _logger.debug('vgchange command: %s' % cmd)
     pause_msg(cmd)
     try:
-        output = migrate_tools.run_popen_cmd(cmd)
+        output = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('vgchange result: %s' % output)
         return output
     except Exception as e:
@@ -970,9 +989,11 @@ def mount_lvm2(devname):
         list: The list of mounted partitions.
         ?? need to collect lvm2 list this way??
     """
-    _logger.debug('Device %s contains an lvm2' % devname)
-
     try:
+        _, clmns = os.popen('stty size', 'r').read().split()
+        mountwait = migrate_tools.ProgressBar(int(clmns), 0.2,
+                                              progress_chars=['mounting lvm'])
+        mountwait.start()
         #
         # physical volumes
         if exec_pvscan(devname):
@@ -1009,7 +1030,7 @@ def mount_lvm2(devname):
         if vgchangeres is not None:
             for resline in vgchangeres.splitlines():
                 _logger.debug('vgchange line: %s' % resline)
-                for vg in vgs.keys():
+                for vg in list(vgs.keys()):
                     if vg in resline:
                         _logger.debug('vgfound set to True')
                         vgfound = True
@@ -1025,6 +1046,9 @@ def mount_lvm2(devname):
     except Exception as e:
         _logger.critical('Mount lvm %s failed: %s' % (devname, str(e)))
         raise OciMigrateException('Mount lvm %s failed: %s' % (devname, str(e)))
+    finally:
+        if migrate_tools.isthreadrunning(mountwait):
+            mountwait.stop()
 
 
 def get_oci_config(section='DEFAULT'):
@@ -1041,17 +1065,17 @@ def get_oci_config(section='DEFAULT'):
     -------
         dict: the contents of the configuration file as a dictionary.
     """
-    _logger.debug('Reading the %s configuration file.' %
-                 get_config_data('ociconfigfile'))
-    thisparser = ConfigParser()
+    _logger.debug('Reading the %s configuration file.'
+                  % get_config_data('ociconfigfile'))
+    oci_cli_configer = ConfigParser()
     try:
-        rf = thisparser.read(get_config_data('ociconfigfile'))
-        sectiondata = dict(thisparser.items(section))
+        rf = oci_cli_configer.read(get_config_data('ociconfigfile'))
+        sectiondata = dict(oci_cli_configer.items(section))
         _logger.debug('OCI configuration: %s' % sectiondata)
         return sectiondata
     except Exception as e:
-        _logger.error('Failed to read OCI configuration %s: %s.' %
-                     (get_config_data('ociconfigfile'), str(e)))
+        _logger.error('Failed to read OCI configuration %s: %s.'
+                      % (get_config_data('ociconfigfile'), str(e)))
         raise OciMigrateException('Failed to read OCI configuration %s: %s.' %
                                   (get_config_data('ociconfigfile'),
                                    str(e)))
@@ -1071,24 +1095,26 @@ def bucket_exists(bucketname):
         object: The bucket on success, raise an exception otherwise
     """
     _logger.debug('Test bucket %s.' % bucketname)
-    thispath = os.getenv('PATH')
-    _logger.debug('PATH is %s' % thispath)
+    path_name = os.getenv('PATH')
+    _logger.debug('PATH is %s' % path_name)
     cmd = ['which', 'oci']
     try:
-        ocipath = migrate_tools.run_popen_cmd(cmd)
+        ocipath = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('oci path is %s' % ocipath)
     except Exception as e:
         _logger.error('Cannot find oci anymore: %s' % str(e))
-
+        raise OciMigrateException('Unable to find oci cli, although it has '
+                                  'been verified successfully earlier in '
+                                  'this process.')
     cmd = ['oci', 'os', 'object', 'list', '--bucket-name', bucketname]
     pause_msg(cmd)
     try:
-        bucketresult = migrate_tools.run_popen_cmd(cmd)
+        bucketresult = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('Result: \n%s' % bucketresult)
         return bucketresult
     except Exception as e:
         _logger.debug('Bucket %s does not exists or the authorisation is '
-                        'missing: %s.' % (bucketname, str(e)))
+                      'missing: %s.' % (bucketname, str(e)))
         raise OciMigrateException('Bucket %s does not exists or the '
                                   'authorisation is missing: %s.'
                                   % (bucketname, str(e)))
@@ -1141,23 +1167,23 @@ def set_default_user(cfgfile, username):
     """
     _logger.debug('Updating cloud.cfg file %s, setting default username to '
                   '%s.' % (cfgfile, username))
-    if migrate_tools.file_exists(cfgfile):
+    if os.path.isfile(cfgfile):
         _logger.debug('Copy %s %s' % (cfgfile, os.path.split(cfgfile)[0]
                                       + '/bck_'
                                       + os.path.split(cfgfile)[1]
                                       + '_'
-                                      + migrate_tools.thistime))
+                                      + migrate_tools.current_time))
         shutil.copy(cfgfile, os.path.split(cfgfile)[0]
                     + '/bck_'
                     + os.path.split(cfgfile)[1]
                     + '_'
-                    + migrate_tools.thistime)
+                    + migrate_tools.current_time)
         with open(cfgfile, 'r') as f:
             cloudcfg = yaml.load(f, Loader=yaml.SafeLoader)
         if type(cloudcfg) is dict:
-            if 'system_info' in cloudcfg.keys() \
-                    and 'default_user' in cloudcfg['system_info'].keys() \
-                    and 'name' in cloudcfg['system_info']['default_user'].keys():
+            if 'system_info' in list(cloudcfg.keys()) \
+                    and 'default_user' in list(cloudcfg['system_info'].keys()) \
+                    and 'name' in list(cloudcfg['system_info']['default_user'].keys()):
                 cloudcfg['system_info']['default_user']['name'] = username
                 with open(cfgfile, 'w') as f:
                     yaml.dump(cloudcfg, f, width=50)
@@ -1195,12 +1221,12 @@ def upload_image(imgname, bucketname, ociname):
            bucketname, '--file', imgname, '--name', ociname]
     pause_msg(cmd)
     try:
-        uploadresult = migrate_tools.run_popen_cmd(cmd)
+        uploadresult = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('Successfully uploaded %s to %s as %s: %s.'
                      % (imgname, bucketname, ociname, uploadresult))
     except Exception as e:
         _logger.critical('Failed to upload %s to object storage %s as %s: %s.'
-                        % (imgname, bucketname, ociname, str(e)))
+                         % (imgname, bucketname, ociname, str(e)))
         raise OciMigrateException('Failed to upload %s to object storage %s '
                                   'as %s: %s.'
                                   % (imgname, bucketname, ociname, str(e)))
@@ -1222,7 +1248,8 @@ def unmount_lvm2(vg):
     try:
         #
         # make unavailable
-        for vg_name in vg.keys():
+        # for vg_name in vg.keys():
+        for vg_name in list(vg.keys()):
             vgchangeres = exec_vgchange(['--activate', 'n', vg_name])
             _logger.debug('vgchange: %s' % vgchangeres)
         #
@@ -1259,7 +1286,8 @@ def unmount_part(devname):
     pause_msg(cmd)
     try:
         _logger.debug('command: %s' % cmd)
-        if run_call_cmd(cmd) == 0:
+        cmdret = migrate_tools.run_call_cmd(cmd)
+        if cmdret == 0:
             _logger.debug('%s unmounted from %s' % (devname, mntpoint))
             #
             # remove mountpoint
@@ -1271,7 +1299,11 @@ def unmount_part(devname):
                 raise OciMigrateException('Failed to remove mountpoint %s'
                                           % mntpoint)
         else:
-            _logger.critical('Failed to unmount %s' % devname)
+            _logger.critical('Failed to unmount %s: %d' % (devname, cmdret))
+            console_msg('Failed to unmount %s, error code %d.\n '
+                        'Please verify before continuing.'
+                        % (devname, cmdret))
+            read_yn('Continue?')
     except Exception as e:
         _logger.critical('Failed to unmount %s: %s' % (devname, str(e)))
     return False
@@ -1307,7 +1339,7 @@ def show_image_data(imgobj):
         No return value.
     """
     print_header('Components collected.')
-    for k, v in sorted(six.iteritems(imgobj._img_info)):
+    for k, v in sorted(imgobj._img_info.items()):
         migrate_tools.result_msg(msg='  %30s' % k, result=True)
 
     _logger.debug('show data')
@@ -1401,16 +1433,16 @@ def show_image_data(imgobj):
         migrate_tools.result_msg(msg='  %30s: %s mounted on %s'
                                  % ('boot', imgobj._img_info['bootmnt'][0],
                                     imgobj._img_info['bootmnt'][1]),
-                             result=True)
+                                 result=True)
     if 'rootmnt' in imgobj._img_info:
         migrate_tools.result_msg(msg='  %30s: %s mounted on %s'
                                  % ('root', imgobj._img_info['rootmnt'][0],
                                     imgobj._img_info['rootmnt'][1]),
-                             result=True)
+                                 result=True)
     if 'boot_type' in imgobj._img_info:
         migrate_tools.result_msg(msg='  %30s: %-30s'
                                  % ('boot type:', imgobj._img_info['boot_type']),
-                             result=True)
+                                 result=True)
     #
     # fstab
     print_header('fstab data.')
@@ -1435,7 +1467,7 @@ def show_image_data(imgobj):
         for k in sorted(imgobj._img_info['osinformation']):
             migrate_tools.result_msg(msg='  %30s : %-30s'
                                      % (k, imgobj._img_info['osinformation'][k]),
-                                 result=True)
+                                     result=True)
     else:
         migrate_tools.result_msg(msg=osinfomissing, result=True)
     #
@@ -1446,7 +1478,7 @@ def show_image_data(imgobj):
         for k in sorted(imgobj._img_info['oci_config']):
             migrate_tools.result_msg(msg='  %30s : %-30s'
                                      % (k, imgobj._img_info['oci_config'][k]),
-                                 result=True)
+                                     result=True)
     else:
         migrate_tools.result_msg(msg=ociconfmissing, result=True)
 
@@ -1477,7 +1509,7 @@ def show_partition_table(table):
                                  % (i, bootflag,
                                     table[i]['type'],
                                     table[i]['entry']),
-                             result=True)
+                                 result=True)
 
 
 def show_img_header(headerdata):
@@ -1554,7 +1586,7 @@ def show_parted_data(parted_dict):
     -------
         No return value.
     """
-    for k, v in sorted(six.iteritems(parted_dict)):
+    for k, v in sorted(parted_dict.items()):
         migrate_tools.result_msg(msg='%30s : %s' % (k, v), result=True)
     migrate_tools.result_msg(msg='\n', result=True)
 
@@ -1572,7 +1604,7 @@ def show_lvm2_data(lvm2_data):
     -------
         No return value.
     """
-    for k, v in sorted(six.iteritems(lvm2_data)):
+    for k, v in sorted(lvm2_data.items()):
         migrate_tools.result_msg(msg='\n  Volume Group: %s:' % k, result=True)
         for t in v:
             migrate_tools.result_msg(msg='%40s : %-30s' % (t[0], t[1]), result=True)
@@ -1592,10 +1624,10 @@ def show_partition_data(partition_dict):
     -------
         No return value
     """
-    for k, v in sorted(six.iteritems(partition_dict)):
+    for k, v in sorted(partition_dict.items()):
         migrate_tools.result_msg(msg='%30s :\n%s'
                                  % ('partition %s' % k, '-'*60), result=True)
-        for x, y in sorted(six.iteritems(v)):
+        for x, y in sorted(v.items()):
             migrate_tools.result_msg(msg='%30s : %s' % (x, y), result=True)
         migrate_tools.result_msg(msg='\n', result=True)
     migrate_tools.result_msg(msg='\n', result=True)
@@ -1614,9 +1646,9 @@ def show_network_data(networkdata):
     -------
         No return value.
     """
-    for nic, nicdata in sorted(six.iteritems(networkdata)):
+    for nic, nicdata in sorted(networkdata.items()):
         migrate_tools.result_msg(msg='  %20s:' % nic, result=True)
-        for k, v in sorted(six.iteritems(nicdata)):
+        for k, v in sorted(nicdata.items()):
             migrate_tools.result_msg(msg='  %30s = %s' % (k, v), result=True)
 
 

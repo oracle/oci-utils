@@ -206,7 +206,8 @@ setup(
                   'man/man1/oci-iscsi-config.1',
                   'man/man1/oci-network-config.1',
                   'man/man1/oci-kvm.1',
-                  'man/man1/oci-image-migrate.1'
+                  'man/man1/oci-image-migrate.1',
+                  'man/man1/oci-image-migrate-import.1'
                   ]),
                 (os.path.join(sys.prefix, "share", "man", "man5"),
                  ['man/man5/oci-utils.conf.d.5',

@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -8,11 +8,21 @@ import os
 import sys
 import termios
 import tty
-import yaml
 
+import yaml
 from oci_utils.migrate.exception import OciMigrateException
 
-__ocimigrateconffile = '/etc/oci-utils/oci-migrate-conf.yaml'
+# try:
+#    import yaml
+# except ImportError as e:
+#    sys.stderr.write('\n  oci-image-migrate needs yaml module in order to '
+#                     'load configuration\n  data and to analyse certain '
+#                     'network configuration files. Install\n  it using the '
+#                     'package manager (python-yaml) or via pip (pip3 install '
+#                     'yaml.)\n')
+#    sys.exit(1)
+
+_oci_migrate_conf_file = '/etc/oci-utils/oci-migrate-conf.yaml'
 
 
 def _getch():
@@ -47,10 +57,10 @@ def read_yn(prompt, yn=True):
     -------
         bool: True on yes, False otherwise.
     """
-    thisprmpt = prompt + ' '
+    yn_prompt = prompt + ' '
     if yn:
-        thisprmpt += ' (y/N) '
-    sys.stdout.write(thisprmpt)
+        yn_prompt += ' (y/N) '
+    sys.stdout.write(yn_prompt)
     yn = _getch()
     sys.stdout.write('\n')
     if yn.upper() == 'Y':
@@ -59,7 +69,7 @@ def read_yn(prompt, yn=True):
         return False
 
 
-def exit_with_msg(msg, exitcode=1):
+def exit_with_msg(msg, exit_code=1):
     """
     Post a message on stdout and exit.
 
@@ -67,7 +77,7 @@ def exit_with_msg(msg, exitcode=1):
     ----------
     msg: str
         The exit message.
-    exitcode: int
+    exit_code: int
         The exit code, default is 1.
 
     Returns
@@ -75,7 +85,7 @@ def exit_with_msg(msg, exitcode=1):
         No return value.
     """
     sys.stderr.write('\n  %s\n' % msg)
-    exit(exitcode)
+    exit(exit_code)
 
 
 def pause_msg(msg=None):
@@ -115,11 +125,16 @@ def console_msg(msg=None):
     sys.stdout.write('\n  %s\n' % msg)
 
 
+def bytes_to_hex(bs):
+    return (''.join('%02x' % i for i in bs))
+
+
 class OciMigrateConfParam(object):
     """
     Retrieve oci-image-migrate configuration data from the
     oci-image-migrate configuration file, in yaml format.
     """
+
     def __init__(self, yamlconf, tag):
         """
         Initialisation of the oci image migrate configuration retrieval.
@@ -168,7 +183,8 @@ def get_config_data(key):
        The configuration data, type varies.
     """
     try:
-        with OciMigrateConfParam(__ocimigrateconffile, key) as config:
+        with OciMigrateConfParam(_oci_migrate_conf_file, key) as config:
             return config.values()
     except Exception as e:
-        raise OciMigrateException('Failed to get data for %s: %s' % (key, str(e)))
+        raise OciMigrateException(
+            'Failed to get data for %s: %s' % (key, str(e)))

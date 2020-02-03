@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -44,7 +44,7 @@ def exec_apt(cmd):
     _logger.debug('apt command: %s' % cmd)
     try:
         _logger.debug('command: %s' % cmd)
-        output = migrate_tools.run_popen_cmd(cmd)
+        output = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('apt command output: %s' % str(output))
         return output
     except Exception as e:

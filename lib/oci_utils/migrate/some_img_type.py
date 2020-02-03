@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -76,7 +76,7 @@ class SomeTypeHead(DeviceData):
                 _logger.debug('%s header successfully read' % self._fn)
         except Exception as e:
             _logger.critical('Failed to read header of %s: %s'
-                                  % (self._fn, str(e)))
+                             % (self._fn, str(e)))
             raise OciMigrateException('Failed to read the header of %s: %s'
                                       % (self._fn, str(e)))
 
@@ -96,7 +96,7 @@ class SomeTypeHead(DeviceData):
             self.devicename = self.mount_img()
             _logger.debug('Image data %s' % self.devicename)
             migrate_tools.result_msg(msg='Mounted %s' % self.devicename,
-                                 result=True)
+                                     result=True)
             deviceinfo = self.handle_image()
         except Exception as e:
             _logger.critical('error %s' % str(e))

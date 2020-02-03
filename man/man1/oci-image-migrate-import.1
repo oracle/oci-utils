@@ -1,0 +1,98 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-image-migrate.1
+.\"
+.\" Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+.\"
+
+.TH OCI-IMAGE-MIGRATE 1 "JAN 2020" Linux "User Manuals"
+.SH NAME
+oci-image-migrate-import \- assist the import of an image in the 
+.B object storage
+to the 
+.B custom images
+reospitory of the Oracle Cloud Infrastructure
+.SH SYNOPSIS
+.B oci-image-migrate-import  [-i|--image-name
+.I image name
+.B ] [-b|--bucket-name
+.I bucketname
+.B ] [-c|--compartment-name
+.I compartment name
+.B ] [-d|--display-name
+.I display name
+.B ] [-l|--launch-mode
+.I [PARAVIRTUALIZED|EMULATED|NATIVE]
+.B ] [-v|--verbose] [--help]
+
+.SH DESCRIPTION
+The
+.B oci-image-migrate-import
+utility imports an image file residing in an object storage into the custom 
+images repository of
+.B Oracle Cloud Infrastructure.
+.B oci-image-migrate-mograte
+verifies the existence of the object storage and of the image file in the 
+object storage. It also checks if and image with the same name already exists 
+in the custom images repository.
+
+.B oci-image-migrate-import
+must be run with root priviliges, either as user root or using
+.BR sudo(8)
+on an on-premise physical or virtual server.
+.B oci-image-migrate-import
+requires the
+.B oci-cli
+utility installed and configured.
+
+See
+.BR https://docs.cloud.oracle.com/iaas/Content/API/SDKDocs/cliinstall.htm
+or
+.BR https://docs.cloud.oracle.com/iaas/Content/API/SDKDocs/climanualinst.htm
+for more information.
+
+.SH OPTIONS
+.IP "-i|--image-name"
+The name of the images as present in the object storage. This option is mandatory.
+.IP "-b|--bucket-name"
+The name of the object storage or bucket in the
+.B Oracle Cloud Infrastructure
+where the imagefile is stored. This option is mandatory.
+.IP "-c|--compartment-name"
+The name of the destination compartment. This option is mandatory.
+.IP "-d|--display-name"
+The image name or the name of the image as it will be saved in the custom
+images repository in the
+.B Oracle Cloud Infrastructure.
+This argument is optional, the default is the image name.
+.IP "-l|--launch-mode"
+The mode an instance created form the custom image will be started. Possible
+modes are PARAVIRTUALIZED, EMULATED and NATIVE. The default is PARAVIRTUALIZED.
+.IP "-v|--verbose"
+Show more information about the import on the console.
+.IP "--help"
+Print a summary of the command line options.
+
+.SH DIAGNOSTICS
+Returns an exit status of 0 for success or 1 if an error occured.
+
+.SH EXAMPLES
+.PP
+.nf
+.RS
+oci-image-migrate-import --image-name ol77 -b uk_bucket_001 -c ImageDev -l EMULATED  --display-name ol77_emulated -v
+.RE
+.fi
+.PP
+Imports the image file ol77, if it exists in the object storage uk_bucket_001 into the custom images repository of
+.B Oracle Cloud Infrastructure
+as ol77_emulated on condition there is not yet and image with the same name present,
+and sets the launch mode to EMULATED o
+
+.SH SEE ALSO
+.BR oci-image-migrate(1)
+.BR ocid (8)
+.BR oci-metadata (1)
+
+
+.SH COPYRIGHT
+Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.

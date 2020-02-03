@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -134,8 +134,9 @@ class VmdkHead(DeviceData):
         try:
             with open(self._fn, 'rb') as f:
                 f.seek(512)
-                head_descr = [it for it in f.read(1024).splitlines() if
-                              '=' in it]
+                head_descr = [it for
+                              it in f.read(1024).decode('utf-8').splitlines()
+                              if '=' in it]
         except Exception as e:
             _logger.critical(
                 'Failed to read description of %s: %s' % (self._fn, str(e)))
@@ -162,16 +163,15 @@ class VmdkHead(DeviceData):
             No return value.
         """
         migrate_tools.result_msg(msg='\n  %30s\n  %30s   %30s'
-                                 % ('VMDK file header data', '-' * 30, '-' * 30),
-                             result=False)
+                                     % ('VMDK file header data', '-' * 30, '-' * 30),
+                                 result=False)
         for f in VmdkHead.header0_structure:
             migrate_tools.result_msg(msg=''.join(['  %30s : ' % f[2], f[1]
-                                              % self.vmdkhead_dict[f[2]]]),
-                                 result=False)
+                                                  % self.vmdkhead_dict[f[2]]]),
+                                     result=False)
         migrate_tools.result_msg(msg='\n  %30s\n  %30s   %30s'
-                                 % ('VMDK file descriptor data',
-                                    '-' * 30, '-' * 30),
-                             result=False)
+                                     % ('VMDK file descriptor data', '-' * 30, '-' * 30),
+                                 result=False)
         for k in sorted(self.vmdkdesc_dict):
             migrate_tools.result_msg(msg='  %30s : %-30s'
                                      % (k, self.vmdkdesc_dict[k]), result=False)
@@ -188,10 +188,9 @@ class VmdkHead(DeviceData):
         img_sz = {'physical': float(self.stat.st_size)/gigabyte,
                   'logical': float(self.vmdkhead_dict['capacity']*512)/gigabyte}
 
-        migrate_tools.result_msg(msg='Image size: physical %10.2f GB, '
-                                 'logical %10.2f GB'
-                                 % (img_sz['physical'], img_sz['logical']),
-                             result=True)
+        migrate_tools.result_msg(msg='Image size: physical %10.2f GB, logical %10.2f GB'
+                                     % (img_sz['physical'], img_sz['logical']),
+                                 result=True)
         return img_sz
 
     def image_supported(self, image_defs):
@@ -269,16 +268,15 @@ class VmdkHead(DeviceData):
         failmsg = ''
         #
         # size:
-        thispass = True
+        passed_requirement = True
         if self._img_info['img_size']['logical'] > prereqs['MAX_IMG_SIZE_GB']:
-            _logger.critical('Image size %8.2f GB exceeds maximum '
-                                  'allowed %8.2f GB' %
-                                  (prereqs['MAX_IMG_SIZE_GB'],
-                                   self._img_info['img_size']['logical']))
+            _logger.critical('Image size %8.2f GB exceeds maximum allowed %8.2f GB'
+                             % (prereqs['MAX_IMG_SIZE_GB'],
+                                self._img_info['img_size']['logical']))
             failmsg += '\n  Image size %8.2f GB exceeds maximum allowed ' \
                        '%8.2f GB' % (prereqs['MAX_IMG_SIZE_GB'],
                                      self._img_info['img_size']['logical'])
-            thispass = False
+            passed_requirement = False
         else:
             failmsg += '\n  Image size %8.2f GB meets maximum allowed size ' \
                        'of %8.2f GB' % (self._img_info['img_size']['logical'],
@@ -295,10 +293,10 @@ class VmdkHead(DeviceData):
             failmsg += 'Image type %s is not in the supported type list: %s' %\
                        (self.img_header['desc']['createType'],
                         prereqs['vmdk_supported_types'])
-            thispass = False
+            passed_requirement = False
         else:
             failmsg += '  Image type %s is in the supported type list: %s' \
                        % (self.img_header['desc']['createType'],
                           prereqs['vmdk_supported_types'])
 
-        return thispass, failmsg
+        return passed_requirement, failmsg

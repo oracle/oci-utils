@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -124,11 +124,11 @@ class Qcow2Head(DeviceData):
         """
         migrate_tools.result_msg(msg='\n  %30s\n  %30s'
                                  % ('QCOW2 file header data', '-'*30),
-                             result=False)
+                                 result=False)
         for f in Qcow2Head.header2_structure:
             migrate_tools.result_msg(msg=''.join(["  %-30s" % f[2], f[1]
-                                              % self.qcowhead_dict[f[2]]]),
-                                 result=False)
+                                                  % self.qcowhead_dict[f[2]]]),
+                                    result=False)
 
     def image_size(self):
         """
@@ -212,7 +212,7 @@ class Qcow2Head(DeviceData):
         failmsg = ''
         #
         # size:
-        thispass = True
+        passed_requirement = True
         if self._img_info['img_size']['logical'] > prereqs['MAX_IMG_SIZE_GB']:
             _logger.critical(
                 'Image size %8.2f GB exceeds maximum allowed %8.2f GB'
@@ -221,10 +221,10 @@ class Qcow2Head(DeviceData):
             failmsg += '\n  Image size %8.2f GB exceeds maximum allowed ' \
                        '%8.2f GB' % (prereqs['MAX_IMG_SIZE_GB'],
                                      self._img_info['img_size']['logical'])
-            thispass = False
+            passed_requirement = False
         else:
             failmsg += '\n  Image size %8.2f GB meets maximum allowed size ' \
                        'of %8.2f GB' % (self._img_info['img_size']['logical'],
                                         prereqs['MAX_IMG_SIZE_GB'])
 
-        return thispass, failmsg
+        return passed_requirement, failmsg

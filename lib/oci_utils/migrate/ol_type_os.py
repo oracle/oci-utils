@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -44,7 +44,7 @@ def exec_yum(cmd):
     _logger.debug('yum command: %s' % cmd)
     try:
         _logger.debug('command: %s' % cmd)
-        output = migrate_tools.run_popen_cmd(cmd)
+        output = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('yum command output: %s' % str(output))
         return output
     except Exception as e:
@@ -77,9 +77,9 @@ def install_cloud_init(*args):
         # verify if latest channel is enabled.
         rpmlist = exec_yum(['list', 'cloud-init'])
         cloud_init_present = False
-        for l in rpmlist.splitlines():
-            _logger.debug('%s' % l)
-            if 'cloud-init' in l:
+        for ll in rpmlist.splitlines():
+            _logger.debug('%s' % ll)
+            if 'cloud-init' in ll:
                 _logger.debug('The rpm cloud-init is available.')
                 cloud_init_present = True
                 break
@@ -92,7 +92,7 @@ def install_cloud_init(*args):
         else:
             installoutput = exec_yum(['install', '-y', 'cloud-init'])
             _logger.debug('Successfully installed cloud init:\n%s'
-                         % installoutput)
+                          % installoutput)
         pause_msg('Installed cloud-init here, or not.')
         if migrate_tools.restore_nameserver():
             _logger.debug('Restoring nameserver info succeeded.')
