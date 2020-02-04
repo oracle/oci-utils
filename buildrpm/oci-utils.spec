@@ -17,14 +17,12 @@ BuildRequires: systemd
 
 BuildRequires: python3-devel
 BuildRequires: python3-setuptools
-BuildRequires: python3-flake8
+BuildRequires: python-flake8
 # for 2to3 on OL7
 BuildRequires: python-tools
 Requires: python3
 Requires: python3-daemon
 Requires: python3-sdnotify
-Requires: python3-six
-Requires: python3-enum34
 
 
 Requires: cloud-utils-growpart

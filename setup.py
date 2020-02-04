@@ -347,6 +347,7 @@ setup(
     packages=find_packages('lib'),
     setup_requires=[],
     long_description=read('README'),
+    test_suite="tests",
     data_files=[(os.path.join(sys.prefix, 'libexec'),
                  ['libexec/ocid',
                   'libexec/secondary_vnic_all_configure.sh',
