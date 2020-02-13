@@ -62,6 +62,7 @@ Group: Development/Tools
 Requires: %{name} = %{version}-%{release}
 %if 0%{?rhel} >= 8
 Requires: python3-netaddr
+Requires: network-scripts
 %else
 Requires: python-netaddr
 %endif
