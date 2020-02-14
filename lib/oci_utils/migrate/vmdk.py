@@ -125,7 +125,7 @@ class VmdkHead(DeviceData):
                 _logger.debug('%s header successfully read' % self._fn)
         except Exception as e:
             _logger.critical(
-                'Failed to read header of %s: %s' % (self._fn, str(e)))
+                ' Failed to read header of %s: %s' % (self._fn, str(e)))
             raise OciMigrateException(
                 'Failed to read the header of %s: %s' % (self._fn, str(e)))
 
@@ -139,7 +139,7 @@ class VmdkHead(DeviceData):
                               if '=' in it]
         except Exception as e:
             _logger.critical(
-                'Failed to read description of %s: %s' % (self._fn, str(e)))
+                ' Failed to read description of %s: %s' % (self._fn, str(e)))
             raise OciMigrateException(
                 'Failed to read the description  of %s: %s' % (self._fn, str(e)))
 
@@ -251,7 +251,7 @@ class VmdkHead(DeviceData):
         try:
             result = self.handle_image()
         except Exception as e:
-            _logger.critical('error %s' % str(e))
+            _logger.critical('  Error %s' % str(e))
             raise OciMigrateException(str(e))
         return result, self._img_info
 
@@ -270,7 +270,7 @@ class VmdkHead(DeviceData):
         # size:
         passed_requirement = True
         if self._img_info['img_size']['logical'] > prereqs['MAX_IMG_SIZE_GB']:
-            _logger.critical('Image size %8.2f GB exceeds maximum allowed %8.2f GB'
+            _logger.critical('  Image size %8.2f GB exceeds maximum allowed %8.2f GB'
                              % (prereqs['MAX_IMG_SIZE_GB'],
                                 self._img_info['img_size']['logical']))
             failmsg += '\n  Image size %8.2f GB exceeds maximum allowed ' \
@@ -287,7 +287,7 @@ class VmdkHead(DeviceData):
         if self.img_header['desc']['createType'] \
                 not in prereqs['vmdk_supported_types']:
             _logger.critical(
-                'Image type %s is not in the supported type list: %s' %
+                ' Image type %s is not in the supported type list: %s' %
                 (self.img_header['desc']['createType'],
                  prereqs['vmdk_supported_types']))
             failmsg += 'Image type %s is not in the supported type list: %s' %\

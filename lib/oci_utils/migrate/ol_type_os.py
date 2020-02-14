@@ -48,7 +48,7 @@ def exec_yum(cmd):
         _logger.debug('yum command output: %s' % str(output))
         return output
     except Exception as e:
-        _logger.critical('Failed to execute yum: %s' % str(e))
+        _logger.critical('  Failed to execute yum: %s' % str(e))
         raise OciMigrateException('\nFailed to execute yum: %s' % str(e))
 
 
@@ -72,9 +72,9 @@ def install_cloud_init(*args):
         if migrate_tools.set_nameserver():
             _logger.debug('Updating nameserver info succeeded.')
         else:
-            _logger.error('Failed to update nameserver info.')
+            _logger.error('  Failed to update nameserver info.')
         #
-        # verify if latest channel is enabled.
+        # verify if the package is available, the correct channel enabled.
         rpmlist = exec_yum(['list', 'cloud-init'])
         cloud_init_present = False
         for ll in rpmlist.splitlines():
@@ -84,7 +84,7 @@ def install_cloud_init(*args):
                 cloud_init_present = True
                 break
         if not cloud_init_present:
-            _logger.error('The rpm cloud-init is missing.')
+            _logger.error('  The rpm cloud-init is missing.')
             migrate_tools.migrate_preparation = False
             migrate_tools.migrate_non_upload_reason += \
                 '\n  The rpm package cloud-initis missing from the yum repository.'
@@ -97,9 +97,9 @@ def install_cloud_init(*args):
         if migrate_tools.restore_nameserver():
             _logger.debug('Restoring nameserver info succeeded.')
         else:
-            _logger.error('Failed to restore nameserver info.')
+            _logger.error('  Failed to restore nameserver info.')
     except Exception as e:
-        _logger.critical('Failed to install cloud init package:\n%s' % str(e))
+        _logger.critical('  Failed to install cloud init package:\n%s' % str(e))
         migrate_tools.error_msg('Failed to install cloud init package:\n%s' % str(e))
         migrate_tools.migrate_non_upload_reason += \
             '\n Failed to install cloud init package: %s' % str(e)

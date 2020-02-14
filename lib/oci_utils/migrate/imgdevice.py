@@ -112,12 +112,14 @@ class UpdateImage(threading.Thread):
                                      'update-repository configuration before ' \
                                      'proceeding the cloud-init package ' \
                                      'install.'
+            #
+            # os type specific operations
             pause_msg(pre_cloud_notification)
             if os_type.install_cloud_init(
                     self._imgdata['osinformation']['VERSION_ID']):
                 _logger.debug('Successfully installed cloud-init')
             else:
-                _logger.critical('Failed to install cloud init')
+                _logger.critical(' Failed to install cloud init')
                 raise OciMigrateException('Failed to install cloud init')
             #
             # Update cloud.cfg file with default user
@@ -127,11 +129,11 @@ class UpdateImage(threading.Thread):
                     self._clouddata['default_clouduser']):
                 _logger.debug('Default cloud user updated.')
             else:
-                _logger.error('Failed to update default cloud user.')
+                _logger.error('   Failed to update default cloud user.')
                 raise OciMigrateException(
                     'Failed to update default cloud user.')
         except Exception as e:
-            _logger.critical('*** ERROR *** Unable to perform image update '
+            _logger.critical('  *** ERROR *** Unable to perform image update '
                              'operations: %s' % str(e), exc_info=True)
         finally:
             migrate_utils.leave_chroot(rootfd)
@@ -179,7 +181,7 @@ class DeviceData(object):
             _logger.debug('%s successfully mounted' % nbdpath)
             return nbdpath
         except Exception as e:
-            _logger.critical(str(e))
+            _logger.critical('  %s' % str(e))
             raise OciMigrateException(str(e))
 
     def umount_img(self, nbd):
@@ -195,7 +197,7 @@ class DeviceData(object):
                 _logger.debug('%s successfully unmounted' % nbd)
                 return True
             else:
-                _logger.error('Failed to unmount %s' % nbd, exc_info=True)
+                _logger.error('   Failed to unmount %s' % nbd, exc_info=True)
                 return False
         except Exception as e:
             raise OciMigrateException(str(e))
@@ -219,7 +221,7 @@ class DeviceData(object):
             _logger.debug('%s mbr: %s' % (device, bytes_to_hex(mbr)))
             return mbr
         except Exception as e:
-            _logger.error('Failed to read MBR on %s: %s' % (device, str(e)))
+            _logger.error('   Failed to read MBR on %s: %s' % (device, str(e)))
             return None
 
     def get_partition_table(self, mbr):
@@ -244,7 +246,7 @@ class DeviceData(object):
             mbrok = True
             _logger.debug('Is a valid MBR')
         else:
-            _logger.critical('Is not a valid MBR')
+            _logger.critical('  Is not a valid MBR')
             return mbrok, partitiontable
 
         ind = 892
@@ -387,7 +389,7 @@ class DeviceData(object):
             #
             # mount filesystems.
             if not self.mount_filesystems():
-                raise OciMigrateException('Failed to mount filessystems')
+                raise OciMigrateException('Failed to mount filesystems')
             else:
                 _logger.debug('Mounting file systems succeeded.')
             pause_msg('file systems mounted')
@@ -404,7 +406,7 @@ class DeviceData(object):
                 _logger.debug(
                     'Successfully upgraded the network configuration.')
             else:
-                _logger.error('Failed to update network configuration.')
+                _logger.error('   Failed to update network configuration.')
                 raise OciMigrateException(
                     'Failed to update network configuration.')
             # pause here for test reasons..
@@ -419,9 +421,9 @@ class DeviceData(object):
             self._img_info['oci_config'] = ociconfig
             return True
         except Exception as e:
-            _logger.critical('Image %s handling failed: %s'
+            _logger.critical('  Image %s handling failed: %s'
                              % (self._img_info['img_name'], str(e)),
-                             exc_info=True)
+                             exc_info=False)
             return False
         finally:
             _, clmns = os.popen('stty size', 'r').read().split()
@@ -458,7 +460,7 @@ class DeviceData(object):
                 if migrate_utils.rm_nbd():
                     _logger.debug('Kernel module nbd removed.')
                 else:
-                    _logger.error('Failed to remove kernel module nbd.')
+                    _logger.error('   Failed to remove kernel module nbd.')
             if migrate_tools.isthreadrunning(cleanup):
                 cleanup.stop()
 
@@ -542,7 +544,7 @@ class DeviceData(object):
         except Exception as e:
             #
             # need to release mount of image file and exit
-            _logger.critical('Initial partition data collection '
+            _logger.critical('  Initial partition data collection '
                              'failed: %s' % str(e), exc_info=True)
             raise OciMigrateException('Initial partition data collection '
                                       'failed:\n %s' % str(e))
@@ -591,7 +593,7 @@ class DeviceData(object):
                             devdetail['mountpoint'] = fs_mount_point
                             self._mountpoints.append(fs_mount_point)
                         else:
-                            _logger.critical('Failed to mount %s'
+                            _logger.critical('  Failed to mount %s'
                                              % devname)
                             success = False
                     elif devdetail['ID_FS_TYPE'] in get_config_data(
@@ -616,7 +618,7 @@ class DeviceData(object):
                 # not quitting yet, trying to collect as much info a possible
                 # in this stage.
                 success = False
-                _logger.critical('Failed to mount partition %s: %s'
+                _logger.critical('  Failed to mount partition %s: %s'
                                  % (devname, str(e)))
         #
         # loop through the volume group list, identify the logical volumes
@@ -649,7 +651,7 @@ class DeviceData(object):
                                 devdetail['mountpoint'] = fs_mount_point
                                 self._mountpoints.append(fs_mount_point)
                             else:
-                                _logger.critical('Failed to mount %s'
+                                _logger.critical('  Failed to mount %s'
                                                  % partname)
                                 success = False
                         else:
@@ -658,7 +660,7 @@ class DeviceData(object):
                     self._img_info['partitions'][partname] = devdetail
                 except Exception as e:
                     success = False
-                    _logger.critical('Failed to mount logical '
+                    _logger.critical('  Failed to mount logical '
                                      'volumes %s: %s' % (partname, str(e)))
         return success
 
@@ -711,16 +713,16 @@ class DeviceData(object):
                                                  result=True)
                         self._img_info['remountlist'].append(resultmnt)
                     else:
-                        _logger.error('Failed to mount %s.' % mountdir,
+                        _logger.error('   Failed to mount %s.' % mountdir,
                                       exc_info=True)
                         raise OciMigrateException('Failed to mount %s'
                                                   % mountdir)
                 except Exception as e:
-                    _logger.error('Failed to mount %s: %s.'
+                    _logger.error('   Failed to mount %s: %s.'
                                   % (mountdir, str(e)), exc_info=True)
                     # not sure where to go from here
             else:
-                _logger.error('Something wrong, %s does not exist.' %
+                _logger.error('   Something wrong, %s does not exist.' %
                               mountdir)
 
         return True
@@ -745,7 +747,7 @@ class DeviceData(object):
                 if migrate_utils.unmount_something(part):
                     _logger.debug('Successfully released %s.' % part)
                 else:
-                    _logger.error('Failed to release %s, might prevent '
+                    _logger.error('   Failed to release %s, might prevent '
                                   'clean termination.' % part,
                                   exc_info=True)
                     ret = False
@@ -829,7 +831,7 @@ class DeviceData(object):
                 self._img_info['rootmnt'][1])
             #
         except Exception as e:
-            _logger.critical('Failed to collect os data: %s' % str(e),
+            _logger.critical('  Failed to collect os data: %s' % str(e),
                              exc_info=True)
             raise OciMigrateException('Failed to collect os data: %s' % str(e))
         return True
@@ -852,7 +854,7 @@ class DeviceData(object):
             _logger.debug('Waiting for update to end.')
             updimg.wait4end()
         except Exception as e:
-            _logger.error('Failed: %s' % str(e), exc_info=True)
+            _logger.error('   Failed: %s' % str(e), exc_info=True)
             raise OciMigrateException(str(e))
         finally:
             _logger.debug('NOOP')
@@ -917,7 +919,7 @@ class DeviceData(object):
                             root_partition, root_mount_point = self.find_partition(line[0])
                             if (root_partition, root_mount_point) == (None, None):
                                 _logger.critical(
-                                    'Failed to locate root partition %s.' %
+                                    '  Failed to locate root partition %s.' %
                                     line[0])
                                 raise OciMigrateException(
                                     'Failed to locate root partition %s.' %
@@ -938,8 +940,7 @@ class DeviceData(object):
                                     'Failed to locate a partition %s.'
                                     % line[0])
                             else:
-                                self._img_info['partitions'][part]['usage'] = \
-                                line[1]
+                                self._img_info['partitions'][part]['usage'] = line[1]
                         migrate_tools.result_msg(msg='Identified partition %s'
                                                      % line[1], result=True)
                     migrate_tools.result_msg(
@@ -949,7 +950,7 @@ class DeviceData(object):
                 else:
                     _logger.debug('fstab not found in %s' % etcdir)
         except Exception as e:
-            _logger.critical('Error in partition identification: %s'
+            _logger.critical('  Error in partition identification: %s'
                              % str(e))
             raise OciMigrateException('Error in partition identification: %s'
                                       % str(e))
@@ -1054,7 +1055,7 @@ class DeviceData(object):
                     break
             _logger.debug('break..LVM')
         else:
-            _logger.error('Unsupported fstab entry: %s' % uuidornameorlabel)
+            _logger.error('   Unsupported fstab entry: %s' % uuidornameorlabel)
             part = 'na'
             mount = 'na'
 
@@ -1146,7 +1147,7 @@ class DeviceData(object):
             if grubentry:
                 grubdata.append(grubentry)
         except Exception as e:
-            _logger.error('Errors during reading %s: %s'
+            _logger.error('   Errors during reading %s: %s'
                           % (grub_cfg_path, str(e)))
             raise OciMigrateException('Errors during reading %s: %s'
                                       % (grub_cfg_path, str(e)))
@@ -1179,7 +1180,7 @@ class DeviceData(object):
                 if grubentry:
                     grubdata.append(grubentry)
             except Exception as e:
-                _logger.error('Errors during reading %s: %s'
+                _logger.error('   Errors during reading %s: %s'
                               % (grub_cfg_path, str(e)))
                 raise OciMigrateException('Errors during reading %s: %s'
                                           % (grub_cfg_path, str(e)))
@@ -1216,7 +1217,7 @@ class DeviceData(object):
                 else:
                     _logger.debug('os-release not found in %s' % mnt)
         except Exception as e:
-            _logger.error('Failed to collect os data: %s' % str(e),
+            _logger.error('   Failed to collect os data: %s' % str(e),
                           exc_info=True)
         _logger.debug('os data: %s' % osdict)
         return osdict
@@ -1247,7 +1248,7 @@ class DeviceData(object):
                     else:
                         _logger.debug('skipping %s' % fsline)
         except Exception as e:
-            _logger.error('Problem reading %s: %s' % (fstabfile, str(e)))
+            _logger.error('   Problem reading %s: %s' % (fstabfile, str(e)))
         return fstabdata
 
     def generic_prereq_check(self):
@@ -1313,7 +1314,7 @@ class DeviceData(object):
                                              result=True)
             if not bootflag:
                 passed_requirement = False
-                _logger.error('The image %s is not bootable'
+                _logger.error('   The image %s is not bootable'
                               % self._img_info['img_name'])
                 failmsg += '\n  - The image %s is not bootable.' \
                            % self._img_info['img_name']
@@ -1364,7 +1365,7 @@ class DeviceData(object):
                                     % lv_x, result=True)
                             break
                 elif '/dev/' in line[0]:
-                    _logger.critical('Device name %s in fstab are '
+                    _logger.critical('  Device name %s in fstab are '
                                      'not supported.' % line[0])
                 else:
                     part_pass = True
@@ -1398,7 +1399,7 @@ class DeviceData(object):
                         if l_split[0] == 'search':
                             grub_l += 1
                             if '--fs-uuid' not in l_split:
-                                _logger.error('grub2 line ->%s<- does not '
+                                _logger.error('   grub2 line ->%s<- does not '
                                               'specify boot partition '
                                               'via UUID.' % le)
                                 grub_fail += 1
@@ -1452,7 +1453,7 @@ class DeviceData(object):
                                                  result=True)
                         os_pass = True
                     else:
-                        self._logger.error('->OS<- %s is not supported.' % v)
+                        self._logger.error('   ->OS<- %s is not supported.' % v)
             if not os_pass:
                 passed_requirement = False
                 failmsg += '\n  - OS %s is not supported' % os_name

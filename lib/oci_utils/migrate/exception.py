@@ -39,30 +39,3 @@ class OciMigrateException(Exception):
         """
         return str(self._message)
 
-
-class NoSuchCommand(OciMigrateException):
-    """ Exception for command not found.
-    """
-    def __init__(self, command):
-        """
-        Initialisation of the No Such Command' exception.
-
-        Parameters
-        ----------
-        command: str
-            The missing command, exec or script.
-        """
-        self._command = command
-        assert (self._command is not None), 'No command given'
-
-    def __str__(self):
-        """
-        Get this OCISDKError representation.
-
-        Returns
-        -------
-        str
-            The error message.
-        """
-
-        return str(self.message)

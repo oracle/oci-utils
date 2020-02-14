@@ -164,7 +164,7 @@ class sync_rpm(create_rpm):
 
 setup(
     name="oci-utils",
-    version="0.10.2",
+    version="0.11.0",
     author="Laszlo Peter, Qing Lin, Guido Tijskens, Emmanuel Jannetti",
     author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com, emmanuel.jannetti@oracle.com",
     description="Oracle Cloud Infrastructure utilities",
@@ -174,7 +174,7 @@ setup(
     url="http://github.com/oracle/oci-utils/",
     package_dir={'': 'lib'},
     packages=find_packages('lib'),
-    setup_requires=["flake8"],
+    setup_requires=[],
     long_description=read('README'),
     data_files=[(os.path.join(sys.prefix, 'libexec'),
                  ['libexec/ocid',
@@ -187,7 +187,7 @@ setup(
                   'libexec/oci-kvm-config.sh',
                   'libexec/oci-kvm-network-script'
                   ]),
-                 ("/etc/systemd/system",
+                ("/etc/systemd/system",
                  ['data/ocid.service', 'data/oci-kvm-config.service']),
                 ("/etc/oci-utils",
                  ['data/oci-image-cleanup.conf',
@@ -234,7 +234,6 @@ setup(
         'Intended Audience :: System Administrators',
         'Natural Language :: English',
         'Operating System :: POSIX',
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
         'Topic :: System :: Installation/Setup',
         'Topic :: System :: Systems Administration',

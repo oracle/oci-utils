@@ -11,7 +11,6 @@ except ImportError:
 
 from oci_utils.migrate import migrate_tools as migrate_tools
 from oci_utils.migrate import migrate_utils as migrate_utils
-from oci_utils.migrate.exception import NoSuchCommand
 from oci_utils.migrate.exception import OciMigrateException
 
 def my_fake_open(path, mode):

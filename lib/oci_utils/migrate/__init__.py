@@ -126,7 +126,7 @@ def console_msg(msg=None):
 
 
 def bytes_to_hex(bs):
-    return (''.join('%02x' % i for i in bs))
+    return ''.join('%02x' % i for i in bs)
 
 
 class OciMigrateConfParam(object):

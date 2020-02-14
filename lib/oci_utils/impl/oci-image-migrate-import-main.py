@@ -33,12 +33,12 @@ def parse_args():
     line as returned by the argparse's parse-args().
     arguments:
     -i|--image-name <image name>; mandatory.
-    -b|--bucket-name <bucket name>; mandatdory.
+    -b|--bucket-name <bucket name>; mandatory.
     -c|--compartment-name <compartment name>; mandatory.
     -l|--launch-mode [PARAVIRTUALIZED|EMULATED|NATIVE]; optional, the default
          is PARAVIRTUALIZED.
-    -d|--displayname <display name>; optional.
-    
+    -d|--display-name <display name>; optional.
+
     Returns
     -------
         The command line namespace.
@@ -46,35 +46,35 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Utility to import a (verified and modified) on-premise '
                     'legacy images which was uploaded to object storage in '
-                    'the custom images folderof the Oracle Cloud '
+                    'the custom images folder of the Oracle Cloud '
                     'Infrastructure.',
         add_help=False)
     #
     parser.add_argument('-i', '--image-name',
                         action='store',
-                        dest='imagename',
+                        dest='image_name',
                         required=True,
                         help='The name of the object representing the '
                              'uploaded image.')
     parser.add_argument('-b', '--bucket-name',
                         action='store',
-                        dest='bucketname',
+                        dest='bucket_name',
                         required=True,
                         help='The name of the object storage.')
     parser.add_argument('-c', '--compartment-name',
                         action='store',
-                        dest='compartmentname',
+                        dest='compartment_name',
                         required=True,
                         help='The name of the destination compartment.')
     parser.add_argument('-d', '--display-name',
                         action='store',
-                        dest='displayname',
+                        dest='display_name',
                         help='Image name as it will show up in the custom '
                              'images; the default is the image name.',
                         default=None)
     parser.add_argument('-l', '--launch-mode',
                         action='store',
-                        dest='launchmode',
+                        dest='launch_mode',
                         help='The mode the instance created from the custom '
                              'image will be started; the default '
                              'is PARAVIRTUALIZED.',
@@ -82,14 +82,14 @@ def parse_args():
                         default='PARAVIRTUALIZED')
     parser.add_argument('--verbose', '-v',
                         action='store_true',
-                        dest='verboseflag',
+                        dest='verbose_flag',
                         default=False,
                         help='Show verbose information.')
     parser.add_argument('--help', action='help', help='Display this help')
     parser._optionals.title = 'Arguments'
     args = parser.parse_args()
-    if args.displayname is None:
-        args.displayname = args.imagename
+    if args.display_name is None:
+        args.display_name = args.image_name
     return args
 
 
@@ -98,17 +98,17 @@ def main():
     # command line
     cmdlineargs = parse_args()
     console_msg(msg='Importing %s from %s into %s as %s and setting '
-                    'launchmode to %s.' % (cmdlineargs.imagename,
-                                           cmdlineargs.bucketname,
-                                           cmdlineargs.bucketname,
-                                           cmdlineargs.displayname,
-                                           cmdlineargs.launchmode))
-    compartment = cmdlineargs.compartmentname
-    bucket = cmdlineargs.bucketname
-    objectname = cmdlineargs.imagename
-    displayname = cmdlineargs.displayname
-    launchmode = cmdlineargs.launchmode
-    verboseflag = cmdlineargs.verboseflag
+                    'launch_mode to %s.' % (cmdlineargs.image_name,
+                                           cmdlineargs.bucket_name,
+                                           cmdlineargs.bucket_name,
+                                           cmdlineargs.display_name,
+                                           cmdlineargs.launch_mode))
+    compartment = cmdlineargs.compartment_name
+    bucket = cmdlineargs.bucket_name
+    object_name = cmdlineargs.image_name
+    display_name = cmdlineargs.display_name
+    launch_mode = cmdlineargs.launch_mode
+    verbose_flag = cmdlineargs.verbose_flag
     #
     # oci config file 
     try:
@@ -119,7 +119,7 @@ def main():
         _logger.debug('Tenancy: %s' % tenancy)
         cmd = ['oci', 'iam', 'compartment', 'list', '-c', '%s' % tenancy,
                '--all']
-        if verboseflag:
+        if verbose_flag:
             console_msg(msg='Running: %s' % cmd)
         cmpdict = json.loads(migrate_tools.run_popen_cmd(cmd))
     except Exception as e:
@@ -129,7 +129,7 @@ def main():
     # namespace
     cmd = ['oci', 'os', 'ns', 'get']
     try:
-        if verboseflag:
+        if verbose_flag:
             console_msg(msg='Running: %s' % cmd)
         nsdict = json.loads(migrate_tools.run_popen_cmd(cmd))
         namespace = nsdict['data']
@@ -140,7 +140,7 @@ def main():
     # compartment
     try:
         foundcom = False
-        for k, v in cmpdict.items():
+        for k, v in list(cmpdict.items()):
             for x in v:
                 if x['name'] == compartment:
                     compdata = x
@@ -157,7 +157,7 @@ def main():
     # bucket
     try:
         bucketcontents = migrate_utils.bucket_exists(bucket)
-        if verboseflag:
+        if verbose_flag:
             console_msg(msg='Object storage %s present.' % bucket)
     except Exception as e:
         exit_with_msg('Object storage %s not found: %s' % (bucket, str(e)))
@@ -165,14 +165,14 @@ def main():
     # bucket data
     try:
         cmd = ['oci', 'os', 'bucket', 'get', '--bucket-name', '%s' % bucket]
-        if verboseflag:
+        if verbose_flag:
             console_msg(msg='Running: %s' % cmd)
         bucketlist = migrate_tools.run_popen_cmd(cmd)
         if bucketlist is not None:
             bucketdict = json.loads(bucketlist)
             _logger.debug('Object storage data: %s' % bucketdict)
         else:
-            if verboseflag:
+            if verbose_flag:
                 console_msg(msg='Bucket data for %s is empty.' % bucket)
     except Exception as e:
         exit_with_msg('Failed to get data of %s: %s' % (bucket, str(e)))
@@ -180,72 +180,72 @@ def main():
     # bucket contents
     try:
         cmd = ['oci', 'os', 'object', 'list', '--bucket-name', '%s' % bucket]
-        if verboseflag:
+        if verbose_flag:
             console_msg('Running: %s' % cmd)
         bucketcontents = migrate_tools.run_popen_cmd(cmd)
         if bucketcontents is not None:
             bucketcontentsdict = json.loads(bucketcontents)
             _logger.debug(('Object storage contents: %s' % bucketcontentsdict))
         else:
-            if verboseflag:
+            if verbose_flag:
                 console_msg(msg='Bucket %s is emtpy.' % bucket)
     except Exception as e:
         exit_with_msg('Failed to get contents of %s: %s' % (bucket, str(e)))
         #
     # object exists?
-    if migrate_utils.object_exists(bucketcontents, objectname):
-        if verboseflag:
-            console_msg(msg='Object %s present in %s.' % (objectname, bucket))
+    if migrate_utils.object_exists(bucketcontents, object_name):
+        if verbose_flag:
+            console_msg(msg='Object %s present in %s.' % (object_name, bucket))
     else:
-        exit_with_msg('Object %s missing from %s.' % (objectname, bucket))
+        exit_with_msg('Object %s missing from %s.' % (object_name, bucket))
     #
     # display name exists?
     cmd = ['oci', 'compute', 'image', 'list', '--compartment-id',
            '%s' % compartment_id, '--display-name',
-           '%s' % displayname]
-    if verboseflag:
+           '%s' % display_name]
+    if verbose_flag:
         console_msg('Running: %s' % cmd)
     objstat = migrate_tools.run_popen_cmd(cmd)
     if objstat is not None:
-        exit_with_msg('Image with name %s already exists.' % displayname)
+        exit_with_msg('Image with name %s already exists.' % display_name)
     else:
-        if verboseflag:
-            console_msg('Image with name %s not yet imported.' % displayname)
+        if verbose_flag:
+            console_msg('Image with name %s not yet imported.' % display_name)
         else:
-            _logger.debug('Image with name %s not yet imported.' % displayname)
+            _logger.debug('Image with name %s not yet imported.' % display_name)
     #
     # upload?
     if not read_yn('\n  Uploading %s to %s as %s'
-                   % (objectname, compartment, displayname)):
+                   % (object_name, compartment, display_name)):
         exit_with_msg('Exiting.\n')
     cmd = ['oci', 'compute', 'image', 'import', 'from-object', '--bucket-name',
            '%s' % bucket, '--compartment-id', '%s' % compartment_id,
-           '--name', '%s' % objectname, '--namespace', '%s' % namespace,
-           '--launch-mode', launchmode, '--display-name', '%s' % displayname]
-    if verboseflag:
+           '--name', '%s' % object_name, '--namespace', '%s' % namespace,
+           '--launch-mode', launch_mode, '--display-name', '%s' % display_name]
+    if verbose_flag:
         console_msg(msg='Running: %s' % cmd)
     try:
         resval = migrate_tools.run_popen_cmd(cmd)
     except Exception as e:
-        exit_with_msg('Failed to import %s: %s' % (objectname, str(e)))
+        exit_with_msg('Failed to import %s: %s' % (object_name, str(e)))
     #
     # follow up
     cmd = ['oci', 'compute', 'image', 'list', '--compartment-id',
-           '%s' % compartment_id, '--display-name', '%s' % displayname]
+           '%s' % compartment_id, '--display-name', '%s' % display_name]
     finished = False
     _, clmns = os.popen('stty size', 'r').read().split()
     importwait = migrate_tools.ProgressBar(int(clmns), 0.2,
                                            progress_chars=['importing %s' %
-                                                           displayname])
+                                                           display_name])
     importwait.start()
     while not finished:
         objstat = json.loads(migrate_tools.run_popen_cmd(cmd))
         for ob in objstat['data']:
-            if ob['display-name'] == displayname:
+            if ob['display-name'] == display_name:
                 if ob['lifecycle-state'] == 'AVAILABLE':
                     finished = True
             else:
-                console_msg(msg='%s not found.' % displayname)
+                console_msg(msg='%s not found.' % display_name)
     if migrate_tools.isthreadrunning(importwait):
         importwait.stop()
     console_msg(msg='Done')

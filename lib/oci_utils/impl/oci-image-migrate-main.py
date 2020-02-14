@@ -68,23 +68,23 @@ def parse_args():
     #
     parser.add_argument('-i', '--input-image',
                         action='store',
-                        dest='inputimage',
+                        dest='input_image',
                         type=argparse.FileType('r'),
                         required=True,
                         help='The on-premise image for migration to OCI.')
     parser.add_argument('-b', '--bucket',
                         action='store',
-                        dest='bucketname',
+                        dest='bucket_name',
                         required=True,
                         help='The destination bucket in OCI to store '
                              'the converted image.')
     parser.add_argument('-o', '--output-image',
                         action='store',
-                        dest='outputimage',
+                        dest='output_image',
                         help='The output image name.')
     parser.add_argument('--verbose', '-v',
                         action='store_true',
-                        dest='verboseflag',
+                        dest='verbose_flag',
                         default=False,
                         help='Show verbose information.')
     parser.add_argument('--help',
@@ -210,7 +210,7 @@ def collect_image_data(img_object):
     try:
         res, img_info = img_object.image_data()
     except Exception as e:
-        _logger.critical('Unable to collect or invalid image data: %s'
+        _logger.critical('  Unable to collect or invalid image data: %s'
                          % str(e), exc_info=True)
         raise OciMigrateException('Unable to collect or invalid image data: %s'
                                   % str(e))
@@ -237,7 +237,7 @@ def test_helpers():
             ocipath = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
             _logger.debug('%s path is %s' % (util, ocipath))
         except Exception as e:
-            _logger.error('Cannot find %s anymore: %s' % (util, str(e)),
+            _logger.error('   Cannot find %s anymore: %s' % (util, str(e)),
                           exc_info=True)
         try:
             _logger.debug('Availability of %s' % util)
@@ -248,7 +248,7 @@ def test_helpers():
             else:
                 missing.append(util)
         except Exception as e:
-            _logger.error('utility %s is not installed: %s'
+            _logger.error('   utility %s is not installed: %s'
                           % (helpers_list[util], str(e)))
     return helpers, missing
 
@@ -291,9 +291,9 @@ def main():
     _logger.debug('Python version is %s' % pythonver)
     #
     # Verbose mode is False by default
-    verboseflag = args.verboseflag
-    migrate_tools.verboseflag = verboseflag
-    _logger.debug('Verbose level set to %s' % verboseflag)
+    verbose_flag = args.verbose_flag
+    migrate_tools.verbose_flag = verbose_flag
+    _logger.debug('Verbose level set to %s' % verbose_flag)
     #
     # Operator needs to be root.
     if migrate_tools.is_root():
@@ -304,8 +304,8 @@ def main():
     try:
         #
         # input image
-        if args.inputimage:
-            imagepath = args.inputimage.name
+        if args.input_image:
+            imagepath = args.input_image.name
             resultfilename = get_config_data('resultfilepath') \
                             + '_' \
                             + os.path.splitext(os.path.basename(imagepath))[0] \
@@ -319,13 +319,13 @@ def main():
         #
         # Import the 'format' modules and collect the format data
         supported_formats = import_formats()
-        if verboseflag:
+        if verbose_flag:
             show_supported_formats_data(supported_formats)
         #
         # Check the utilities installed.
         util_list, missing_list = test_helpers()
         _logger.debug('%s' % util_list)
-        if verboseflag:
+        if verbose_flag:
             show_utilities(util_list, missing_list)
         if missing_list:
             raise OciMigrateException('%s needs packages %s installed.\n'
@@ -352,33 +352,33 @@ def main():
                                     'but might cause issues.' % migrate_tools.nameserver)
         #
         # bucket
-        bucketname = args.bucketname
-        migrate_tools.result_msg(msg='Bucket name:  %s' % bucketname, result=True)
+        bucket_name = args.bucket_name
+        migrate_tools.result_msg(msg='Bucket name:  %s' % bucket_name, result=True)
         #
         # Verify if object storage exits.
         try:
-            bucket_data = migrate_utils.bucket_exists(bucketname)
-            migrate_tools.result_msg(msg='Object storage %s exists.' % bucketname, result=True)
+            bucket_data = migrate_utils.bucket_exists(bucket_name)
+            migrate_tools.result_msg(msg='Object storage %s exists.' % bucket_name, result=True)
         except Exception as e:
             raise OciMigrateException(str(e))
         #
         # output image
-        if args.outputimage:
-            outputname = args.outputimage
+        if args.output_image:
+            output_name = args.output_image
         else:
-            outputname = os.path.splitext(os.path.basename(imagepath))[0]
-        migrate_tools.result_msg(msg='Output name:  %s\n' % outputname, result=True)
+            output_name = os.path.splitext(os.path.basename(imagepath))[0]
+        migrate_tools.result_msg(msg='Output name:  %s\n' % output_name, result=True)
         #
         # bucket
-        bucketname = args.bucketname
-        migrate_tools.result_msg(msg='Bucket name:  %s' % bucketname, result=True)
+        bucket_name = args.bucket_name
+        migrate_tools.result_msg(msg='Bucket name:  %s' % bucket_name, result=True)
         #
         # Verify if object already exists.
-        if migrate_utils.object_exists(bucket_data, outputname):
+        if migrate_utils.object_exists(bucket_data, output_name):
             raise OciMigrateException('Object %s already exists in object '
-                                      'storage %s.' % (outputname, bucketname))
+                                      'storage %s.' % (output_name, bucket_name))
         else:
-            _logger.debug('Object %s does not yet exists in object storage %s' % (outputname, bucketname))
+            _logger.debug('Object %s does not yet exists in object storage %s' % (output_name, bucket_name))
     except Exception as e:
         exit_with_msg('  *** ERROR *** %s\n' % str(e))
     #
@@ -390,11 +390,11 @@ def main():
     migrate_tools.result_msg(msg='Input image:  %s' % imagepath, result=True)
     #
     # output image
-    if args.outputimage:
-        outputname = args.outputimage
+    if args.output_image:
+        output_name = args.output_image
     else:
-        outputname = os.path.splitext(os.path.basename(imagepath))[0]
-    migrate_tools.result_msg(msg='Output name:  %s\n' % outputname, result=True)
+        output_name = os.path.splitext(os.path.basename(imagepath))[0]
+    migrate_tools.result_msg(msg='Output name:  %s\n' % output_name, result=True)
     #
     # Verify if readable.
     fn_magic = migrate_tools.get_magic_data(imagepath)
@@ -427,19 +427,19 @@ def main():
     # Generic data collection
     try:
         imgres, imagedata = collect_image_data(image_object)
-        if verboseflag:
+        if verbose_flag:
             migrate_utils.show_image_data(image_object)
         if imgres:
             _logger.debug('Image processing succeeded.')
         else:
-            _logger.critical('Image processing failed.', exc_info=True)
+            _logger.critical('  Image processing failed.', exc_info=False)
         #
         if imagedata:
             _logger.debug('%s passed verification.' % imagepath)
         else:
-            _logger.critical('%s failed image check.' % imagepath, exc_info=True)
+            _logger.critical('  %s failed image check.' % imagepath, exc_info=False)
     except Exception as e:
-        _logger.critical('%s failed image check: %s' % (imagepath, str(e)))
+        _logger.critical('  %s failed image check: %s' % (imagepath, str(e)))
         exit_with_msg('*** ERROR *** Problem detected during investigation of '
                       'the image %s: %s, exiting.' % (imagepath, str(e)))
     #
@@ -485,7 +485,7 @@ def main():
                 exit_with_msg('*** ERROR *** Something wrong checking the '
                               'boot type')
         else:
-            prereq_msg += '\n\n  + %s processing failed, check the logfile ' \
+            prereq_msg += '\n\n  %s processing failed, check the logfile ' \
                           'and/or set environment variable _OCI_UTILS_DEBUG.' \
                           % imagepath
             raise OciMigrateException(prereq_msg)
@@ -501,40 +501,38 @@ def main():
     #
     # Ask for agreement to proceed.
     if not read_yn('\n  Agree to proceed uploading %s to %s as %s?'
-                   % (imagepath, bucketname, outputname)):
+                   % (imagepath, bucket_name, output_name)):
         exit_with_msg('\n  Exiting.')
     #
     # Prerequisite verification and essential image updates passed, uploading
     # image.
     _, clmns = os.popen('stty size', 'r').read().split()
     try:
-        uploadprogress = migrate_tools.ProgressBar(int(clmns),
-                                                   0.2,
-                                                   progress_chars
-                                                   =['uploading %s' % outputname])
+        uploadprogress = migrate_tools.ProgressBar(
+            int(clmns), 0.2, progress_chars=['uploading %s' % output_name])
         #
         # Verify if object already exists.
-        if migrate_utils.object_exists(bucket_data, outputname):
+        if migrate_utils.object_exists(bucket_data, output_name):
             raise OciMigrateException('Object %s already exists object '
-                                      'storage %s.' % (outputname, bucketname))
+                                      'storage %s.' % (output_name, bucket_name))
         else:
             _logger.debug('Object %s does not yet exists in object storage %s'
-                          % (outputname, bucketname))
+                          % (output_name, bucket_name))
         #
         # Upload the image.
         migrate_tools.result_msg(msg='\n  Uploading %s, this might take a while....'
                                  % imagepath, result=True)
         uploadprogress.start()
-        uploadres = migrate_utils.upload_image(imagepath, bucketname,
-                                               outputname)
+        uploadres = migrate_utils.upload_image(imagepath, bucket_name,
+                                               output_name)
         _logger.debug('Uploadresult: %s' % uploadres)
         migrate_tools.result_msg(msg='  Finished....\n', result=True)
         uploadprogress.stop()
     except Exception as e:
-        _logger.error('Error while uploading %s to %s: %s.'
-                      % (imagepath, bucketname, str(e)))
+        _logger.error('   Error while uploading %s to %s: %s.'
+                      % (imagepath, bucket_name, str(e)))
         exit_with_msg('*** ERROR *** Error while uploading %s to %s: %s.'
-                      % (imagepath, bucketname, str(e)))
+                      % (imagepath, bucket_name, str(e)))
     finally:
         #
         # if progressthread was started, needs to be terminated.

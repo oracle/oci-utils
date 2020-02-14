@@ -83,7 +83,7 @@ def cleanup_udev(rootdir):
                             newf.close()
                             os.remove(mv_fullfn)
                         except Exception as e:
-                            _logger.error('Failed to rewrite udev network '
+                            _logger.error('  Failed to rewrite udev network '
                                           'naming rules: %s' % str(e))
                             return False
     else:
@@ -129,7 +129,7 @@ def reconfigure_ifcfg_config(rootdir):
                 ifcfg_data[devname] = ifcfg
                 _logger.debug('Network interface: %s' % devname)
             except Exception as e:
-                _logger.error('Problem reading network configuration file %s: '
+                _logger.error('  Problem reading network configuration file %s: '
                               '%s' % (cfgfile, str(e)))
     else:
         _logger.debug('No ifcfg network configuration.')
@@ -165,7 +165,7 @@ def reconfigure_ifcfg_config(rootdir):
             migrate_tools.result_msg(msg='Replaced ifcfg network configuration.',
                                      result=True)
         except Exception as e:
-            _logger.error('Failed to write %s/ifcfg-eth0' % ifrootdir)
+            _logger.error('  Failed to write %s/ifcfg-eth0' % ifrootdir)
             migrate_tools.error_msg('Failed to write %s: %s' % (dhcpniccfg, str(e)))
             raise OciMigrateException('Failed to write %s: %s'
                                       % (dhcpniccfg, str(e)))
@@ -207,7 +207,7 @@ def reconfigure_netplan(rootdir):
                         netplan_data[yf] = yaml_data
                         _logger.debug('netplan: %s' % yaml_data)
                 except Exception as e:
-                    _logger.error('Failed to parse %s: %s' % (yf, str(e)))
+                    _logger.error('  Failed to parse %s: %s' % (yf, str(e)))
                     migrate_tools.error_msg('Failed to parse %s: %s' % (yf, str(e)))
                     break
                 #
@@ -259,7 +259,7 @@ def reconfigure_netplan(rootdir):
                                               'configuration file %s: %s'
                                               % (get_config_data('default_netplan_file'), str(e)))
         else:
-            _logger.error('No netplan yaml config files found.')
+            _logger.error('  No netplan yaml config files found.')
     else:
         _logger.debug('No netplan configuration found.')
 
@@ -381,7 +381,7 @@ def reconfigure_interfaces(rootdir):
                     else:
                         _logger.debug('no iface in %s' % ln)
         except Exception as e:
-            _logger.error('Error occured while reading %s: %s'
+            _logger.error('  Error occured while reading %s: %s'
                           % (net_ifcfg_config, str(e)))
         #
         # rewrite
@@ -412,7 +412,7 @@ def reconfigure_interfaces(rootdir):
                 migrate_tools.result_msg(msg='Network interfaces file rewritten.',
                                          result=True)
             except Exception as e:
-                _logger.error('Failed to write new interfaces configuration '
+                _logger.error('  Failed to write new interfaces configuration '
                               'file %s: %s' % (net_ifcfg_config, str(e)))
     else:
         _logger.debug('No network interfaces configuration.')
@@ -465,7 +465,7 @@ def reconfigure_systemd_networkd(rootdir):
                                 sys_data[sf][sec] = systemtd_net_config.items(sec)
                                 _logger.debug('%s' % sys_data[sf][sec])
                         except Exception as e:
-                            _logger.error('Failed to parse %s: %s' % (sf, str(e)))
+                            _logger.error('  Failed to parse %s: %s' % (sf, str(e)))
                         #
                         # rename - backup
                         bcknm = os.path.split(sf)[0] + '/bck_' \
@@ -480,7 +480,7 @@ def reconfigure_systemd_networkd(rootdir):
                                             + '/bck' + os.path.split(sf)[1]
                                             + '_bck'))
                         else:
-                            _logger.error('Failed to rename %s to %s'
+                            _logger.error('  Failed to rename %s to %s'
                                           % (sf, os.path.split(sf)[0]
                                             + '/bck'
                                             + os.path.split(sf)[1]

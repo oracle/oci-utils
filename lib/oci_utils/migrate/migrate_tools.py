@@ -15,7 +15,6 @@ import time
 from datetime import datetime
 
 from oci_utils.migrate import bytes_to_hex
-from oci_utils.migrate.exception import NoSuchCommand
 from oci_utils.migrate.exception import OciMigrateException
 
 _logger = logging.getLogger('oci-utils.migrate-tools')
@@ -41,7 +40,7 @@ def error_msg(msg=None):
     -------
         No return value
     """
-    _logger.error('%s' % msg)
+    _logger.error('   %s' % msg)
     if msg is not None:
         msg = '  *** ERROR *** %s' % msg
     else:
@@ -75,7 +74,7 @@ def result_msg(msg, flags='a', result=False):
         with open(resultfilename, flags) as f:
             f.write('  %s: %s\n' % (datetime.now().strftime('%H:%M:%S'), msg))
     except Exception as e:
-        _logger.error('Failed to write to %s: %s' % (resultfilename, str(e)))
+        _logger.error('   Failed to write to %s: %s' % (resultfilename, str(e)))
     if result:
         if msg is not None:
             print('  %s' % msg)
@@ -117,7 +116,7 @@ def get_magic_data(image):
             magic_hex = bytes_to_hex(magic)
             _logger.debug('Image magic number: %8s' % magic_hex)
     except Exception as e:
-        _logger.critical('Image %s is not accessible: 0X%s' % (image, str(e)))
+        _logger.critical('  Image %s is not accessible: 0X%s' % (image, str(e)))
     return magic_hex
 
 
@@ -172,9 +171,9 @@ def exec_rename(fromname, toname):
                 if os.unlink(toname):
                     _logger.debug('Removed symbolic link %s' % toname)
                 else:
-                    _logger.error('Failed to remove symbolic link %s' % toname)
+                    _logger.error('   Failed to remove symbolic link %s' % toname)
             else:
-                _logger.error('Failed to remove %s.' % toname)
+                _logger.error('   Failed to remove %s.' % toname)
         else:
             _logger.debug('%s does exists' % toname)
 
@@ -184,10 +183,10 @@ def exec_rename(fromname, toname):
             _logger.debug('Renamed %s to %s.' % (fromname, toname))
             return True
         else:
-            _logger.error('%s does not exists' % fromname)
+            _logger.error('   %s does not exists' % fromname)
 
     except Exception as e:
-        _logger.error('Failed to rename %s to %s: %s'
+        _logger.error('   Failed to rename %s to %s: %s'
                       % (fromname, toname, str(e)))
         raise OciMigrateException('Failed to rename %s to %s: %s'
                                   % (fromname, toname, str(e)))
@@ -261,8 +260,8 @@ def run_popen_cmd(command):
             raise OciMigrateException('Error encountered while running %s: %s'
                                       % (command, str(e)))
     else:
-        _logger.critical('%s not found.' % command[0])
-        raise NoSuchCommand(command[0])
+        _logger.critical('  %s not found.' % command[0])
+        raise OciMigrateException('%s does not exist' % command[0])
 
 
 def get_nameserver():
@@ -286,7 +285,7 @@ def get_nameserver():
         _logger.debug('Nameserver set to %s' % nameserver)
         return True
     except Exception as e:
-        _logger.error('Failed to identify nameserver: %s.' % str(e))
+        _logger.error('   Failed to identify nameserver: %s.' % str(e))
         return False
 
 
@@ -308,7 +307,7 @@ def set_nameserver():
                 or os.path.isdir(resolvpath):
             _ = exec_rename(resolvpath, resolvpath + '_' + current_time)
         else:
-            _logger.error('No %s found' % resolvpath)
+            _logger.error('   No %s found' % resolvpath)
         #
         # write new
         with open(resolvpath, 'w') as f:
@@ -472,6 +471,8 @@ class ProgressBar(threading.Thread):
         """
         self.stop_the_progress_bar = True
         self.join()
+        sys.stdout.write('\n')
+        sys.stdout.flush()
 
     def join(self, timeout=None):
         """
@@ -488,4 +489,3 @@ class ProgressBar(threading.Thread):
         """
         self._stopthread.set()
         threading.Thread.join(self, timeout)
-

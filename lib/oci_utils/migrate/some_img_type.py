@@ -75,7 +75,7 @@ class SomeTypeHead(DeviceData):
                 head_bin = f.read(self.head_size)
                 _logger.debug('%s header successfully read' % self._fn)
         except Exception as e:
-            _logger.critical('Failed to read header of %s: %s'
+            _logger.critical('  Failed to read header of %s: %s'
                              % (self._fn, str(e)))
             raise OciMigrateException('Failed to read the header of %s: %s'
                                       % (self._fn, str(e)))
@@ -99,7 +99,7 @@ class SomeTypeHead(DeviceData):
                                      result=True)
             deviceinfo = self.handle_image()
         except Exception as e:
-            _logger.critical('error %s' % str(e))
+            _logger.critical('  Error %s' % str(e))
             raise OciMigrateException(str(e))
 
     def show_header(self):

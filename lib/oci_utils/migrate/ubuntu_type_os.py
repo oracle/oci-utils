@@ -48,7 +48,7 @@ def exec_apt(cmd):
         _logger.debug('apt command output: %s' % str(output))
         return output
     except Exception as e:
-        _logger.critical('Failed to execute apt: %s' % str(e))
+        _logger.critical('  Failed to execute apt: %s' % str(e))
         raise OciMigrateException('\nFailed to execute apt: %s' % str(e))
 
 
@@ -64,10 +64,12 @@ def install_cloud_init(*args):
         bool: True on success, False otherwise.
     """
     try:
+        #
+        # set current nameserver config.
         if migrate_tools.set_nameserver():
             _logger.debug('Updating nameserver info succeeded.')
         else:
-            _logger.error('Failed to update nameserver info.')
+            _logger.error('  Failed to update nameserver info.')
         #
         deblist = exec_apt(['list', 'cloud-init'])
         cloud_init_present = False
@@ -90,9 +92,9 @@ def install_cloud_init(*args):
         if migrate_tools.restore_nameserver():
             _logger.debug('Restoring nameserver info succeeded.')
         else:
-            _logger.error('Failed to restore nameserver info.')
+            _logger.error('  Failed to restore nameserver info.')
     except Exception as e:
-        _logger.critical('Failed to install the cloud-init package:\n%s' % str(e))
+        _logger.critical('  Failed to install the cloud-init package:\n%s' % str(e))
         migrate_tools.error_msg('Failed to install the cloud-init package:\n%s' % str(e))
         migrate_tools.migrate_non_upload_reason += \
             '\n Failed to install the cloud-init package: %s' % str(e)

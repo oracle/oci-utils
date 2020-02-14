@@ -26,7 +26,6 @@ from oci_utils.migrate import console_msg, read_yn
 from oci_utils.migrate import get_config_data
 from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import pause_msg
-from oci_utils.migrate.exception import NoSuchCommand
 from oci_utils.migrate.exception import OciMigrateException
 
 _logger = logging.getLogger('oci-utils.migrate-utils')
@@ -102,7 +101,7 @@ def enter_chroot(newroot):
         os.chroot(newroot)
         _logger.debug('Changed root to %s.' % newroot)
     except Exception as e:
-        _logger.error('Failed to change root to %s: %s' % (newroot, str(e)))
+        _logger.error('  Failed to change root to %s: %s' % (newroot, str(e)))
         #
         # need to return environment.
         if root2return > 0:
@@ -126,7 +125,7 @@ def enter_chroot(newroot):
         _logger.debug('Set path to %s' % newpath)
         return root2return, currentpath
     except Exception as e:
-        _logger.error('Failed to set path to %s: %s' % (newpath, str(e)))
+        _logger.error('  Failed to set path to %s: %s' % (newpath, str(e)))
         raise OciMigrateException('Failed to set path to %s: %s'
                                   % (newpath, str(e)))
 
@@ -153,7 +152,7 @@ def leave_chroot(root2return):
         _logger.debug('Left change root environment.')
         return True
     except Exception as e:
-        _logger.error('Failed to return from chroot: %s' % str(e))
+        _logger.error('  Failed to return from chroot: %s' % str(e))
         OciMigrateException('Failed to return from chroot: %s' % str(e))
 
 
@@ -189,7 +188,7 @@ def exec_search(file_name, rootdir='/', dirnames=False):
                               % os.path.join(rootdir, path_name, file_name))
                 return os.path.join(rootdir, path_name, file_name)
     except Exception as e:
-        _logger.error('Error while looking for %s: %s'
+        _logger.error('  Error while looking for %s: %s'
                       % (file_name, str(e)))
         raise OciMigrateException('Error while looking for %s: %s'
                                   % (file_name, str(e)))
@@ -219,7 +218,7 @@ def exec_rmmod(module):
         if rmmod_result == 0:
             _logger.debug('Successfully removed %s' % module)
         else:
-            _logger.error('Error removing %s, exit code %s, ignoring.'
+            _logger.error('  Error removing %s, exit code %s, ignoring.'
                           % (cmd, str(rmmod_result)))
     except Exception as e:
         _logger.debug('Failed: %s, ignoring.' % str(e))
@@ -246,9 +245,9 @@ def exec_qemunbd(qemunbd_args):
     cmd = ['qemu-nbd'] + qemunbd_args
     pause_msg(cmd)
     try:
-         return migrate_tools.run_call_cmd(cmd)
+        return migrate_tools.run_call_cmd(cmd)
     except Exception as e:
-        _logger.error('%s command failed: %s' % (cmd, str(e)))
+        _logger.error('  %s command failed: %s' % (cmd, str(e)))
         raise OciMigrateException('\n%s command failed: %s' % (cmd, str(e)))
 
 
@@ -321,7 +320,7 @@ def exec_blkid(blkid_args):
         _logger.debug('success\n%s' % blkid_res)
         return blkid_res
     except Exception as e:
-        _logger.error('%s failed: %s' % (cmd, str(e)))
+        _logger.error('  %s failed: %s' % (cmd, str(e)))
         return None
 #        raise OciMigrateException('%s failed: %s' % (cmd, str(e)))
 
@@ -347,7 +346,7 @@ def exec_lsblk(lsblk_args):
         _logger.debug('success\n%s' % lsblk_res)
         return lsblk_res
     except Exception as e:
-        _logger.error('%s failed: %s' % (cmd, str(e)))
+        _logger.error('  %s failed: %s' % (cmd, str(e)))
         raise OciMigrateException('%s failed: %s' % (cmd, str(e)))
 
 
@@ -366,10 +365,10 @@ def create_nbd():
         if migrate_tools.run_call_cmd(cmd) == 0:
             return True
         else:
-            _logger.critical('Failed to execute %s' % cmd)
+            _logger.critical('  Failed to execute %s' % cmd)
             raise OciMigrateException('\nFailed to execute %s' % cmd)
     except Exception as e:
-        _logger.critical('Failed: %s' % str(e))
+        _logger.critical('  Failed: %s' % str(e))
         return False
 
 
@@ -407,7 +406,7 @@ def get_free_nbd():
                     freedev = devname.rsplit('/')[-1]
                     return '/dev/' + freedev
     except Exception as e:
-        _logger.critical('Failed to screen nbd devices: %s' % str(e))
+        _logger.critical('  Failed to screen nbd devices: %s' % str(e))
         raise OciMigrateException('\nFailed to locate a free nbd device, %s'
                                   % str(e))
 
@@ -445,7 +444,7 @@ def exec_parted(devname):
         pause_msg(devdata)
         return devdata
     except Exception as e:
-        _logger.error('Failed to collect parted %s device data: %s'
+        _logger.error('  Failed to collect parted %s device data: %s'
                       % (devname, str(e)))
         return None
 
@@ -494,7 +493,7 @@ def exec_sfdisk(devname):
         _logger.debug(partdata)
         return partdata
     except Exception as e:
-        _logger.error('Failed to collect sfdisk %s partition data: %s'
+        _logger.error('  Failed to collect sfdisk %s partition data: %s'
                       % (devname, str(e)))
         return None
 
@@ -541,15 +540,12 @@ def mount_imgfn(imgname):
             _logger.debug('qemu-nbd %s succeeded' % qemucmd)
             return devpath
         else:
-            _logger.critical('\nFailed to create nbd devices: %d'
+            _logger.critical('\n  Failed to create nbd devices: %d'
                         % qemunbd_ret)
             raise Exception('Failed to create nbd devices: %d'
                             % qemunbd_ret)
-    except NoSuchCommand:
-        _logger.critical('qemu-nbd does not exist')
-        raise NoSuchCommand('qemu-nbd does not exist')
     except Exception as e:
-        _logger.critical('\nSomething wrong with creating nbd devices: %s'
+        _logger.critical('\n  Something wrong with creating nbd devices: %s'
                          % str(e))
         raise OciMigrateException('Unable to create nbd devices: %s' % str(e))
     finally:
@@ -587,7 +583,7 @@ def unmount_imgfn(devname):
         if exec_pvscan():
             _logger.debug('lvm cache updated')
         else:
-            _logger.error('Failed to clear LVM cache.')
+            _logger.error('  Failed to clear LVM cache.')
             raise OciMigrateException('Failed to clear LVM cache.')
         #
         # remove nbd module
@@ -596,7 +592,7 @@ def unmount_imgfn(devname):
         else:
             _logger.debug('Successfully removed nbd module.')
     except Exception as e:
-        _logger.critical('Something wrong with removing nbd devices: %s'
+        _logger.critical('  Something wrong with removing nbd devices: %s'
                          % str(e))
         raise OciMigrateException('\nSomething wrong with removing nbd '
                                   'devices: %s' % str(e))
@@ -629,7 +625,7 @@ def mount_partition(devname, mountpoint=None):
             if exec_mkdir(mntpoint):
                 _logger.debug('Mountpoint: %s created.' % mntpoint)
         except Exception as e:
-            _logger.critical('Failed to create mountpoint %s: %s'
+            _logger.critical('  Failed to create mountpoint %s: %s'
                              % (mntpoint, str(e)))
             raise OciMigrateException('Failed to create mountpoint %s: %s'
                                       % (mntpoint, str(e)))
@@ -654,12 +650,13 @@ def mount_partition(devname, mountpoint=None):
     except Exception as e:
         #
         # mount failed, need to remove mountpoint.
-        _logger.critical('failed to mount %s: %s' % (devname, str(e)))
+        _logger.critical('  Failed to mount %s, missing driver, filesystem '
+                         'corruption...: %s' % (devname, str(e)))
         if mountpoint is None:
             if exec_rmdir(mntpoint):
                 _logger.debug('%s removed' % mntpoint)
             else:
-                _logger.critical('Failed to remove mountpoint %s' % mntpoint)
+                _logger.critical('  Failed to remove mountpoint %s' % mntpoint)
     finally:
         if migrate_tools.isthreadrunning(mountpart):
             mountpart.stop()
@@ -714,7 +711,7 @@ def find_os_specific(ostag):
                 else:
                     _logger.debug('No file found for module %s' % module_name)
     except Exception as e:
-        _logger.critical('Failed to locate the OS type specific module: %s'
+        _logger.critical('  Failed to locate the OS type specific module: %s'
                          % str(e))
     return module
 
@@ -747,11 +744,11 @@ def mount_pseudo(rootdir):
             cmdret = migrate_tools.run_call_cmd(cmd)
             _logger.debug('%s : %d' % (cmd, cmdret))
             if cmdret != 0:
-                _logger.error('Failed to %s' % cmd )
+                _logger.error('  Failed to %s' % cmd)
                 raise Exception('%s Failed: %d' % (cmd, cmdret))
             pseudomounts.append(cmd_par[3])
         except Exception as e:
-            _logger.critical('Failed to %s: %s' % (cmd, str(e)))
+            _logger.critical('  Failed to %s: %s' % (cmd, str(e)))
             raise OciMigrateException('Failed to %s: %s' % (cmd, str(e)))
     return pseudomounts
 
@@ -785,7 +782,7 @@ def mount_fs(mountpoint):
         else:
             raise Exception('%s failed: %d' % (cmd, cmdret))
     except Exception as e:
-        _logger.error('Failed to %s: %s' % (cmd, str(e)))
+        _logger.error('  Failed to %s: %s' % (cmd, str(e)))
         return False
     finally:
         if migrate_tools.isthreadrunning(mountwait):
@@ -821,7 +818,7 @@ def unmount_something(mountpoint):
         if cmdret != 0:
             raise Exception('%s failed: %d' % (cmd, cmdret))
     except Exception as e:
-        _logger.error('Failed to %s: %s' % (cmd, str(e)))
+        _logger.error('  Failed to %s: %s' % (cmd, str(e)))
         return False
     return True
 
@@ -847,7 +844,7 @@ def unmount_pseudo(pseudomounts):
         if umount_res:
             _logger.debug('%s successfully unmounted.' % mnt)
         else:
-            _logger.error('Failed to unmount %s' % mnt)
+            _logger.error('  Failed to unmount %s' % mnt)
             res = False
     return res
 
@@ -870,13 +867,13 @@ def exec_pvscan(devname=None):
         cmdret = migrate_tools.run_call_cmd(cmd)
         _logger.debug('Physical volumes scanned on %s: %d' % (devname, cmdret))
         if cmdret != 0:
-            _logger.error('Physical volume scan failed.')
+            _logger.error('  Physical volume scan failed.')
             raise Exception('Physical volume scan failed.')
         return True
     except Exception as e:
         #
         # pvscan failed
-        _logger.critical('Failed to scan %s for physical volumes: %s'
+        _logger.critical('  Failed to scan %s for physical volumes: %s'
                          % (devname, str(e)))
         raise OciMigrateException('Failed to scan %s for physical '
                                   'volumes: %s' % (devname, str(e)))
@@ -900,7 +897,7 @@ def exec_vgscan():
     except Exception as e:
         #
         # vgscan failed
-        _logger.critical('Failed to scan for volume groups: %s' % str(e))
+        _logger.critical('  Failed to scan for volume groups: %s' % str(e))
         raise OciMigrateException('Failed to scan for volume groups: %s'
                                   % str(e))
 
@@ -943,7 +940,7 @@ def exec_lvscan():
     except Exception as e:
         #
         # vgscan failed
-        _logger.critical('Failed to scan for logical volumes: %s' % str(e))
+        _logger.critical('  Failed to scan for logical volumes: %s' % str(e))
         raise OciMigrateException('Failed to scan for logical volume: %s'
                                   % str(e))
 
@@ -969,7 +966,7 @@ def exec_vgchange(changecmd):
         _logger.debug('vgchange result: %s' % output)
         return output
     except Exception as e:
-        _logger.critical('Failed to execute %s: %s' % (cmd, str(e)))
+        _logger.critical('  Failed to execute %s: %s' % (cmd, str(e)))
         raise OciMigrateException('Failed to execute %s: %s' % (cmd, str(e)))
 
 
@@ -999,7 +996,7 @@ def mount_lvm2(devname):
         if exec_pvscan(devname):
             _logger.debug('pvscan %s succeeded' % devname)
         else:
-            _logger.critical('pvscan %s failed' % devname)
+            _logger.critical('  pvscan %s failed' % devname)
         #
         pause_msg('pvscan test')
         #
@@ -1007,7 +1004,7 @@ def mount_lvm2(devname):
         if exec_vgscan():
             _logger.debug('vgscan succeeded')
         else:
-            _logger.critical('vgscan failed')
+            _logger.critical('  vgscan failed')
         #
         pause_msg('vgscan test')
         #
@@ -1016,7 +1013,7 @@ def mount_lvm2(devname):
         if vgs is not None:
             _logger.debug('lvscan succeeded: %s' % vgs)
         else:
-            _logger.critical('lvscan failed')
+            _logger.critical('  lvscan failed')
         #
         pause_msg('lvscan test')
         #
@@ -1041,10 +1038,10 @@ def mount_lvm2(devname):
             # for the sake of testing
             pause_msg('vgchangeres test')
         else:
-            _logger.critical('vgchange failed')
+            _logger.critical('  vgchange failed')
         return vgs
     except Exception as e:
-        _logger.critical('Mount lvm %s failed: %s' % (devname, str(e)))
+        _logger.critical('  Mount lvm %s failed: %s' % (devname, str(e)))
         raise OciMigrateException('Mount lvm %s failed: %s' % (devname, str(e)))
     finally:
         if migrate_tools.isthreadrunning(mountwait):
@@ -1074,27 +1071,27 @@ def get_oci_config(section='DEFAULT'):
         _logger.debug('OCI configuration: %s' % sectiondata)
         return sectiondata
     except Exception as e:
-        _logger.error('Failed to read OCI configuration %s: %s.'
+        _logger.error('  Failed to read OCI configuration %s: %s.'
                       % (get_config_data('ociconfigfile'), str(e)))
         raise OciMigrateException('Failed to read OCI configuration %s: %s.' %
                                   (get_config_data('ociconfigfile'),
                                    str(e)))
 
 
-def bucket_exists(bucketname):
+def bucket_exists(bucket_name):
     """
-    Verify if bucketname exits.
+    Verify if bucket_name exits.
 
     Parameters
     ----------
-    bucketname: str
-        The bucketname.
+    bucket_name: str
+        The bucket_name.
 
     Returns
     -------
         object: The bucket on success, raise an exception otherwise
     """
-    _logger.debug('Test bucket %s.' % bucketname)
+    _logger.debug('Test bucket %s.' % bucket_name)
     path_name = os.getenv('PATH')
     _logger.debug('PATH is %s' % path_name)
     cmd = ['which', 'oci']
@@ -1102,11 +1099,11 @@ def bucket_exists(bucketname):
         ocipath = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('oci path is %s' % ocipath)
     except Exception as e:
-        _logger.error('Cannot find oci anymore: %s' % str(e))
+        _logger.error('  Cannot find oci anymore: %s' % str(e))
         raise OciMigrateException('Unable to find oci cli, although it has '
                                   'been verified successfully earlier in '
                                   'this process.')
-    cmd = ['oci', 'os', 'object', 'list', '--bucket-name', bucketname]
+    cmd = ['oci', 'os', 'object', 'list', '--bucket-name', bucket_name]
     pause_msg(cmd)
     try:
         bucketresult = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
@@ -1114,10 +1111,10 @@ def bucket_exists(bucketname):
         return bucketresult
     except Exception as e:
         _logger.debug('Bucket %s does not exists or the authorisation is '
-                      'missing: %s.' % (bucketname, str(e)))
+                      'missing: %s.' % (bucket_name, str(e)))
         raise OciMigrateException('Bucket %s does not exists or the '
                                   'authorisation is missing: %s.'
-                                  % (bucketname, str(e)))
+                                  % (bucket_name, str(e)))
 
 
 def object_exists(bucket, object_name):
@@ -1192,22 +1189,22 @@ def set_default_user(cfgfile, username):
             else:
                 _logger.debug('No default username found in cloud config file.')
         else:
-            _logger.error('Invalid cloud config file.')
+            _logger.error('  Invalid cloud config file.')
     else:
-        _logger.error('Cloud config file %s does not exist.' % cfgfile)
+        _logger.error('  Cloud config file %s does not exist.' % cfgfile)
     return False
 
 
-def upload_image(imgname, bucketname, ociname):
+def upload_image(imgname, bucket_name, ociname):
     """
     Upload the validated and updated image imgname to the OCI object storage
-    bucketname as ociname.
+    bucket_name as ociname.
 
     Parameters
     ----------
     imgname: str
         The on-premise custom image.
-    bucketname: str
+    bucket_name: str
         The OCI object storage name.
     ociname:
         The OCI image name.
@@ -1216,20 +1213,20 @@ def upload_image(imgname, bucketname, ociname):
     -------
         bool: True on success, raises an exception otherwise.
     """
-    _logger.debug('Uploading %s to %s as %s.' % (imgname, bucketname, ociname))
+    _logger.debug('Uploading %s to %s as %s.' % (imgname, bucket_name, ociname))
     cmd = ['oci', 'os', 'object', 'put', '--bucket-name',
-           bucketname, '--file', imgname, '--name', ociname]
+           bucket_name, '--file', imgname, '--name', ociname]
     pause_msg(cmd)
     try:
         uploadresult = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('Successfully uploaded %s to %s as %s: %s.'
-                     % (imgname, bucketname, ociname, uploadresult))
+                     % (imgname, bucket_name, ociname, uploadresult))
     except Exception as e:
-        _logger.critical('Failed to upload %s to object storage %s as %s: %s.'
-                         % (imgname, bucketname, ociname, str(e)))
+        _logger.critical('  Failed to upload %s to object storage %s as %s: %s.'
+                         % (imgname, bucket_name, ociname, str(e)))
         raise OciMigrateException('Failed to upload %s to object storage %s '
                                   'as %s: %s.'
-                                  % (imgname, bucketname, ociname, str(e)))
+                                  % (imgname, bucket_name, ociname, str(e)))
 
 
 def unmount_lvm2(vg):
@@ -1257,9 +1254,9 @@ def unmount_lvm2(vg):
         if exec_pvscan():
             _logger.debug('pvscan clear succeeded')
         else:
-            _logger.error('pvscan failed')
+            _logger.error('  pvscan failed')
     except Exception as e:
-        _logger.error('Failed to release lvms %s: %s' % vg, str(e))
+        _logger.error('  Failed to release lvms %s: %s' % vg, str(e))
         migrate_tools.error_msg('Failed to release lvms %s: %s' % vg, str(e))
         # raise OciMigrateException('Exception raised during release
         # lvms %s: %s' % (vg, str(e)))
@@ -1295,17 +1292,17 @@ def unmount_part(devname):
                 _logger.debug('%s removed' % mntpoint)
                 return True
             else:
-                _logger.critical('Failed to remove mountpoint %s' % mntpoint)
+                _logger.critical('  Failed to remove mountpoint %s' % mntpoint)
                 raise OciMigrateException('Failed to remove mountpoint %s'
                                           % mntpoint)
         else:
-            _logger.critical('Failed to unmount %s: %d' % (devname, cmdret))
+            _logger.critical('  Failed to unmount %s: %d' % (devname, cmdret))
             console_msg('Failed to unmount %s, error code %d.\n '
                         'Please verify before continuing.'
                         % (devname, cmdret))
             read_yn('Continue?')
     except Exception as e:
-        _logger.critical('Failed to unmount %s: %s' % (devname, str(e)))
+        _logger.critical('  Failed to unmount %s: %s' % (devname, str(e)))
     return False
 
 
@@ -1682,5 +1679,5 @@ def show_hex_dump(bindata):
             addr += 1
             ll -= blocklen
     except Exception as e:
-        _logger.error('exception: %s' % str(e))
+        _logger.error('  exception: %s' % str(e))
     return hexdata

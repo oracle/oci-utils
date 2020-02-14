@@ -10,7 +10,7 @@ import os
 import os.path
 import sys
 import threading
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 from datetime import datetime, timedelta
 import logging
 import logging.handlers
@@ -208,7 +208,7 @@ def read_config():
     oci_utils_config.add_section('public_ip')
     oci_utils_config.set('public_ip','enabled','true')
     oci_utils_config.set('public_ip','refresh_interval','600')
-    
+
     if not os.path.exists(__oci_utils_conf_d):
         return oci_utils_config
 
@@ -263,7 +263,7 @@ def setup_logging(forceDebug=False):
                     '/var/tmp/oci-utils.log', mode='a', maxBytes=1024 * 1024, backupCount=3)
                 handler.setFormatter(formatter)
                 handler.setLevel(logging.NOTSET)
-            except StandardError, ignored:
+            except Exception as ignored:
                 # keep it silent
                 pass
 

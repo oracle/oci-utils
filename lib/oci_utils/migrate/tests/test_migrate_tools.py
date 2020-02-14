@@ -10,7 +10,7 @@ except ImportError:
     from mock import Mock
 
 from oci_utils.migrate import migrate_tools as migrate_tools
-from oci_utils.migrate.exception import NoSuchCommand
+from oci_utils.migrate.exception import OciMigrateException
 
 def my_fake_open(path, mode):
     fake_file = tempfile.NamedTemporaryFile()
@@ -34,11 +34,11 @@ class TestMigrateTools(unittest.TestCase):
 
     def test_get_magic_data(self):
         fakeimage = tempfile.NamedTemporaryFile()
-        fakeimagename = fakeimage.name
+        fakeimage_name = fakeimage.name
         fakeimagemagic = b'\x4b\x44\x4d\x56 ... more ... data ...'
-        with open(fakeimagename, 'wb') as f:
+        with open(fakeimage_name, 'wb') as f:
             f.write(fakeimagemagic)
-        self.assertEqual(migrate_tools.get_magic_data(fakeimagename), '4b444d56')
+        self.assertEqual(migrate_tools.get_magic_data(fakeimage_name), '4b444d56')
 
     def test_get_magic_data_fail(self):
         self.assertIsNone(migrate_tools.get_magic_data('notexistingimage'))
@@ -126,7 +126,7 @@ class TestMigrateTools(unittest.TestCase):
         #
         # not existing
         somecommand = ['noecho', 'test']
-        self.assertRaises(NoSuchCommand, migrate_tools.run_popen_cmd, somecommand)
+        self.assertRaises(OciMigrateException, migrate_tools.run_popen_cmd, somecommand)
 
     @mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd')
     def test_get_nameserver(self, patched_popen):
