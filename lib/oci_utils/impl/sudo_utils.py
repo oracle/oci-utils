@@ -188,7 +188,7 @@ def write_to_file(path, content):
     (_, err) = subprocess.Popen(_c,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE,
-                                stdin=subprocess.PIPE).communicate(content)
+                                stdin=subprocess.PIPE).communicate(content.encode())
     if err:
         _logger.debug("Error writing content to file: %s" % err)
         return 1
