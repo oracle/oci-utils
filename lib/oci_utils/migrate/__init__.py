@@ -12,16 +12,6 @@ import tty
 import yaml
 from oci_utils.migrate.exception import OciMigrateException
 
-# try:
-#    import yaml
-# except ImportError as e:
-#    sys.stderr.write('\n  oci-image-migrate needs yaml module in order to '
-#                     'load configuration\n  data and to analyse certain '
-#                     'network configuration files. Install\n  it using the '
-#                     'package manager (python-yaml) or via pip (pip3 install '
-#                     'yaml.)\n')
-#    sys.exit(1)
-
 _oci_migrate_conf_file = '/etc/oci-utils/oci-migrate-conf.yaml'
 
 
@@ -43,7 +33,7 @@ def _getch():
     return ch
 
 
-def read_yn(prompt, yn=True):
+def read_yn(prompt, yn=True, waitenter=False):
     """
     Read yes or no form stdin, No being the default.
 
@@ -60,8 +50,18 @@ def read_yn(prompt, yn=True):
     yn_prompt = prompt + ' '
     if yn:
         yn_prompt += ' (y/N) '
-    sys.stdout.write(yn_prompt)
-    yn = _getch()
+
+    if waitenter:
+        resp_len = 0
+        while resp_len == 0:
+            resp = input(yn_prompt).lstrip()
+            resp_len = len(resp)
+        yn = list(resp)[0]
+    else:
+        l = sys.stdout.write(yn_prompt)
+        sys.stdout.flush()
+        yn = _getch()
+
     sys.stdout.write('\n')
     if yn.upper() == 'Y':
         return True

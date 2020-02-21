@@ -285,6 +285,13 @@ def main():
         int
             0 on success, 1 otherwise.
     """
+    #
+    # set locale
+    lc_all_to_set = get_config_data('lc_all')
+    os.environ['LC_ALL'] = "%s" % lc_all_to_set
+    _logger.debug('Locale set to %s' % lc_all_to_set)
+    #
+    # python version
     pythonver = sys.version_info[0]
     args = parse_args()
     #
@@ -501,7 +508,7 @@ def main():
     #
     # Ask for agreement to proceed.
     if not read_yn('\n  Agree to proceed uploading %s to %s as %s?'
-                   % (imagepath, bucket_name, output_name)):
+                   % (imagepath, bucket_name, output_name), waitenter=True):
         exit_with_msg('\n  Exiting.')
     #
     # Prerequisite verification and essential image updates passed, uploading

@@ -88,7 +88,7 @@ class UpdateImage(threading.Thread):
             #
             # chroot
             _logger.debug('New root: %s' % self._imgdata['rootmnt'][1])
-            rootfd, pathsave = migrate_utils.enter_chroot(
+            rootfd, pathsave, dir2return2 = migrate_utils.enter_chroot(
                 self._imgdata['rootmnt'][1])
             _logger.debug('Changed root to %s.' % self._imgdata['rootmnt'][1])
             #
@@ -136,7 +136,7 @@ class UpdateImage(threading.Thread):
             _logger.critical('  *** ERROR *** Unable to perform image update '
                              'operations: %s' % str(e), exc_info=True)
         finally:
-            migrate_utils.leave_chroot(rootfd)
+            migrate_utils.leave_chroot(rootfd, dir2return2)
             _logger.debug('Left chroot jail.')
             migrate_utils.unmount_pseudo(self._imgdata['pseudomountlist'])
             migrate_tools.result_msg(msg='Unmounted proc, sys, dev.')

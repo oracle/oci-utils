@@ -89,11 +89,16 @@ def enter_chroot(newroot):
 
     Returns
     -------
-        file descriptor, str: The file descriptor of the current root on
-        success, path to restore; raises an exception on failure.
+        file descriptor, str, str: The file descriptor of the current root on
+        success, path to restore, current working dir;
+        raises an exception on failure.
     """
     root2return = -1
+    current_dir = ''
     try:
+        #
+        # current working directory
+        current_dir = os.getcwd()
         #
         # change root
         root2return = os.open('/', os.O_RDONLY)
@@ -123,14 +128,14 @@ def enter_chroot(newroot):
                   + ':/root/bin:/bin:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin'
         os.environ['PATH'] = newpath
         _logger.debug('Set path to %s' % newpath)
-        return root2return, currentpath
+        return root2return, currentpath, current_dir
     except Exception as e:
         _logger.error('  Failed to set path to %s: %s' % (newpath, str(e)))
         raise OciMigrateException('Failed to set path to %s: %s'
                                   % (newpath, str(e)))
 
 
-def leave_chroot(root2return):
+def leave_chroot(root2return, dir2return):
     """
     Leave a chroot environment and return to another one.
 
@@ -138,6 +143,8 @@ def leave_chroot(root2return):
     ----------
     root2return: file descriptor
         The file descriptor of the root to return to.
+    dir2return: str
+        The original working dir to return to.
 
     Returns
     -------
@@ -150,6 +157,9 @@ def leave_chroot(root2return):
         os.chroot('.')
         os.close(root2return)
         _logger.debug('Left change root environment.')
+        #
+        # return to working directory
+        os.chdir(dir2return)
         return True
     except Exception as e:
         _logger.error('  Failed to return from chroot: %s' % str(e))

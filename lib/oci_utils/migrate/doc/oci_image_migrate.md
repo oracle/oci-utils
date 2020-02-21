@@ -154,6 +154,8 @@ datastructure **img_info** for analysing the image:
    1. The git package is installed.
 
    1. The developer channel is defined and enabled in the yum.repo.
+   
+   1. The kvm utils channel is defined and enabled in the yum.repo.
 
    1. The python setuptools package is at the latest release.
 
@@ -172,7 +174,7 @@ datastructure **img_info** for analysing the image:
 1. Build the rpm:
 
        # cd oci-utils
-       # ./setup.py -c create-rpm
+       # python3 ./setup.py -c create-rpm
 
 1. Install the rpm:
 

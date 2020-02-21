@@ -202,7 +202,7 @@ def run_call_cmd(command):
         command: list
             The os command and its arguments.
 
-    Returns:
+    Returns
     -------
         int: The return value.
     """

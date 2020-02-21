@@ -16,7 +16,7 @@ import logging.config
 import os
 import sys
 
-from oci_utils.migrate import console_msg, exit_with_msg, read_yn
+from oci_utils.migrate import console_msg, exit_with_msg, get_config_data, read_yn
 from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import migrate_utils
 
@@ -94,6 +94,11 @@ def parse_args():
 
 
 def main():
+    #
+    # set locale
+    lc_all_to_set = get_config_data('lc_all')
+    os.environ['LC_ALL'] = "%s" % lc_all_to_set
+    _logger.debug('Locale set to %s' % lc_all_to_set)
     #
     # command line
     cmdlineargs = parse_args()
@@ -215,8 +220,8 @@ def main():
             _logger.debug('Image with name %s not yet imported.' % display_name)
     #
     # upload?
-    if not read_yn('\n  Uploading %s to %s as %s'
-                   % (object_name, compartment, display_name)):
+    if not read_yn('\n  Import %s to %s as %s'
+                   % (object_name, compartment, display_name), waitenter=True):
         exit_with_msg('Exiting.\n')
     cmd = ['oci', 'compute', 'image', 'import', 'from-object', '--bucket-name',
            '%s' % bucket, '--compartment-id', '%s' % compartment_id,

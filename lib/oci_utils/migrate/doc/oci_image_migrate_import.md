@@ -60,7 +60,7 @@ the python code.
 1. Build the rpm:
 
        # cd oci-utils
-       # ./setup.py -c create-rpm
+       # python3 ./setup.py -c create-rpm
 
 1. Install the rpm:
 
