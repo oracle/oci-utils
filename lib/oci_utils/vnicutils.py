@@ -10,14 +10,13 @@ import os.path
 import subprocess
 
 import cache
-import oci_utils
 from oci_utils import _configuration as OCIUtilsConfiguration
-from .oci_api import HAVE_OCI_SDK, OCISession
-
-# TODO: can we move this under 'impl' ?
+from .oci_api import OCISession
+from .metadata import InstanceMetadata
+from .impl import network_helpers as NetworkHelpers
 
 _logger = logging.getLogger('oci-utils.vnicutils')
-_secondary_vnic_all_configure_path = os.path.join(os.path.dirname(oci_utils.__file__), 'impl', '.vnic_script.sh')
+
 
 class VNICUtils(object):
     """Class for managing VNICs
@@ -65,11 +64,10 @@ class VNICUtils(object):
 
         # can we make API calls?
         oci_sess = None
-        if HAVE_OCI_SDK:
-            try:
-                oci_sess = OCISession()
-            except Exception:
-                pass
+        try:
+            oci_sess = OCISession()
+        except Exception:
+            pass
         if oci_sess is not None:
             p_ips = oci_sess.this_instance().all_private_ips(refresh=True)
             sec_priv_ip = \
@@ -399,13 +397,54 @@ class VNICUtils(object):
 
     def get_network_config(self):
         """
-        Get network configuration. Run the secondary vnic script in show
-        configuration mode (-s).
+        Get network configuration.
+        fetch information from this instance metadata and aggregate
+        it to system information. Information form metadata take precedence
 
         Returns
         -------
-        tuple
-            (exit code: int, output from the "sec vnic" script execution.)
-            # See _run_sec_vnic_script()
+        list of dict
+           keys are
+            CONFSTATE  'unconfig' indicates missing IP config, 'missing' missing VNIC,
+                            'excl' excluded (-X), '-' hist configuration match oci vcn configuration
+            ADDR    IP address
+            SPREFIX subnet CIDR prefix
+            SBITS   subnet mask bits
+            VIRTRT  virutal router IP address
+            NS      namespace (if any)
+            IND     interface index (if BM)
+            IFACE   interface (underlying physical if VLAN is also set)
+            VLTAG   VLAN tag (if BM)
+            VLAN    IP virtual LAN (if any)
+            STATE   state of interface
+            MAC     MAC address
+            VNIC    VNIC object identifier
         """
-        return self._run_sec_vnic_script(['-s'])
+        interfaces = []
+        _all_intfs = NetworkHelpers.get_network_namespace_infos()
+
+        for md_vnic in InstanceMetadata()['vnics']:
+            _intf = {}
+            # by default, unless we fethc an ip foir this vnic , set it to 'unconfig'
+            _intf['CONFSTATE'] = 'unconfig'
+            _intf['ADDR'] = md_vnic['privateIp']
+            _intf['SPREFIX'] = md_vnic['subnetCidrBlock'].split('/')[0]
+            _intf['SBITS'] = md_vnic['subnetCidrBlock'].split('/')[1]
+            _intf['VIRTRT'] = md_vnic['virtualRouterIp']
+            _intf['NS'] = None
+            _intf['VLTAG'] = md_vnic['vlanTag']
+            _intf['MAC'] = md_vnic['macAddr'].upper()
+            _intf['VNIC'] = md_vnic['vnicId']
+            _intf['IFACE'] = None
+            for _namespace, _intfs in _all_intfs.items():
+                for _i in _intfs:
+                    if _i['mac'].upper() == _intf['MAC']:
+                        _intf['IFACE'] = _k
+                        _intf['STATE'] = _i['opstate']
+                        _intf['IND'] = _i['index']
+                        if _v['address']:
+                            _intf['CONFSTATE'] = '-'
+
+            interfaces.append(_intf)
+
+        return interfaces

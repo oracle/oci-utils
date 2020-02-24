@@ -16,6 +16,8 @@ from socket import inet_ntoa
 from struct import pack
 import sudo_utils
 import re
+from netaddr import IPNetwork
+import json
 
 __all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route_table',
            'network_prefix_to_mask',
@@ -24,11 +26,112 @@ __all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route
            'add_firewall_rule',
            'remove_firewall_rule',
            'remove_static_ip_routes',
-           'remove_static_ip_rules']
+           'remove_static_ip_rules',
+           'get_network_namespace_infos']
 
 _CLASS_NET_DIR = '/sys/class/net'
 
 _logger = logging.getLogger('oci-utils.net-helper')
+
+
+def _fetch_ip_info(namespace, ifname):
+    """
+    fetch ip information for a given interface
+    see ip(8)
+    Params:
+       namespace: string, namespace name (must be empty string for default ns)
+       ifname: string, interface name
+    Returns:
+    -------
+        dict (can be empty):
+            address : IP address if any
+            address_prefix_l : IP address prefix length
+            address_subnet : IP address subnet
+            broadcast : IP address broadcast
+    """
+    _cmd = ['/usr/sbin/ip']
+    if namespace and len(namespace) > 0:
+        _cmd.extend(['-netns', 'namespace'])
+
+    _cmd.extend(['-oneline', '-json', 'address', 'show', 'dev', ifname])
+
+    ip_info = subprocess.check_output(_cmd).strip()
+    if not ip_info:
+        return {}
+    # the ip command return a json array with some garbage at front
+    ip_info_j = json.loads(ip_info)
+    # skip empty object like {'addr_info': [{}]} {'addr_info': []}
+    for obj in ip_info_j:
+        if len(obj['addr_info']) > 0 and len(obj['addr_info'][0].keys()) > 0:
+            return {
+                'broadcast': obj['addr_info'][0]['broadcast'],
+                'address_prefix_l': obj['addr_info'][0]['prefixlen'],
+                'address': obj['addr_info'][0]['local'],
+                'address_subnet': str(IPNetwork('%s/%s' % (
+                    obj['addr_info'][0]['local'],
+                    obj['addr_info'][0]['prefixlen'])).network)
+            }
+
+
+def _get_namespaces():
+    """
+    Gets list of network namespace
+    Returns:
+       list of names as string
+    """
+    return subprocess.check_output(['/usr/sbin/ip', 'netns', 'list']).splitlines()
+
+
+def _get_link_names(namespace):
+    """
+    Gets list of network link withibn namespace  (must be empty string for default ns)
+    Returns:
+       list of names as string
+    """
+    _cmd = ['/usr/sbin/ip']
+    if namespace and len(namespace) > 0:
+        _cmd.extend(['-netns', 'namespace'])
+
+    _cmd.extend(['-oneline', '-json', 'link', 'list'])
+
+    _links = subprocess.check_output().splitlines()
+    # output like
+    #   2: ens3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdi....
+    return [_l.split(' ')[1][:-1] for _l in _links]
+
+
+def get_network_namespace_infos():
+    """
+    Retrieve par namespace network link info
+    Returns:
+    --------
+      dict: namespace name indexed dict (can be empty) with per namespadce all link info  as dict
+           {
+              'ns name' : {
+                  mac : mac address
+                  index : interface system index
+                  opstate : interface operational state : up, down, unknown
+                  address : IP address (if any)
+                  address_prefix_l : IP address prefix length (if any)
+                  address_subnet : IP address subnet (if any)
+                  broadcast : IP address broadcast (if any)
+              }
+           }
+
+    """
+
+
+MANQUE:  index, intf name,
+
+ _result = {}
+  _ns_list = _get_namespaces()
+   for _ns in _ns_list:
+        _result[_ns] = []
+        _nsls = _get_link_names(_ns)
+        for _nsl in _nsls:
+            _result[_ns].append(_fetch_ip_info(_ns, _nsl))
+
+    return _result
 
 
 def get_interfaces():
@@ -39,6 +142,11 @@ def get_interfaces():
     -------
         dict
             The information on the interfaces.
+            keys:
+              physical : boolean, true if physical interface
+              mac : mac address
+              pci : PCI device
+              virtfns : dict of virtual function
     """
     ret = {}
 

@@ -21,7 +21,6 @@ from netaddr import IPNetwork
 
 from string import Template
 
-from . import nic
 from ..impl import IP_CMD, SUDO_CMD, PARTED_CMD, MK_XFS_CMD, print_choices, print_error, VIRSH_CMD
 from ..impl import sudo_utils
 from ..impl.network_helpers import get_interfaces
@@ -39,7 +38,6 @@ from ..impl.init_script_helpers import SystemdServiceManager
 
 
 _logger = logging.getLogger('oci-utils.kvm.virt')
-
 
 
 def _print_available_vnics(vnics):
@@ -159,7 +157,7 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
             The virtual function if found, None,None otherwise.
     """
     configured = sysconfig.read_network_config()
-    ifaces = nic.get_interfaces()
+    ifaces = get_interfaces()
     virt_fns = ifaces[phys].get('virt_fns', {})
     vfs = {virt_fns[v]['mac']: (virt_fns[v]['pci_id'], v) for v in virt_fns}
 
@@ -363,8 +361,8 @@ def create_networking(vf_device, vlan, mac, ip=None, prefix=None):
         else:
             vlan_cfg = sysconfig.make_vlan(vf_device, vlan, mac)
         cfg = {vf_cfg[0]: vf_cfg[1],
-                vlan_cfg[0]: vlan_cfg[1]
-           }
+               vlan_cfg[0]: vlan_cfg[1]
+               }
         sysconfig.write_network_config(cfg)
         return sysconfig.interfaces_up([vf_cfg[0], vlan_cfg[0]])
     else:
@@ -375,6 +373,7 @@ def create_networking(vf_device, vlan, mac, ip=None, prefix=None):
         cfg = {vf_cfg[0]: vf_cfg[1]}
         sysconfig.write_network_config(cfg)
         return sysconfig.interfaces_up([vf_cfg[0]])
+
 
 def destroy_networking(vf_device, vlan=None):
     """
@@ -400,6 +399,7 @@ def destroy_networking(vf_device, vlan=None):
         sysconfig.delete_network_config([vlan_name, vf_name])
     else:
         sysconfig.delete_network_config([vf_name])
+
 
 def destroy_interface(name):
     """
@@ -561,10 +561,11 @@ def create(**kargs):
                     if intf_name == kargs['network']:
                         _mac_to_use = intf_info['mac'].upper()
                 if _mac_to_use is None:
-                    _logger.debug('warning: cannot find MAC address for %s'%kargs['network'])
+                    _logger.debug('warning: cannot find MAC address for %s' % kargs['network'])
                     args.append('type=direct,model=virtio,source_mode=passthrough,source=%s' % kargs['network'])
                 else:
-                    args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' % (kargs['network'], _mac_to_use))
+                    args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' %
+                                (kargs['network'], _mac_to_use))
             else:
                 # have to find one free interface. i.e not already used by a guest
                 # and not the primary one. the VNICs returned by metadata service is sorted list
@@ -592,7 +593,8 @@ def create(**kargs):
                     return 1
 
                 args.append('--network')
-                args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' % (intf_to_use,_mac_to_use))
+                args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' %
+                            (intf_to_use, _mac_to_use))
 
     args.extend(kargs['extra_args'])
 
@@ -795,16 +797,16 @@ def create_fs_pool(disk, name):
         print_error('Failed to make xfs filesystem on new prtition')
         return 1
 
-    if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-define-as', '--name=%s'%name, '--type=fs', '--source-dev=%s'%_new_part,'--target=/oci-%s'%name]):
+    if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-define-as', '--name=%s' % name, '--type=fs', '--source-dev=%s' % _new_part, '--target=/oci-%s' % name]):
         print_error('Failed to define pool')
         return 1
 
-    if sudo_utils.call([VIRSH_CMD, '--quiet','pool-build', name]):
+    if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-build', name]):
         print_error('Failed to build pool')
         sudo_utils.call([VIRSH_CMD, 'pool-undefine', name])
         return 1
 
-    if sudo_utils.call([VIRSH_CMD, '--quiet','pool-start', name]):
+    if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-start', name]):
         sudo_utils.call([VIRSH_CMD, 'pool-undefine', name])
         print_error('Failed to build pool')
         return 1
@@ -873,10 +875,10 @@ def create_virtual_network(**kargs):
         vf_dev = get_interface_by_pci_id(vf, _all_system_interfaces)
         _logger.debug('vf device for %s: %s' % (vf, vf_dev))
         if not create_networking(vf_dev,
-                             vnic['vlanTag'],
-                             vnic['macAddr'],
-                             vnic['privateIp'],
-                             int(vnic['subnetCidrBlock'].split('/')[1])):
+                                 vnic['vlanTag'],
+                                 vnic['macAddr'],
+                                 vnic['privateIp'],
+                                 int(vnic['subnetCidrBlock'].split('/')[1])):
             print_error('cannot create networking')
             destroy_networking(vf_dev, vnic['vlanTag'])
             return 1
@@ -901,10 +903,10 @@ def create_virtual_network(**kargs):
         _logger.debug(' device for nework %s' % vf_dev)
 
         if not create_networking(vf_dev,
-                            None,
-                            vnic['macAddr'],
-                            vnic['privateIp'],
-                            int(vnic['subnetCidrBlock'].split('/')[1])):
+                                 None,
+                                 vnic['macAddr'],
+                                 vnic['privateIp'],
+                                 int(vnic['subnetCidrBlock'].split('/')[1])):
             print_error('cannot create networking')
             destroy_networking(vf_dev)
             return 1
@@ -921,11 +923,11 @@ def create_virtual_network(**kargs):
 
     kvm_sysd_svc = SystemdServiceGenerator('kvm_net_%s' % kargs['network_name'], "KVM network")
     svc_envs = [('__KVM_NETWORK_NAME__', kargs['network_name']),
-        ('__KVM_NET_ADDRESS_SPACE__', _kvm_addr_space),
-        ('__KVM_NET_BRIDGE_NAME__', '%s0' % kargs['network_name']),
-        ('__VNIC_DEFAULT_GW__', vnic['virtualRouterIp']),
-        ('__RT_TABLE_NAME__', vf_dev),
-        ('__VNIC_PRIVATE_IP__', vnic['privateIp'])]
+                ('__KVM_NET_ADDRESS_SPACE__', _kvm_addr_space),
+                ('__KVM_NET_BRIDGE_NAME__', '%s0' % kargs['network_name']),
+                ('__VNIC_DEFAULT_GW__', vnic['virtualRouterIp']),
+                ('__RT_TABLE_NAME__', vf_dev),
+                ('__VNIC_PRIVATE_IP__', vnic['privateIp'])]
 
     if _is_bm_shape:
         svc_envs.append(('__NET_DEV__', '%s.%s' % (vf_dev, vnic['vlanTag'])))
@@ -1030,9 +1032,9 @@ def delete_virtual_network(**kargs):
     device_name_splitted = device_name.split('.')
     # we may not have vlanTag
     if len(device_name_splitted) == 1:
-        (vf_dev, vlanTag) = (device_name_splitted[0],None)
+        (vf_dev, vlanTag) = (device_name_splitted[0], None)
     else:
-        (vf_dev, vlanTag) = (device_name_splitted[0],device_name_splitted[1])
+        (vf_dev, vlanTag) = (device_name_splitted[0], device_name_splitted[1])
 
     fw_cmd = ['-t', 'nat', '-A', 'POSTROUTING', '-s']
     fw_cmd.append('%s/%s' % (ip_bridge, ip_prefix))

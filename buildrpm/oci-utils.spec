@@ -35,6 +35,7 @@ Requires: python3-daemon
 Requires: python3-sdnotify
 Requires: python3-six
 Requires: python3-enum34
+Requires: python3-netaddr
 # Oracle Linux 7
 %else
 BuildRequires: python-devel
@@ -44,6 +45,7 @@ Requires: python
 Requires: python-daemon
 Requires: python-sdnotify
 Requires: python-six
+Requires: python-netaddr
 %endif
 
 Requires: cloud-utils-growpart
@@ -61,10 +63,7 @@ Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure
 Group: Development/Tools
 Requires: %{name} = %{version}-%{release}
 %if 0%{?rhel} >= 8
-Requires: python3-netaddr
 Requires: network-scripts
-%else
-Requires: python-netaddr
 %endif
 %description kvm
 Utilities for creating and managing KVM guests that use Oracle Cloud Infrastructure resources, such as block storage and networking, directly.
@@ -103,10 +102,6 @@ Utilities unit tests
 # force run on ones not suffixed by .py
 /usr/bin/2to3 --no-diffs --write --nobackups  %{buildroot}/%{_libexecdir}/oci-utils-config-helper
 %endif
-
-# temporary workaround to EOL vnic script: move it else where
-%{__mv} %{buildroot}/usr/libexec/secondary_vnic_all_configure.sh %{buildroot}%{__l_python_sitelib}/oci_utils/impl/.vnic_script.sh
-
 
 %clean
 rm -rf %{buildroot}

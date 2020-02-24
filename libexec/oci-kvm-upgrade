@@ -14,7 +14,6 @@ import os
 import sys
 
 import oci_utils
-import oci_utils.kvm.nic
 import oci_utils.kvm.virt
 
 __logger = logging.getLogger('oci-utils.oci-upgrade')
