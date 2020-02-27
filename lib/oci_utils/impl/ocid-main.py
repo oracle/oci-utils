@@ -150,12 +150,12 @@ class OcidThread(threading.Thread):
         """
         return self.thread_name
 
-    def requestStop(self):
+    def request_stop(self):
         self.thr_logger.debug('been requested to stop')
         self.active = False
         self.blockingEvt.set()
 
-    def waitFirstIteration(self):
+    def wait_first_iteration(self):
         """
         Verify the end of the first iteration.
         """
@@ -217,7 +217,7 @@ def public_ip_func(context, func_logger):
             return {'publicIp': sess.this_instance().get_public_ip()}
         except OCISDKError, e:
             func_logger.exception()
-            __
+
     # fallback
     external_ip = get_ip_info()[1]
 
@@ -766,7 +766,7 @@ def daemon_main(arguments):
     # wait for every thread to complete the ocid func at least once
     for th in threads.keys():
         __ocid_logger.debug('waiting for first iteration of %s to complete' % threads[th].getName())
-        threads[th].waitFirstIteration()
+        threads[th].wait_first_iteration()
 
     __ocid_logger.debug('all threads finished the first iteration')
 
@@ -788,7 +788,7 @@ def daemon_main(arguments):
         __ocid_logger.debug('error selecting: %s' % str(e))
 
     for th in threads.keys():
-        threads[th].requestStop()
+        threads[th].request_stop()
 
     wait_for_threads(threads)
 
