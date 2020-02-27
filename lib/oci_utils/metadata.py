@@ -588,7 +588,7 @@ class InstanceMetadata(object):
         try:
             api_conn = urllib2.urlopen(
                 self._oci_metadata_api_url + 'instance/', timeout=2)
-            instance_metadata = json.loads(api_conn.read().decode())
+            instance_metadata = json.loads(api_conn.read().decode('utf-8'))
             metadata['instance'] = instance_metadata
         except IOError as e:
             self._errors.append(
@@ -602,7 +602,7 @@ class InstanceMetadata(object):
         try:
             api_conn = urllib2.urlopen(
                 self._oci_metadata_api_url + 'vnics/', timeout=2)
-            vnic_metadata = json.loads(api_conn.read().decode())
+            vnic_metadata = json.loads(api_conn.read().decode('utf-8'))
             metadata['vnics'] = vnic_metadata
         except IOError as e:
             self._errors.append(
