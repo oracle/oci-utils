@@ -17,9 +17,9 @@ BuildRequires: systemd
 
 BuildRequires: python3-devel
 BuildRequires: python3-setuptools
-BuildRequires: python-flake8
+BuildRequires: python3-flake8
 # for 2to3 on OL7
-BuildRequires: python-tools
+BuildRequires: python3-tools
 Requires: python3
 Requires: python3-daemon
 Requires: python3-sdnotify
