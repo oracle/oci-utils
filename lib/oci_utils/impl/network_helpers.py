@@ -51,11 +51,11 @@ def _fetch_ip_info(namespace, ifname):
     """
     _cmd = ['/usr/sbin/ip']
     if namespace and len(namespace) > 0:
-        _cmd.extend(['-netns', 'namespace'])
+        _cmd.extend(['-netns', namespace])
 
     _cmd.extend(['-oneline', '-json', 'address', 'show', 'dev', ifname])
 
-    ip_info = subprocess.check_output(_cmd).strip()
+    ip_info = sudo_utils.call_output(_cmd).strip()
     if not ip_info:
         return {}
     # the ip command return a json array with some garbage at front
@@ -71,6 +71,7 @@ def _fetch_ip_info(namespace, ifname):
                     obj['addr_info'][0]['local'],
                     obj['addr_info'][0]['prefixlen'])).network)
             }
+    return {}
 
 
 def _get_namespaces():
@@ -86,18 +87,18 @@ def _get_link_names(namespace):
     """
     Gets list of network link withibn namespace  (must be empty string for default ns)
     Returns:
-       list of names as string
+       list of names as tuple (index,name)
     """
     _cmd = ['/usr/sbin/ip']
     if namespace and len(namespace) > 0:
-        _cmd.extend(['-netns', 'namespace'])
+        _cmd.extend(['-netns', namespace])
 
-    _cmd.extend(['-oneline', '-json', 'link', 'list'])
+    _cmd.extend(['-oneline', 'link', 'list'])
 
-    _links = subprocess.check_output().splitlines()
+    _links = sudo_utils.call_output(_cmd).splitlines()
     # output like
     #   2: ens3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdi....
-    return [_l.split(' ')[1][:-1] for _l in _links]
+    return [(_l.split(' ')[0][:-1], _l.split(' ')[1][:-1]) for _l in _links]
 
 
 def get_network_namespace_infos():
@@ -110,6 +111,7 @@ def get_network_namespace_infos():
               'ns name' : {
                   mac : mac address
                   index : interface system index
+                  device : device name
                   opstate : interface operational state : up, down, unknown
                   address : IP address (if any)
                   address_prefix_l : IP address prefix length (if any)
@@ -119,17 +121,19 @@ def get_network_namespace_infos():
            }
 
     """
-
-
-MANQUE:  index, intf name,
-
- _result = {}
-  _ns_list = _get_namespaces()
-   for _ns in _ns_list:
+    _result = {}
+    _ns_list = _get_namespaces()
+    for _ns in _ns_list:
         _result[_ns] = []
         _nsls = _get_link_names(_ns)
-        for _nsl in _nsls:
-            _result[_ns].append(_fetch_ip_info(_ns, _nsl))
+        for (_nsl_i, _nsl_n) in _nsls:
+            _new_info = _fetch_ip_info(_ns, _nsl_n)
+            if len(_new_info.keys()) == 0:
+                # nothing interesting here...
+                break
+            _new_info['index'] = _nsl_i
+            _new_info['device'] = _nsl_n
+            _result[_ns].append(_new_info)
 
     return _result
 

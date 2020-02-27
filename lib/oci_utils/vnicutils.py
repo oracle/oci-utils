@@ -439,10 +439,10 @@ class VNICUtils(object):
             for _namespace, _intfs in _all_intfs.items():
                 for _i in _intfs:
                     if _i['mac'].upper() == _intf['MAC']:
-                        _intf['IFACE'] = _k
+                        _intf['IFACE'] = _i['device']
                         _intf['STATE'] = _i['opstate']
                         _intf['IND'] = _i['index']
-                        if _v['address']:
+                        if _i['address']:
                             _intf['CONFSTATE'] = '-'
 
             interfaces.append(_intf)
