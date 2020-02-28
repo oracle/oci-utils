@@ -298,5 +298,14 @@ class VmdkHead(DeviceData):
             failmsg += '  Image type %s is in the supported type list: %s' \
                        % (self.img_header['desc']['createType'],
                           prereqs['vmdk_supported_types'])
+            #
+            # prevent issues with streamOptimized vmdk files, for now
+            if self.img_header['desc']['createType'] == 'streamOptimized':
+                failmsg += '\n  Although streamOptimized is a supported format, ' \
+                           'issues might arise during or after mounting the ' \
+                           'image file. It is advised\n  to convert the image ' \
+                           'file to monolithicSparse by running ' \
+                           '[qemu-img convert -O vmdk thisimage.vmdk newimage.vmdk]\n'
+            passed_requirement = False
 
         return passed_requirement, failmsg

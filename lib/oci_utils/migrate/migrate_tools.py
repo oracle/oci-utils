@@ -393,7 +393,7 @@ class ProgressBar(threading.Thread):
         self._stopthread = threading.Event()
         threading.Thread.__init__(self)
         #
-        # length of varible progress bar
+        # length of variable progress bar
         self._bar_len = bar_length - 14
         #
         # progress interval in sec
@@ -434,9 +434,15 @@ class ProgressBar(threading.Thread):
         k = 0
         sys.stdout.write('\n')
         sys.stdout.flush()
+        start_time = datetime.now()
+        # + datetime.now().strftime('%H:%M:%S') \
         while True:
+            now_time = datetime.now()
+            delta_time = now_time - start_time
+            hrs, rest = divmod(delta_time.seconds, 3600)
+            mins, secs = divmod(rest, 60)
             pbar = '  ' \
-                   + datetime.now().strftime('%H:%M:%S') \
+                   + '%02d:%02d:%02d' % (hrs, mins, secs) \
                    + ' [' \
                    + ' '*k \
                    + self._prog_chars[j] \
@@ -451,8 +457,12 @@ class ProgressBar(threading.Thread):
                 j = i%self._nb_prog_chars
             time.sleep(self._prog_int)
             if self.stop_the_progress_bar:
+                now_time = datetime.now()
+                delta_time = now_time - start_time
+                hrs, rest = divmod(delta_time.seconds, 3600)
+                mins, secs = divmod(rest, 60)
                 pbar = '  ' \
-                   + datetime.now().strftime('%H:%M:%S') \
+                   + '%02d:%02d:%02d' % (hrs, mins, secs) \
                    + ' [ ' \
                    + ' %s' % self._prog_chars[j] \
                    + ' done ]' \
