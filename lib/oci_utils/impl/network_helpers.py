@@ -64,13 +64,48 @@ def _fetch_ip_info(namespace, ifname):
     for obj in ip_info_j:
         if len(obj['addr_info']) > 0 and len(obj['addr_info'][0].keys()) > 0:
             return {
-                'broadcast': obj['addr_info'][0]['broadcast'],
-                'address_prefix_l': obj['addr_info'][0]['prefixlen'],
-                'address': obj['addr_info'][0]['local'],
+                'broadcast': obj['addr_info'][0].get('broadcast'),
+                'address_prefix_l': obj['addr_info'][0].get('prefixlen'),
+                'address': obj['addr_info'][0].get('local'),
                 'address_subnet': str(IPNetwork('%s/%s' % (
                     obj['addr_info'][0]['local'],
                     obj['addr_info'][0]['prefixlen'])).network)
             }
+    return {}
+
+
+def _fetch_link_info(namespace, devname):
+    """
+    fetch link information for a given device
+    see ip(8)
+    Params:
+       namespace: string, namespace name (must be empty string for default ns)
+       devname: string, link name
+    Returns:
+    -------
+        dict (can be empty):
+            mac : link ether address if any
+            state : link operational state
+            type: link type
+    """
+    _cmd = ['/usr/sbin/ip']
+    if namespace and len(namespace) > 0:
+        _cmd.extend(['-netns', namespace])
+
+    _cmd.extend(['-oneline', '-json', 'link', 'show', 'dev', devname])
+
+    link_info = sudo_utils.call_output(_cmd).strip()
+    if not link_info:
+        return {}
+    # the ip command return a json array
+    link_info_j = json.loads(link_info)
+
+    for obj in link_info_j:
+        return {
+            'mac': obj.get('address').upper(),
+            'opstate': obj.get('operstate'),
+            'type': obj.get('link_type')
+        }
     return {}
 
 
@@ -80,7 +115,8 @@ def _get_namespaces():
     Returns:
        list of names as string
     """
-    return subprocess.check_output(['/usr/sbin/ip', 'netns', 'list']).splitlines()
+
+    return [name.split(b' ')[0] for name in subprocess.check_output(['/usr/sbin/ip', 'netns', 'list']).splitlines()]
 
 
 def _get_link_names(namespace):
@@ -123,11 +159,14 @@ def get_network_namespace_infos():
     """
     _result = {}
     _ns_list = _get_namespaces()
+    # also gather info from default namespace
+    _ns_list.append('')
     for _ns in _ns_list:
         _result[_ns] = []
         _nsls = _get_link_names(_ns)
         for (_nsl_i, _nsl_n) in _nsls:
-            _new_info = _fetch_ip_info(_ns, _nsl_n)
+            _new_info = _fetch_link_info(_ns, _nsl_n)
+            _new_info.update(_fetch_ip_info(_ns, _nsl_n))
             if len(_new_info.keys()) == 0:
                 # nothing interesting here...
                 break

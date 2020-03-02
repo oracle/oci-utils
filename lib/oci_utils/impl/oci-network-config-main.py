@@ -212,11 +212,10 @@ def do_show_network_config(vnic_utils):
 
     __logger.info("Operating System level network configuration")
 
-    (ret, out) = vnic_utils.get_network_config()
-    if ret:
-        __logger.error("Failed to execute the VNIC configuration script.")
-    else:
-        print "%s" % out.decode('utf-8')
+    ret = vnic_utils.get_network_config()
+
+    _fmt = "%-6s %-15s %-15s %-5s %-15s %-10s %-3s %-10s %-5s %-11s %-5s %-17s %s"
+    print _fmt.format('CONFIG', 'ADDR', 'SPREFIX', 'SBITS', 'VIRTRT', 'NS', 'IND', 'IFACE', 'VLTAG', 'VLAN', 'STATE', 'MAC', 'VNIC')
 
 
 def do_detach_vnic(detach_options, vnic_utils):
