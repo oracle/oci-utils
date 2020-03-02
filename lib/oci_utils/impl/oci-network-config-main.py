@@ -14,6 +14,7 @@ import os
 import sys
 
 import time
+import oci_utils
 import oci_utils.oci_api
 from oci_utils.exceptions import OCISDKError
 from oci_utils.vnicutils import VNICUtils
@@ -212,12 +213,12 @@ def do_show_network_config(vnic_utils):
 
     __logger.info("Operating System level network configuration")
 
-    (ret, out) = vnic_utils.get_network_config()
-    if ret:
-        __logger.error("Failed to execute the VNIC configuration script.")
-    else:
-        print "%s" % out.decode('utf-8')
+    ret = vnic_utils.get_network_config()
 
+    _fmt = "{:5} {:15} {:15} {:5} {:15} {:10} {:3} {:10} {:5} {:11} {:5} {:17} {}"
+    print _fmt.format('CONFIG', 'ADDR', 'SPREFIX', 'SBITS', 'VIRTRT', 'NS', 'IND', 'IFACE', 'VLTAG', 'VLAN', 'STATE', 'MAC', 'VNIC')
+    for item in ret:
+        print _fmt.format(item.get('CONFSTATE','n/a'),item.get('ADDR','n/a'),item.get('SPREFIX','n/a'),item.get('SBITS','n/a'),item.get('VIRTRT','n/a'),item.get('NS','default'),item.get('IND','n/a'),item.get('IFACE','n/a'),item.get('VLTAG','n/a'),item.get('VLAN','n/a'),item.get('STATE','n/a'),item.get('MAC','n/a'),item.get('VNIC','n/a'))
 
 def do_detach_vnic(detach_options, vnic_utils):
     """

@@ -26,7 +26,6 @@ class TestVnicUtils(OciTestCase):
         import oci_utils.vnicutils
         self.assertIsNotNone(oci_utils.vnicutils.VNICUtils())
 
-    @skipUnlessRoot()
     def test_get_network_config(self):
         """
         Test VNICUtils.get_network_config()
@@ -38,4 +37,5 @@ class TestVnicUtils(OciTestCase):
         import oci_utils.vnicutils
         vu = oci_utils.vnicutils.VNICUtils()
 
-        print(vu.get_network_config())
+        for nc in vu.get_network_config():
+           print nc

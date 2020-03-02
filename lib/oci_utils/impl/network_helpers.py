@@ -49,30 +49,51 @@ def _fetch_ip_info(namespace, ifname):
             address_subnet : IP address subnet
             broadcast : IP address broadcast
     """
-    _cmd = ['/usr/sbin/ip']
+    _cmd = ['/usr/sbin/ip','--details']
     if namespace and len(namespace) > 0:
         _cmd.extend(['-netns', namespace])
 
-    _cmd.extend(['-oneline', '-json', 'address', 'show', 'dev', ifname])
+    _cmd.extend(['-json', 'address', 'show', 'dev', ifname])
 
-    ip_info = sudo_utils.call_output(_cmd).strip()
+    ip_info = sudo_utils.call_output(_cmd)
+
     if not ip_info:
         return {}
     # the ip command return a json array with some garbage at front
-    ip_info_j = json.loads(ip_info)
+    ip_info_j = json.loads(ip_info.strip())
     # skip empty object like {'addr_info': [{}]} {'addr_info': []}
     for obj in ip_info_j:
-        if len(obj['addr_info']) > 0 and len(obj['addr_info'][0].keys()) > 0:
+        if obj.has_key('addr_info') and len(obj['addr_info']) > 0 and len(obj['addr_info'][0].keys()) > 0:
+            if obj['addr_info'][0].get('linkinfo') and obj['addr_info'][0].get('linkinfo')['info_kind'] == 'vlan':
+                _vlanid = obj['addr_info'][0].get('linkinfo')['info_data']['id']
+            else:
+                _vlanid = None
             return {
-                'broadcast': obj['addr_info'][0]['broadcast'],
-                'address_prefix_l': obj['addr_info'][0]['prefixlen'],
-                'address': obj['addr_info'][0]['local'],
+                'vlanid':_vlanid,
+                'broadcast': obj['addr_info'][0].get('broadcast'),
+                'address_prefix_l': obj['addr_info'][0].get('prefixlen'),
+                'address': obj['addr_info'][0].get('local'),
                 'address_subnet': str(IPNetwork('%s/%s' % (
                     obj['addr_info'][0]['local'],
                     obj['addr_info'][0]['prefixlen'])).network)
             }
     return {}
-
+def _fetch_link_info(namespace, devname):
+    _cmd = ['/usr/sbin/ip']
+    if namespace and len(namespace) > 0:
+        _cmd.extend(['-netns', namespace])
+    _cmd.extend(['-oneline', '-json', 'link', 'show', 'dev', devname])
+    link_info = sudo_utils.call_output(_cmd)
+    if not link_info:
+        return {}
+    link_info_j = json.loads(link_info.strip())
+    for obj in link_info_j:
+        return {
+                            'mac': obj.get('address').upper(),
+                            'opstate': obj.get('operstate'),
+                            'type': obj.get('link_type')
+               }
+    return {}
 
 def _get_namespaces():
     """
@@ -80,7 +101,7 @@ def _get_namespaces():
     Returns:
        list of names as string
     """
-    return subprocess.check_output(['/usr/sbin/ip', 'netns', 'list']).splitlines()
+    return [name.split(b' ')[0] for name in subprocess.check_output(['/usr/sbin/ip', 'netns', 'list']).splitlines()]
 
 
 def _get_link_names(namespace):
@@ -123,14 +144,17 @@ def get_network_namespace_infos():
     """
     _result = {}
     _ns_list = _get_namespaces()
+    # also gather info from default namespace
+    _ns_list.append('')
     for _ns in _ns_list:
         _result[_ns] = []
         _nsls = _get_link_names(_ns)
         for (_nsl_i, _nsl_n) in _nsls:
-            _new_info = _fetch_ip_info(_ns, _nsl_n)
+            _new_info = _fetch_link_info(_ns, _nsl_n)
+            _new_info.update(_fetch_ip_info(_ns, _nsl_n))
             if len(_new_info.keys()) == 0:
                 # nothing interesting here...
-                break
+                continue 
             _new_info['index'] = _nsl_i
             _new_info['device'] = _nsl_n
             _result[_ns].append(_new_info)

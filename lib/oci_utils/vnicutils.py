@@ -421,30 +421,37 @@ class VNICUtils(object):
             VNIC    VNIC object identifier
         """
         interfaces = []
+
         _all_intfs = NetworkHelpers.get_network_namespace_infos()
+        _all_md_vnics = InstanceMetadata()['vnics']
 
-        for md_vnic in InstanceMetadata()['vnics']:
-            _intf = {}
-            # by default, unless we fethc an ip foir this vnic , set it to 'unconfig'
-            _intf['CONFSTATE'] = 'unconfig'
-            _intf['ADDR'] = md_vnic['privateIp']
-            _intf['SPREFIX'] = md_vnic['subnetCidrBlock'].split('/')[0]
-            _intf['SBITS'] = md_vnic['subnetCidrBlock'].split('/')[1]
-            _intf['VIRTRT'] = md_vnic['virtualRouterIp']
-            _intf['NS'] = None
-            _intf['VLTAG'] = md_vnic['vlanTag']
-            _intf['MAC'] = md_vnic['macAddr'].upper()
-            _intf['VNIC'] = md_vnic['vnicId']
-            _intf['IFACE'] = None
-            for _namespace, _intfs in _all_intfs.items():
-                for _i in _intfs:
-                    if _i['mac'].upper() == _intf['MAC']:
-                        _intf['IFACE'] = _i['device']
-                        _intf['STATE'] = _i['opstate']
-                        _intf['IND'] = _i['index']
-                        if _i['address']:
-                            _intf['CONFSTATE'] = '-'
+        for _namespace, _nintfs in _all_intfs.items():
+            for _i in _nintfs:
+                _intf = {}
+                _intf['MAC'] = _i.get('mac', '').upper()
+                _intf['IFACE'] = _i['device']
+                _intf['IND'] = _i['index']
+                _intf['STATE'] = _i['opstate']
+                _intf['NS'] = _namespace
+                _intf['VLAN'] = _i.get('vlanid', '')
+                _intf['CONFSTATE'] = 'ADD'
+                if _i.get('address'):
+                    _intf['CONFSTATE'] = '-'
+                _found = False
 
-            interfaces.append(_intf)
+                for md_vnic in InstanceMetadata()['vnics']:
+                    if md_vnic['macAddr'].upper() == _intf['MAC']:
+                        _intf['ADDR'] = md_vnic['privateIp']
+                        _intf['SPREFIX'] = md_vnic['subnetCidrBlock'].split('/')[0]
+                        _intf['SBITS'] = md_vnic['subnetCidrBlock'].split('/')[1]
+                        _intf['VIRTRT'] = md_vnic['virtualRouterIp']
+                        _intf['VLTAG'] = md_vnic['vlanTag']
+                        _intf['VNIC'] = md_vnic['vnicId']
+                        _found = True
+                        break
+                if not _found:
+                    _intf['CONFSTATE'] = 'DELETE'
+
+                interfaces.append(_intf)
 
         return interfaces
