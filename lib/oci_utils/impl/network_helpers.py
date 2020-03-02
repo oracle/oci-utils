@@ -69,7 +69,10 @@ def _fetch_ip_info(namespace, ifname):
             else:
                 _vlanid = None
             return {
+<<<<<<< HEAD
                 'vlanid':_vlanid,
+=======
+>>>>>>> 0d3dd40e59911c4ed6c5c326886c9f5be2b5938c
                 'broadcast': obj['addr_info'][0].get('broadcast'),
                 'address_prefix_l': obj['addr_info'][0].get('prefixlen'),
                 'address': obj['addr_info'][0].get('local'),
@@ -94,6 +97,41 @@ def _fetch_link_info(namespace, devname):
                             'type': obj.get('link_type')
                }
     return {}
+
+def _fetch_link_info(namespace, devname):
+    """
+    fetch link information for a given device
+    see ip(8)
+    Params:
+       namespace: string, namespace name (must be empty string for default ns)
+       devname: string, link name
+    Returns:
+    -------
+        dict (can be empty):
+            mac : link ether address if any
+            state : link operational state
+            type: link type
+    """
+    _cmd = ['/usr/sbin/ip']
+    if namespace and len(namespace) > 0:
+        _cmd.extend(['-netns', namespace])
+
+    _cmd.extend(['-oneline', '-json', 'link', 'show', 'dev', devname])
+
+    link_info = sudo_utils.call_output(_cmd).strip()
+    if not link_info:
+        return {}
+    # the ip command return a json array
+    link_info_j = json.loads(link_info)
+
+    for obj in link_info_j:
+        return {
+            'mac': obj.get('address').upper(),
+            'opstate': obj.get('operstate'),
+            'type': obj.get('link_type')
+        }
+    return {}
+
 
 def _get_namespaces():
     """

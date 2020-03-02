@@ -438,7 +438,6 @@ class VNICUtils(object):
                 if _i.get('address'):
                     _intf['CONFSTATE'] = '-'
                 _found = False
-
                 for md_vnic in InstanceMetadata()['vnics']:
                     if md_vnic['macAddr'].upper() == _intf['MAC']:
                         _intf['ADDR'] = md_vnic['privateIp']
