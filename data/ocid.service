@@ -7,6 +7,7 @@ Type=notify
 NotifyAccess=all
 ExecStart=/usr/libexec/ocid  --no-daemon
 ExecStop=/usr/libexec/ocid --stop-all
+TimeoutStopSec=5
 PIDFile=/var/run/ocid.pid
 Restart=always
 StandardOutput=syslog

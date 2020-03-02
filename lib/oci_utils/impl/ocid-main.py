@@ -91,7 +91,7 @@ class OcidThread(threading.Thread):
         The number of iterations.
     active : bool
         Indicator if thread is running.
-    threadLock : lock
+    thread_lock : lock
         The thread lock.
     """
 
@@ -129,12 +129,12 @@ class OcidThread(threading.Thread):
                 self.sleeptime = 60
         self.repeat = repeat
         self.active = False
-        self.threadLock = threading.Lock()
+        self.thread_lock = threading.Lock()
         self.thr_logger = logging.getLogger('oci-utils.ocid.workers.%s.%s' % (self.name, self.thread_name))
         # evt used to wait between iterations and for worker mgr to ask us to stop
-        self.blockingEvt = threading.Event()
+        self.blocking_evt = threading.Event()
         # evt used by worker mgr to wiat for first iteration to be completed
-        self.firstIterationEvt = threading.Event()
+        self.first_iteration_evt = threading.Event()
 
     def __str__(self):
         return self.thread_name
@@ -153,13 +153,13 @@ class OcidThread(threading.Thread):
     def request_stop(self):
         self.thr_logger.debug('been requested to stop')
         self.active = False
-        self.blockingEvt.set()
+        self.blocking_evt.set()
 
     def wait_first_iteration(self):
         """
         Verify the end of the first iteration.
         """
-        self.firstIterationEvt.wait()
+        self.first_iteration_evt.wait()
 
     def run(self):
         """
@@ -174,10 +174,10 @@ class OcidThread(threading.Thread):
         while True:
             self.thr_logger.debug("Running thread func for "
                                   "thread %s" % self.thread_name)
-            self.threadLock.acquire()
+            self.thread_lock.acquire()
             if not self.active:
                 # shutting down.
-                self.threadLock.release()
+                self.thread_lock.release()
                 self.thr_logger.debug('shutting down')
                 break
             try:
@@ -186,14 +186,14 @@ class OcidThread(threading.Thread):
                 self.thr_logger.error("Error running ocid "
                                       "thread '%s': %s" % (self.thread_name, e))
                 self.thr_logger.exception(e)
-            self.threadLock.release()
+            self.thread_lock.release()
             # ocidfunc completed at least once
-            self.firstIterationEvt.set()
+            self.first_iteration_evt.set()
             if not self.repeat:
                 # run the main function once only
                 break
             self.thr_logger.debug('Waiting on evt, tm = %d' % self.sleeptime)
-            self.blockingEvt.wait(self.sleeptime)
+            self.blocking_evt.wait(self.sleeptime)
 
 
 def public_ip_func(context, func_logger):
