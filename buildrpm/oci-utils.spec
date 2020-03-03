@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.10.2
-Release: 1%{?dist}
+Version: 0.11.0
+Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -76,6 +76,16 @@ Requires: %{name} = %{version}-%{release}
 %description outest
 Utilities unit tests
 
+%package migrate
+Summary: Migrate vm from on-premise to the OCI
+Group: Development/Tools
+Requires: util-linux
+Requires: parted
+Requires: python36-pyyaml
+Requires: qemu-img >= 15:3.1
+%description migrate
+Utilities for migrating on-premise guests to Oracle Cloud Infrastructure.
+
 %pre
 # some old version of oci-utils, used to leave this behind.
 %{__rm} -f /var/tmp/oci-utils.log*
@@ -116,6 +126,10 @@ rm -rf %{buildroot}
 %exclude %{__l_python_sitelib}/oci_utils/kvm/*
 %exclude %{_bindir}/oci-kvm
 %exclude %{_datadir}/man/man1/oci-kvm.1.gz
+%exclude %{_bindir}/oci-image-migrate
+%exclude %{_bindir}/oci-image-migrate-import
+%exclude %{_datadir}/man/man1/oci-image-migrate.1.gz
+%exclude %{_datadir}/man/man1/oci-image-migrate-import.1
 %defattr(-,root,root)
 %{__l_python_sitelib}/oci_utils*
 %{_bindir}/oci-*
@@ -127,6 +141,8 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/oci-utils.conf.d/00-oci-utils.conf
 %dir %attr(0755,root,root) %{_sysconfdir}/oci-utils
 %config %{_sysconfdir}/oci-utils/oci-image-cleanup.conf
+%exclude %{_bindir}/oci-image-migrate
+%exclude %{_bindir}/oci-image-migrate-import
 %{_datadir}/man
 %exclude %{_datadir}/man/man1/oci-kvm.1.gz
 %dir %{_localstatedir}/lib/oci-utils
@@ -151,7 +167,21 @@ rm -rf %{buildroot}
 %preun kvm
 %systemd_preun oci-kvm-config.service
 
+%files migrate
+%{_bindir}/oci-image-migrate
+%{_bindir}/oci-image-migrate-import
+%{python3_sitelib}/oci_utils/__init__*
+%{python3_sitelib}/oci_utils/exceptions*
+%{python3_sitelib}/oci_utils/impl/__init__*
+%{python3_sitelib}/oci_utils/impl/oci-image-migrate*
+%{python3_sitelib}/oci_utils/migrate*
+%{_datadir}/man/man1/oci-image-migrate*1.gz
+%config %{_sysconfdir}/oci-utils/oci-migrate-conf.yaml
+
 %changelog
+* Tue Mar 3 2020 Guido Tijskens <guido.tijskens@oracle.com> -- 0.11.0
+- add oci-image-migrate code
+
 * Wed Dec 4 2019 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.10.2
 - Update to use Python 3 on OL8
 
