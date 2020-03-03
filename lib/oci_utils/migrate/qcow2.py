@@ -100,7 +100,7 @@ class Qcow2Head(DeviceData):
                 _logger.debug('%s header successfully read' % self._fn)
         except Exception as e:
             _logger.critical(
-                '  Failed to read header of %s: %s' % (self._fn, str(e)))
+                '   Failed to read header of %s: %s' % (self._fn, str(e)))
             raise OciMigrateException(
                 'Failed to read the header of %s: %s' % (self._fn, str(e)))
 
@@ -194,7 +194,7 @@ class Qcow2Head(DeviceData):
         try:
             result = self.handle_image()
         except Exception as e:
-            _logger.critical('  ERROR %s' % str(e))
+            _logger.critical('   ERROR %s' % str(e))
             raise OciMigrateException(str(e))
         return result, self._img_info
 
@@ -214,7 +214,7 @@ class Qcow2Head(DeviceData):
         passed_requirement = True
         if self._img_info['img_size']['logical'] > prereqs['MAX_IMG_SIZE_GB']:
             _logger.critical(
-                '  Image size %8.2f GB exceeds maximum allowed %8.2f GB'
+                '   Image size %8.2f GB exceeds maximum allowed %8.2f GB'
                 % (prereqs['MAX_IMG_SIZE_GB'],
                    self._img_info['img_size']['logical']))
             failmsg += '\n  Image size %8.2f GB exceeds maximum allowed ' \

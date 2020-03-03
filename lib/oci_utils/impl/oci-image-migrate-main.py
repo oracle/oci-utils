@@ -210,7 +210,7 @@ def collect_image_data(img_object):
     try:
         res, img_info = img_object.image_data()
     except Exception as e:
-        _logger.critical('  Unable to collect or invalid image data: %s'
+        _logger.critical('   Unable to collect or invalid image data: %s'
                          % str(e), exc_info=True)
         raise OciMigrateException('Unable to collect or invalid image data: %s'
                                   % str(e))
@@ -439,14 +439,14 @@ def main():
         if imgres:
             _logger.debug('Image processing succeeded.')
         else:
-            _logger.critical('  Image processing failed.', exc_info=False)
+            _logger.critical('   Image processing failed.', exc_info=False)
         #
         if imagedata:
             _logger.debug('%s passed verification.' % imagepath)
         else:
-            _logger.critical('  %s failed image check.' % imagepath, exc_info=False)
+            _logger.critical('   %s failed image check.' % imagepath, exc_info=False)
     except Exception as e:
-        _logger.critical('  %s failed image check: %s' % (imagepath, str(e)))
+        _logger.critical('   %s failed image check: %s' % (imagepath, str(e)))
         exit_with_msg('*** ERROR *** Problem detected during investigation of '
                       'the image %s: %s, exiting.' % (imagepath, str(e)))
     #

@@ -2,12 +2,9 @@ import shutil
 import os
 import tempfile
 import unittest
-try:
-    import unittest.mock as mock
-    from unittest.mock import Mock
-except ImportError:
-    import mock
-    from mock import Mock
+import unittest.mock as mock 
+from unittest.mock import Mock
+from unittest.mock import mock_open
 
 from oci_utils.migrate import migrate_tools as migrate_tools
 from oci_utils.migrate.exception import OciMigrateException
@@ -122,7 +119,7 @@ class TestMigrateTools(unittest.TestCase):
         somecommand = ['echo', 'test']
         patched_migrate_tools.exec_exists.return_value = True
         popenreturnval = migrate_tools.run_popen_cmd(somecommand)
-        self.assertEqual(popenreturnval, 'test\n')
+        self.assertEqual(popenreturnval, b'test\n')
         #
         # not existing
         somecommand = ['noecho', 'test']
@@ -133,16 +130,16 @@ class TestMigrateTools(unittest.TestCase):
         patched_popen.return_value = 'no name server in here'
         self.assertFalse(migrate_tools.get_nameserver())
         patched_popen.return_value = \
-'IP4.ROUTE[2]:                           dst = 169.254.0.0/16, nh = 0.0.0.0, mt = 1000\n' \
-'IP4.ROUTE[3]:                           dst = 0.0.0.0/0, nh = 10.172.216.1, mt = 100\n' \
-'IP4.DNS[1]:                             10.254.231.168\n' \
-'IP6.ADDRESS[1]:                         2606:b400:808:44:5b20:2dcd:b2f0:298f/64\n' \
-'IP6.ADDRESS[2]:                         fe80::b8e4:4f25:6de5:3f0c/64'
+b'IP4.ROUTE[2]:                           dst = 169.254.0.0/16, nh = 0.0.0.0, mt = 1000\n' \
+b'IP4.ROUTE[3]:                           dst = 0.0.0.0/0, nh = 10.172.216.1, mt = 100\n' \
+b'IP4.DNS[1]:                             10.254.231.168\n' \
+b'IP6.ADDRESS[1]:                         2606:b400:808:44:5b20:2dcd:b2f0:298f/64\n' \
+b'IP6.ADDRESS[2]:                         fe80::b8e4:4f25:6de5:3f0c/64'
         self.assertTrue(migrate_tools.get_nameserver())
 
-    @mock.patch('oci_utils.migrate.migrate_tools.os.path')
-    @mock.patch('oci_utils.migrate.migrate_tools.open', my_fake_open)
-    def test_set_nameserver(self, patched_os_path):
+    @mock.patch('os.path')
+    @mock.patch('__main__.open', new_callable=mock_open)
+    def test_set_nameserver(self, mock_file, patched_os_path):
         #
         # rename tested elsewhere, skip
         patched_os_path.isfile.return_value = False
@@ -151,6 +148,8 @@ class TestMigrateTools(unittest.TestCase):
         #
         # destination exists
         patched_os_path.exists = True
+        #with open('/tmp/testfile', 'w') as f:
+        #    f.write('test data 001\n')
         nssetreturn = migrate_tools.set_nameserver()
         self.assertTrue(nssetreturn)
 

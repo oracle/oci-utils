@@ -2,12 +2,8 @@ import shutil
 import os
 import tempfile
 import unittest
-try:
-    import unittest.mock as mock
-    from unittest.mock import Mock
-except ImportError:
-    import mock
-    from mock import Mock
+import unittest.mock as mock
+from unittest.mock import Mock
 
 from oci_utils.migrate import migrate_tools as migrate_tools
 from oci_utils.migrate import migrate_utils as migrate_utils
@@ -21,6 +17,30 @@ def my_fake_call(somecall):
     print ('fake call')
     return False
 
+tstmodulehome = 'temposspectest'
+
+class OSTagTestDir(object):                           
+    def __init__(self):                        
+        self.directory = '/usr/lib/python3.6/site-packages/oci_utils/migrate/' + tstmodulehome
+        os.mkdir(self.directory)
+        fn = self.directory + '/__init__.py'
+        with open(fn, 'w') as f:
+            f.write('%s\n' % 'pass') 
+        fn = self.directory + '/module.py'
+        with open(fn, 'w') as f:
+            f.write('%s\n' % "_os_type_tag_csl_tag_type_os_ = 'ol'")
+
+    def dirname(self):                                  
+        return self.directory                           
+
+    def __enter__(self):                                   
+        return self                          
+
+    def __exit__(self, type, value, traceback):            
+#        shutil.rmtree(self.directory)        
+        pass
+
+
 class TestMigrateUtils(unittest.TestCase):
 
     def setUp(self):
@@ -33,20 +53,21 @@ class TestMigrateUtils(unittest.TestCase):
     def test_bucket_exists(self, patched_popen):
         #
         # oci cli exists, buckect exists
-        patched_popen.side_effect = ['oci_cli_path', 'bucket_result']
+        patched_popen.side_effect = [b'oci_cli_path', b'bucket_result']
         self.assertTrue(migrate_utils.bucket_exists('fake_bucket'))
         patched_popen.assert_called_with(['oci', 'os', 'object', 'list', '--bucket-name', 'fake_bucket'])
         #
         # oci cli exists, bucket does not exists
-        patched_popen.side_effect = ['oci_cli_path' ]
+        patched_popen.side_effect = [b'oci_cli_path' ]
         self.assertRaises(OciMigrateException, migrate_utils.bucket_exists, 'fake_bucket')
         patched_popen.assert_called_with(['oci', 'os', 'object', 'list', '--bucket-name', 'fake_bucket'])
         #
         # oci cli does not exist (not redefining the popen side effect causes popen excepts out)
         self.assertRaises(OciMigrateException, migrate_utils.bucket_exists, 'fake_bucket')
-        patched_popen.assert_called_with(['oci', 'os', 'object', 'list', '--bucket-name', 'fake_bucket'])
+        #patched_popen.assert_called_with(['oci', 'os', 'object', 'list', '--bucket-name', 'fake_bucket'])
+        patched_popen.assert_called_with(['which', 'oci'])
 
-    @mock.patch('oci_utils.migrate.migrate_utils.run_call_cmd')
+    @mock.patch('oci_utils.migrate.migrate_tools.run_call_cmd')
     def test_create_nbd(self, patched_call):
         patched_call.side_effect = [0, 1]
         self.assertTrue(migrate_utils.create_nbd())
@@ -58,7 +79,7 @@ class TestMigrateUtils(unittest.TestCase):
     @mock.patch('oci_utils.migrate.migrate_utils.os')
     def test_enter_chroot(self, patched_os):
         patched_os.open.return_value = '/someroot'
-        oldroot, oldpath = migrate_utils.enter_chroot('self.tempdir')
+        oldroot, oldpath, oldcwd = migrate_utils.enter_chroot('self.tempdir')
         # ignore oldpath, not used
         self.assertEqual(oldroot,  '/someroot')
         #
@@ -66,27 +87,26 @@ class TestMigrateUtils(unittest.TestCase):
         with mock.patch('oci_utils.migrate.migrate_utils.os.open') as mock_oserror:
             mock_oserror.side_effect = OSError
             self.assertRaises(OciMigrateException, migrate_utils.enter_chroot, 'self.tempdir')
-        #
-        # 
-        # with mock.patch('oci_utils.migrate.migrate_utils.os.environ') as mock_keyerror:
-        #    mock_keyerror.side_effect = KeyError
-        #    self.assertRaises(OciMigrateException, migrate_utils.enter_chroot, 'self.tempdir')
+
+    def test_enter_chroot_keyerror(self):
+        with mock.patch.dict('oci_utils.migrate.migrate_utils.os.environ', {'PATH': 'brol'}) as KeyError:
+            self.assertRaises(OciMigrateException, migrate_utils.enter_chroot, 'self.tempdir')
 
     @mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd')
     def test_exec_blkid(self, patched_popen):
-        blkidres = ['ID_FS_USAGE=raid', 'ID_PART_ENTRY_SCHEME=dos', 'ID_MORE=xyz']
+        blkidres = b'ID_FS_USAGE=raid'
         patched_popen.return_value = blkidres
-        self.assertEqual(migrate_utils.exec_blkid(['some', 'blkid', 'cmd']), blkidres)
+        self.assertEqual(migrate_utils.exec_blkid(['some', 'blkid', 'cmd']), blkidres.decode('utf8'))
         #
         # run_popen_cmd raises an exception
         with mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd') as mock_popenerror:
-            mock_popenerror.side_effect = OSError
-            self.assertIsNone(migrate_utils.exec_blkid(['some', 'blkid', 'cmd']))
+             mock_popenerror.side_effect = OSError
+             self.assertIsNone(migrate_utils.exec_blkid(['some', 'blkid', 'cmd']))
     
     @mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd')
     def test_exec_lsblk(self, patched_popen):
-        patched_popen.return_value = 0
-        self.assertEqual(migrate_utils.exec_lsblk(['some', 'lsblk', 'cmd']), 0)
+        patched_popen.return_value = b'lsblkidres'
+        self.assertEqual(migrate_utils.exec_lsblk(['some', 'lsblk', 'cmd']), 'lsblkidres')
         #
         # run_popen_cmd raises an exception
         with mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd') as mock_popenerror:
@@ -95,7 +115,7 @@ class TestMigrateUtils(unittest.TestCase):
     
     @mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd')
     def test_exec_lvscan(self, patched_popen):
-        patched_popen.return_value = "  inactive            '/dev/ol_tstoci-001/swap' [2.00 GiB] inherit\n  inactive            '/dev/ol_tstoci-001/root' [20.99 GiB] inherit\n"
+        patched_popen.return_value = b"  inactive            '/dev/ol_tstoci-001/swap' [2.00 GiB] inherit\n  inactive            '/dev/ol_tstoci-001/root' [20.99 GiB] inherit\n"
         self.assertEqual(migrate_utils.exec_lvscan(),{'ol_tstoci-001': [('swap', 'ol_tstoci--001-swap'), ('root', 'ol_tstoci--001-root')]})
         #
         # run_popen_cmd raises an exception
@@ -125,14 +145,14 @@ class TestMigrateUtils(unittest.TestCase):
     
     @mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd')
     def test_exec_parted(self, patched_popen):
-        patched_popen.return_value = '^[[?1034hModel: Unknown (unknown)\n' \
-            'Disk /dev/nbd3: 25.8GB\n' \
-            'Sector size (logical/physical): 512B/512B\n' \
-            'Partition Table: msdos\n' \
-            'Disk Flags:\n' \
-            'Number  Start   End     Size    Type     File system  Flags\n' \
-            ' 1      1049kB  1075MB  1074MB  primary  xfs          boot\n' \
-            ' 2      1075MB  25.8GB  24.7GB  primary               lvm'
+        patched_popen.return_value = b'^[[?1034hModel: Unknown (unknown)\n' \
+            b'Disk /dev/nbd3: 25.8GB\n' \
+            b'Sector size (logical/physical): 512B/512B\n' \
+            b'Partition Table: msdos\n' \
+            b'Disk Flags:\n' \
+            b'Number  Start   End     Size    Type     File system  Flags\n' \
+            b' 1      1049kB  1075MB  1074MB  primary  xfs          boot\n' \
+            b' 2      1075MB  25.8GB  24.7GB  primary               lvm'
         parted_return_value = {'Model': ' Unknown (unknown)', 'Disk': '', 'Partition Table': ' msdos'}
         self.assertEqual(migrate_utils.exec_parted('xyz'), parted_return_value)
         #
@@ -143,23 +163,23 @@ class TestMigrateUtils(unittest.TestCase):
 
     @mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd')
     def test_exec_pvscan(self, patched_popen):
-        patched_popen.return_value = 'the physical volumes'
+        patched_popen.return_value = b'the physical volumes'
         self.assertTrue('oci_utils.exec_pvscan()')
         devname = '/device/name'
         self.assertTrue('oci_utils.exec_pvscan(devname)')
         #
         # run_popen_cmd raises an exception
-        with mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd') as mock_popenerror:
+        with mock.patch('oci_utils.migrate.migrate_tools.run_call_cmd') as mock_popenerror:
             mock_popenerror.side_effect = OSError
             self.assertRaises(OciMigrateException, migrate_utils.exec_pvscan, 'xyz')
     
-    @mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd')
-    def test_exec_qemunbd(self, patched_popen):
-        patched_popen.return_value = 0
+    @mock.patch('oci_utils.migrate.migrate_tools.run_call_cmd')
+    def test_exec_qemunbd(self, patched_call):
+        patched_call.return_value = 0
         self.assertEqual(migrate_utils.exec_qemunbd([ '-c','/dev/nbd_x','/image/path']), 0)
         #
         # run_popen_cmd raises an exception
-        with mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd') as mock_popenerror:
+        with mock.patch('oci_utils.migrate.migrate_tools.run_call_cmd') as mock_popenerror:
             mock_popenerror.side_effect = OSError
             self.assertRaises(OciMigrateException, migrate_utils.exec_qemunbd, ['xyz'])
     
@@ -185,113 +205,124 @@ class TestMigrateUtils(unittest.TestCase):
             mock_checkcallerror.side_effect = OSError
             self.assertTrue(migrate_utils.exec_rmmod('module'))
 
-    @mock.patch('oci_utils.migrate.migrate_utils.os')
-    def test_exec_search(self, patched_os):
-        patched_os.walk.return_value = [('/a',('b',), ('1',)),
-                                        ('/a/1',(),('c','2','3'))]
-        self.assertEqual(str(migrate_utils.exec_search('c')), 'a/b/c')
-       
+    @mock.patch('oci_utils.migrate.migrate_utils.os.walk')
+    def test_exec_search(self, patched_os_walk):
+        patched_os_walk.return_value = iter([ ('/foo', ('bar',), ('baz',)), ('/foo/bar', (), ('spam', 'eggs')), ])
+        #
+        # found
+        self.assertEqual(migrate_utils.exec_search('spam', rootdir='/foo'), '/foo/bar/spam')
+        #
+        # not found
+        self.assertIsNone(migrate_utils.exec_search('spax', rootdir='/foo'), '/foo/bar/spam')
     
-    def exec_sfdisk(self):
+    @mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd')
+    def test_exec_sfdisk(self, patched_popen):
+        partres = {'/dev/sda1': {'start': 2048, 'size': 2097152, 'Id': '83', 'bootable': True}, '/dev/sda2': {'start': 2099200, 'size': 31561728, 'Id': '8e', 'bootable': False}, '/dev/sda3': {'start': 0, 'size': 0, 'Id': '0', 'bootable': False}, '/dev/sda4': {'start': 0, 'size': 0, 'Id': '0', 'bootable': False}}
+        patched_popen.return_value = b'# partition table of /dev/sda\nunit: sectors\n\n/dev/sda1 : start=     2048, size=  2097152, Id=83, bootable\n/dev/sda2 : start=  2099200, size= 31561728, Id=8e\n/dev/sda3 : start=        0, size=        0, Id= 0\n/dev/sda4 : start=        0, size=        0, Id= 0\n'
+        self.assertDictEqual(migrate_utils.exec_sfdisk('/dev/sda'), partres)
+
+    @mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd')
+    def test_exec_vgchange(self, patched_popen):
+        vgresult = '2 logical volume(s)'
+        patched_popen.return_value = b'2 logical volume(s)'
+        self.assertEqual(migrate_utils.exec_vgchange(['activate', '--y']), vgresult)
+
+    @mock.patch('oci_utils.migrate.migrate_tools.run_popen_cmd')
+    def test_exec_vgscan(self, patched_popen):
+     patched_popen.return_value = b'Reading volume groups from cache'
+     self.assertTrue(migrate_utils.exec_vgscan())
+    
+    def test_find_os_specific(self):
         pass
     
-    def exec_vgchange(self):
+    def test_get_free_nbd(self):
         pass
     
-    def exec_vgscan(self):
+    def test_get_nameserver(self):
         pass
     
-    def find_os_specific(self):
+    def test_get_oci_config(self):
         pass
     
-    def get_free_nbd(self):
+    def test_leave_chroot(self):
         pass
     
-    def get_nameserver(self):
+    def test_mount_fs(self):
         pass
     
-    def get_oci_config(self):
+    def test_mount_imgfn(self):
         pass
     
-    def leave_chroot(self):
+    def test_mount_lvm2(self):
         pass
     
-    def mount_fs(self):
+    def test_mount_partition(self):
         pass
     
-    def mount_imgfn(self):
+    def test_mount_pseudo(self):
         pass
     
-    def mount_lvm2(self):
+    def test_object_exists(self):
         pass
     
-    def mount_partition(self):
+    def test_print_header(self):
         pass
     
-    def mount_pseudo(self):
+    def test_rm_nbd(self):
         pass
     
-    def object_exists(self):
+    def test_set_default_user(self):
         pass
     
-    def print_header(self):
+    def test_show_fstab(self):
         pass
     
-    def rm_nbd(self):
+    def test_show_grub_data(self):
         pass
     
-    def set_default_user(self):
+    def test_show_hex_dump(self):
         pass
     
-    def show_fstab(self):
+    def test_show_image_data(self):
         pass
     
-    def show_grub_data(self):
+    def test_show_img_header(self):
         pass
     
-    def show_hex_dump(self):
+    def test_show_lvm2_data(self):
         pass
     
-    def show_image_data(self):
+    def test_show_network_data(self):
         pass
     
-    def show_img_header(self):
+    def test_show_parted_data(self):
         pass
     
-    def show_lvm2_data(self):
+    def test_show_partition_data(self):
         pass
     
-    def show_network_data(self):
+    def test_show_partition_table(self):
         pass
     
-    def show_parted_data(self):
+    def test_state_loop(self):
         pass
     
-    def show_partition_data(self):
+    def test_unmount_imgfn(self):
         pass
     
-    def show_partition_table(self):
+    def test_unmount_lvm2(self):
         pass
     
-    def state_loop(self):
+    def test_unmount_part(self):
         pass
     
-    def unmount_imgfn(self):
+    def test_unmount_pseudo(self):
         pass
     
-    def unmount_lvm2(self):
+    def test_unmount_something(self):
         pass
     
-    def unmount_part(self):
-        pass
-    
-    def unmount_pseudo(self):
-        pass
-    
-    def unmount_something(self):
-        pass
-    
-    def upload_image(self):
+    def test_upload_image(self):
         pass
     
     

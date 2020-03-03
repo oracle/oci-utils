@@ -116,7 +116,7 @@ def get_magic_data(image):
             magic_hex = bytes_to_hex(magic)
             _logger.debug('Image magic number: %8s' % magic_hex)
     except Exception as e:
-        _logger.critical('  Image %s is not accessible: 0X%s' % (image, str(e)))
+        _logger.critical('   Image %s is not accessible: 0X%s' % (image, str(e)))
     return magic_hex
 
 
@@ -260,7 +260,7 @@ def run_popen_cmd(command):
             raise OciMigrateException('Error encountered while running %s: %s'
                                       % (command, str(e)))
     else:
-        _logger.critical('  %s not found.' % command[0])
+        _logger.critical('   %s not found.' % command[0])
         raise OciMigrateException('%s does not exist' % command[0])
 
 
@@ -435,7 +435,6 @@ class ProgressBar(threading.Thread):
         sys.stdout.write('\n')
         sys.stdout.flush()
         start_time = datetime.now()
-        # + datetime.now().strftime('%H:%M:%S') \
         while True:
             now_time = datetime.now()
             delta_time = now_time - start_time

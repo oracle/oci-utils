@@ -48,7 +48,7 @@ def exec_yum(cmd):
         _logger.debug('yum command output: %s' % str(output))
         return output
     except Exception as e:
-        _logger.critical('  Failed to execute yum: %s' % str(e))
+        _logger.critical('   Failed to execute yum: %s' % str(e))
         raise OciMigrateException('\nFailed to execute yum: %s' % str(e))
 
 
@@ -99,7 +99,7 @@ def install_cloud_init(*args):
         else:
             _logger.error('  Failed to restore nameserver info.')
     except Exception as e:
-        _logger.critical('  Failed to install cloud init package:\n%s' % str(e))
+        _logger.critical('   Failed to install cloud init package:\n%s' % str(e))
         migrate_tools.error_msg('Failed to install cloud init package:\n%s' % str(e))
         migrate_tools.migrate_non_upload_reason += \
             '\n Failed to install cloud init package: %s' % str(e)

@@ -13,6 +13,7 @@ import re
 import struct
 
 from oci_utils.migrate import migrate_tools
+from oci_utils.migrate import read_yn
 from oci_utils.migrate.imgdevice import DeviceData
 from oci_utils.migrate.migrate_utils import gigabyte as gigabyte
 from oci_utils.migrate.migrate_utils import OciMigrateException
@@ -105,6 +106,12 @@ class VmdkHead(DeviceData):
     head_size = struct.calcsize(vmdkhead_fmt)
     _logger = logging.getLogger('oci-utils.vmdk')
 
+    streamoptimized_msg = '\n  Although streamOptimized is a supported format, ' \
+                          'issues might arise during or after mounting the ' \
+                          'image file. It is advised\n  to convert the image ' \
+                          'file to monolithicSparse by running ' \
+                          '[qemu-img convert -O vmdk thisimage.vmdk newimage.vmdk]\n'
+
     def __init__(self, filename):
         """
         Initialisation of the vmdk header analysis.
@@ -125,7 +132,7 @@ class VmdkHead(DeviceData):
                 _logger.debug('%s header successfully read' % self._fn)
         except Exception as e:
             _logger.critical(
-                ' Failed to read header of %s: %s' % (self._fn, str(e)))
+                '   Failed to read header of %s: %s' % (self._fn, str(e)))
             raise OciMigrateException(
                 'Failed to read the header of %s: %s' % (self._fn, str(e)))
 
@@ -139,7 +146,7 @@ class VmdkHead(DeviceData):
                               if '=' in it]
         except Exception as e:
             _logger.critical(
-                ' Failed to read description of %s: %s' % (self._fn, str(e)))
+                '   Failed to read description of %s: %s' % (self._fn, str(e)))
             raise OciMigrateException(
                 'Failed to read the description  of %s: %s' % (self._fn, str(e)))
 
@@ -251,7 +258,7 @@ class VmdkHead(DeviceData):
         try:
             result = self.handle_image()
         except Exception as e:
-            _logger.critical('  Error %s' % str(e))
+            _logger.critical('   Error %s' % str(e))
             raise OciMigrateException(str(e))
         return result, self._img_info
 
@@ -270,7 +277,7 @@ class VmdkHead(DeviceData):
         # size:
         passed_requirement = True
         if self._img_info['img_size']['logical'] > prereqs['MAX_IMG_SIZE_GB']:
-            _logger.critical('  Image size %8.2f GB exceeds maximum allowed %8.2f GB'
+            _logger.critical('   Image size %8.2f GB exceeds maximum allowed %8.2f GB'
                              % (prereqs['MAX_IMG_SIZE_GB'],
                                 self._img_info['img_size']['logical']))
             failmsg += '\n  Image size %8.2f GB exceeds maximum allowed ' \
@@ -287,25 +294,20 @@ class VmdkHead(DeviceData):
         if self.img_header['desc']['createType'] \
                 not in prereqs['vmdk_supported_types']:
             _logger.critical(
-                ' Image type %s is not in the supported type list: %s' %
+                '   Image type %s is not in the supported type list: %s' %
                 (self.img_header['desc']['createType'],
                  prereqs['vmdk_supported_types']))
-            failmsg += 'Image type %s is not in the supported type list: %s' %\
+            failmsg += '\n  Image type %s is not in the supported type list: %s' %\
                        (self.img_header['desc']['createType'],
                         prereqs['vmdk_supported_types'])
             passed_requirement = False
         else:
-            failmsg += '  Image type %s is in the supported type list: %s' \
+            failmsg += '\n  Image type %s is in the supported type list: %s' \
                        % (self.img_header['desc']['createType'],
                           prereqs['vmdk_supported_types'])
             #
-            # prevent issues with streamOptimized vmdk files, for now
+            # Warning, for now, streamOptimized format will probably cause problems.
             if self.img_header['desc']['createType'] == 'streamOptimized':
-                failmsg += '\n  Although streamOptimized is a supported format, ' \
-                           'issues might arise during or after mounting the ' \
-                           'image file. It is advised\n  to convert the image ' \
-                           'file to monolithicSparse by running ' \
-                           '[qemu-img convert -O vmdk thisimage.vmdk newimage.vmdk]\n'
-            passed_requirement = False
+                _ = read_yn('  %s\n  Continue' % self.streamoptimized_msg, yn=False)
 
         return passed_requirement, failmsg

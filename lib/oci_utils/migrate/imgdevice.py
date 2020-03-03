@@ -119,7 +119,7 @@ class UpdateImage(threading.Thread):
                     self._imgdata['osinformation']['VERSION_ID']):
                 _logger.debug('Successfully installed cloud-init')
             else:
-                _logger.critical(' Failed to install cloud init')
+                _logger.critical('  Failed to install cloud init')
                 raise OciMigrateException('Failed to install cloud init')
             #
             # Update cloud.cfg file with default user
@@ -133,7 +133,7 @@ class UpdateImage(threading.Thread):
                 raise OciMigrateException(
                     'Failed to update default cloud user.')
         except Exception as e:
-            _logger.critical('  *** ERROR *** Unable to perform image update '
+            _logger.critical('   *** ERROR *** Unable to perform image update '
                              'operations: %s' % str(e), exc_info=True)
         finally:
             migrate_utils.leave_chroot(rootfd, dir2return2)
@@ -181,7 +181,7 @@ class DeviceData(object):
             _logger.debug('%s successfully mounted' % nbdpath)
             return nbdpath
         except Exception as e:
-            _logger.critical('  %s' % str(e))
+            _logger.critical('   %s' % str(e))
             raise OciMigrateException(str(e))
 
     def umount_img(self, nbd):
@@ -246,7 +246,7 @@ class DeviceData(object):
             mbrok = True
             _logger.debug('Is a valid MBR')
         else:
-            _logger.critical('  Is not a valid MBR')
+            _logger.critical('   Is not a valid MBR')
             return mbrok, partitiontable
 
         ind = 892
@@ -421,7 +421,7 @@ class DeviceData(object):
             self._img_info['oci_config'] = ociconfig
             return True
         except Exception as e:
-            _logger.critical('  Image %s handling failed: %s'
+            _logger.critical('   Image %s handling failed: %s'
                              % (self._img_info['img_name'], str(e)),
                              exc_info=False)
             return False
@@ -544,7 +544,7 @@ class DeviceData(object):
         except Exception as e:
             #
             # need to release mount of image file and exit
-            _logger.critical('  Initial partition data collection '
+            _logger.critical('   Initial partition data collection '
                              'failed: %s' % str(e), exc_info=True)
             raise OciMigrateException('Initial partition data collection '
                                       'failed:\n %s' % str(e))
@@ -593,7 +593,7 @@ class DeviceData(object):
                             devdetail['mountpoint'] = fs_mount_point
                             self._mountpoints.append(fs_mount_point)
                         else:
-                            _logger.critical('  Failed to mount %s'
+                            _logger.critical('   Failed to mount %s'
                                              % devname)
                             success = False
                     elif devdetail['ID_FS_TYPE'] in get_config_data(
@@ -618,7 +618,7 @@ class DeviceData(object):
                 # not quitting yet, trying to collect as much info a possible
                 # in this stage.
                 success = False
-                _logger.critical('  Failed to mount partition %s: %s'
+                _logger.critical('   Failed to mount partition %s: %s'
                                  % (devname, str(e)))
         #
         # loop through the volume group list, identify the logical volumes
@@ -651,7 +651,7 @@ class DeviceData(object):
                                 devdetail['mountpoint'] = fs_mount_point
                                 self._mountpoints.append(fs_mount_point)
                             else:
-                                _logger.critical('  Failed to mount %s'
+                                _logger.critical('   Failed to mount %s'
                                                  % partname)
                                 success = False
                         else:
@@ -660,7 +660,7 @@ class DeviceData(object):
                     self._img_info['partitions'][partname] = devdetail
                 except Exception as e:
                     success = False
-                    _logger.critical('  Failed to mount logical '
+                    _logger.critical('   Failed to mount logical '
                                      'volumes %s: %s' % (partname, str(e)))
         return success
 
@@ -831,7 +831,7 @@ class DeviceData(object):
                 self._img_info['rootmnt'][1])
             #
         except Exception as e:
-            _logger.critical('  Failed to collect os data: %s' % str(e),
+            _logger.critical('   Failed to collect os data: %s' % str(e),
                              exc_info=True)
             raise OciMigrateException('Failed to collect os data: %s' % str(e))
         return True
@@ -919,7 +919,7 @@ class DeviceData(object):
                             root_partition, root_mount_point = self.find_partition(line[0])
                             if (root_partition, root_mount_point) == (None, None):
                                 _logger.critical(
-                                    '  Failed to locate root partition %s.' %
+                                    '   Failed to locate root partition %s.' %
                                     line[0])
                                 raise OciMigrateException(
                                     'Failed to locate root partition %s.' %
@@ -950,7 +950,7 @@ class DeviceData(object):
                 else:
                     _logger.debug('fstab not found in %s' % etcdir)
         except Exception as e:
-            _logger.critical('  Error in partition identification: %s'
+            _logger.critical('   Error in partition identification: %s'
                              % str(e))
             raise OciMigrateException('Error in partition identification: %s'
                                       % str(e))
@@ -1365,7 +1365,7 @@ class DeviceData(object):
                                     % lv_x, result=True)
                             break
                 elif '/dev/' in line[0]:
-                    _logger.critical('  Device name %s in fstab are '
+                    _logger.critical('   Device name %s in fstab are '
                                      'not supported.' % line[0])
                 else:
                     part_pass = True

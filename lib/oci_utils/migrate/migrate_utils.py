@@ -375,10 +375,10 @@ def create_nbd():
         if migrate_tools.run_call_cmd(cmd) == 0:
             return True
         else:
-            _logger.critical('  Failed to execute %s' % cmd)
+            _logger.critical('   Failed to execute %s' % cmd)
             raise OciMigrateException('\nFailed to execute %s' % cmd)
     except Exception as e:
-        _logger.critical('  Failed: %s' % str(e))
+        _logger.critical('   Failed: %s' % str(e))
         return False
 
 
@@ -416,7 +416,7 @@ def get_free_nbd():
                     freedev = devname.rsplit('/')[-1]
                     return '/dev/' + freedev
     except Exception as e:
-        _logger.critical('  Failed to screen nbd devices: %s' % str(e))
+        _logger.critical('   Failed to screen nbd devices: %s' % str(e))
         raise OciMigrateException('\nFailed to locate a free nbd device, %s'
                                   % str(e))
 
@@ -550,12 +550,12 @@ def mount_imgfn(imgname):
             _logger.debug('qemu-nbd %s succeeded' % qemucmd)
             return devpath
         else:
-            _logger.critical('\n  Failed to create nbd devices: %d'
+            _logger.critical('\n   Failed to create nbd devices: %d'
                         % qemunbd_ret)
             raise Exception('Failed to create nbd devices: %d'
                             % qemunbd_ret)
     except Exception as e:
-        _logger.critical('\n  Something wrong with creating nbd devices: %s'
+        _logger.critical('\n   Something wrong with creating nbd devices: %s'
                          % str(e))
         raise OciMigrateException('Unable to create nbd devices: %s' % str(e))
     finally:
@@ -602,7 +602,7 @@ def unmount_imgfn(devname):
         else:
             _logger.debug('Successfully removed nbd module.')
     except Exception as e:
-        _logger.critical('  Something wrong with removing nbd devices: %s'
+        _logger.critical('   Something wrong with removing nbd devices: %s'
                          % str(e))
         raise OciMigrateException('\nSomething wrong with removing nbd '
                                   'devices: %s' % str(e))
@@ -635,7 +635,7 @@ def mount_partition(devname, mountpoint=None):
             if exec_mkdir(mntpoint):
                 _logger.debug('Mountpoint: %s created.' % mntpoint)
         except Exception as e:
-            _logger.critical('  Failed to create mountpoint %s: %s'
+            _logger.critical('   Failed to create mountpoint %s: %s'
                              % (mntpoint, str(e)))
             raise OciMigrateException('Failed to create mountpoint %s: %s'
                                       % (mntpoint, str(e)))
@@ -660,13 +660,13 @@ def mount_partition(devname, mountpoint=None):
     except Exception as e:
         #
         # mount failed, need to remove mountpoint.
-        _logger.critical('  Failed to mount %s, missing driver, filesystem '
+        _logger.critical('   Failed to mount %s, missing driver, filesystem '
                          'corruption...: %s' % (devname, str(e)))
         if mountpoint is None:
             if exec_rmdir(mntpoint):
                 _logger.debug('%s removed' % mntpoint)
             else:
-                _logger.critical('  Failed to remove mountpoint %s' % mntpoint)
+                _logger.critical('   Failed to remove mountpoint %s' % mntpoint)
     finally:
         if migrate_tools.isthreadrunning(mountpart):
             mountpart.stop()
@@ -691,7 +691,7 @@ def find_os_specific(ostag):
     package_name = module_home
     pkg = __import__(package_name)
     path = os.path.dirname(sys.modules.get(package_name).__file__)
-    thismodule = os.path.splitext(
+    current_module = os.path.splitext(
         os.path.basename(sys.modules[__name__].__file__))[0]
     _logger.debug('Path: %s' % path)
     _logger.debug('ostag: %s' % ostag)
@@ -702,10 +702,10 @@ def find_os_specific(ostag):
             # find os_type_tag in files, contains a comma separted list of
             # supported os id's
             _logger.debug('module_name: %s' % module_name)
-            if module_name != thismodule:
-                modulefile = path + '/' + module_name + '.py'
-                if os.path.isfile(modulefile):
-                    with open(modulefile, 'r') as f:
+            if module_name != current_module:
+                module_file = path + '/' + module_name + '.py'
+                if os.path.isfile(module_file):
+                    with open(module_file, 'r') as f:
                         for fline in f:
                             if '_os_type_tag_csl_tag_type_os_' in fline.strip():
                                 _logger.debug('Found os_type_tag in %s.'
@@ -721,7 +721,7 @@ def find_os_specific(ostag):
                 else:
                     _logger.debug('No file found for module %s' % module_name)
     except Exception as e:
-        _logger.critical('  Failed to locate the OS type specific module: %s'
+        _logger.critical('   Failed to locate the OS type specific module: %s'
                          % str(e))
     return module
 
@@ -758,7 +758,7 @@ def mount_pseudo(rootdir):
                 raise Exception('%s Failed: %d' % (cmd, cmdret))
             pseudomounts.append(cmd_par[3])
         except Exception as e:
-            _logger.critical('  Failed to %s: %s' % (cmd, str(e)))
+            _logger.critical('   Failed to %s: %s' % (cmd, str(e)))
             raise OciMigrateException('Failed to %s: %s' % (cmd, str(e)))
     return pseudomounts
 
@@ -883,7 +883,7 @@ def exec_pvscan(devname=None):
     except Exception as e:
         #
         # pvscan failed
-        _logger.critical('  Failed to scan %s for physical volumes: %s'
+        _logger.critical('   Failed to scan %s for physical volumes: %s'
                          % (devname, str(e)))
         raise OciMigrateException('Failed to scan %s for physical '
                                   'volumes: %s' % (devname, str(e)))
@@ -907,7 +907,7 @@ def exec_vgscan():
     except Exception as e:
         #
         # vgscan failed
-        _logger.critical('  Failed to scan for volume groups: %s' % str(e))
+        _logger.critical('   Failed to scan for volume groups: %s' % str(e))
         raise OciMigrateException('Failed to scan for volume groups: %s'
                                   % str(e))
 
@@ -950,7 +950,7 @@ def exec_lvscan():
     except Exception as e:
         #
         # vgscan failed
-        _logger.critical('  Failed to scan for logical volumes: %s' % str(e))
+        _logger.critical('   Failed to scan for logical volumes: %s' % str(e))
         raise OciMigrateException('Failed to scan for logical volume: %s'
                                   % str(e))
 
@@ -976,7 +976,7 @@ def exec_vgchange(changecmd):
         _logger.debug('vgchange result: %s' % output)
         return output
     except Exception as e:
-        _logger.critical('  Failed to execute %s: %s' % (cmd, str(e)))
+        _logger.critical('   Failed to execute %s: %s' % (cmd, str(e)))
         raise OciMigrateException('Failed to execute %s: %s' % (cmd, str(e)))
 
 
@@ -1006,7 +1006,7 @@ def mount_lvm2(devname):
         if exec_pvscan(devname):
             _logger.debug('pvscan %s succeeded' % devname)
         else:
-            _logger.critical('  pvscan %s failed' % devname)
+            _logger.critical('   pvscan %s failed' % devname)
         #
         pause_msg('pvscan test')
         #
@@ -1014,7 +1014,7 @@ def mount_lvm2(devname):
         if exec_vgscan():
             _logger.debug('vgscan succeeded')
         else:
-            _logger.critical('  vgscan failed')
+            _logger.critical('   vgscan failed')
         #
         pause_msg('vgscan test')
         #
@@ -1023,7 +1023,7 @@ def mount_lvm2(devname):
         if vgs is not None:
             _logger.debug('lvscan succeeded: %s' % vgs)
         else:
-            _logger.critical('  lvscan failed')
+            _logger.critical('   lvscan failed')
         #
         pause_msg('lvscan test')
         #
@@ -1048,10 +1048,10 @@ def mount_lvm2(devname):
             # for the sake of testing
             pause_msg('vgchangeres test')
         else:
-            _logger.critical('  vgchange failed')
+            _logger.critical('   vgchange failed')
         return vgs
     except Exception as e:
-        _logger.critical('  Mount lvm %s failed: %s' % (devname, str(e)))
+        _logger.critical('   Mount lvm %s failed: %s' % (devname, str(e)))
         raise OciMigrateException('Mount lvm %s failed: %s' % (devname, str(e)))
     finally:
         if migrate_tools.isthreadrunning(mountwait):
@@ -1232,7 +1232,7 @@ def upload_image(imgname, bucket_name, ociname):
         _logger.debug('Successfully uploaded %s to %s as %s: %s.'
                      % (imgname, bucket_name, ociname, uploadresult))
     except Exception as e:
-        _logger.critical('  Failed to upload %s to object storage %s as %s: %s.'
+        _logger.critical('   Failed to upload %s to object storage %s as %s: %s.'
                          % (imgname, bucket_name, ociname, str(e)))
         raise OciMigrateException('Failed to upload %s to object storage %s '
                                   'as %s: %s.'
@@ -1302,17 +1302,17 @@ def unmount_part(devname):
                 _logger.debug('%s removed' % mntpoint)
                 return True
             else:
-                _logger.critical('  Failed to remove mountpoint %s' % mntpoint)
+                _logger.critical('   Failed to remove mountpoint %s' % mntpoint)
                 raise OciMigrateException('Failed to remove mountpoint %s'
                                           % mntpoint)
         else:
-            _logger.critical('  Failed to unmount %s: %d' % (devname, cmdret))
+            _logger.critical('   Failed to unmount %s: %d' % (devname, cmdret))
             console_msg('Failed to unmount %s, error code %d.\n '
                         'Please verify before continuing.'
                         % (devname, cmdret))
             read_yn('Continue?')
     except Exception as e:
-        _logger.critical('  Failed to unmount %s: %s' % (devname, str(e)))
+        _logger.critical('   Failed to unmount %s: %s' % (devname, str(e)))
     return False
 
 

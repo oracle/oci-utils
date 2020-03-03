@@ -48,7 +48,7 @@ def exec_apt(cmd):
         _logger.debug('apt command output: %s' % str(output))
         return output
     except Exception as e:
-        _logger.critical('  Failed to execute apt: %s' % str(e))
+        _logger.critical('   Failed to execute apt: %s' % str(e))
         raise OciMigrateException('\nFailed to execute apt: %s' % str(e))
 
 
@@ -94,7 +94,7 @@ def install_cloud_init(*args):
         else:
             _logger.error('  Failed to restore nameserver info.')
     except Exception as e:
-        _logger.critical('  Failed to install the cloud-init package:\n%s' % str(e))
+        _logger.critical('   Failed to install the cloud-init package:\n%s' % str(e))
         migrate_tools.error_msg('Failed to install the cloud-init package:\n%s' % str(e))
         migrate_tools.migrate_non_upload_reason += \
             '\n Failed to install the cloud-init package: %s' % str(e)
