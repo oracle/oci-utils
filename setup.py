@@ -335,7 +335,7 @@ class sync_rpm(create_rpm):
 
 setup(
     name="oci-utils",
-    version="0.10.2",
+    version="0.11.0",
     author="Laszlo Peter, Qing Lin, Guido Tijskens, Emmanuel Jannetti",
     author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com, emmanuel.jannetti@oracle.com",
     description="Oracle Cloud Infrastructure utilities",
@@ -345,7 +345,7 @@ setup(
     url="http://github.com/oracle/oci-utils/",
     package_dir={'': 'lib'},
     packages=find_packages('lib'),
-    setup_requires=[],
+    setup_requires=["flake8"],
     long_description=read('README'),
     test_suite="tests",
     data_files=[(os.path.join(sys.prefix, 'libexec'),
@@ -359,8 +359,8 @@ setup(
                   'libexec/oci-kvm-config.sh',
                   'libexec/oci-kvm-network-script'
                   ]),
-                ("/etc/systemd/system",
-                 ['data/ocid.service', 'data/oci-kvm-config.service']),
+                 ("/etc/systemd/system",
+                 ['data/ocid.service', 'data/oci-kvm-config.service', 'data/oci-migrate-conf.yaml']),
                 ("/etc/oci-utils",
                  ['data/oci-image-cleanup.conf',
                   ]),
@@ -377,6 +377,8 @@ setup(
                   'man/man1/oci-iscsi-config.1',
                   'man/man1/oci-network-config.1',
                   'man/man1/oci-kvm.1',
+                  'man/man1/oci-image-migrate.1',
+                  'man/man1/oci-image-migrate-import.1',
                   ]),
                 (os.path.join(sys.prefix, "share", "man", "man5"),
                  ['man/man5/oci-utils.conf.d.5',
@@ -401,6 +403,8 @@ setup(
              'bin/oci-network-config',
              'bin/oci-network-inspector',
              'bin/oci-kvm',
+             'bin/oci-image-migrate',
+             'bin/oci-image-migrate-import',
              ],
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -415,10 +419,4 @@ setup(
         'Topic :: System :: Systems Administration',
         'Topic :: Utilities',
         'License :: OSI Approved :: Universal Permissive License (UPL)'],
-    cmdclass={'create_rpm': create_rpm,
-              'sync_rpm': sync_rpm,
-              'print_rcmds': print_recorded_commands,
-              'oci_tests': oci_tests,
-              'oci_validation_tests': oci_validation_tests
-              }
-)
+    cmdclass={'create_rpm': create_rpm, 'sync_rpm': sync_rpm})

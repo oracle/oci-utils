@@ -4,7 +4,10 @@ After=iscsid.service
 
 [Service]
 Type=notify
-ExecStart=/usr/libexec/ocid
+NotifyAccess=all
+ExecStart=/usr/libexec/ocid  --no-daemon
+ExecStop=/usr/libexec/ocid --stop-all
+TimeoutStopSec=5
 PIDFile=/var/run/ocid.pid
 Restart=always
 StandardOutput=syslog
