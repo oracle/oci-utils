@@ -77,7 +77,7 @@ def result_msg(msg, flags='a', result=False):
         _logger.error('   Failed to write to %s: %s' % (resultfilename, str(e)))
     if result:
         if msg is not None:
-            print('  %s' % msg)
+            print(('  %s' % msg))
         else:
             print('  Just mentioning I am here.')
 

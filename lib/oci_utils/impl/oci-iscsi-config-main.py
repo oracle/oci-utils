@@ -109,13 +109,13 @@ def ask_yes_no(question):
             True for yes, False for no.
     """
     while True:
-        print question
-        ans = raw_input().lower()
+        print(question)
+        ans = input().lower()
         if ans in ['y', 'yes']:
             return True
         if ans in ['n', 'no']:
             return False
-        print "Invalid answer, please answer with yes or no"
+        print("Invalid answer, please answer with yes or no")
 
 
 def get_instance_ocid():
@@ -223,73 +223,73 @@ def display_current_devices(oci_sess, session, disks):
     -------
        No return value.
     """
-    print "Currently attached iSCSI devices:"
+    print("Currently attached iSCSI devices:")
     oci_vols = []
     if oci_sess is not None and oci_sdk_error is None:
         oci_vols = oci_sess.this_instance().all_volumes()
 
     if session:
-        for iqn in session.keys():
+        for iqn in list(session.keys()):
             oci_vol = None
             for vol in oci_vols:
                 if vol.get_iqn() == iqn:
                     oci_vol = vol
                     break
 
-            print
-            print "Target %s" % iqn
+            print()
+            print("Target %s" % iqn)
             if oci_vol is not None:
-                print "         Volume name:    %s" \
-                      % oci_vol.get_display_name()
-                print "         Volume OCID:    %s" \
-                      % oci_vol.get_ocid()
+                print("         Volume name:    %s" \
+                      % oci_vol.get_display_name())
+                print("         Volume OCID:    %s" \
+                      % oci_vol.get_ocid())
 
-            print "   Persistent portal:    %s:%s" % \
+            print("   Persistent portal:    %s:%s" % \
                   (session[iqn]['persistent_portal_ip'],
-                   session[iqn]['persistent_portal_port'])
-            print "      Current portal:    %s:%s" % \
+                   session[iqn]['persistent_portal_port']))
+            print("      Current portal:    %s:%s" % \
                   (session[iqn]['current_portal_ip'],
-                   session[iqn]['current_portal_port'])
+                   session[iqn]['current_portal_port']))
             if 'session_state' in session[iqn]:
-                print "               State:    %s" % \
-                      session[iqn]['session_state']
+                print("               State:    %s" % \
+                      session[iqn]['session_state'])
             if 'device' not in session[iqn]:
-                print
+                print()
                 continue
             device = session[iqn]['device']
-            print "     Attached device:    %s" % device
+            print("     Attached device:    %s" % device)
             if device in disks:
-                print "                Size:    %s" % disks[device]['size']
+                print("                Size:    %s" % disks[device]['size'])
                 if 'partitions' not in disks[device]:
-                    print "    File system type:    %s" % \
-                          nvl(disks[device]['fstype'])
-                    print "          Mountpoint:    %s" % \
-                          nvl(disks[device]['mountpoint'], "Not mounted")
+                    print("    File system type:    %s" % \
+                          nvl(disks[device]['fstype']))
+                    print("          Mountpoint:    %s" % \
+                          nvl(disks[device]['mountpoint'], "Not mounted"))
                 else:
-                    print "          Partitions:    " \
+                    print("          Partitions:    " \
                           "Device  %6s  %10s   Mountpoint" % \
-                          ("Size", "Filesystem")
+                          ("Size", "Filesystem"))
                     partitions = disks[device]['partitions']
-                    plist = partitions.keys()
+                    plist = list(partitions.keys())
                     plist.sort()
                     for part in plist:
-                        print "                         %s  %8s  %10s   %s" % \
+                        print("                         %s  %8s  %10s   %s" % \
                               (part, partitions[part]['size'],
                                nvl(partitions[part]['fstype'], "Unknown fs"),
                                nvl(partitions[part]['mountpoint'],
-                                   "Not mounted"))
+                                   "Not mounted")))
     else:
-        print "Error: Local iSCSI info not available. "
-        print "List info from Cloud instead(No boot volume)."
-        print ""
+        print("Error: Local iSCSI info not available. ")
+        print("List info from Cloud instead(No boot volume).")
+        print("")
         for oci_vol in oci_vols:
-            print "Target %s" % oci_vol.get_iqn()
-            print "         Volume name:    %s" % oci_vol.get_display_name()
-            print "         Volume OCID:    %s" % oci_vol.get_ocid()
-            print "         Volume size:    %s" % \
-                  oci_vol.get_size(format=oci_vol.HUMAN)
+            print("Target %s" % oci_vol.get_iqn())
+            print("         Volume name:    %s" % oci_vol.get_display_name())
+            print("         Volume OCID:    %s" % oci_vol.get_ocid())
+            print("         Volume size:    %s" % \
+                  oci_vol.get_size(format=oci_vol.HUMAN))
 
-    print
+    print()
 
 
 # TODO : developer of this method should add documentation
@@ -310,13 +310,13 @@ def display_attach_failed_device(iqn, targets, attach_failed):
     -------
         No return value.
     """
-    print
-    print "Target %s" % iqn
-    for ipaddr in targets.keys():
+    print()
+    print("Target %s" % iqn)
+    for ipaddr in list(targets.keys()):
         if iqn in targets[ipaddr]:
-            print "              Portal:    %s:%s" % (ipaddr, 3260)
-            print "               State:    %s" % \
-                  iscsiadm.error_message_from_code(attach_failed[iqn])
+            print("              Portal:    %s:%s" % (ipaddr, 3260))
+            print("               State:    %s" % \
+                  iscsiadm.error_message_from_code(attach_failed[iqn]))
 
 
 # TODO : developer of this method should add documentation
@@ -335,16 +335,16 @@ def display_detached_device(iqn, targets):
     -------
         No return value.
     """
-    print
-    print "Target %s" % iqn
+    print()
+    print("Target %s" % iqn)
     if targets:
-        for ipaddr in targets.keys():
+        for ipaddr in list(targets.keys()):
             if iqn in targets[ipaddr]:
-                print "              Portal:    %s:%s" % (ipaddr, 3260)
+                print("              Portal:    %s:%s" % (ipaddr, 3260))
     else:
-        print "              Portal:    unknown (need ocid to determine)"
+        print("              Portal:    unknown (need ocid to determine)")
 
-    print "               State:    Detached"
+    print("               State:    Detached")
 
 
 def do_attach(oci_sess, iqn, targets, user=None, passwd=None):
@@ -376,21 +376,21 @@ def do_attach(oci_sess, iqn, targets, user=None, passwd=None):
             passwd = oci_vols[0].get_password()
     portal_ip = None
     if targets is None:
-        print "ocid must be running to determine the portal IP address " \
-              "for this device"
+        print("ocid must be running to determine the portal IP address " \
+              "for this device")
         return 99
-    for ipaddr in targets.keys():
+    for ipaddr in list(targets.keys()):
         if iqn in targets[ipaddr]:
             portal_ip = ipaddr
     if portal_ip is None:
         # this shouldn't really happen, but just in case
-        print "Can't find portal IP address"
+        print("Can't find portal IP address")
         return 99
     retval = iscsiadm.attach(portal_ip, 3260, iqn,
                              user, passwd,
                              auto_startup=True)
-    print "Result: %s" \
-          % iscsiadm.error_message_from_code(retval)
+    print("Result: %s" \
+          % iscsiadm.error_message_from_code(retval))
     return retval
 
 
@@ -522,17 +522,17 @@ def api_display_available_devices(sess, args):
                              "this instance not found\n")
 
     if len(vols) == 0:
-        print "No additional storage volumes found."
+        print("No additional storage volumes found.")
         return
 
-    print "Other available storage volumes:"
-    print
+    print("Other available storage volumes:")
+    print()
 
     for vol in vols:
         if vol.is_attached() and not args.all:
             continue
-        print "Volume %s" % vol.get_display_name()
-        print "   OCID:        %s" % vol.get_ocid()
+        print("Volume %s" % vol.get_display_name())
+        print("   OCID:        %s" % vol.get_ocid())
         if vol.is_attached():
             if vol.get_instance().get_ocid() \
                     == sess.this_instance().get_ocid():
@@ -541,12 +541,12 @@ def api_display_available_devices(sess, args):
                 instance = "instance %s (%s)" % \
                            (vol.get_instance().get_display_name(),
                             vol.get_instance().get_public_ip())
-            print "   attached to: %s" % instance
+            print("   attached to: %s" % instance)
         else:
-            print "   attached to: (not attached)"
-        print "   size:        %s" % \
-              vol.get_size(format_str=OCI_VOLUME_SIZE_FMT.HUMAN.name)
-        print
+            print("   attached to: (not attached)")
+        print("   size:        %s" % \
+              vol.get_size(format_str=OCI_VOLUME_SIZE_FMT.HUMAN.name))
+        print()
 
 
 def do_attach_ocid(sess, ocid):
@@ -582,8 +582,8 @@ def do_attach_ocid(sess, ocid):
     if vol.is_attached():
         if vol.get_instance().get_ocid() == sess.this_instance().get_ocid():
             # attached to this instance already
-            print "Volume %s already attached to this instance." % \
-                  ocid
+            print("Volume %s already attached to this instance." % \
+                  ocid)
             return True
         else:
             _logger.error("Volume %s\nis currently attached to "
@@ -591,7 +591,7 @@ def do_attach_ocid(sess, ocid):
                              % (ocid, vol.get_instance().get_display_name(),
                                 vol.get_instance().get_public_ip()))
             return False
-    print "Attaching OCI Volume to this instance."
+    print("Attaching OCI Volume to this instance.")
     vol = vol.attach_to(instance_id=sess.this_instance().get_ocid(), wait=True)
 
     if _user_euid != 0:
@@ -605,15 +605,15 @@ def do_attach_ocid(sess, ocid):
             return True
 
     # attach using iscsiadm commands
-    print "Attaching iSCSI device"
+    print("Attaching iSCSI device")
     retval = iscsiadm.attach(ipaddr=vol.get_portal_ip(),
                              port=vol.get_portal_port(),
                              iqn=vol.get_iqn(),
                              username=vol.get_user(),
                              password=vol.get_password(),
                              auto_startup=True)
-    print "Result: %s" \
-          % iscsiadm.error_message_from_code(retval)
+    print("Result: %s" \
+          % iscsiadm.error_message_from_code(retval))
     if retval == 0:
         return True
 
@@ -645,7 +645,7 @@ def api_detach(sess, iqn):
     for v in sess.this_instance().all_volumes():
         if v.get_iqn() == iqn:
             try:
-                print "Detaching volume"
+                print("Detaching volume")
                 v.detach()
                 return True
             except OCISDKError as e:
@@ -673,7 +673,7 @@ def do_umount(mountpoint, warn=True):
             True on success, False otherwise.
     """
     try:
-        print "Unmounting %s" % mountpoint
+        print("Unmounting %s" % mountpoint)
         subprocess.check_output(['/usr/bin/umount',
                                  mountpoint], stderr=subprocess.STDOUT)
         return True
@@ -717,7 +717,7 @@ def unmount_device(session, iqn, disks):
                 retval = False
     else:
         partitions = disks[device]['partitions']
-        for part in partitions.keys():
+        for part in list(partitions.keys()):
             if partitions[part]['mountpoint'] != '':
                 # the partition is mounted
                 if not do_umount(partitions[part]['mountpoint'], warn=retval):
@@ -762,7 +762,7 @@ def do_create_volume(sess, size, display_name, use_chap=False):
     # vol = None
     # inst = None
     try:
-        print "Creating a new %d GB volume" % size
+        print("Creating a new %d GB volume" % size)
         inst = sess.this_instance()
         if inst is None:
             _logger.error("OCI SDK error: couldn't get instance info.")
@@ -775,23 +775,23 @@ def do_create_volume(sess, size, display_name, use_chap=False):
         _logger.error("Failed to create volume: %s" % e)
         return False
 
-    print "Volume %s created" % vol.get_display_name()
+    print("Volume %s created" % vol.get_display_name())
 
     # attach using iscsiadm commands
     state = vol.get_attachment_state()
     if OCI_ATTACHMENT_STATE[state] in (
             OCI_ATTACHMENT_STATE.ATTACHED, OCI_ATTACHMENT_STATE.ATTACHING):
-        print "Volume %s is %s" % (vol.get_display_name(), state)
+        print("Volume %s is %s" % (vol.get_display_name(), state))
         return True
 
-    print "Attaching iSCSI device"
+    print("Attaching iSCSI device")
     retval = iscsiadm.attach(ipaddr=vol.get_portal_ip(),
                              port=vol.get_portal_port(),
                              iqn=vol.get_iqn(),
                              username=vol.get_user(),
                              password=vol.get_password(),
                              auto_startup=True)
-    print "Result: %s" % iscsiadm.error_message_from_code(retval)
+    print("Result: %s" % iscsiadm.error_message_from_code(retval))
     if retval == 0:
         return True
 
@@ -938,7 +938,7 @@ def main():
         retval = do_destroy_volume(oci_sess, args.destroy_volume,
                                    args.interactive)
         if retval == 0:
-            print "Volume %s is destroyed." % args.destroy_volume
+            print("Volume %s is destroyed." % args.destroy_volume)
         return retval
 
     elif args.detach_iqns:
@@ -1027,7 +1027,7 @@ def main():
                 continue
 
             if iqn in session:
-                print "Target %s is already attached." % iqn
+                print("Target %s is already attached." % iqn)
                 continue
             if iqn not in detached and iqn not in attach_failed:
                 _logger.error("Target %s not found\n" % iqn)
@@ -1064,8 +1064,8 @@ def main():
         return retval
 
     if detached:
-        print
-        print "Detached devices:"
+        print()
+        print("Detached devices:")
 
         do_refresh = False
         write_ignore_file = False
@@ -1073,8 +1073,8 @@ def main():
             display_detached_device(iqn, targets)
             if args.interactive:
                 if _user_euid != 0:
-                    print "You must run this program with root privileges " \
-                          "to attach iSCSI devices.\n"
+                    print("You must run this program with root privileges " \
+                          "to attach iSCSI devices.\n")
                     ans = False
                 else:
                     ans = ask_yes_no("Would you like to attach this device?")
@@ -1094,15 +1094,15 @@ def main():
             ocid_refresh(debug=args.debug)
 
     if attach_failed:
-        print
-        print "Devices that could not be attached automatically:"
+        print()
+        print("Devices that could not be attached automatically:")
 
         auth_errors = 0
-        for iqn in attach_failed.keys():
+        for iqn in list(attach_failed.keys()):
             if attach_failed[iqn] == 24:
                 auth_errors += 1
 
-        for iqn in attach_failed.keys():
+        for iqn in list(attach_failed.keys()):
             display_attach_failed_device(iqn, targets, attach_failed)
             do_refresh = False
             if args.interactive:
@@ -1111,8 +1111,8 @@ def main():
                     ans = True
                     while ans:
                         if _user_euid != 0:
-                            print "You must run this program with root  " \
-                                  "privileges to attach iSCSI devices.\n"
+                            print("You must run this program with root  " \
+                                  "privileges to attach iSCSI devices.\n")
                             ans = False
                         else:
                             ans = ask_yes_no("Would you like to retry "
@@ -1127,8 +1127,8 @@ def main():
                 else:
                     # authentication error
                     if _user_euid != 0:
-                        print "You must run this program with root " \
-                              "privileges to configure iSCSI devices.\n"
+                        print("You must run this program with root " \
+                              "privileges to configure iSCSI devices.\n")
                         ans = False
                     else:
                         ans = ask_yes_no("Would you like to configure this "
@@ -1145,25 +1145,25 @@ def main():
                                 retval = do_attach(oci_sess, iqn, targets,
                                                    user, passwd)
                         if retval == 0:
-                            print "Device configured automatically."
+                            print("Device configured automatically.")
                             do_refresh = True
                         else:
                             myocid = get_instance_ocid()
                             while ans:
-                                print "To find the CHAP username and " \
-                                      "password for this device, go to"
-                                print "https://console.us-phoenix-1." \
+                                print("To find the CHAP username and " \
+                                      "password for this device, go to")
+                                print("https://console.us-phoenix-1." \
                                       "oraclecloud.com/#/a/compute/instances" \
                                       "/%s/disks?jt=listing" % \
-                                      myocid
-                                print "Select the Block Volume, then click " \
+                                      myocid)
+                                print("Select the Block Volume, then click " \
                                       "the \"iSCSI Commands & Information\" " \
-                                      "button."
-                                print "CHAP username:"
-                                user = raw_input()
-                                print "CHAP password:"
-                                passwd = raw_input()
-                                print "Attaching iSCSI device..."
+                                      "button.")
+                                print("CHAP username:")
+                                user = input()
+                                print("CHAP password:")
+                                passwd = input()
+                                print("Attaching iSCSI device...")
                                 retval = do_attach(oci_sess, iqn, targets,
                                                    user, passwd)
                                 if retval != 0:
@@ -1175,13 +1175,13 @@ def main():
         if do_refresh:
             ocid_refresh(debug=args.debug)
         if not args.interactive and auth_errors:
-            print
-            print "Use the -i or --interactive mode to configure " \
-                  "devices that require authentication information"
+            print()
+            print("Use the -i or --interactive mode to configure " \
+                  "devices that require authentication information")
 
     if not args.show and not attach_failed and not detached:
-        print "All known devices are attached."
-        print "Use the -s or --show option for details."
+        print("All known devices are attached.")
+        print("Use the -s or --show option for details.")
 
     return 0
 

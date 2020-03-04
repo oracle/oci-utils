@@ -10,8 +10,8 @@ import os.path
 
 import enum
 
-from impl import read_config as read_configuration
-from impl import setup_logging as _setup_logging
+from .impl import read_config as read_configuration
+from .impl import setup_logging as _setup_logging
 
 # file with a list IQNs to ignore
 __ignore_file = "/var/lib/oci-utils/ignore_iqns"

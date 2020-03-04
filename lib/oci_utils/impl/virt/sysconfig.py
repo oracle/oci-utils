@@ -159,7 +159,7 @@ def build_env_file(conf):
         str
             The key=val strings.
     """
-    return "\n".join(['{}={}'.format(k, v) for k, v in conf.iteritems()])
+    return "\n".join(['{}={}'.format(k, v) for k, v in conf.items()])
 
 
 def write_network_file(path, conf):
@@ -211,7 +211,7 @@ def write_directory_files(path, conf, writer, fmt=None):
         def fmt(x):
             return x
     try:
-        for name, data in conf.iteritems():
+        for name, data in conf.items():
             f = '{}/{}'.format(path, fmt(name))
             writer(f, data)
     except Exception as e:

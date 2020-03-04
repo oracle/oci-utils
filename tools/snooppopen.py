@@ -2,8 +2,8 @@
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
-from execution.store import getCommandStore
-from execution.command import Command
+from .execution.store import getCommandStore
+from .execution.command import Command
 import subprocess
 
 import logging
@@ -104,7 +104,7 @@ class RecordPopen(subprocess._Popen):
         _exc = None
         try:
             subprocess._Popen.__init__(self, args, **kwargs)
-        except OSError, e:
+        except OSError as e:
             _exc = e
 
         self.command = Command(args)
@@ -149,4 +149,4 @@ class RecordPopen(subprocess._Popen):
 
     def _record(self):
         _ret = getCommandStore().store(self.command)
-        print _ret
+        print(_ret)

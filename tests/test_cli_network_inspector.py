@@ -41,7 +41,7 @@ class TestCliOciNetworkInspector(OciTestCase):
         try:
             _ = subprocess.check_output([
                 self.oci_net_inspector, '--help'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_display_info(self):
@@ -55,5 +55,5 @@ class TestCliOciNetworkInspector(OciTestCase):
         try:
             _ = subprocess.check_output([
                 self.oci_net_inspector])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))

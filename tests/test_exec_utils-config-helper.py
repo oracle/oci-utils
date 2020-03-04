@@ -44,5 +44,5 @@ class TestExecConfigHelper(OciTestCase):
         try:
             _ = subprocess.check_output(
                 [sys.executable, TestExecConfigHelper.OCI_UTILS_CONFIG_HELPER, '--help'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))

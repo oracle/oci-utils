@@ -21,10 +21,10 @@ class Storable(object):
         xml.etree.ElementTree.Element
             this as XML element
         """
-        raise StandardError('subclass must implement this')
+        raise Exception('subclass must implement this')
 
     def getKey(self):
         """
         Return the unique identifier of this instance
         """
-        raise StandardError('subclass must implement this')
+        raise Exception('subclass must implement this')

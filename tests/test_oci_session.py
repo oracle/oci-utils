@@ -107,7 +107,7 @@ class TestOCISession(OciTestCase):
             No return value.
         """
         # invalid config file -> should fail
-        with self.assertRaisesRegexp(OCISDKError, 'Failed to authenticate'):
+        with self.assertRaisesRegex(OCISDKError, 'Failed to authenticate'):
             s = oci_utils.oci_api.OCISession(
                 config_file='/dev/null',
                 auth_method=oci_utils.oci_api.DIRECT)

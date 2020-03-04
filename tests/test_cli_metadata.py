@@ -43,7 +43,7 @@ class TestCliOciMetadata(OciTestCase):
         try:
             _ = subprocess.check_output([self.oci_metadata_path,
                                          '--help'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_human_readable(self):
@@ -57,7 +57,7 @@ class TestCliOciMetadata(OciTestCase):
         try:
             _ = subprocess.check_output([self.oci_metadata_path,
                                          '--human-readable'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_display_json(self):
@@ -71,7 +71,7 @@ class TestCliOciMetadata(OciTestCase):
         try:
             _ = subprocess.check_output([self.oci_metadata_path,
                                          '--json'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_get_metadata(self):
@@ -85,7 +85,7 @@ class TestCliOciMetadata(OciTestCase):
         try:
             _ = subprocess.check_output([self.oci_metadata_path,
                                          '--get', 'instance'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_get_metadata_only_values(self):
@@ -99,7 +99,7 @@ class TestCliOciMetadata(OciTestCase):
         try:
             _ = subprocess.check_output([self.oci_metadata_path,
                                          '--get', 'instance', '--value-only'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_get_all_vnics(self):
@@ -113,5 +113,5 @@ class TestCliOciMetadata(OciTestCase):
         try:
             _ = subprocess.check_output([self.oci_metadata_path,
                                          '--get', 'vnics', '--value-only', '--trim'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))

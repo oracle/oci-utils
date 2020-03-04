@@ -42,7 +42,7 @@ class TestCliOciIscsiConfig(OciTestCase):
         try:
             _ = subprocess.check_output([self.iscsi_config_path,
                                          '--help'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_show_no_check(self):
@@ -56,7 +56,7 @@ class TestCliOciIscsiConfig(OciTestCase):
         try:
             _ = subprocess.check_output([self.iscsi_config_path,
                                          '--show'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_show_all_no_check(self):
@@ -70,5 +70,5 @@ class TestCliOciIscsiConfig(OciTestCase):
         try:
             _ = subprocess.check_output([self.iscsi_config_path,
                                          '--show', '--all'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))

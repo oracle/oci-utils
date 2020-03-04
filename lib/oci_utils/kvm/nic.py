@@ -88,7 +88,7 @@ def get_interfaces():
 
     # Populate any potentially invalid mac addresses with
     # the correct data
-    for n, info in ret.iteritems():
+    for n, info in ret.items():
         if not info['physical']:
             continue
 
@@ -96,7 +96,7 @@ def get_interfaces():
         if virt_fns is None:
             continue
 
-        for k, v in virt_fns.iteritems():
+        for k, v in virt_fns.items():
             try:
                 v['mac'] = ret[pci_id_to_iface[v['pci_id']]]['mac']
             except Exception:

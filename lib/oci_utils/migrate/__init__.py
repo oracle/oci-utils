@@ -184,7 +184,7 @@ def get_config_data(key):
     """
     try:
         with OciMigrateConfParam(_oci_migrate_conf_file, key) as config:
-            return config.values()
+            return list(config.values())
     except Exception as e:
         raise OciMigrateException(
             'Failed to get data for %s: %s' % (key, str(e)))

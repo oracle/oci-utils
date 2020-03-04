@@ -41,5 +41,5 @@ class TestCliKvm(OciTestCase):
         """
         try:
             _ = subprocess.check_output([self.oci_kvm_path, '--help'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
