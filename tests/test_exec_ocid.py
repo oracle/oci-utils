@@ -39,5 +39,5 @@ class TestExecOcid(OciTestCase):
         """
         try:
             _ = subprocess.check_output([self.ocid, '--help'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))

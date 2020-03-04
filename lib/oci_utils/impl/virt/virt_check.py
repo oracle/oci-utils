@@ -245,7 +245,7 @@ def validate_block_device(dev_orig):
         _print_available_block_devices(unused_devices)
         return False
 
-    for domain, disks in domain_disks.iteritems():
+    for domain, disks in domain_disks.items():
         if dev in disks:
             print_error("{} is in use by \"{}\"", dev_orig, domain)
             _print_available_block_devices(unused_devices)

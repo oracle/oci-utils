@@ -1350,7 +1350,7 @@ def show_image_data(imgobj):
         migrate_tools.result_msg(msg='  %30s' % k, result=True)
 
     _logger.debug('show data')
-    print('\n  %25s\n  %s' % ('Image data:', '-'*60))
+    print(('\n  %25s\n  %s' % ('Image data:', '-'*60)))
     #
     # name
     fnname = '  missing'

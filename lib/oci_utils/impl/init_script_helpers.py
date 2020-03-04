@@ -5,7 +5,7 @@
 # at http://oss.oracle.com/licenses/upl.
 
 import os.path
-import sudo_utils
+from . import sudo_utils
 
 import logging
 
@@ -36,7 +36,7 @@ class ServiceManager(object):
         raise
           StandardError if start has failed
         """
-        raise StandardError('not implemented')
+        raise Exception('not implemented')
 
     def stop(self):
         """
@@ -44,13 +44,13 @@ class ServiceManager(object):
         raise
           StandardError if stop has failed
         """
-        raise StandardError('not implemented')
+        raise Exception('not implemented')
 
     def remove(self):
         """
         removes the init script from the system
         """
-        raise StandardError('not implemented')
+        raise Exception('not implemented')
 
 
 class SystemdServiceManager(ServiceManager):
@@ -60,15 +60,15 @@ class SystemdServiceManager(ServiceManager):
 
     def start(self):
         if sudo_utils.call([SYSTEMCTL_CMD, 'enable', '--now', self.name]):
-            raise StandardError('start of systend unit has failed')
+            raise Exception('start of systend unit has failed')
 
     def stop(self):
         if sudo_utils.call([SYSTEMCTL_CMD, 'disable', '--now', self.name]):
-            raise StandardError('stop of systend unit has failed')
+            raise Exception('stop of systend unit has failed')
 
     def remove(self):
         if sudo_utils.call([SYSTEMCTL_CMD, 'disable', '--now', self.name]):
-            raise StandardError('stop of systend unit has failed')
+            raise Exception('stop of systend unit has failed')
         sudo_utils.delete_file('/etc/systemd/system/%s.service' % self.name)
 
 
@@ -89,12 +89,12 @@ class InitScriptManager(InitScriptBase, ServiceManager):
     def start(self):
         _logger.debug('starting the service')
         if sudo_utils.call([self.path, 'start']):
-            raise StandardError('start of init script has failed')
+            raise Exception('start of init script has failed')
 
     def stop(self):
         _logger.debug('stoping the service')
         if sudo_utils.call([self.path, 'stop']):
-            raise StandardError('stop of init script has failed')
+            raise Exception('stop of init script has failed')
 
     def remove(self):
         _logger.debug('removing file  %s' % self.path)
@@ -151,7 +151,7 @@ class SystemdServiceGenerator(ServiceGenerator):
 
         res = sudo_utils.create_file(_ouput_file, '666')
         if res != 0:
-            raise StandardError('Cannot create the script file')
+            raise Exception('Cannot create the script file')
 
         file = open(_ouput_file, "w")
 
@@ -267,11 +267,11 @@ class SimpleInitScriptGenerator(InitScriptGenerator):
         _ouput_file = os.path.join(InitScriptBase._BASE_DIR, self.name)
 
         if self.methods_implementations is None:
-            raise StandardError('No methods defined')
+            raise Exception('No methods defined')
 
         res = sudo_utils.create_file(_ouput_file, '666')
         if res != 0:
-            raise StandardError('Cannot create the script file')
+            raise Exception('Cannot create the script file')
 
         file = open(_ouput_file, "w")
 

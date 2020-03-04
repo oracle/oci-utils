@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 import hashlib
 import shlex
 
-import storable
+from . import storable
 
 
 class Command(storable.Storable):
@@ -26,7 +26,7 @@ class Command(storable.Storable):
             When passed as string the string os split using shlex
         """
 
-        if isinstance(args, basestring):
+        if isinstance(args, str):
             self._arguments = shlex.split(args)
         else:
             self._arguments = args

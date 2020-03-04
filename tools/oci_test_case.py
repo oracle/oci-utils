@@ -5,7 +5,7 @@
 import logging
 from unittest import TestCase
 
-from tree_config import TreeConfigParser
+from .tree_config import TreeConfigParser
 
 
 class OciTestCase(TestCase):

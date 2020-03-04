@@ -32,7 +32,7 @@ def response(status, **kwargs):
            The json formatted version of **kwargs
     """
     resp = {'status': status}
-    for key, val in kwargs.iteritems():
+    for key, val in kwargs.items():
         resp[key] = val
     sys.stdout.write(json.dumps(resp) + '\n')
     sys.stdout.flush()

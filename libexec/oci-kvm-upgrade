@@ -55,8 +55,8 @@ def upgrade_v2_domains():
          for d in domains}
 
     targets = []
-    for d, ifaces in domain_interfaces.iteritems():
-        for mac, name in ifaces.iteritems():
+    for d, ifaces in domain_interfaces.items():
+        for mac, name in ifaces.items():
             targets.append(mac.lower())
             targets.append(name)
 
@@ -64,7 +64,7 @@ def upgrade_v2_domains():
 
     new_config = {}
     to_remove = []
-    for name, conf in config.iteritems():
+    for name, conf in config.items():
         mac = conf.get('MACADDR', "").lower()
         onboot = conf.get('ONBOOT', "")
 

@@ -215,7 +215,7 @@ def public_ip_func(context, func_logger):
         try:
             sess = oci_utils.oci_api.OCISession()
             return {'publicIp': sess.this_instance().get_public_ip()}
-        except OCISDKError, e:
+        except OCISDKError as e:
             func_logger.exception()
 
     # fallback
@@ -385,7 +385,7 @@ def iscsi_func(context, func_logger):
 
     # look for perviously failed volumes that are now in the session
     # (e.g. the user supplied the password using oci-iscsi-config)
-    for iqn in attach_failed.keys():
+    for iqn in list(attach_failed.keys()):
         if iqn in session_devs:
             del attach_failed[iqn]
             cache_changed = True
@@ -734,7 +734,7 @@ def wait_for_threads(threads):
         0
     """
     __ocid_logger.debug('Waiting for threads...')
-    for th in threads.keys():
+    for th in list(threads.keys()):
         __ocid_logger.debug('Waiting for %s...' % th)
         threads[th].join()
         __ocid_logger.debug('Thread %s finished.' % th)
@@ -764,7 +764,7 @@ def daemon_main(arguments):
     threads = start_threads(arguments, repeat=True)
     __ocid_logger.debug('threads started')
     # wait for every thread to complete the ocid func at least once
-    for th in threads.keys():
+    for th in list(threads.keys()):
         __ocid_logger.debug('waiting for first iteration of %s to complete' % threads[th].getName())
         threads[th].wait_first_iteration()
 
@@ -784,10 +784,10 @@ def daemon_main(arguments):
         __ocid_logger.debug('selecting on signal...')
         r, _, _ = select.select([os.open('/var/run/ocid.fifo', os.O_RDONLY | os.O_NONBLOCK)], [], [])
         __ocid_logger.debug('out of selecting for [%s]' % str(r))
-    except Exception, e:
+    except Exception as e:
         __ocid_logger.debug('error selecting: %s' % str(e))
 
-    for th in threads.keys():
+    for th in list(threads.keys()):
         threads[th].request_stop()
 
     wait_for_threads(threads)

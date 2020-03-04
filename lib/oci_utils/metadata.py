@@ -9,10 +9,10 @@
 
 import json
 import logging
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 from datetime import timedelta
 
-import cache
+from . import cache
 from oci_utils import _METADATA_ENDPOINT
 from oci_utils.impl import lock_thread, release_thread
 
@@ -142,7 +142,7 @@ _attribute_map = {
     "nic_index": "nicIndex",
     "vlan_tag": "vlanTag"}
 
-_inv_attribute_map = {v.lower(): k for k, v in _attribute_map.iteritems()}
+_inv_attribute_map = {v.lower(): k for k, v in _attribute_map.items()}
 
 
 def _get_path_keys(metadata, key_path, newkey_list):
@@ -259,7 +259,7 @@ class OCIMetadata(dict):
 
         elif type(meta) is dict:
             new_meta = {}
-            for (key, value) in meta.iteritems():
+            for (key, value) in meta.items():
                 nkey = key.lower()
                 try:
                     n_key = _inv_attribute_map[nkey]
@@ -325,7 +325,7 @@ class OCIMetadata(dict):
 
         elif type(meta) is dict:
             new_meta = {}
-            for (key, value) in meta.iteritems():
+            for (key, value) in meta.items():
                 try:
                     n_key = _attribute_map[key]
                 except Exception:
@@ -412,7 +412,7 @@ class OCIMetadata(dict):
             return new_metadata
         elif type(metadata) is dict:
             new_metadata = {}
-            for k in metadata.keys():
+            for k in list(metadata.keys()):
                 if k in keys:
                     new_metadata[k] = metadata[k]
                 elif k.lower() in keys:
@@ -425,7 +425,7 @@ class OCIMetadata(dict):
                 return None
             return new_metadata
         elif type(metadata) is tuple:
-            filtered_tuple = map(lambda x: filter_results(x, keys), metadata)
+            filtered_tuple = [filter_results(x, keys) for x in metadata]
             for a in filtered_tuple:
                 if a is not None:
                     return tuple(filtered_tuple)
@@ -586,7 +586,7 @@ class InstanceMetadata(object):
         # read the instance metadata
         lock_thread()
         try:
-            api_conn = urllib2.urlopen(
+            api_conn = urllib.request.urlopen(
                 self._oci_metadata_api_url + 'instance/', timeout=2)
             instance_metadata = json.loads(api_conn.read().decode('utf-8'))
             metadata['instance'] = instance_metadata
@@ -600,7 +600,7 @@ class InstanceMetadata(object):
         # get the VNIC info
         lock_thread()
         try:
-            api_conn = urllib2.urlopen(
+            api_conn = urllib.request.urlopen(
                 self._oci_metadata_api_url + 'vnics/', timeout=2)
             vnic_metadata = json.loads(api_conn.read().decode('utf-8'))
             metadata['vnics'] = vnic_metadata

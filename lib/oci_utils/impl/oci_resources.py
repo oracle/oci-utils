@@ -656,7 +656,7 @@ class OCIInstance(OCIAPIAbstractResource):
                 v_att_data[v_att.volume_id] = v_att
 
         vols = []
-        for vol_id in v_att_data.keys():
+        for vol_id in list(v_att_data.keys()):
             # only include volumes that are properly attached, not
             # attaching or detaching or anything like that
             if OCI_ATTACHMENT_STATE[v_att_data[vol_id].lifecycle_state] \
@@ -1664,7 +1664,7 @@ class OCISecurityList(OCIAPIAbstractResource):
         -------
             No return value.
         """
-        print "%sSecurity List: %s" % (indent, self.get_display_name())
+        print("%sSecurity List: %s" % (indent, self.get_display_name()))
         for rule in self.get_ingress_rules():
             prot = OCISecurityList.protocol.get(rule.protocol, rule.protocol)
             src = rule.source
@@ -1711,8 +1711,8 @@ class OCISecurityList(OCIAPIAbstractResource):
                     des = "code-%s" % option.code
                 except Exception:
                     des = "code--"
-            print "%s  Ingress: %-5s %20s:%-6s %20s:%s" % (
-                indent, prot, src, srcport, des, desport)
+            print("%s  Ingress: %-5s %20s:%-6s %20s:%s" % (
+                indent, prot, src, srcport, des, desport))
 
         for rule in self.get_egress_rules():
             prot = OCISecurityList.protocol.get(rule.protocol, rule.protocol)
@@ -1757,8 +1757,8 @@ class OCISecurityList(OCIAPIAbstractResource):
                     des = "code-%s" % option.code
                 except Exception:
                     des = "code--"
-            print "%s  Egress : %-5s %20s:%-6s %20s:%s" % (
-                indent, prot, src, srcport, des, desport)
+            print("%s  Egress : %-5s %20s:%-6s %20s:%s" % (
+                indent, prot, src, srcport, des, desport))
 
 
 class OCISubnet(OCIAPIAbstractResource):

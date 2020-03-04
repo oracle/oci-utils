@@ -152,7 +152,7 @@ How to test oci-utils.
             python3 setup.py oci_validation_tests [--rpm-dir=...] --tf-config=...
 
             By default the command create all the RPMS. You can specify a directoy which already contains (only) the RPMS using
-            the rpm-dir options (IMPORTANT NOTE : entire directory is copied over place rpms into a dedicated directory)
+            the rpm-dir options (IMPORTANT NOTE : entire directory is copied over. Place rpms into a dedicated directory)
             The command requires a terraform cofiguration file which contains all required properties.
             A template file is available in tests/temaplates/instance.tfvars.json
 
