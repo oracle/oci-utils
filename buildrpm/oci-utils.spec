@@ -38,7 +38,9 @@ Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure
 Group: Development/Tools
 Requires: %{name} = %{version}-%{release}
 Requires: python3-netaddr
+%if 0%{?rhel} >= 8
 Requires: network-scripts
+%endif
 
 %description kvm
 Utilities for creating and managing KVM guests that use Oracle Cloud Infrastructure resources, such as block storage and networking, directly.

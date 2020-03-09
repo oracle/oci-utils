@@ -420,4 +420,9 @@ setup(
         'Topic :: System :: Systems Administration',
         'Topic :: Utilities',
         'License :: OSI Approved :: Universal Permissive License (UPL)'],
-    cmdclass={'create_rpm': create_rpm, 'sync_rpm': sync_rpm})
+    cmdclass={'create_rpm': create_rpm,
+              'sync_rpm': sync_rpm,
+              'print_rcmds': print_recorded_commands,
+              'oci_tests': oci_tests,
+              'oci_validation_tests': oci_validation_tests
+              })
