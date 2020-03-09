@@ -13,6 +13,10 @@ from tools.oci_test_case import OciTestCase
 from oci_utils.exceptions import OCISDKError
 
 
+def cmp(a, b):
+    return (a > b) - (a < b)
+
+
 class TestOCISession(OciTestCase):
     """ OCI session Test case.
     """
