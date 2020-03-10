@@ -37,7 +37,7 @@ A package with useful scripts for querying/validating the state of Oracle Cloud 
 Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure
 Group: Development/Tools
 Requires: %{name} = %{version}-%{release}
-Requires: python3-netaddr
+Requires: python34-netaddr
 %if 0%{?rhel} >= 8
 Requires: network-scripts
 %endif
