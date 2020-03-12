@@ -59,7 +59,7 @@ class testOciCache(OciTestCase):
                 try:
                     os.remove(_p)
                 except OSError as e:
-                    print(('warning, cannot delete %s: %s' % (_p, str(e))))
+                    print('warning, cannot delete %s: %s' % (_p, str(e)))
 
     def test_get_timestamp(self):
         """

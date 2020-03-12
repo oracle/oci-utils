@@ -120,12 +120,12 @@ def enter_chroot(newroot):
         # adjust PATH to make sure.
         currentpath = os.environ['PATH']
         newpath = currentpath.replace('/bin', '')\
-                      .replace('/usr/bin', '')\
-                      .replace('/sbin', '')\
-                      .replace('/usr/sbin', '')\
-                      .replace('/usr/local/sbin', '')\
-                      .replace('::', ':') \
-                  + ':/root/bin:/bin:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin'
+            .replace('/usr/bin', '')\
+            .replace('/sbin', '')\
+            .replace('/usr/sbin', '')\
+            .replace('/usr/local/sbin', '')\
+            .replace('::', ':') \
+            + ':/root/bin:/bin:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin'
         os.environ['PATH'] = newpath
         _logger.debug('Set path to %s' % newpath)
         return root2return, currentpath, current_dir
@@ -551,7 +551,7 @@ def mount_imgfn(imgname):
             return devpath
         else:
             _logger.critical('\n   Failed to create nbd devices: %d'
-                        % qemunbd_ret)
+                             % qemunbd_ret)
             raise Exception('Failed to create nbd devices: %d'
                             % qemunbd_ret)
     except Exception as e:
@@ -739,9 +739,9 @@ def mount_pseudo(rootdir):
     -------
         list: The list of new mountpoints on success, None otherwise.
     """
-    pseudodict = {'proc' : ['-t', 'proc', 'none', '%s/proc' % rootdir],
-                  'dev'  : ['-o', 'bind', '/dev', '%s/dev' % rootdir],
-                  'sys'  : ['-o', 'bind', '/sys', '%s/sys' % rootdir]}
+    pseudodict = {'proc': ['-t', 'proc', 'none', '%s/proc' % rootdir],
+                  'dev': ['-o', 'bind', '/dev', '%s/dev' % rootdir],
+                  'sys': ['-o', 'bind', '/sys', '%s/sys' % rootdir]}
 
     pseudomounts = []
     _logger.debug('Mounting: %s' % pseudodict)
@@ -936,8 +936,8 @@ def exec_lvscan():
                 vgdev = vgarr[1]
                 lvdev = vgarr[2]
                 mapperdev = re.sub(r"-", "--", vgdev) \
-                            + '-' \
-                            + re.sub(r"-", "--", lvdev)
+                    + '-' \
+                    + re.sub(r"-", "--", lvdev)
                 _logger.debug('vg %s lv %s mapper %s'
                               % (vgdev, lvdev, mapperdev))
                 if vgdev not in list(new_vgs.keys()):
@@ -1230,7 +1230,7 @@ def upload_image(imgname, bucket_name, ociname):
     try:
         uploadresult = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         _logger.debug('Successfully uploaded %s to %s as %s: %s.'
-                     % (imgname, bucket_name, ociname, uploadresult))
+                      % (imgname, bucket_name, ociname, uploadresult))
     except Exception as e:
         _logger.critical('   Failed to upload %s to object storage %s as %s: %s.'
                          % (imgname, bucket_name, ociname, str(e)))
@@ -1350,7 +1350,7 @@ def show_image_data(imgobj):
         migrate_tools.result_msg(msg='  %30s' % k, result=True)
 
     _logger.debug('show data')
-    print(('\n  %25s\n  %s' % ('Image data:', '-'*60)))
+    print('\n  %25s\n  %s' % ('Image data:', '-'*60))
     #
     # name
     fnname = '  missing'
