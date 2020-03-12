@@ -49,7 +49,7 @@ def _fetch_ip_info(namespace, ifname):
             address_subnet : IP address subnet
             broadcast : IP address broadcast
     """
-    _cmd = ['/usr/sbin/ip','--details']
+    _cmd = ['/usr/sbin/ip', '--details']
     if namespace and len(namespace) > 0:
         _cmd.extend(['-netns', namespace])
 
@@ -69,10 +69,7 @@ def _fetch_ip_info(namespace, ifname):
             else:
                 _vlanid = None
             return {
-<<<<<<< HEAD
-                'vlanid':_vlanid,
-=======
->>>>>>> 0d3dd40e59911c4ed6c5c326886c9f5be2b5938c
+                'vlanid': _vlanid,
                 'broadcast': obj['addr_info'][0].get('broadcast'),
                 'address_prefix_l': obj['addr_info'][0].get('prefixlen'),
                 'address': obj['addr_info'][0].get('local'),
@@ -81,6 +78,8 @@ def _fetch_ip_info(namespace, ifname):
                     obj['addr_info'][0]['prefixlen'])).network)
             }
     return {}
+
+
 def _fetch_link_info(namespace, devname):
     _cmd = ['/usr/sbin/ip']
     if namespace and len(namespace) > 0:
@@ -92,11 +91,12 @@ def _fetch_link_info(namespace, devname):
     link_info_j = json.loads(link_info.strip())
     for obj in link_info_j:
         return {
-                            'mac': obj.get('address').upper(),
-                            'opstate': obj.get('operstate'),
-                            'type': obj.get('link_type')
-               }
+            'mac': obj.get('address').upper(),
+            'opstate': obj.get('operstate'),
+            'type': obj.get('link_type')
+        }
     return {}
+
 
 def _fetch_link_info(namespace, devname):
     """
@@ -192,7 +192,7 @@ def get_network_namespace_infos():
             _new_info.update(_fetch_ip_info(_ns, _nsl_n))
             if len(_new_info.keys()) == 0:
                 # nothing interesting here...
-                continue 
+                continue
             _new_info['index'] = _nsl_i
             _new_info['device'] = _nsl_n
             _result[_ns].append(_new_info)
