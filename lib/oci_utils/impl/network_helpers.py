@@ -19,6 +19,8 @@ import re
 from netaddr import IPNetwork
 import json
 
+import StringIO
+
 __all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route_table',
            'network_prefix_to_mask',
            'add_static_ip_route',
@@ -30,7 +32,7 @@ __all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route
            'get_network_namespace_infos']
 
 _CLASS_NET_DIR = '/sys/class/net'
-
+_NM_CONF_DIR = "/etc/NetworkManager/conf.d/"
 _logger = logging.getLogger('oci-utils.net-helper')
 
 
@@ -470,6 +472,111 @@ def add_static_ip_route(*args, **kwargs):
         kwargs.get('script').write('\n')
 
     return (0, '')
+
+
+def _compute_nm_conf_filename(mac):
+    """
+    Compute a filename from a mac address
+      - capitalized it
+      - replace ':' by '_'
+      - add .conf at the end
+    """
+    return "%s.conf" % mac.replace(':', '_').upper()
+
+
+def remove_mac_from_nm(mac):
+    """
+    Removes given MAC addres from the one managed by NetworkManager
+
+    Parameters:
+        mac : the mac address as string
+    Return:
+        None
+    """
+    if not mac:
+        raise StandardError('Invalid MAC address')
+
+    if not os.path.exists(_NM_CONF_DIR):
+        if sudo_utils.create_dir(_NM_CONF_DIR) != 0:
+            raise StandardError('Cannot create directory %s' % _NM_CONF_DIR)
+        _logger.debug('%s created' % _NM_CONF_DIR)
+
+    _cf = os.path.join(_NM_CONF_DIR, _compute_nm_conf_filename(mac))
+    if sudo_utils.create_file(_cf) != 0:
+        raise StandardError('Cannot create file %s' % _cf)
+    else:
+        _logger.debug('%s created' % _cf)
+
+    nm_conf = StringIO.StringIO()
+    nm_conf.write('[keyfile]\n')
+    nm_conf.write('unmanaged-devices+=mac%s\n' % mac)
+
+    sudo_utils.write_to_file(_cf, nm_conf.getvalue())
+
+    nm_conf.close()
+
+
+def add_mac_to_nm(mac):
+    """
+    Adds given MAC addres from the one managed by NetworkManager
+
+    Parameters:
+        mac : the mac address as string
+    Return:
+        None
+    """
+    # if there is as nm conf file for this mac just remove it.
+    _cf = os.path.join(_NM_CONF_DIR, _compute_nm_conf_filename(mac))
+    if os.path.exists(_cf):
+        sudo_utils.delete_file(_cf)
+    else:
+        _logger.debug('no NetworkManager file for %s' % mac)
+
+
+def remove_ip_addr(device, ip_addr, namespace=None):
+    """
+    Removes an IP address on a given device
+    Parameter:
+        device : network device  as string
+        ip_addr : the ip address as string
+        [namespace]: network namespace as string
+    Return:
+        None
+    raise StandardError : renmoval has failed
+    """
+    _cmd = ['/usr/sbin/ip']
+    if namespace and len(namespace) > 0:
+        _cmd.extend(['-netns', namespace])
+    _cmd.extend(['address', 'delete', ip_addr, 'dev', device])
+
+    ret = sudo_utils.call(_cmd)
+    if ret != 0:
+        raise StandardError('Cannot remove ip address')
+
+
+def remove_ip_addr_rules(ip_addr):
+    """
+    Remove all ip rules set for an  ip address
+    Parameter:
+        ip_addr : the ip address as string
+    Return:
+        None
+    """
+    try:
+        _lines = subprocess.check_output(['/sbin/ip', 'rule', 'list']).splitlines()
+    except subprocess.CalledProcessError, ignored:
+        pass
+    # for any line (i.e rules) if the ip is involved , grab the priority number
+    _matches = [_line for _line in _lines if ip_addr in _line.split()]
+    # now grab the priority numbers
+    # lines are like ''0:\tfrom all lookup local '' : take first item and remove trailing ':'
+    prio_nums = [_l.split()[0][:-1] for _l in _matches]
+
+    # now del all rules by priority number
+    for prio_num in prio_nums:
+        _out = sudo_utils.call_output(['/sbin/ip', 'rule', 'del', 'pref', prio_num])
+        if _out is not None and len(_out) > 0:
+            _logger.warning('cannot delete rule [%s]: %s' % (prio_num, str(_out)))
 
 
 def remove_static_ip_rules(link_name):

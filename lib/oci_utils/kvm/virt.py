@@ -16,7 +16,6 @@ from xml.etree.ElementTree import Element
 from xml.etree.ElementTree import SubElement
 import tempfile
 import os
-import StringIO
 from netaddr import IPNetwork
 
 from string import Template

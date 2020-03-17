@@ -269,24 +269,39 @@ class VNICUtils(object):
         Returns
         -------
         tuple
-            (exit code: int, output from the "sec vnic" script execution).
-            # See _run_sec_vnic_script()
+            (exit code: int, output message).
         """
-        if vnic_id is None:
-            for ip in self.vnic_info['sec_priv_ip']:
-                if ip[0] == ipaddr:
-                    vnic_id = ip[1]
-                    break
-        if vnic_id is None:
+
+        _interfaces = self.get_network_config()
+        _interface_to_delete = None
+        for _interface in _interfaces:
+            if _interface.get('VNIC') == vnic_id and _interface.get('ADDR') == ipaddr:
+                _interface_to_delete = _interface
+                break
+
+        if not _interface_to_delete:
             return 0, 'IP %s is not configured.' % ipaddr
 
-        ret, info = self._run_sec_vnic_script(['-d', '-e', ipaddr, vnic_id])
-        if ret == 0:
-            if [ipaddr, vnic_id] in self.vnic_info['sec_priv_ip']:
-                self.vnic_info['sec_priv_ip'].remove([ipaddr, vnic_id])
-            self.include(ipaddr, save=False)
-            self.save_vnic_info()
-        return ret, info
+        # 1. delete any rule for this ip
+        NetworkHelpers.remove_ip_addr_rules(_interface_to_delete['ADDR'])
+
+        # 2. remove addr from the system
+        if _interface_to_delete['NS']:
+            NetworkHelpers.remove_ip_addr(_interface_to_delete['IFACE'],
+                                          _interface_to_delete['ADDR'], _interface_to_delete['NS'])
+        else:
+            NetworkHelpers.remove_ip_addr(_interface_to_delete['IFACE'], _interface_to_delete['ADDR'])
+
+        # 3. removes the mac address from the unmanaged-devices list in then NetworkManager.conf file.
+        NetworkHelpers.add_mac_to_nm(_interface_to_delete['MAC'])
+
+        # 4. update cache
+        if [ipaddr, vnic_id] in self.vnic_info['sec_priv_ip']:
+            self.vnic_info['sec_priv_ip'].remove([ipaddr, vnic_id])
+        self.include(ipaddr, save=False)
+        self.save_vnic_info()
+
+        return 0, ''
 
     def exclude(self, item, save=True):
         """
@@ -423,7 +438,6 @@ class VNICUtils(object):
         interfaces = []
 
         _all_intfs = NetworkHelpers.get_network_namespace_infos()
-        _all_md_vnics = InstanceMetadata()['vnics']
 
         for _namespace, _nintfs in _all_intfs.items():
             for _i in _nintfs:

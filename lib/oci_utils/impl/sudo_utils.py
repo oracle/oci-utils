@@ -10,7 +10,7 @@
 import logging
 import subprocess
 import os
-from . import (SUDO_CMD, CAT_CMD, RM_CMD, SH_CMD, CP_CMD, TOUCH_CMD, CHMOD_CMD)
+from . import (SUDO_CMD, CAT_CMD, RM_CMD, SH_CMD, CP_CMD, TOUCH_CMD, CHMOD_CMD, MKDIR_CMD)
 
 __all__ = ['call', 'call_output', 'call_popen_output', 'delete_file', 'copy_file', 'write_to_file']
 
@@ -133,6 +133,22 @@ def call_popen_output(cmd, log_output=True):
             _logger.debug("Error execeuting {}: {}\n{}\n"
                           .format(_c, e.returncode, e.output))
         return None
+
+
+def create_dir(path):
+    """
+    Creates a directory.
+
+    Parameters
+    ----------
+    path: str
+        The full path of the directory.
+
+    Returns
+    -------
+        The return code fo the mkdir command.
+    """
+    return call([MKDIR_CMD, '--parents', path])
 
 
 def delete_file(path):
