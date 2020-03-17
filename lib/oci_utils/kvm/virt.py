@@ -16,7 +16,7 @@ from xml.etree.ElementTree import Element
 from xml.etree.ElementTree import SubElement
 import tempfile
 import os
-import StringIO
+import io
 from netaddr import IPNetwork
 
 from string import Template
@@ -131,7 +131,7 @@ def _find_vlan(mac, domain_interfaces):
     -------
         The domain
     """
-    for d, i in domain_interfaces.iteritems():
+    for d, i in domain_interfaces.items():
         if i.get(mac):
             return d
 
@@ -179,7 +179,7 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
             del vfs[mac]
 
     # Next, remove entries where the mac address is already in use manually
-    for d, i in domain_interfaces.iteritems():
+    for d, i in domain_interfaces.items():
         for mac in i:
             vf = vfs.get(mac)
             if vf:
@@ -193,7 +193,7 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
     if prev:
         return prev
 
-    return vfs.values()[0]
+    return list(vfs.values())[0]
 
 
 def get_phys_by_index(vnic, vnics, nics):
@@ -221,7 +221,7 @@ def get_phys_by_index(vnic, vnics, nics):
         if vnic['nicIndex'] == v['nicIndex']:
             candidates[v['macAddr'].lower()] = True
 
-    for n, d in nics.iteritems():
+    for n, d in nics.items():
         if d['physical'] and d['mac'] in candidates and not d.get('physfn'):
             return n
     return None
@@ -261,11 +261,11 @@ def find_free_vnics(vnics, interfaces):
     phys_iface = {}
     ret = []
 
-    for d, ifaces in domain_interfaces.iteritems():
+    for d, ifaces in domain_interfaces.items():
         for i in ifaces:
             iface_by_mac[i] = d
 
-    for i, d in interfaces.iteritems():
+    for i, d in interfaces.items():
         if d.get('physfn'):
             continue
         phys_iface[d['mac']] = d
@@ -434,7 +434,7 @@ def destroy_domain_vlan(domain):
 
     to_del = []
     conf = sysconfig.read_network_config()
-    for n, c in conf.iteritems():
+    for n, c in conf.items():
         if c.get('DEVICE', '') in all_ifaces:
             to_del.append(n)
 
@@ -457,7 +457,7 @@ def get_interface_by_pci_id(pci_id, interfaces):
     -------
 
     """
-    for i, d in interfaces.iteritems():
+    for i, d in interfaces.items():
         if d['physical'] and d['pci'] == pci_id:
             return i
     return None
@@ -537,7 +537,7 @@ def create(**kargs):
                     return 1
             else:
                 free_vnic_ip_addr = kargs['network']
-                print "Assigned IP address {}".format(free_vnic_ip_addr)
+                print("Assigned IP address {}".format(free_vnic_ip_addr))
 
             vnic, vf, vf_num = test_vnic_and_assign_vf(free_vnic_ip_addr, free_vnics)
             if not vnic:
@@ -557,7 +557,7 @@ def create(**kargs):
                 args.append('--network')
                 # find associated mac
                 _mac_to_use = None
-                for intf_name, intf_info in interfaces.iteritems():
+                for intf_name, intf_info in interfaces.items():
                     if intf_name == kargs['network']:
                         _mac_to_use = intf_info['mac'].upper()
                 if _mac_to_use is None:
@@ -572,12 +572,12 @@ def create(**kargs):
                 domains_nics = _get_intf_used_by_guest()
                 intf_to_use = None
                 _mac_to_use = None
-                for intf_name, intf_info in interfaces.iteritems():
+                for intf_name, intf_info in interfaces.items():
                     # skip non physical intf
                     if not intf_info['physical']:
                         continue
                     # if used by a guest, skip it
-                    if intf_name in [m.values()[0] for m in domains_nics.values()]:
+                    if intf_name in [list(m.values())[0] for m in list(domains_nics.values())]:
                         continue
                     # if primary one (primary VNIC), skip it
                     if vnics[0]['macAddr'].upper() == intf_info['mac'].upper():
@@ -598,8 +598,8 @@ def create(**kargs):
 
     if '--console' in kargs['extra_args']:
         args.append('--noautoconsole')
-        print "Autoconsole has been disabled. To view the console, issue " \
-              "'virsh console {}'".format(kargs['name'])
+        print("Autoconsole has been disabled. To view the console, issue " \
+              "'virsh console {}'".format(kargs['name']))
 
     _logger.debug('create: executing [%s]' % ' '.join(args))
 
@@ -644,7 +644,7 @@ def destroy(name, delete_disks):
     dom = None
     try:
         dom = libvirtConn.lookupByName(name)
-    except libvirt.libvirtError, e:
+    except libvirt.libvirtError as e:
         domains = virt_utils.get_domains_name()
         print_error("Domain {} does not exist.", name)
         if len(domains):
@@ -683,7 +683,7 @@ def destroy(name, delete_disks):
             if vnet:
                 _logger.debug('destroy: use of virtual network [%s] detected' % vnet)
                 _use_virtual_network = True
-    except libvirt.libvirtError, e:
+    except libvirt.libvirtError as e:
         print_error('Failed to get domain information: %s' % e.get_error_message())
         libvirtConn.close()
         return 1
@@ -706,7 +706,7 @@ def destroy(name, delete_disks):
                                 _vol.wipe(0)
                                 _vol.delete(0)
                                 _logger.debug('libvirt volume deleted')
-                            except libvirt.libvirtError, e:
+                            except libvirt.libvirtError as e:
                                 _logger.error('Cannot delete volume [%s]: %s' % (_vol.name(), str(e)))
 
     libvirtConn.close()
@@ -754,7 +754,7 @@ def create_netfs_pool(netfs_server, resource_path, name):
         pool.setAutostart(1)
         pool.build()
         pool.create()
-    except libvirt.libvirtError, e:
+    except libvirt.libvirtError as e:
         pool.undefine()
         print_error('Failed to setup the pool: %s' % e.get_error_message())
         return 1
@@ -891,7 +891,7 @@ def create_virtual_network(**kargs):
         if vnic is None:
             print_error('vNIC with address [%s] not found' % _vnic_ip_to_use)
             return None
-        for intf_name, attrs in _all_system_interfaces.iteritems():
+        for intf_name, attrs in _all_system_interfaces.items():
             if attrs['mac'].upper() == vnic['macAddr'].upper() and attrs['physical']:
                 vf_dev = intf_name
         if vf_dev is None:
@@ -966,14 +966,14 @@ def create_virtual_network(**kargs):
 
     try:
         kvm_sysd_svc.generate()
-    except StandardError, e:
+    except Exception as e:
         print_error('Failed to generate the init script : %s' % str(e))
         delete_route_table(vf_dev)
         destroy_networking(vf_dev, vnic['vlanTag'])
         return 1
     try:
         SystemdServiceManager('kvm_net_%s' % kargs['network_name']).start()
-    except StandardError, e:
+    except Exception as e:
         print_error('Failed to start the network init script')
         delete_route_table(vf_dev)
         destroy_networking(vf_dev, vnic['vlanTag'])

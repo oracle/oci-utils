@@ -27,7 +27,7 @@ _delete_network = 'delete-network'
 def _disk_size_in_gb(_string):
     try:
         value = int(_string)
-    except ValueError, e:
+    except ValueError as e:
         raise argparse.ArgumentTypeError(str(e))
     if value <= 0:
         raise argparse.ArgumentTypeError('size must be positive value')
@@ -141,18 +141,18 @@ def create_vm(args):
             call, 0 on success, 1 otherwise.
     """
     if not args.disk and not args.pool:
-        print >> sys.stderr, "either --disk or --pool option must be specified"
+        print("either --disk or --pool option must be specified", file=sys.stderr)
         return 1
 
     if args.disk and args.pool:
-        print >> sys.stderr, "--disk and --pool options are exclusive"
+        print("--disk and --pool options are exclusive", file=sys.stderr)
         return 1
     if args.pool and not args.disk_size:
-        print >> sys.stderr, "must specify a disk size"
+        print("must specify a disk size", file=sys.stderr)
         return 1
 
     if args.net and args.virtual_network:
-        print >> sys.stderr, "--net and --virtual_network option are exclusive"
+        print("--net and --virtual_network option are exclusive", file=sys.stderr)
         return 1
 
     if '--network' in args.virt:
@@ -203,19 +203,19 @@ def _delete_network_vm(args):
     """
     libvirtConn = libvirt.openReadOnly(None)
     if libvirtConn is None:
-        print >> sys.stderr, 'Cannot contact hypervisor'
+        print('Cannot contact hypervisor', file=sys.stderr)
         return 1
     net = None
     try:
         net = libvirtConn.networkLookupByName(args.network_name)
     except libvirt.libvirtError:
-        print >> sys.stderr, 'Cannot find network named [%s]' % args.network_name
+        print('Cannot find network named [%s]' % args.network_name, file=sys.stderr)
         return 1
-    print 'Network found:\n'
-    print xml.dom.minidom.parseString(net.XMLDesc()).toprettyxml(indent=" ", newl='')
-    print ''
+    print('Network found:\n')
+    print(xml.dom.minidom.parseString(net.XMLDesc()).toprettyxml(indent=" ", newl=''))
+    print('')
 
-    if raw_input('Really destroy this network ?').strip().lower() in ('y', 'yes'):
+    if input('Really destroy this network ?').strip().lower() in ('y', 'yes'):
         return oci_utils.kvm.virt.delete_virtual_network(network_name=args.network_name)
     return 1
 
@@ -242,10 +242,10 @@ def _create_network_vm(args):
         _vnets = [n.name() for n in conn.listAllNetworks() if n.name() == args.network_name]
         conn.close()
     else:
-        print >> sys.stderr, 'Cannot contact hypervisor'
+        print('Cannot contact hypervisor', file=sys.stderr)
         return 1
     if len(_vnets) != 0:
-        print >> sys.stderr, "Network with name [%s] already exists" % args.network_name
+        print("Network with name [%s] already exists" % args.network_name, file=sys.stderr)
         return 1
 
     return oci_utils.kvm.virt.create_virtual_network(network=args.net,
@@ -278,23 +278,23 @@ def _create_pool_vm(args):
         _sps = [sp for sp in conn.listAllStoragePools() if sp.name() == args.name]
         conn.close()
     else:
-        print >> sys.stderr, 'Cannot contact hypervisor'
+        print('Cannot contact hypervisor', file=sys.stderr)
         return 1
 
     if len(_sps) != 0:
-        print >> sys.stderr, "Storage pool with name [%s] already exists" % args.name
+        print("Storage pool with name [%s] already exists" % args.name, file=sys.stderr)
         return 1
 
     if args.disk and args.netfshost:
-        print >> sys.stderr, "--disk and --host option are exclusive"
+        print("--disk and --host option are exclusive", file=sys.stderr)
         return 1
 
     if not args.disk and not args.netfshost:
-        print >> sys.stderr, "Either --disk or --host must be specified."
+        print("Either --disk or --host must be specified.", file=sys.stderr)
         return 1
 
     if args.netfshost and not args.path:
-        print >> sys.stderr, "must specify the remote resource path with the --path option"
+        print("must specify the remote resource path with the --path option", file=sys.stderr)
         return 1
 
     _pool_name = args.name

@@ -139,7 +139,7 @@ class OCICompartment(OCIAPIAbstractResource):
             # ignore these, it means the current user has no
             # permission to list the instances in the compartment
             OCICompartment._logger.debug('user has no permission to list the instances in the compartment')
-            
+
         self._instances = instances
         return instances
 
@@ -239,7 +239,7 @@ class OCICompartment(OCIAPIAbstractResource):
             # ignore these, it means the current user has no
             # permission to list the vcns in the compartment
             OCICompartment._logger.debug('current user has no permission to list the vcns in the compartment')
-            
+
         self._vcns = vcns
         return vcns
 
@@ -518,7 +518,7 @@ class OCIInstance(OCIAPIAbstractResource):
                 compartment_id=self._data.compartment_id,
                 instance_id=self._ocid)
         except Exception as e:
-            OCIInstance._logger.debug('sdk call failed',exc_info=True)
+            OCIInstance._logger.debug('sdk call failed', exc_info=True)
             OCIInstance._logger.warning('sdk call failed [%s]' % str(e))
             return []
         for v_a_data in vnic_atts.data:
@@ -656,7 +656,7 @@ class OCIInstance(OCIAPIAbstractResource):
                 v_att_data[v_att.volume_id] = v_att
 
         vols = []
-        for vol_id in v_att_data.keys():
+        for vol_id in list(v_att_data.keys()):
             # only include volumes that are properly attached, not
             # attaching or detaching or anything like that
             if OCI_ATTACHMENT_STATE[v_att_data[vol_id].lifecycle_state] \
@@ -1356,7 +1356,7 @@ class OCIVNIC(OCIAPIAbstractResource):
                 vnic_id=self.get_ocid()).data
         except Exception as e:
             OCIVNIC._logger.debug(
-                'sdk_call failed for all_private_ips',exc_info=True)
+                'sdk_call failed for all_private_ips', exc_info=True)
             OCIVNIC._logger.warning(
                 'sdk_call failed for all_private_ips [%s]' % str(e))
             return []
@@ -1397,7 +1397,7 @@ class OCIVNIC(OCIAPIAbstractResource):
                                        vnic_attachment_id=self._att_data.id)
         except Exception as e:
             OCIVNIC._logger.debug(
-                'Failed to detach VNIC',exc_info=True)
+                'Failed to detach VNIC', exc_info=True)
             raise OCISDKError("Failed to detach VNIC: %s" % e)
 
         if wait:
@@ -1413,7 +1413,7 @@ class OCIVNIC(OCIAPIAbstractResource):
                     self._att_data = vnic_att
             except Exception as e:
                 OCIVNIC._logger.debug(
-                    'sdk_call failed for detach() [%s]' % str(e),exc_info=True)
+                    'sdk_call failed for detach() [%s]' % str(e), exc_info=True)
 
         return True
 
@@ -1664,7 +1664,7 @@ class OCISecurityList(OCIAPIAbstractResource):
         -------
             No return value.
         """
-        print "%sSecurity List: %s" % (indent, self.get_display_name())
+        print("%sSecurity List: %s" % (indent, self.get_display_name()))
         for rule in self.get_ingress_rules():
             prot = OCISecurityList.protocol.get(rule.protocol, rule.protocol)
             src = rule.source
@@ -1711,8 +1711,8 @@ class OCISecurityList(OCIAPIAbstractResource):
                     des = "code-%s" % option.code
                 except Exception:
                     des = "code--"
-            print "%s  Ingress: %-5s %20s:%-6s %20s:%s" % (
-                indent, prot, src, srcport, des, desport)
+            print("%s  Ingress: %-5s %20s:%-6s %20s:%s" % (
+                indent, prot, src, srcport, des, desport))
 
         for rule in self.get_egress_rules():
             prot = OCISecurityList.protocol.get(rule.protocol, rule.protocol)
@@ -1757,8 +1757,8 @@ class OCISecurityList(OCIAPIAbstractResource):
                     des = "code-%s" % option.code
                 except Exception:
                     des = "code--"
-            print "%s  Egress : %-5s %20s:%-6s %20s:%s" % (
-                indent, prot, src, srcport, des, desport)
+            print("%s  Egress : %-5s %20s:%-6s %20s:%s" % (
+                indent, prot, src, srcport, des, desport))
 
 
 class OCISubnet(OCIAPIAbstractResource):
@@ -1850,6 +1850,7 @@ class OCISubnet(OCIAPIAbstractResource):
                 The cidr block.
         """
         return self._data.cidr_block
+
     def is_public_ip_on_vnic_allowed(self):
         """
         Checks if public PI allowed in vnic of this subnet
@@ -2194,10 +2195,10 @@ class OCIVolume(OCIAPIAbstractResource):
         Parameters
         ----------
             format_str: str
-                The format the size should be returned. Current options are
-                - self.HUMAN: human readable.
-                - self.GB: Gigabytes
-                - self.MB: Megabytes
+                The format the size should be returned. Current options are one of OCI_VOLUME_SIZE_FMT value as string
+                - OCI_VOLUME_SIZE_FMT.HUMAN: human readable.
+                - OCI_VOLUME_SIZE_FMT.GB: Gigabytes
+                - OCI_VOLUME_SIZE_FMT.MB: Megabytes
 
         Returns
         -------
@@ -2205,11 +2206,11 @@ class OCIVolume(OCIAPIAbstractResource):
                 The size of the volume.
         """
         # for compatibility raseon we check against key as string
-        assert format_str in OCI_VOLUME_SIZE_FMT.__members__, 'wrong format'
+        assert format_str in [OCI_VOLUME_SIZE_FMT.HUMAN.name, OCI_VOLUME_SIZE_FMT.GB.name,OCI_VOLUME_SIZE_FMT.MB.name], 'wrong format'
 
-        if (format_str is None) or (format_str == OCI_VOLUME_SIZE_FMT.GB):
+        if (format_str is None) or (format_str == OCI_VOLUME_SIZE_FMT.GB.name):
             return self._data.size_in_gbs
-        elif format_str == OCI_VOLUME_SIZE_FMT.MB:
+        elif format_str == OCI_VOLUME_SIZE_FMT.MB.name:
             return self._data.size_in_mbs
         else:
             return str(self._data.size_in_gbs) + "GB"

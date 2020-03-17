@@ -3,7 +3,7 @@ Notes for oci-utils developers:
 
 How to build an oci-utils tarball:
 
-    python setup.py sdist
+    python3 setup.py sdist
 
     The tarball is created in the rpmbuild/SOURCES/ subdir
 
@@ -15,7 +15,7 @@ How to bump the version:
 
 How to build a test RPM:
 
-    python setup.py create_rpm
+    python3 setup.py create_rpm
 
     To install the test package:
 
@@ -27,14 +27,14 @@ How to test oci-utils:
     (To test directly from the workspace anywhere just skip to step 5)
     0. <build the RPMs>
     0.1 (on target machine, optional) yum install python-pip
-    0.2 (on target machine, optional) pip install --upgrade pip
-    0.3 (on target machine, optional) pip install setuptools  --upgrade
+    0.2 (on target machine, optional) pip3 install --upgrade pip
+    0.3 (on target machine, optional) pip3 install setuptools  --upgrade
     1. sudo rpm --erase oci-utils-outest
     2. sudo rpm --install rpmbuild/RPMS/noarch/oci-utils-outest-${VER}-3.fc28.noarch.rpm
     3. sudo -s
     4. cd /opt/oci-utils
        # (make http proxy is set to outside world so setuptool can download dependencies)
-    5. python setup.py test
+    5. python3 setup.py test
 
 How to test ocid:
 
@@ -135,8 +135,8 @@ How to test oci-utils.
                     can then be run anywhere.
 
         example
-            python setup.py oci_tests --test-runner=test_runnner:OciUtilsTestRunnerRecord --tests-base=/tmp/oci-tests
-            python setup.py oci_tests --test-runner=test_runnner:OciUtilsTestRunnerReplay --tests-base=/tmp/oci-tests
+            python3 setup.py oci_tests --test-runner=test_runnner:OciUtilsTestRunnerRecord --tests-base=/tmp/oci-tests
+            python3 setup.py oci_tests --test-runner=test_runnner:OciUtilsTestRunnerReplay --tests-base=/tmp/oci-tests
 
   Validation tests
         This will generate an OCI instance and push oci_utils tests and run them
@@ -149,10 +149,10 @@ How to test oci-utils.
 
 
         Run the validation:
-            python setup.py oci_validation_tests [--rpm-dir=...] --tf-config=...
+            python3 setup.py oci_validation_tests [--rpm-dir=...] --tf-config=...
 
             By default the command create all the RPMS. You can specify a directoy which already contains (only) the RPMS using
-            the rpm-dir options (note : entire directory is copied over)
+            the rpm-dir options (IMPORTANT NOTE : entire directory is copied over. Place rpms into a dedicated directory)
             The command requires a terraform cofiguration file which contains all required properties.
             A template file is available in tests/temaplates/instance.tfvars.json
 
@@ -178,7 +178,7 @@ How to test oci-utils.
                 https_proxy_url: https proxy url
 
             #cp tests/templates/instance.tfvars.json /tmp/
-            #python setup.py oci_validation_tests --tf-config=/tmp/instance.tfvars.json
+            #python3 setup.py oci_validation_tests --tf-config=/tmp/instance.tfvars.json
 
             In case of success, the instance is automatically destroyed unless the '--keep-instance' option
             is used.

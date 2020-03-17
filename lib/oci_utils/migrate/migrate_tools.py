@@ -238,8 +238,8 @@ def run_popen_cmd(command):
         _logger.debug('running %s' % command)
         try:
             ext_process = subprocess.Popen(command,
-                                        stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE)
+                                           stdout=subprocess.PIPE,
+                                           stderr=subprocess.PIPE)
             output, error = ext_process.communicate()
             retcode = ext_process.returncode
             _logger.debug('return code for %s: %s' % (command, retcode))
@@ -428,7 +428,7 @@ class ProgressBar(threading.Thread):
         #
         # counter in progress bar symbols
         i = 0
-        j = i%self._nb_prog_chars
+        j = i % self._nb_prog_chars
         #
         # counter in bar
         k = 0
@@ -453,7 +453,7 @@ class ProgressBar(threading.Thread):
             if k == self._cntr:
                 k = 0
                 i += 1
-                j = i%self._nb_prog_chars
+                j = i % self._nb_prog_chars
             time.sleep(self._prog_int)
             if self.stop_the_progress_bar:
                 now_time = datetime.now()
@@ -461,11 +461,11 @@ class ProgressBar(threading.Thread):
                 hrs, rest = divmod(delta_time.seconds, 3600)
                 mins, secs = divmod(rest, 60)
                 pbar = '  ' \
-                   + '%02d:%02d:%02d' % (hrs, mins, secs) \
-                   + ' [ ' \
-                   + ' %s' % self._prog_chars[j] \
-                   + ' done ]' \
-                   + (self._bar_len - self._prog_len - 5)*' '
+                    + '%02d:%02d:%02d' % (hrs, mins, secs) \
+                    + ' [ ' \
+                    + ' %s' % self._prog_chars[j] \
+                    + ' done ]' \
+                    + (self._bar_len - self._prog_len - 5)*' '
                 sys.stdout.write('\r%s\n' % pbar)
                 sys.stdout.flush()
                 break

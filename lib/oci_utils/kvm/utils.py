@@ -17,7 +17,7 @@ def _call(cmd, log_output=True):
         return 404
     except subprocess.CalledProcessError as e:
         if log_output:
-            print "Error executing {}: {}\n{}\n".format(cmd, e.returncode, e.output)
+            print("Error executing {}: {}\n{}\n".format(cmd, e.returncode, e.output))
         return e.returncode
     return 0
 
@@ -32,7 +32,7 @@ def _call_output(cmd, log_output=True):
         return 404
     except subprocess.CalledProcessError as e:
         if log_output:
-            print "Error execeuting {}: {}\n{}\n".format(cmd, e.returncode, e.output)
+            print("Error execeuting {}: {}\n{}\n".format(cmd, e.returncode, e.output))
         return None
     return None
 
@@ -48,6 +48,6 @@ def _call_popen_output(cmd, log_output=True):
         return 404
     except subprocess.CalledProcessError as e:
         if log_output:
-            print "Error executing {}: {}\n{}\n".format(cmd, e.returncode, e.output)
+            print("Error executing {}: {}\n{}\n".format(cmd, e.returncode, e.output))
         return None
     return None

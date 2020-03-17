@@ -183,7 +183,7 @@ def show_supported_formats_data(supported_images):
     """
     print('\n  %25s\n  %25s\n  %25s : %-20s\n  %25s   %-20s'
           % ('Supported image formats', '-'*25,
-             'Magic Key', 'Format data', '-'*20, '-'*20))
+              'Magic Key', 'Format data', '-'*20, '-'*20))
     for key in sorted(supported_images):
         print('  %25s : ' % key)
         one_image = supported_images[key]
@@ -314,13 +314,13 @@ def main():
         if args.input_image:
             imagepath = args.input_image.name
             resultfilename = get_config_data('resultfilepath') \
-                            + '_' \
-                            + os.path.splitext(os.path.basename(imagepath))[0] \
-                            + '.res'
+                + '_' \
+                + os.path.splitext(os.path.basename(imagepath))[0] \
+                + '.res'
             migrate_tools.resultfilename = resultfilename
             migrate_tools.result_msg(msg='\n  Running %s at %s\n'
                                      % (os.path.basename(' '.join(sys.argv)),
-                                     time.ctime()), flags='w', result=True)
+                                        time.ctime()), flags='w', result=True)
         else:
             raise OciMigrateException('Missing argument: input image path.')
         #
@@ -473,7 +473,7 @@ def main():
         #
         if imgres:
             prereq_msg += '\n\n  %s data collection and processing succeeded.' \
-                      % imagepath
+                % imagepath
         else:
             prereq_passed = False
         #

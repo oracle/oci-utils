@@ -93,7 +93,7 @@ def get_domain_interfaces(domain):
         # list that shares a mac address
         directly_assigned.append(iface)
         full.append(iface)
-        for i, d in nics.iteritems():
+        for i, d in nics.items():
             if d['mac'] == v['macAddr'].lower():
                 full.append(i)
 
@@ -193,7 +193,7 @@ def get_unused_block_devices(devices, domain_disks):
     used_devices = {}
     unused_devices = []
 
-    for domain, disks in domain_disks.iteritems():
+    for domain, disks in domain_disks.items():
         for disk in disks:
             try:
                 lnk = os.readlink(disk)
@@ -202,7 +202,7 @@ def get_unused_block_devices(devices, domain_disks):
             except Exception:
                 continue
 
-    for device, data in devices.iteritems():
+    for device, data in devices.items():
         if not data.get('size'):
             # This check captures two cases: a block volume that lacks
             # a size, as well as block volumes that have zero size.

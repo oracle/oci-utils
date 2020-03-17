@@ -4,8 +4,6 @@
 # at http://oss.oracle.com/licenses/upl.
 
 
-import six
-
 import logging
 
 
@@ -82,7 +80,7 @@ class OCIAPIAbstractResource(object):
                     continue
                 if type(value) in [int, bool]:
                     data_dict[key] = value
-                elif isinstance(value, six.string_types):
+                elif isinstance(value, str):
                     data_dict[key] = value.strip()
                 elif value is None:
                     data_dict[key] = ''
@@ -91,7 +89,7 @@ class OCIAPIAbstractResource(object):
                 else:
                     data_dict[key] = value
             return data_dict
-        except Exception, e:
+        except Exception as e:
             OCIAPIAbstractResource._logger.debug('error calling __dict__: %s' % str(e))
             return None
 

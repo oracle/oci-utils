@@ -212,7 +212,7 @@ class print_recorded_commands(Command):
 
     def run(self):
         import xml.dom.minidom
-        print(xml.dom.minidom.parse(os.path.join(self.tests_base, 'commands.xml')).toprettyxml())
+        print((xml.dom.minidom.parse(os.path.join(self.tests_base, 'commands.xml')).toprettyxml()))
 
 
 class create_rpm(Command):
@@ -347,6 +347,7 @@ setup(
     packages=find_packages('lib'),
     setup_requires=["flake8"],
     long_description=read('README'),
+    test_suite="tests",
     data_files=[(os.path.join(sys.prefix, 'libexec'),
                  ['libexec/ocid',
                   'libexec/secondary_vnic_all_configure.sh',
@@ -358,10 +359,11 @@ setup(
                   'libexec/oci-kvm-config.sh',
                   'libexec/oci-kvm-network-script'
                   ]),
-                 ("/etc/systemd/system",
-                 ['data/ocid.service', 'data/oci-kvm-config.service', 'data/oci-migrate-conf.yaml']),
+                ("/etc/systemd/system",
+                 ['data/ocid.service', 'data/oci-kvm-config.service']),
                 ("/etc/oci-utils",
                  ['data/oci-image-cleanup.conf',
+                  'data/oci-migrate-conf.yaml'
                   ]),
                 ("/etc/oci-utils.conf.d",
                  ['data/00-oci-utils.conf',
@@ -413,10 +415,14 @@ setup(
         'Intended Audience :: System Administrators',
         'Natural Language :: English',
         'Operating System :: POSIX',
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
         'Topic :: System :: Installation/Setup',
         'Topic :: System :: Systems Administration',
         'Topic :: Utilities',
         'License :: OSI Approved :: Universal Permissive License (UPL)'],
-    cmdclass={'create_rpm': create_rpm, 'sync_rpm': sync_rpm})
+    cmdclass={'create_rpm': create_rpm,
+              'sync_rpm': sync_rpm,
+              'print_rcmds': print_recorded_commands,
+              'oci_tests': oci_tests,
+              'oci_validation_tests': oci_validation_tests
+              })

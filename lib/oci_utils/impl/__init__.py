@@ -10,7 +10,7 @@ import os
 import os.path
 import sys
 import threading
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 from datetime import datetime, timedelta
 import logging
 import logging.handlers
@@ -263,7 +263,7 @@ def setup_logging(forceDebug=False):
                     '/var/tmp/oci-utils.log', mode='a', maxBytes=1024 * 1024, backupCount=3)
                 handler.setFormatter(formatter)
                 handler.setLevel(logging.NOTSET)
-            except StandardError, ignored:
+            except Exception as ignored:
                 # keep it silent
                 pass
 

@@ -121,22 +121,22 @@ def main():
             __logger.error("no compartment returned for VCN %s\n" % str(vcn))
             continue
         if _compartment.get_ocid() != comp_ocid:
-            print ""
-            print "Compartment: %s (%s)" % \
-                  (_compartment.get_display_name(), _compartment.get_ocid())
+            print("")
+            print("Compartment: %s (%s)" % \
+                  (_compartment.get_display_name(), _compartment.get_ocid()))
             comp_ocid = _compartment.get_ocid()
-        print ""
-        print "  vcn: %s " % vcn.get_display_name()
+        print("")
+        print("  vcn: %s " % vcn.get_display_name())
         sll = vcn.all_security_lists()
-        for _, value in sll.items():
+        for _, value in list(sll.items()):
             value.print_security_list("    ")
 
         for subnet in vcn.all_subnets():
-            print ""
-            print "     Subnet: %s Availibility domain: %s" % (
-                subnet.get_display_name(), subnet.get_availability_domain())
-            print "         Cidr_block: %s Domain name: %s" % \
-                  (subnet.get_cidr_block(), subnet.get_domain_name())
+            print("")
+            print("     Subnet: %s Availibility domain: %s" % (
+                subnet.get_display_name(), subnet.get_availability_domain()))
+            print("         Cidr_block: %s Domain name: %s" % \
+                  (subnet.get_cidr_block(), subnet.get_domain_name()))
 
             for sl_id in subnet.get_security_list_ids():
                 try:
@@ -163,24 +163,24 @@ def main():
                 primary = ""
                 if ip.is_primary():
                     primary = "primary"
-                print "       Private IP: %s(%s) Host: %s" % \
-                      (ip.get_address(), primary, ip.get_hostname())
+                print("       Private IP: %s(%s) Host: %s" % \
+                      (ip.get_address(), primary, ip.get_hostname()))
                 vnic = ip.get_vnic()
                 if vnic:
-                    print "         Vnic: %s (%s)" % \
-                          (vnic.get_ocid(), vnic.get_state())
+                    print("         Vnic: %s (%s)" % \
+                          (vnic.get_ocid(), vnic.get_state()))
                     if subnet.is_public_ip_on_vnic_allowed():
-                        print "         Vnic PublicIP: %s" % \
-                              vnic.get_public_ip()
+                        print("         Vnic PublicIP: %s" % \
+                              vnic.get_public_ip())
                     instance = vnic.get_instance()
-                    print "         Instance: %s(%s)" % \
-                          (instance.get_hostname(), instance.get_state())
-                    print "         Instance ocid: %s" % (instance.get_ocid())
+                    print("         Instance: %s(%s)" % \
+                          (instance.get_hostname(), instance.get_state()))
+                    print("         Instance ocid: %s" % (instance.get_ocid()))
                 else:
                     vnic_id = ip.get_vnic_ocid()
-                    print "         Vnic: %s(%s)" % (vnic_id, "NotFound")
-                    print "         Instance: (maybe)%s(%s)" % \
-                          (ip.get_display_name(), "NotFound")
+                    print("         Vnic: %s(%s)" % (vnic_id, "NotFound"))
+                    print("         Instance: (maybe)%s(%s)" % \
+                          (ip.get_display_name(), "NotFound"))
     return 0
 
 

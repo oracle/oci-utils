@@ -25,7 +25,7 @@ class TestOciMetadata(OciTestCase):
         self.assertNotEqual(metadata, [], 'Instanciated metatde is empty')
         self.assertTrue(metadata['instance'],
                         'instance key of metadata should be True')
-        self.assertIn(u'region', metadata['instance'],
+        self.assertIn('region', metadata['instance'],
                       'metadata do not contain region information')
         self.assertIn(metadata['instance']['region'],
                       ['phx', 'iad', 'fra', 'lhr', 'uk-london-1'],
@@ -33,10 +33,10 @@ class TestOciMetadata(OciTestCase):
                       % (
                       metadata['instance']['region'],
                       ['phx', 'iad', 'fra', 'lhr']))
-        self.assertIn(u'state', metadata['instance'],
+        self.assertIn('state', metadata['instance'],
                       'Returned instance metadata do not contain any '
                       '\'state\' key')
-        self.assertEquals(metadata['instance']['state'], 'Running',
+        self.assertEqual(metadata['instance']['state'], 'Running',
                           'exepcetd statte of OCI instance to be running. ['
                           '%s]' %
                           metadata['instance']['state'])
@@ -52,20 +52,20 @@ class TestOciMetadata(OciTestCase):
         """
         metadata = InstanceMetadata().filter(['macaddr', 'instance'])
         self.assertTrue(metadata, 'empty filtered metadata returned')
-        self.assertIn(u'instance', metadata,
+        self.assertIn('instance', metadata,
                       '\'instance\' not part of filtered metadata')
-        self.assertIn(u'compartmentId', metadata['instance'],
+        self.assertIn('compartmentId', metadata['instance'],
                       '\'compartmentId\' not part of filtered instance '
                       'metadata')
         self.assertIn('ocid1.compartment.oc1..',
                       metadata['instance']['compartmentId'],
                       'Not expected value of \'compartmentId\'  of filtered '
                       'instance metadata')
-        self.assertIn(u'vnics', metadata,
+        self.assertIn('vnics', metadata,
                       '\vnics\' not part of filtered instance metadata')
-        self.assertIn(u'macAddr', metadata['vnics'][0],
+        self.assertIn('macAddr', metadata['vnics'][0],
                       'first VNIC of metatada do nto contain \'macAddr\' key')
-        self.assertNotIn(u'vnicId', metadata['vnics'][0],
+        self.assertNotIn('vnicId', metadata['vnics'][0],
                          'first VNIC of metatada do nto contain \'vnicId\' key')
 
 

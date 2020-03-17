@@ -158,38 +158,38 @@ def api_show_network_config():
         return
     vnics = inst.all_vnics()
     i = 1
-    print "VNIC configuration for instance %s" % inst.get_display_name()
-    print
+    print("VNIC configuration for instance %s" % inst.get_display_name())
+    print()
     for vnic in vnics:
         primary = ""
         if vnic.is_primary():
             primary = " (primary)"
-        print "VNIC %d%s: %s" % (i, primary, vnic.get_display_name())
-        print "     Hostname: %s" % vnic.get_hostname()
-        print "     OCID: %s" % vnic.get_ocid()
-        print "     MAC address: %s" % vnic.get_mac_address()
-        print "     Public IP address: %s" % vnic.get_public_ip()
-        print "     Private IP address: %s" % vnic.get_private_ip()
+        print("VNIC %d%s: %s" % (i, primary, vnic.get_display_name()))
+        print("     Hostname: %s" % vnic.get_hostname())
+        print("     OCID: %s" % vnic.get_ocid())
+        print("     MAC address: %s" % vnic.get_mac_address())
+        print("     Public IP address: %s" % vnic.get_public_ip())
+        print("     Private IP address: %s" % vnic.get_private_ip())
 
         _subn = vnic.get_subnet()
         if _subn is not None:
-            print "     Subnet: %s (%s)" % (_subn.get_display_name(), _subn)
+            print("     Subnet: %s (%s)" % (_subn.get_display_name(), _subn))
         else:
-            print "     Subnet: Not found"
+            print("     Subnet: Not found")
 
         privips = vnic.all_private_ips()
         if len(privips) > 0:
-            print "     Private IP addresses:"
+            print("     Private IP addresses:")
             for privip in privips:
-                print "         IP address: %s" % privip.get_address()
-                print "         OCID: %s" % privip.get_ocid()
-                print "         Hostname: %s" % privip.get_hostname()
-                print "         Subnet: %s (%s)" % \
+                print("         IP address: %s" % privip.get_address())
+                print("         OCID: %s" % privip.get_ocid())
+                print("         Hostname: %s" % privip.get_hostname())
+                print("         Subnet: %s (%s)" % \
                     (privip.get_subnet().get_display_name(),
-                     privip.get_subnet().get_cidr_block())
-                print
+                     privip.get_subnet().get_cidr_block()))
+                print()
         else:
-            print
+            print()
         i += 1
 
 
@@ -216,7 +216,7 @@ def do_show_network_config(vnic_utils):
     if ret:
         __logger.error("Failed to execute the VNIC configuration script.")
     else:
-        print "%s" % out.decode('utf-8')
+        print("%s" % out.decode('utf-8'))
 
 
 def do_detach_vnic(detach_options, vnic_utils):
@@ -244,7 +244,7 @@ def do_detach_vnic(detach_options, vnic_utils):
     # needs the OCI SDK installed and configured
     sess = get_oci_api_session(opt_name="--detach-vnic")
     if sess is None:
-        raise StandardError("Failed to get API session.")
+        raise Exception("Failed to get API session.")
     vnics = sess.this_instance().all_vnics()
     for vnic in vnics:
         if vnic.get_ocid() == detach_options.detach_vnic or \
@@ -254,7 +254,7 @@ def do_detach_vnic(detach_options, vnic_utils):
                 vnic.detach()
                 break
             else:
-                raise StandardError("The primary VNIC cannot be detached.")
+                raise Exception("The primary VNIC cannot be detached.")
     return sess.this_shape()
 
 
@@ -279,27 +279,27 @@ def do_create_vnic(create_options):
     # needs the OCI SDK installed and configured
     sess = get_oci_api_session(opt_name="--create-vnic")
     if sess is None:
-        raise StandardError("Failed to get API session.")
+        raise Exception("Failed to get API session.")
     subnet_id = None
     if create_options.subnet:
         if create_options.subnet.startswith('ocid1.subnet.'):
             subnet = sess.get_subnet(create_options.subnet)
             if subnet is None:
-                raise StandardError(
+                raise Exception(
                     "Subnet not found: %s\n" % create_options.subnet)
             else:
                 subnet_id = subnet.get_ocid()
         else:
             subnets = sess.find_subnets(create_options.subnet)
             if len(subnets) == 0:
-                raise StandardError(
+                raise Exception(
                     "No subnet matching %s found\n" % create_options.subnet)
             elif len(subnets) > 1:
                 __logger.error("More than one subnet matching %s found:\n"
                                % create_options.subnet)
                 for sn in subnets:
                     __logger.error("   %s\n" % sn.get_display_name())
-                raise StandardError("More than one subnet matching")
+                raise Exception("More than one subnet matching")
             subnet_id = subnets[0].get_ocid()
     try:
         vnic = sess.this_instance().attach_vnic(
@@ -309,7 +309,7 @@ def do_create_vnic(create_options):
             nic_index=create_options.nic_index,
             display_name=create_options.vnic_name)
     except OCISDKError as e:
-        raise StandardError('Failed to create VNIC: %s' % e)
+        raise Exception('Failed to create VNIC: %s' % e)
 
     public_ip = vnic.get_public_ip()
     if public_ip is not None:
@@ -345,17 +345,17 @@ def do_add_private_ip(vnic_utils, add_options):
     # needs the OCI SDK installed and configured
     sess = get_oci_api_session(opt_name="--add-private-ip")
     if sess is None:
-        raise StandardError("Failed to get API session.")
+        raise Exception("Failed to get API session.")
 
     if add_options.vnic:
         if add_options.vnic.startswith('ocid1.vnic.'):
             vnic = sess.get_vnic(add_options.vnic)
             if vnic is None:
-                raise StandardError("VNIC not found: %s" % add_options.vnic)
+                raise Exception("VNIC not found: %s" % add_options.vnic)
             else:
                 pass
         else:
-            raise StandardError("Invalid VNIC OCID: %s" % add_options.vnic)
+            raise Exception("Invalid VNIC OCID: %s" % add_options.vnic)
 
     else:
         vnics = sess.this_instance().all_vnics()
@@ -366,12 +366,12 @@ def do_add_private_ip(vnic_utils, add_options):
             for vnic in vnics:
                 __logger.error("   %s: %s" % (vnic.get_private_ip(),
                                               vnic.get_ocid()))
-            raise StandardError("Too many VNICs found")
+            raise Exception("Too many VNICs found")
         vnic = vnics[0]
     try:
         priv_ip = vnic.add_private_ip(private_ip=add_options.private_ip)
     except OCISDKError as e:
-        raise StandardError('Failed to provision private IP: %s' % e)
+        raise Exception('Failed to provision private IP: %s' % e)
 
     __logger.info(
         'provisioning secondary private IP: %s' % priv_ip.get_address())
@@ -402,17 +402,17 @@ def do_del_private_ip(vnic_utils, delete_options):
     # needs the OCI SDK installed and configured
     sess = get_oci_api_session(opt_name="--del-private-ip")
     if sess is None:
-        raise StandardError("Failed to get API session.")
+        raise Exception("Failed to get API session.")
     # find the private IP
     priv_ip = sess.this_instance().find_private_ip(
         delete_options.del_private_ip)
     if priv_ip is None:
-        raise StandardError(
+        raise Exception(
             "Secondary private IP not found: %s" %
             delete_options.del_private_ip)
 
     if priv_ip.is_primary():
-        raise StandardError("Cannot delete IP %s, it is the primary private "
+        raise Exception("Cannot delete IP %s, it is the primary private "
                             "address of the VNIC." %
                             delete_options.del_private_ip)
     vnic_id = None
@@ -422,7 +422,7 @@ def do_del_private_ip(vnic_utils, delete_options):
         pass
 
     if not priv_ip.delete():
-        raise StandardError('failed to delete secondary private IP %s' %
+        raise Exception('failed to delete secondary private IP %s' %
                             delete_options.del_private_ip)
 
     __logger.info('deconfigure secondary private IP %s' %
@@ -455,7 +455,7 @@ def main():
             return 1
         try:
             do_create_vnic(args)
-        except StandardError as e:
+        except Exception as e:
             __logger.debug('cannot create the VNIC', exc_info=True)
             __logger.error('cannot create the VNIC: %s' % str(e))
             return 1
@@ -472,7 +472,7 @@ def main():
         try:
             shape = do_detach_vnic(args, vnic_utils)
             time.sleep(10)
-        except StandardError as e:
+        except Exception as e:
             __logger.error(str(e))
             return 1
 
@@ -492,14 +492,14 @@ def main():
         try:
             (ip, vnic_id) = do_add_private_ip(vnic_utils, args)
             __logger.info("IP %s has been assigned to vnic %s." % (ip, vnic_id))
-        except StandardError as e:
+        except Exception as e:
             __logger.error('failed ot add private ip: %s' % str(e))
             return 1
 
     elif args.del_private_ip:
         try:
             (ret, out) = do_del_private_ip(vnic_utils, args)
-        except StandardError as e:
+        except Exception as e:
             __logger.error('failed ot delete private ip: %s' % str(e))
             return 1
 

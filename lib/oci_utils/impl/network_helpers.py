@@ -14,7 +14,7 @@ import logging
 import shutil
 from socket import inet_ntoa
 from struct import pack
-import sudo_utils
+from . import sudo_utils
 import re
 
 __all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route_table',
@@ -104,7 +104,7 @@ def get_interfaces():
 
     # Populate any potentially invalid mac addresses with
     # the correct data
-    for n, info in ret.iteritems():
+    for n, info in ret.items():
         if not info['physical']:
             continue
 
@@ -112,7 +112,7 @@ def get_interfaces():
         if virt_fns is None:
             continue
 
-        for k, v in virt_fns.iteritems():
+        for k, v in virt_fns.items():
             try:
                 v['mac'] = ret[pci_id_to_iface[v['pci_id']]]['mac']
             except Exception:
@@ -177,7 +177,7 @@ def add_route_table(table_name):
                 # trust the format of that file
                 tables_num.append(int(line.split()[0]))
     _new_table_num_to_use = -1
-    for n in xrange(255):
+    for n in range(255):
         if n not in tables_num:
             _new_table_num_to_use = n
             break
@@ -261,7 +261,7 @@ def remove_static_ip_routes(link_name):
     _lines = []
     try:
         _lines = subprocess.check_output(['/sbin/ip', 'route', 'show', 'dev', link_name]).splitlines()
-    except subprocess.CalledProcessError, ignored:
+    except subprocess.CalledProcessError as ignored:
         pass
     _logger.debug('routes found [%s]' % _lines)
     for _line in _lines:
@@ -311,7 +311,7 @@ def remove_static_ip_rules(link_name):
     _lines = []
     try:
         _lines = subprocess.check_output(['/sbin/ip', 'rule', 'show', 'lookup', link_name]).splitlines()
-    except subprocess.CalledProcessError, ignored:
+    except subprocess.CalledProcessError as ignored:
         pass
     _logger.debug('rules found [%s]' % _lines)
     for _line in _lines:
