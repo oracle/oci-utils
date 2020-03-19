@@ -212,7 +212,7 @@ class print_recorded_commands(Command):
 
     def run(self):
         import xml.dom.minidom
-        print(xml.dom.minidom.parse(os.path.join(self.tests_base, 'commands.xml')).toprettyxml())
+        print((xml.dom.minidom.parse(os.path.join(self.tests_base, 'commands.xml')).toprettyxml()))
 
 
 class create_rpm(Command):
@@ -335,7 +335,7 @@ class sync_rpm(create_rpm):
 
 setup(
     name="oci-utils",
-    version="0.10.2",
+    version="0.11.0",
     author="Laszlo Peter, Qing Lin, Guido Tijskens, Emmanuel Jannetti",
     author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com, emmanuel.jannetti@oracle.com",
     description="Oracle Cloud Infrastructure utilities",
@@ -345,8 +345,9 @@ setup(
     url="http://github.com/oracle/oci-utils/",
     package_dir={'': 'lib'},
     packages=find_packages('lib'),
-    setup_requires=[],
+    setup_requires=["flake8"],
     long_description=read('README'),
+    test_suite="tests",
     data_files=[(os.path.join(sys.prefix, 'libexec'),
                  ['libexec/ocid',
                   'libexec/secondary_vnic_all_configure.sh',
@@ -362,6 +363,7 @@ setup(
                  ['data/ocid.service', 'data/oci-kvm-config.service']),
                 ("/etc/oci-utils",
                  ['data/oci-image-cleanup.conf',
+                  'data/oci-migrate-conf.yaml'
                   ]),
                 ("/etc/oci-utils.conf.d",
                  ['data/00-oci-utils.conf',
@@ -376,6 +378,8 @@ setup(
                   'man/man1/oci-iscsi-config.1',
                   'man/man1/oci-network-config.1',
                   'man/man1/oci-kvm.1',
+                  'man/man1/oci-image-migrate.1',
+                  'man/man1/oci-image-migrate-import.1',
                   ]),
                 (os.path.join(sys.prefix, "share", "man", "man5"),
                  ['man/man5/oci-utils.conf.d.5',
@@ -400,6 +404,8 @@ setup(
              'bin/oci-network-config',
              'bin/oci-network-inspector',
              'bin/oci-kvm',
+             'bin/oci-image-migrate',
+             'bin/oci-image-migrate-import',
              ],
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -409,7 +415,6 @@ setup(
         'Intended Audience :: System Administrators',
         'Natural Language :: English',
         'Operating System :: POSIX',
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
         'Topic :: System :: Installation/Setup',
         'Topic :: System :: Systems Administration',
@@ -420,5 +425,4 @@ setup(
               'print_rcmds': print_recorded_commands,
               'oci_tests': oci_tests,
               'oci_validation_tests': oci_validation_tests
-              }
-)
+              })

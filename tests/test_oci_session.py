@@ -13,6 +13,10 @@ from tools.oci_test_case import OciTestCase
 from oci_utils.exceptions import OCISDKError
 
 
+def cmp(a, b):
+    return (a > b) - (a < b)
+
+
 class TestOCISession(OciTestCase):
     """ OCI session Test case.
     """
@@ -107,7 +111,7 @@ class TestOCISession(OciTestCase):
             No return value.
         """
         # invalid config file -> should fail
-        with self.assertRaisesRegexp(OCISDKError, 'Failed to authenticate'):
+        with self.assertRaisesRegex(OCISDKError, 'Failed to authenticate'):
             s = oci_utils.oci_api.OCISession(
                 config_file='/dev/null',
                 auth_method=oci_utils.oci_api.DIRECT)

@@ -41,7 +41,7 @@ class TestCliOciNetworkConfig(OciTestCase):
         """
         try:
             _ = subprocess.check_output([self.oci_net_config, '--help'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_show_no_check(self):
@@ -53,6 +53,7 @@ class TestCliOciNetworkConfig(OciTestCase):
             No return value.
         """
         try:
+
             print(subprocess.check_output([self.oci_net_config, '--show', '--quiet']))
         except Exception, e:
             self.fail('Execution has failed: %s' % str(e))

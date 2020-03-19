@@ -14,12 +14,12 @@ import logging
 import shutil
 from socket import inet_ntoa
 from struct import pack
-import sudo_utils
+from . import sudo_utils
 import re
 from netaddr import IPNetwork
 import json
 
-import StringIO
+from io import StringIO
 
 __all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route_table',
            'network_prefix_to_mask',
@@ -65,7 +65,7 @@ def _fetch_ip_info(namespace, ifname):
     ip_info_j = json.loads(ip_info.strip())
     # skip empty object like {'addr_info': [{}]} {'addr_info': []}
     for obj in ip_info_j:
-        if obj.has_key('addr_info') and len(obj['addr_info']) > 0 and len(obj['addr_info'][0].keys()) > 0:
+        if 'addr_info'in obj and len(obj['addr_info']) > 0 and len(obj['addr_info'][0].keys()) > 0:
             if obj['addr_info'][0].get('linkinfo') and obj['addr_info'][0].get('linkinfo')['info_kind'] == 'vlan':
                 _vlanid = obj['addr_info'][0].get('linkinfo')['info_data']['id']
             else:
@@ -159,7 +159,7 @@ def _get_link_names(namespace):
     _links = sudo_utils.call_output(_cmd).splitlines()
     # output like
     #   2: ens3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdi....
-    return [(_l.split(' ')[0][:-1], _l.split(' ')[1][:-1]) for _l in _links]
+    return [(_l.split(b' ')[0][:-1], _l.split(b' ')[1][:-1]) for _l in _links]
 
 
 def get_network_namespace_infos():
@@ -280,7 +280,7 @@ def get_interfaces():
 
     # Populate any potentially invalid mac addresses with
     # the correct data
-    for n, info in ret.iteritems():
+    for n, info in ret.items():
         if not info['physical']:
             continue
 
@@ -288,7 +288,7 @@ def get_interfaces():
         if virt_fns is None:
             continue
 
-        for k, v in virt_fns.iteritems():
+        for k, v in virt_fns.items():
             try:
                 v['mac'] = ret[pci_id_to_iface[v['pci_id']]]['mac']
             except Exception:
@@ -353,7 +353,7 @@ def add_route_table(table_name):
                 # trust the format of that file
                 tables_num.append(int(line.split()[0]))
     _new_table_num_to_use = -1
-    for n in xrange(255):
+    for n in range(255):
         if n not in tables_num:
             _new_table_num_to_use = n
             break
@@ -437,7 +437,7 @@ def remove_static_ip_routes(link_name):
     _lines = []
     try:
         _lines = subprocess.check_output(['/sbin/ip', 'route', 'show', 'dev', link_name]).splitlines()
-    except subprocess.CalledProcessError, ignored:
+    except subprocess.CalledProcessError:
         pass
     _logger.debug('routes found [%s]' % _lines)
     for _line in _lines:
@@ -494,20 +494,20 @@ def remove_mac_from_nm(mac):
         None
     """
     if not mac:
-        raise StandardError('Invalid MAC address')
+        raise Exception('Invalid MAC address')
 
     if not os.path.exists(_NM_CONF_DIR):
         if sudo_utils.create_dir(_NM_CONF_DIR) != 0:
-            raise StandardError('Cannot create directory %s' % _NM_CONF_DIR)
+            raise Exception('Cannot create directory %s' % _NM_CONF_DIR)
         _logger.debug('%s created' % _NM_CONF_DIR)
 
     _cf = os.path.join(_NM_CONF_DIR, _compute_nm_conf_filename(mac))
     if sudo_utils.create_file(_cf) != 0:
-        raise StandardError('Cannot create file %s' % _cf)
+        raise Exception('Cannot create file %s' % _cf)
     else:
         _logger.debug('%s created' % _cf)
 
-    nm_conf = StringIO.StringIO()
+    nm_conf = StringIO()
     nm_conf.write('[keyfile]\n')
     nm_conf.write('unmanaged-devices+=mac%s\n' % mac)
 
@@ -542,7 +542,7 @@ def remove_ip_addr(device, ip_addr, namespace=None):
         [namespace]: network namespace as string
     Return:
         None
-    raise StandardError : renmoval has failed
+    raise Exception : renmoval has failed
     """
     _cmd = ['/usr/sbin/ip']
     if namespace and len(namespace) > 0:
@@ -551,7 +551,7 @@ def remove_ip_addr(device, ip_addr, namespace=None):
 
     ret = sudo_utils.call(_cmd)
     if ret != 0:
-        raise StandardError('Cannot remove ip address')
+        raise Exception('Cannot remove ip address')
 
 
 def remove_ip_addr_rules(ip_addr):
@@ -562,9 +562,10 @@ def remove_ip_addr_rules(ip_addr):
     Return:
         None
     """
+    _lines = ''
     try:
         _lines = subprocess.check_output(['/sbin/ip', 'rule', 'list']).splitlines()
-    except subprocess.CalledProcessError, ignored:
+    except subprocess.CalledProcessError:
         pass
     # for any line (i.e rules) if the ip is involved , grab the priority number
     _matches = [_line for _line in _lines if ip_addr in _line.split()]
@@ -592,7 +593,8 @@ def remove_static_ip_rules(link_name):
     _lines = []
     try:
         _lines = subprocess.check_output(['/sbin/ip', 'rule', 'show', 'lookup', link_name]).splitlines()
-    except subprocess.CalledProcessError, ignored:
+    except subprocess.CalledProcessError:
+
         pass
     _logger.debug('rules found [%s]' % _lines)
     for _line in _lines:

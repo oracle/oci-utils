@@ -4,7 +4,7 @@
 
 from unittest import TextTestRunner
 import sys
-from execution.store import getCommandStore
+from .execution.store import getCommandStore
 
 
 class OciUtilsTestRunner(TextTestRunner):

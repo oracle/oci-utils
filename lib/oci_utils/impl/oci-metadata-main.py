@@ -180,7 +180,7 @@ def pretty_print_section(metadata, indent):
                 pretty_print_section(element, indent + "  ")
             else:
                 # if type(element) is str:
-                print "%s%s" % (indent, element)
+                print("%s%s" % (indent, element))
     for key in oci_metadata_display_order:
         if key not in metadata:
             continue
@@ -191,7 +191,7 @@ def pretty_print_section(metadata, indent):
         value = metadata[key]
 
         if type(metadata[key]) is dict:
-            print "%s%s:" % (indent, display_key)
+            print("%s%s:" % (indent, display_key))
             pretty_print_section(value, indent + "  ")
             continue
 
@@ -202,7 +202,7 @@ def pretty_print_section(metadata, indent):
             # value = time.strftime('%Y-%m-%d %H:%M:%S UTC',
             #                       time.gmtime(metadata['timeCreated']/1000))
             pass
-        print "%s%s: %s" % (indent, display_key, value)
+        print("%s%s: %s" % (indent, display_key, value))
 
     for key in metadata:
         # already printed the ones in oci_metadata_display_order
@@ -220,15 +220,15 @@ def pretty_print_section(metadata, indent):
         value = metadata[key]
 
         if type(metadata[key]) is dict:
-            print "%s%s:" % (indent, display_key)
+            print("%s%s:" % (indent, display_key))
             pretty_print_section(value, indent + "  ")
             continue
 
-        print "%s%s: %s" % (indent, display_key, value)
+        print("%s%s: %s" % (indent, display_key, value))
 
     # print it last unless it's listed in oci_metadata_display_order
     if 'metadata' in metadata and 'metadata' not in oci_metadata_display_order:
-        print "%sInstance Metadata:" % indent
+        print("%sInstance Metadata:" % indent)
         pretty_print_section(metadata['metadata'], indent + "  ")
 
 
@@ -246,20 +246,20 @@ def pretty_print(metadata):
          No return value.
     """
     if 'instance' in metadata:
-        print "Instance details:"
+        print("Instance details:")
         pretty_print_section(metadata['instance'], '  ')
 
     if 'publicIp' in metadata or 'vnics' in metadata:
-        print "Networking details:"
+        print("Networking details:")
 
         if 'publicIp' in metadata:
-            print "  Public IP address: %s" % metadata['publicIp']
+            print("  Public IP address: %s" % metadata['publicIp'])
 
         if 'vnics' in metadata:
             if len(metadata['vnics']) > 1:
                 if_num = 1
                 for vnic_data in metadata['vnics']:
-                    print "  VNIC %s:" % if_num
+                    print("  VNIC %s:" % if_num)
                     pretty_print_section(vnic_data, '    ')
                     if_num += 1
             else:
@@ -388,7 +388,7 @@ def verify_setkeys(set_keys):
     if set_keys is None:
         _logger.error("You must provide a key=value for update option.")
         return False
-    keys = set_keys.keys()
+    keys = list(set_keys.keys())
     for k in keys:
         if k in OCIInstance.settable_field_type:
             v = set_keys[k]
@@ -415,7 +415,7 @@ def verify_setkeys(set_keys):
             _logger.error(" Key(%s) is one of the reserved names." % k)
             return False
         else:
-            if "extendedMetadata" in set_keys.keys():
+            if "extendedMetadata" in list(set_keys.keys()):
                 extended_metadata = set_keys["extendedMetadata"]
             else:
                 extended_metadata = {}
@@ -526,7 +526,7 @@ def remove_list_for_single_item_list(dic):
     Returns:
     dic: the changed dictionary
     """
-    for k, v in dic.iteritems():
+    for k, v in dic.items():
         if type(v) is list:
             if len(v) == 0:
                 dict[k] = None
@@ -547,12 +547,12 @@ def print_trimed_key_values(keys, metadata):
     """
 
     kValues = get_trimed_key_values(keys, metadata)
-    for k, v in kValues.iteritems():
+    for k, v in kValues.items():
         if type(v) is list:
             for item in v:
-                print k + ": " + str(item)
+                print(k + ": " + str(item))
         else:
-            print k + ": " + str(v)
+            print(k + ": " + str(v))
 
 
 def print_value_only(keys, metadata):
@@ -568,12 +568,12 @@ def print_value_only(keys, metadata):
     """
 
     kValues = get_trimed_key_values(keys, metadata)
-    for k, v in kValues.iteritems():
+    for k, v in kValues.items():
         if type(v) is list:
             for item in v:
-                print str(item)
+                print(str(item))
         else:
-            print str(v)
+            print(str(v))
 
 
 def export_keys(keys, metadata):
@@ -593,7 +593,7 @@ def export_keys(keys, metadata):
     """
 
     kValues = get_trimed_key_values(keys, metadata)
-    for k, v in kValues.iteritems():
+    for k, v in kValues.items():
         x = 'export '
         x += k + '=\"'
         if type(v) is list:
@@ -604,7 +604,7 @@ def export_keys(keys, metadata):
         else:
             x += str(v)
         x += '\" '
-        print x
+        print(x)
 
 
 def convert_key_values_to_string(this_dict):
@@ -621,11 +621,11 @@ def convert_key_values_to_string(this_dict):
         The string representation.
     """
     """Recursively converts dictionary keys to strings."""
-    if type(this_dict) is unicode:
+    if type(this_dict) is str:
         return str(this_dict)
     elif isinstance(this_dict, collections.Mapping):
         nd = {}
-        for k, v in this_dict.iteritems():
+        for k, v in this_dict.items():
             nd[str(k)] = convert_key_values_to_string(v)
         return nd
     elif isinstance(this_dict, collections.Iterable):
@@ -672,7 +672,7 @@ def main():
             # instance_id=inst_id, **k_v)
             meta = OCISession().update_instance_metadata(instance_id=inst_id,
                                                          **k_v)
-            metadata = meta.filter(k_v.keys())
+            metadata = meta.filter(list(k_v.keys()))
         except Exception as e:
             _logger.error("%s" % str(e))
             return 1
@@ -717,7 +717,7 @@ def main():
         print_trimed_key_values(args.keys, metadata)
         return 0
     if args.json:
-        print json.dumps(metadata, default=dumper, indent=2)
+        print(json.dumps(metadata, default=dumper, indent=2))
         return 0
     else:
         pretty_print(metadata)

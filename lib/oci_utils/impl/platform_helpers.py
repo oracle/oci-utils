@@ -27,7 +27,7 @@ def get_phys_device():
     try:
         # TODO : it seesm that it is private_ip now
         private_ip = InstanceMetadata()['vnics'][0]['privateIp']
-    except Exception, e:
+    except Exception as e:
         _logger.debug('error checking metadata: %s' % str(e))
         return None
     phys_dev = None
@@ -63,6 +63,6 @@ def get_block_devices():
             if dev_test.match(dev):
                 ret[dev] = path
     except OSError as e:
-        print e
+        print(e)
         return None
     return ret

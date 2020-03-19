@@ -9,7 +9,8 @@ import os
 import os.path
 import subprocess
 
-import cache
+from . import cache
+import oci_utils
 from oci_utils import _configuration as OCIUtilsConfiguration
 from .oci_api import OCISession
 from .metadata import InstanceMetadata

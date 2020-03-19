@@ -173,17 +173,17 @@ resource "null_resource" "deploy_test" {
 
     inline = [
       "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes gcc",
-      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes python-devel",
-      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes python-pip",
+      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes python3-devel",
+      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes python3-pip",
       "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes python-oci-sdk",
       "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes libvirt",
       "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes libvirt-python",
-      "/bin/sudo --login /usr/bin/pip install --quiet --upgrade pip",
-      "/bin/sudo --login /usr/bin/pip install setuptools --upgrade",
+      "/bin/sudo --login /usr/bin/pip3 install --quiet --upgrade pip",
+      "/bin/sudo --login /usr/bin/pip3 install setuptools --upgrade",
       "/bin/sudo --login /usr/bin/yum localinstall --assumeyes /tmp/oci-utils-*.rpm",
       "/bin/sudo --login /usr/bin/systemctl enable --now ocid",
       "/bin/sudo --login /usr/bin/systemctl enable --now libvirtd",
-      "/bin/sudo --login /usr/bin/pip install wheel",
+      "/bin/sudo --login /usr/bin/pip3 install wheel",
     ]
   }
 
@@ -202,7 +202,7 @@ resource "null_resource" "run_test" {
     }
     // do not use --login as it make the shell to change dir
     inline = [
-      "cd /opt/oci-utils/ && /bin/sudo --preserve-env /bin/python /opt/oci-utils/setup.py oci_tests --tests-base=/opt/oci-utils/tests/data"
+      "cd /opt/oci-utils/ && /bin/sudo --preserve-env /bin/python3 /opt/oci-utils/setup.py oci_tests --tests-base=/opt/oci-utils/tests/data"
     ]
   }
 

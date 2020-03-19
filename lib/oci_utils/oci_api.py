@@ -657,7 +657,7 @@ class OCISession(object):
 
         details = {}
         for key in OCIInstance.settable_field_type:
-            if key in kwargs.keys():
+            if key in list(kwargs.keys()):
                 details[key] = kwargs[key]
 
         if not details:
@@ -1028,7 +1028,7 @@ class OCISession(object):
     def get_compartment(self, **kargs):
         if 'ocid' not in kargs:
             # for now make it mandatory
-            raise StandardError('ocid must be provided')
+            raise Exception('ocid must be provided')
 
         try:
             c_data = self._identity_client.get_compartment(compartment_id=kargs['ocid']).data
