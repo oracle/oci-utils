@@ -11,7 +11,6 @@ import os
 import socket
 import subprocess
 import logging
-import shutil
 from socket import inet_ntoa
 from struct import pack
 from . import sudo_utils
@@ -453,23 +452,22 @@ def add_static_ip_route(*args, **kwargs):
     add a static route
     Parameters:
         kwargs:
-            device : network device on which assign the route
-            script : a reference to StringIO object to write the command for future use in script
+            namespace : network namespace in which to create the rule
+
         *args : argument list as passed to the ip-route(8) command
     Return:
         (code,message): command code , on failure a message is sent back
     """
-    routing_cmd = ['/usr/sbin/ip', 'route', 'add']
+    routing_cmd = ['/usr/sbin/ip']
+    if kwargs and 'namespace' in kwargs:
+        routing_cmd.extend(['-netns', kwargs['namespace']])
+    routing_cmd.extend(['route', 'add'])
     routing_cmd.extend(args)
     _logger.debug('adding route : [%s]' % ' '.join(args))
     _out = sudo_utils.call_output(routing_cmd)
     if _out is not None and len(_out) > 0:
         _logger.warning('add of ip route failed')
         return (1, _out)
-
-    if kwargs.get('script'):
-        kwargs.get('script').write(' '.join(routing_cmd))
-        kwargs.get('script').write('\n')
 
     return (0, '')
 
@@ -614,7 +612,6 @@ def add_static_ip_rule(*args, **kwargs):
     Parameters:
         kwargs:
             device : network device on which assign the rule
-            script : a reference to StringIO object to write the command for future use in script
         *args : argument list as passed to the ip-rule(8) command
     Return:
         (code,message): command code , on failure a message is sent back
@@ -626,10 +623,6 @@ def add_static_ip_rule(*args, **kwargs):
     if _out is not None and len(_out) > 0:
         _logger.warning('add of ip rule failed')
         return (1, _out)
-
-    if kwargs.get('script'):
-        kwargs.get('script').write(' '.join(ip_rule_cmd))
-        kwargs.get('script').write('\n')
 
     return (0, '')
 
