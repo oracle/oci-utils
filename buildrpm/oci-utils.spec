@@ -42,7 +42,7 @@ Requires: %{name} = %{version}-%{release}
 Requires: python3-netaddr
 Requires: network-scripts
 %else
-Requires: python34-netaddr
+Requires: python36-netaddr
 %endif
 
 %description kvm
