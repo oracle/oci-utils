@@ -126,7 +126,31 @@ def console_msg(msg=None):
 
 
 def bytes_to_hex(bs):
+    """
+    Convert a byte string to an hex string.
+
+    Parameters
+    ----------
+    bs: str
+       byte string
+
+    Returns
+    -------
+        str: hex string
+    """
     return ''.join('%02x' % i for i in bs)
+
+
+def terminal_dimension():
+    """
+    Collect the dimension of the terminal window.
+
+    Returns
+    -------
+        tuple: (nb rows, nb colums)
+    """
+    rowstr, colstr = os.popen('stty size', 'r').read().split()
+    return int(rowstr), int(colstr)
 
 
 class OciMigrateConfParam(object):

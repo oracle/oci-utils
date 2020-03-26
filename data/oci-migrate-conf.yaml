@@ -36,7 +36,7 @@ helpers_list :
     oci        : oci-cli
 #
 # oci configuration file
-ociconfigfile : /root/.oci/config
+ociconfigfile : ~/.oci/config
 #
 # recognised file system types.
 filesystem_types :

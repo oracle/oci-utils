@@ -16,9 +16,11 @@ import logging.config
 import os
 import sys
 
-from oci_utils.migrate import console_msg, exit_with_msg, get_config_data, read_yn
+from oci_utils.migrate import console_msg, exit_with_msg, get_config_data, \
+    read_yn, terminal_dimension
 from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import migrate_utils
+from oci_utils.migrate.exception import OciMigrateException
 
 if sys.version_info.major < 3:
     exit_with_msg('Python version 3 is a requirement to run this utility.')
@@ -45,7 +47,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(
         description='Utility to import a (verified and modified) on-premise '
-                    'legacy images which was uploaded to object storage in '
+                    'legacy image which was uploaded to object storage in '
                     'the custom images folder of the Oracle Cloud '
                     'Infrastructure.',
         add_help=False)
@@ -101,156 +103,94 @@ def main():
     _logger.debug('Locale set to %s' % lc_all_to_set)
     #
     # command line
-    cmdlineargs = parse_args()
+    cmdline_args = parse_args()
     console_msg(msg='Importing %s from %s into %s as %s and setting '
-                    'launch_mode to %s.' % (cmdlineargs.image_name,
-                                           cmdlineargs.bucket_name,
-                                           cmdlineargs.bucket_name,
-                                           cmdlineargs.display_name,
-                                           cmdlineargs.launch_mode))
-    compartment = cmdlineargs.compartment_name
-    bucket = cmdlineargs.bucket_name
-    object_name = cmdlineargs.image_name
-    display_name = cmdlineargs.display_name
-    launch_mode = cmdlineargs.launch_mode
-    verbose_flag = cmdlineargs.verbose_flag
+                    'launch_mode to %s.' % (cmdline_args.image_name,
+                                           cmdline_args.bucket_name,
+                                           cmdline_args.bucket_name,
+                                           cmdline_args.display_name,
+                                           cmdline_args.launch_mode))
+    compartment = cmdline_args.compartment_name
+    bucket = cmdline_args.bucket_name
+    object_name = cmdline_args.image_name
+    display_name = cmdline_args.display_name
+    launch_mode = cmdline_args.launch_mode
+    verbose_flag = cmdline_args.verbose_flag
     #
-    # oci config file 
+    # collect data
     try:
-        ocicfg = migrate_utils.get_oci_config()
-        console_msg('Found oci config file')
-        tenancy = ocicfg['tenancy']
-        console_msg(msg='Tenancy = %s' % tenancy)
-        _logger.debug('Tenancy: %s' % tenancy)
-        cmd = ['oci', 'iam', 'compartment', 'list', '-c', '%s' % tenancy,
-               '--all']
-        if verbose_flag:
-            console_msg(msg='Running: %s' % cmd)
-        cmpdict = json.loads(migrate_tools.run_popen_cmd(cmd))
-    except Exception as e:
-        exit_with_msg('Failed to locate or read the oci config file, is oci '
-                      'cli installed?: %s' % str(e))
-    #
-    # namespace
-    cmd = ['oci', 'os', 'ns', 'get']
-    try:
-        if verbose_flag:
-            console_msg(msg='Running: %s' % cmd)
-        nsdict = json.loads(migrate_tools.run_popen_cmd(cmd))
-        namespace = nsdict['data']
-        console_msg(msg='Namespace: %s' % namespace)
-    except Exception as e:
-        exit_with_msg('Failed to identify the namespace: %s' % str(e))
-    #
-    # compartment
-    try:
-        foundcom = False
-        for k, v in list(cmpdict.items()):
-            for x in v:
-                if x['name'] == compartment:
-                    compdata = x
-                    # print(compdata)
-                    console_msg(msg='Compartment data: %s' % compdata['id'])
-                    compartment_id = compdata['id']
-                    foundcom = True
-                    break
-        if not foundcom:
-            exit_with_msg('Failed to find %s' % compartment)
-    except Exception as e:
-        exit_with_msg('Failed to find %s: %s' % (compartment, str(e)))
-    #
-    # bucket
-    try:
-        bucketcontents = migrate_utils.bucket_exists(bucket)
-        if verbose_flag:
-            console_msg(msg='Object storage %s present.' % bucket)
-    except Exception as e:
-        exit_with_msg('Object storage %s not found: %s' % (bucket, str(e)))
-    #
-    # bucket data
-    try:
-        cmd = ['oci', 'os', 'bucket', 'get', '--bucket-name', '%s' % bucket]
-        if verbose_flag:
-            console_msg(msg='Running: %s' % cmd)
-        bucketlist = migrate_tools.run_popen_cmd(cmd)
-        if bucketlist is not None:
-            bucketdict = json.loads(bucketlist)
-            _logger.debug('Object storage data: %s' % bucketdict)
-        else:
-            if verbose_flag:
-                console_msg(msg='Bucket data for %s is empty.' % bucket)
-    except Exception as e:
-        exit_with_msg('Failed to get data of %s: %s' % (bucket, str(e)))
-    #
-    # bucket contents
-    try:
-        cmd = ['oci', 'os', 'object', 'list', '--bucket-name', '%s' % bucket]
-        if verbose_flag:
-            console_msg('Running: %s' % cmd)
-        bucketcontents = migrate_tools.run_popen_cmd(cmd)
-        if bucketcontents is not None:
-            bucketcontentsdict = json.loads(bucketcontents)
-            _logger.debug(('Object storage contents: %s' % bucketcontentsdict))
-        else:
-            if verbose_flag:
-                console_msg(msg='Bucket %s is emtpy.' % bucket)
-    except Exception as e:
-        exit_with_msg('Failed to get contents of %s: %s' % (bucket, str(e)))
         #
-    # object exists?
-    if migrate_utils.object_exists(bucketcontents, object_name):
-        if verbose_flag:
-            console_msg(msg='Object %s present in %s.' % (object_name, bucket))
-    else:
-        exit_with_msg('Object %s missing from %s.' % (object_name, bucket))
-    #
-    # display name exists?
-    cmd = ['oci', 'compute', 'image', 'list', '--compartment-id',
-           '%s' % compartment_id, '--display-name',
-           '%s' % display_name]
-    if verbose_flag:
-        console_msg('Running: %s' % cmd)
-    objstat = migrate_tools.run_popen_cmd(cmd)
-    if objstat is not None:
-        exit_with_msg('Image with name %s already exists.' % display_name)
-    else:
-        if verbose_flag:
-            console_msg('Image with name %s not yet imported.' % display_name)
+        # oci configuration
+        oci_config = migrate_utils.get_oci_config()
+        _logger.debug('Found oci config file')
+        #
+        # compartment data for tenancy
+        tenancy = oci_config['tenancy']
+        #console_msg(msg='Tenancy = %s' % tenancy)
+        _logger.debug('Tenancy: %s' % tenancy)
+        compartment_dict = migrate_utils.get_tenancy_data(tenancy)
+        #
+        # object storage namespace
+        os_namespace = migrate_utils.get_os_namespace()
+        console_msg(msg='Object storage namespace: %s' % os_namespace)
+        #
+        # compartment ocid
+        compartment_id = migrate_utils.find_compartment_id(compartment,
+                                                           compartment_dict)
+        #console_msg(msg='Compartment ocid: %s' % compartment_id)
+        #
+        # object storage exist and data
+        object_storage_data = migrate_utils.bucket_exists(bucket)
+        console_msg(msg='Object storage %s present.' % bucket)
+        #
+        # object present in object storage
+        if migrate_utils.object_exists(object_storage_data, object_name):
+            _logger.debug('Object %s present in object_storage %s'
+                          % (object_name, bucket))
         else:
-            _logger.debug('Image with name %s not yet imported.' % display_name)
+            raise OciMigrateException('Object %s does not exist in the  object '
+                                      'storage %s.' % (object_name, bucket))
+        #
+        # display namee present
+        if migrate_utils.display_name_exists(display_name, compartment_id):
+            raise OciMigrateException('Image with name %s already exists.'
+                                      % display_name)
+        else:
+            _logger.debug('%s does not exist' % display_name)
+    except Exception as e:
+        exit_with_msg('Error in collecting essential data: %s' % str(e))
     #
-    # upload?
+    # Ask for confirmation to proceed with upload.
     if not read_yn('\n  Import %s to %s as %s'
                    % (object_name, compartment, display_name), waitenter=True):
         exit_with_msg('Exiting.\n')
-    cmd = ['oci', 'compute', 'image', 'import', 'from-object', '--bucket-name',
-           '%s' % bucket, '--compartment-id', '%s' % compartment_id,
-           '--name', '%s' % object_name, '--namespace', '%s' % namespace,
-           '--launch-mode', launch_mode, '--display-name', '%s' % display_name]
-    if verbose_flag:
-        console_msg(msg='Running: %s' % cmd)
+    #
+    # Start the import.
     try:
-        resval = migrate_tools.run_popen_cmd(cmd)
+        _ = migrate_utils.import_image(object_name,
+                                       display_name,
+                                       compartment_id,
+                                       os_namespace,
+                                       bucket,
+                                       launch_mode)
     except Exception as e:
         exit_with_msg('Failed to import %s: %s' % (object_name, str(e)))
     #
-    # follow up
-    cmd = ['oci', 'compute', 'image', 'list', '--compartment-id',
-           '%s' % compartment_id, '--display-name', '%s' % display_name]
+    # Follow up the import.
     finished = False
-    _, clmns = os.popen('stty size', 'r').read().split()
-    importwait = migrate_tools.ProgressBar(int(clmns), 0.2,
+    _, nbcols = terminal_dimension()
+    importwait = migrate_tools.ProgressBar(nbcols, 0.2,
                                            progress_chars=['importing %s' %
                                                            display_name])
     importwait.start()
-    while not finished:
-        objstat = json.loads(migrate_tools.run_popen_cmd(cmd))
-        for ob in objstat['data']:
-            if ob['display-name'] == display_name:
-                if ob['lifecycle-state'] == 'AVAILABLE':
-                    finished = True
-            else:
-                console_msg(msg='%s not found.' % display_name)
+    try:
+        while not finished:
+            if migrate_utils.get_lifecycle_state(display_name, compartment_id) == 'AVAILABLE':
+                finished = True
+    except Exception as e:
+        _logger.error('Failed to follow up on the import of %s, giving up: %s'
+                      % (display_name, str(e)))
+
     if migrate_tools.isthreadrunning(importwait):
         importwait.stop()
     console_msg(msg='Done')

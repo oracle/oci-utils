@@ -54,7 +54,7 @@ The full path name of the on-premise custom image. This option is mandatory.
 .IP "-b|--bucket"
 The name of the object storage or bucket in the
 .B Oracle Cloud Infrastructure,
- the destination of the modified image file. This options is mandatory.
+ the destination of the modified image file. This option is mandatory.
 .IP "-o|--output-image"
 The oci-image-name or the name of the image as it will be saved in the object
 storage in
@@ -75,18 +75,20 @@ Returns an exit status of 0 for success or 1 if an error occured.
 .PP
 .nf
 .RS
-oci-image-migrate -i /data/images/ol7.qcow2 -b thisobjectstorage -o ol7atoci -v
+oci-image-migrate -i /data/images/Ubuntu1804.qcow2 -b MyObjectStorage -o Ubuntu1804LTS -v
 .RE
 .fi
 .PP
-Verifies if the conditions for import of the image file /data/images/ol7.qcow2
+Verifies if the conditions for import of the image file /data/images/Ubuntu1804.qcow2
 in the
 .B Oracle Cloud Infrastructure
 are met, updates the network configuration, installs the cloud-init package,
 sets a default cloud user and uploads the modified file to the object storage
-thisobjectstorage as ol7atoci.
+MyObjectStorage as Ubuntu1804LTS.
 
 .SH SEE ALSO
+.BR oci-image-migrate-upload(1)
+.BR oci-image-migrate-import(1)
 .BR ocid (8)
 .BR oci-metadata (1)
 

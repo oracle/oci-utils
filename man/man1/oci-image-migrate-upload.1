@@ -1,40 +1,37 @@
 .\" Process this file with
-.\" groff -man -Tascii oci-image-migrate-import.1
+.\" groff -man -Tascii oci-image-migrate-upload.1
 .\"
 .\" Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
 .\"
 
 .TH OCI-IMAGE-MIGRATE 1 "JAN 2020" Linux "User Manuals"
 .SH NAME
-oci-image-migrate-import \- assist the import of an image in the 
+oci-image-migrate-upload \- assist the upload of an on-premise image to the
 .B object storage
-to the 
-.B custom images
-repository of the Oracle Cloud Infrastructure
+of the Oracle Cloud Infrastructure
 .SH SYNOPSIS
-.B oci-image-migrate-import  [-i|--image-name
+.B oci-image-migrate-upload  [-i|--image-name
 .I image name
 .B ] [-b|--bucket-name
 .I bucket_name
-.B ] [-c|--compartment-name
-.I compartment name
-.B ] [-d|--display-name
-.I display name
-.B ] [-l|--launch-mode
-.I [PARAVIRTUALIZED|EMULATED|NATIVE]
+.B ] [-o|--output-name
+.I output name
 .B ] [-v|--verbose] [--help]
 
 .SH DESCRIPTION
 The
-.B oci-image-migrate-import
-utility imports an image file residing in an object storage into the custom 
-images repository of
+.B oci-image-migrate-upload
+utility uploads an on-premise image file to the
+.B object storage
+of the
 .B Oracle Cloud Infrastructure.
 
-.B oci-image-migrate-import
-verifies the existence of the image file and the object storage.
+.B oci-image-migrate-upload
+verifies the existence of the on-premise image file, of the
+.B object storage.
 It also checks if and image with the same name already exists
-in the object storage.
+in the
+.B object storage.
 
 .B oci-image-migrate-import
 does not need to be run with root priviliges as long as the user has the
@@ -42,6 +39,7 @@ correct priviliges to access the
 .B Oracle Cloud Infrastructure
 and write priviliges in the directory where log and result files are written,
 as well as in the log file itself (by default /var/tmp/oci-utils.log).
+
 
 .B oci-image-migrate-import
 requires the
@@ -56,22 +54,16 @@ for more information.
 
 .SH OPTIONS
 .IP "-i|--image-name"
-The name of the on-premise image. This option is mandatory.
+The name of the image as present in the object storage. This option is mandatory.
 .IP "-b|--bucket-name"
 The name of the object storage or bucket in the
 .B Oracle Cloud Infrastructure
 where the imagefile is to be stored. This option is mandatory.
-.IP "-c|--compartment-name"
-The name of the destination compartment. This option is mandatory.
-.IP "-d|--display-name"
-The image name or the name the image will be saved in the
-.B custom images
-repository in the
+.IP "-o|--output-name"
+The image name or the name of the image as it will be stored in the
+.B object storage of the
 .B Oracle Cloud Infrastructure.
 This argument is optional, the default is the image name.
-.IP "-l|--launch-mode"
-The mode an instance created form the custom image will be started. Possible
-modes are PARAVIRTUALIZED, EMULATED and NATIVE. The default is PARAVIRTUALIZED.
 .IP "-v|--verbose"
 Show more information about the import on the console.
 .IP "--help"
@@ -84,17 +76,17 @@ Returns an exit status of 0 for success or 1 if an error occured.
 .PP
 .nf
 .RS
-oci-image-migrate-import --image-name /images/OracleLinux7.vmdk -b MyObjectStorage -C MyCompartment -l EMULATED --display-name OracleLinux7U7 -v
+oci-image-migrate-upload --image-name /images/OracleLinux7.vmdk -b MyObjectStorage --output-name OracleLinux7U7 -v
 .RE
 .fi
 .PP
-Imports the image file /images/OracleLinux7.vmdk, on condition it exists, to the object storage of
+Uploads the image file /images/OracleLinux7.vmdk , if it exists on premise to the object MyObjectStorage of the
 .B Oracle Cloud Infrastructure
-as OracleLinux7U7 if there is not yet and image with the same name present.
+as OracleLinux7U7 on condition there is not yet and image with the same name present.
 
 .SH SEE ALSO
 .BR oci-image-migrate(1)
-.BR oci-image-migrate-upload(1)
+.BR oci-image-migrate-import(1)
 .BR ocid (8)
 .BR oci-metadata (1)
 

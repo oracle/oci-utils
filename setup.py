@@ -380,6 +380,7 @@ setup(
                   'man/man1/oci-kvm.1',
                   'man/man1/oci-image-migrate.1',
                   'man/man1/oci-image-migrate-import.1',
+                  'man/man1/oci-image-migrate-upload.1',
                   ]),
                 (os.path.join(sys.prefix, "share", "man", "man5"),
                  ['man/man5/oci-utils.conf.d.5',
@@ -406,6 +407,7 @@ setup(
              'bin/oci-kvm',
              'bin/oci-image-migrate',
              'bin/oci-image-migrate-import',
+             'bin/oci-image-migrate-upload',
              ],
     classifiers=[
         "Development Status :: 3 - Alpha",
