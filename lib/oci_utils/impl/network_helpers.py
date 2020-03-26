@@ -82,24 +82,6 @@ def _fetch_ip_info(namespace, ifname):
 
 
 def _fetch_link_info(namespace, devname):
-    _cmd = ['/usr/sbin/ip']
-    if namespace and len(namespace) > 0:
-        _cmd.extend(['-netns', namespace])
-    _cmd.extend(['-oneline', '-json', 'link', 'show', 'dev', devname])
-    link_info = sudo_utils.call_output(_cmd)
-    if not link_info:
-        return {}
-    link_info_j = json.loads(link_info.strip())
-    for obj in link_info_j:
-        return {
-            'mac': obj.get('address').upper(),
-            'opstate': obj.get('operstate'),
-            'type': obj.get('link_type')
-        }
-    return {}
-
-
-def _fetch_link_info(namespace, devname):
     """
     fetch link information for a given device
     see ip(8)
@@ -112,6 +94,7 @@ def _fetch_link_info(namespace, devname):
             mac : link ether address if any
             state : link operational state
             type: link type
+            flags: link flags (i.e NO-CARRIER BROADCAST ....)
     """
     _cmd = ['/usr/sbin/ip']
     if namespace and len(namespace) > 0:
@@ -129,7 +112,8 @@ def _fetch_link_info(namespace, devname):
         return {
             'mac': obj.get('address').upper(),
             'opstate': obj.get('operstate'),
-            'type': obj.get('link_type')
+            'type': obj.get('link_type'),
+            'flags': obj.get('flags')
         }
     return {}
 
@@ -176,7 +160,9 @@ def get_network_namespace_infos():
                   address : IP address (if any)
                   address_prefix_l : IP address prefix length (if any)
                   address_subnet : IP address subnet (if any)
-                  broadcast : IP address broadcast (if any)
+                  broadcast : IP address broadcast (if any),
+                  type: link type
+                  flags: link flags
               }
            }
 

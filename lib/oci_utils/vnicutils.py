@@ -47,8 +47,6 @@ class VNICUtils(object):
             (vnic info timestamp: datetime, vnic info: dict)
         """
         vnic_info = {
-            'ns': None,
-            'sshd': False,
             'exclude': [],
             'sec_priv_ip': []}
         vnic_info_ts = 0
@@ -479,10 +477,14 @@ class VNICUtils(object):
 
         for _namespace, _nintfs in _all_intfs.items():
             for _i in _nintfs:
+                if "NO-CARRIER" in _i['flags'] or "LOOPBACK" in _i['flags']:
+                    continue
+                if _i['type'] != 'ether':
+                    continue
                 _intf = {}
                 _intf['MAC'] = _i.get('mac', '').upper()
-                _intf['IFACE'] = _i['device']
-                _intf['IND'] = _i['index']
+                _intf['IFACE'] = _i['device'].decode()
+                _intf['IND'] = _i['index'].decode()
                 _intf['STATE'] = _i['opstate']
                 _intf['NS'] = _namespace
                 _intf['VLAN'] = _i.get('vlanid', '')
@@ -636,14 +638,18 @@ def _auto_config_intf(net_namespace_info, intf_infos):
                             (intf_infos['IFACE'], net_namespace_info['name']))
 
     # add IP address to interface
-    _logger.debug("addr %s/%s add on %s ns '%s'" %
-                  (intf_infos['ADDR'], intf_infos['SBITS'], intf_infos['IFACE'], net_namespace_info['name']))
+    if net_namespace_info:
+        _logger.debug("addr %s/%s add on %s ns '%s'" %
+                      (intf_infos['ADDR'], intf_infos['SBITS'], intf_infos['IFACE'], net_namespace_info['name']))
+    else:
+        _logger.debug("addr %s/%s add on %s" %
+                      (intf_infos['ADDR'], intf_infos['SBITS'], intf_infos['IFACE']))
     _ip_cmd_prefix = ['/usr/sbin/ip']
     if net_namespace_info is not None:
         _ip_cmd_prefix.extend(['netns,', 'exec', net_namespace_info['name'], '/usr/sbin/ip'])
 
     _ip_cmd = list(_ip_cmd_prefix)
-    _ip_cmd.extend(['addr', 'add', '%s/%s' % intf_infos['ADDR'], intf_infos['SBITS'], 'dev', intf_infos['IFACE']])
+    _ip_cmd.extend(['addr', 'add', '%s/%s' % (intf_infos['ADDR'], intf_infos['SBITS']), 'dev', intf_infos['IFACE']])
     ret = sudo_utils.call(_ip_cmd)
     if ret != 0:
         raise Exception('cannot add IP address %s/%s on interface %s' %
@@ -652,23 +658,23 @@ def _auto_config_intf(net_namespace_info, intf_infos):
     if _is_bm_shape and _macvlan_name:
         _logger.debug("vlans set up")
         _ip_cmd = list(_ip_cmd_prefix)
-        _ip_cmd.extend(['link', 'set', 'dev', _macvlan_name, 'mtu', _INTF_MTU, 'up'])
+        _ip_cmd.extend(['link', 'set', 'dev', _macvlan_name, 'mtu', str(_INTF_MTU), 'up'])
         ret = sudo_utils.call(_ip_cmd)
         if ret != 0:
             raise Exception("cannot set MAC VLAN %s up" % _macvlan_name)
 
         _ip_cmd = list(_ip_cmd_prefix)
-        _ip_cmd.extend(['link', 'set', 'dev', _vlan_name, 'mtu', _INTF_MTU, 'up'])
+        _ip_cmd.extend(['link', 'set', 'dev', _vlan_name, 'mtu', str(_INTF_MTU), 'up'])
         ret = sudo_utils.call(_ip_cmd)
         if ret != 0:
             raise Exception("cannot set VLAN %s up" % _vlan_name)
     else:
         _logger.debug("%s set up" % intf_infos['IFACE'])
         _ip_cmd = list(_ip_cmd_prefix)
-        _ip_cmd.extend(['link', 'set', 'dev', intf_infos['IFACE'], 'mtu', _INTF_MTU, 'up'])
+        _ip_cmd.extend(['link', 'set', 'dev', intf_infos['IFACE'], 'mtu', str(_INTF_MTU), 'up'])
         ret = sudo_utils.call(_ip_cmd)
         if ret != 0:
             raise Exception("cannot set interface $iface MTU" % intf_infos['IFACE'])
 
     _logger.debug("added IP address %s on interface %s with MTU %d" %
-                  (intf_infos['ADDR'], intf_infos['IFACE'], _INTF_MTU))
+                  (intf_infos['ADDR'], intf_infos['IFACE'], str(_INTF_MTU)))
