@@ -26,7 +26,8 @@ import re
 import sys
 import time
 
-from oci_utils.migrate import exit_with_msg, get_config_data, pause_msg, read_yn
+from oci_utils.migrate import exit_with_msg, get_config_data, pause_msg, \
+    read_yn, terminal_dimension
 from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import migrate_utils
 from oci_utils.migrate.exception import OciMigrateException
@@ -183,7 +184,7 @@ def show_supported_formats_data(supported_images):
     """
     print('\n  %25s\n  %25s\n  %25s : %-20s\n  %25s   %-20s'
           % ('Supported image formats', '-'*25,
-              'Magic Key', 'Format data', '-'*20, '-'*20))
+             'Magic Key', 'Format data', '-'*20, '-'*20))
     for key in sorted(supported_images):
         print('  %25s : ' % key)
         one_image = supported_images[key]
@@ -314,13 +315,13 @@ def main():
         if args.input_image:
             imagepath = args.input_image.name
             resultfilename = get_config_data('resultfilepath') \
-                + '_' \
-                + os.path.splitext(os.path.basename(imagepath))[0] \
-                + '.res'
+                            + '_' \
+                            + os.path.splitext(os.path.basename(imagepath))[0] \
+                            + '.res'
             migrate_tools.resultfilename = resultfilename
             migrate_tools.result_msg(msg='\n  Running %s at %s\n'
                                      % (os.path.basename(' '.join(sys.argv)),
-                                        time.ctime()), flags='w', result=True)
+                                     time.ctime()), flags='w', result=True)
         else:
             raise OciMigrateException('Missing argument: input image path.')
         #
@@ -341,13 +342,15 @@ def main():
         # if qemu-img is used, the minimal version is 3
         qemuversioninfo = qemu_img_version()
         if qemuversioninfo[1] < 3:
-            raise OciMigrateException('Minimal version of qemu-img is 3, %s found.' % qemuversioninfo[0])
+            raise OciMigrateException('Minimal version of qemu-img is 3, '
+                                      '%s found.' % qemuversioninfo[0])
         else:
             _logger.debug('release data ok')
         #
         # Check if oci-cli is configured.
-        if os.path.isfile(get_config_data('ociconfigfile')):
-            migrate_tools.result_msg(msg='oci-cli config file exists.')
+        oci_config_file = migrate_utils.get_oci_config()
+        if oci_config_file:
+            migrate_tools.result_msg(msg='oci-cli configuration found.')
         else:
             raise OciMigrateException('oci-cli is not configured.')
         #
@@ -387,6 +390,7 @@ def main():
         else:
             _logger.debug('Object %s does not yet exists in object storage %s' % (output_name, bucket_name))
     except Exception as e:
+        _logger.error('*** ERROR *** %s\n' % str(e))
         exit_with_msg('  *** ERROR *** %s\n' % str(e))
     #
     # More on command line arguments.
@@ -473,7 +477,7 @@ def main():
         #
         if imgres:
             prereq_msg += '\n\n  %s data collection and processing succeeded.' \
-                % imagepath
+                      % imagepath
         else:
             prereq_passed = False
         #
@@ -513,10 +517,10 @@ def main():
     #
     # Prerequisite verification and essential image updates passed, uploading
     # image.
-    _, clmns = os.popen('stty size', 'r').read().split()
+    _, nbcols = terminal_dimension()
     try:
         uploadprogress = migrate_tools.ProgressBar(
-            int(clmns), 0.2, progress_chars=['uploading %s' % output_name])
+            nbcols, 0.2, progress_chars=['uploading %s' % output_name])
         #
         # Verify if object already exists.
         if migrate_utils.object_exists(bucket_data, output_name):
