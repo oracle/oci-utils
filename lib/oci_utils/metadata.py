@@ -9,7 +9,9 @@
 
 import json
 import logging
-import urllib.request, urllib.error, urllib.parse
+import urllib.request
+import urllib.error
+import urllib.parse
 from datetime import timedelta
 
 from . import cache
@@ -530,7 +532,7 @@ class InstanceMetadata(object):
     _metadata = None
 
     # metadata service URL
-    _oci_metadata_api_url = 'http://%s/opc/v1/' % _METADATA_ENDPOINT
+    _oci_metadata_api_url = 'http://%s/opc/v2/' % _METADATA_ENDPOINT
 
     # error log
     _errors = []
@@ -586,8 +588,9 @@ class InstanceMetadata(object):
         # read the instance metadata
         lock_thread()
         try:
-            api_conn = urllib.request.urlopen(
-                self._oci_metadata_api_url + 'instance/', timeout=2)
+            _request = urllib.request.Request(self._oci_metadata_api_url + 'instance/',
+                                              headers={'Authorization': 'Bearer Oracle'})
+            api_conn = urllib.request.urlopen(_request, timeout=2)
             instance_metadata = json.loads(api_conn.read().decode('utf-8'))
             metadata['instance'] = instance_metadata
         except IOError as e:
@@ -600,8 +603,9 @@ class InstanceMetadata(object):
         # get the VNIC info
         lock_thread()
         try:
-            api_conn = urllib.request.urlopen(
-                self._oci_metadata_api_url + 'vnics/', timeout=2)
+            _request = urllib.request.Request(self._oci_metadata_api_url + 'vnics/',
+                                              headers={'Authorization': 'Bearer Oracle'})
+            api_conn = urllib.request.urlopen(_request, timeout=2)
             vnic_metadata = json.loads(api_conn.read().decode('utf-8'))
             metadata['vnics'] = vnic_metadata
         except IOError as e:
