@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.11.0
-Release: 1%{?dist}
+Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -42,7 +42,7 @@ Requires: %{name} = %{version}-%{release}
 Requires: python3-netaddr
 Requires: network-scripts
 %else
-Requires: python34-netaddr
+Requires: python36-netaddr
 %endif
 
 %description kvm
@@ -175,10 +175,7 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Tue Mar 24 2020 Guido Tijskens <guido.tijskens@oracle.com. -- 0.11.1
-- add oci-image-migrate-upload, only upload image to object storage
-
-* Tue Mar 3 2020 Guido Tijskens <guido.tijskens@oracle.com> -- 0.11.0
+* Wed Apr 1 2020 Guido Tijskens <guido.tijskens@oracle.com> -- 0.11.0
 - add oci-image-migrate code
 
 * Wed Dec 4 2019 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.10.2

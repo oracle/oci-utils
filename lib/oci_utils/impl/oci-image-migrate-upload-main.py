@@ -88,25 +88,19 @@ def main():
     # input image
     if cmdline_args.input_image:
         image_path = cmdline_args.input_image.name
-        migrate_tools.result_msg(msg='\n  Running %s at %s\n'
-                                     % (os.path.basename(' '.join(sys.argv)),
-                                        time.ctime()), flags='w', result=True)
+        console_msg(msg='\n  Running %s at %s\n'
+                        % (os.path.basename(' '.join(sys.argv)), time.ctime()))
     else:
         raise OciMigrateException('Missing argument: input image path.')
     #
     # object storage
     bucket_name = cmdline_args.bucket_name
-    console_msg(msg='Uploading %s to object storage %s in the Oracle Cloud '
-                    'Infrastructure as %s.' % (image_path,
-                                               bucket_name,
-                                               cmdline_args.output_name))
     #
     # output image
     if cmdline_args.output_name:
         output_name = cmdline_args.output_name
     else:
         output_name = os.path.splitext(os.path.basename(image_path))[0]
-    migrate_tools.result_msg(msg='Output name:  %s\n' % output_name, result=True)
     verbose_flag = cmdline_args.verbose_flag
     #
     # message
@@ -156,14 +150,13 @@ def main():
                           % (output_name, bucket_name))
         #
         # Upload the image.
-        migrate_tools.result_msg(msg='\n  Uploading %s, this might take a while....'
-                                 % image_path, result=True)
+        console_msg(msg='\n  Uploading %s, this might take a while....' % image_path)
         upload_progress.start()
         upload_result = migrate_utils.upload_image(image_path,
                                                    bucket_name,
                                                    output_name)
         _logger.debug('Upload result: %s' % upload_result)
-        migrate_tools.result_msg(msg='  Finished....\n', result=True)
+        console_msg(msg='  Finished....\n')
         upload_progress.stop()
     except Exception as e:
         _logger.error('  Error while uploading %s to %s: %s.'

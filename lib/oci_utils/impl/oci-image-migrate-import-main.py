@@ -126,7 +126,6 @@ def main():
         #
         # compartment data for tenancy
         tenancy = oci_config['tenancy']
-        #console_msg(msg='Tenancy = %s' % tenancy)
         _logger.debug('Tenancy: %s' % tenancy)
         compartment_dict = migrate_utils.get_tenancy_data(tenancy)
         #
@@ -137,7 +136,6 @@ def main():
         # compartment ocid
         compartment_id = migrate_utils.find_compartment_id(compartment,
                                                            compartment_dict)
-        #console_msg(msg='Compartment ocid: %s' % compartment_id)
         #
         # object storage exist and data
         object_storage_data = migrate_utils.bucket_exists(bucket)
