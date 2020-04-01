@@ -95,10 +95,10 @@ def _initialize():
     -------
         No return value.
     """
-    items = dictAttrToVal.items()
+    items = list(dictAttrToVal.items())
     for i in range(len(items)):
         dictValToAttr.update({items[i][1]: items[i][0]})
-    items = dictMsgTypeToVal.items()
+    items = list(dictMsgTypeToVal.items())
     for i in range(len(items)):
         dictValToMsgType.update({items[i][1]: items[i][0]})
 

@@ -7,11 +7,12 @@ import unittest
 
 import oci_utils
 import oci_utils.oci_api
-from decorators import needsOCICLI
+from tools.decorators import needsOCICLI
+from tools.oci_test_case import OciTestCase
 from oci_utils.exceptions import OCISDKError
 
 
-class TestOCIVolume(unittest.TestCase):
+class TestOCIVolume(OciTestCase):
     """ Test OCI block volume.
     """
 
@@ -24,7 +25,8 @@ class TestOCIVolume(unittest.TestCase):
         -------
             No return value.
         """
-        print 'creating test volume'
+        super(TestOCIVolume, self).setUp()
+        self.logger.info('creating test volume')
         self.testVol = None
         try:
             self.sess = oci_utils.oci_api.OCISession()
@@ -37,7 +39,7 @@ class TestOCIVolume(unittest.TestCase):
             display_name="oci-utils-unittest-vol")
         self.assertIsNotNone(self.testVol,
                              "Failed to create Volume for testing")
-        print 'new volume created [%s]' % self.testVol.get_ocid()
+        print('new volume created [%s]' % self.testVol.get_ocid())
 
     @needsOCICLI()
     def tearDown(self):
@@ -50,9 +52,9 @@ class TestOCIVolume(unittest.TestCase):
         """
         vol_id = self.testVol.get_ocid()
         if self.volume_attached:
-            print 'have to detach volume'
+            print('have to detach volume')
             self.testVol.detach(wait=True)
-            print 'volume detached'
+            print('volume detached')
 
         self.testVol.destroy()
 
@@ -80,7 +82,7 @@ class TestOCIVolume(unittest.TestCase):
         try:
             self.testVol = inst.attach_volume(volume_id=self.testVol.get_ocid())
             self.volume_attached = True
-        except OCISDKError, e:
+        except OCISDKError as e:
             self.fail('attach of volume failed: %s' % str(e))
 
 

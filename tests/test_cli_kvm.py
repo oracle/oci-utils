@@ -5,13 +5,12 @@
 import os
 import subprocess
 import unittest
+from tools.oci_test_case import OciTestCase
 
 
-class TestCliKvm(unittest.TestCase):
+class TestCliKvm(OciTestCase):
     """ oci-kvm tests.
     """
-
-    KVM = '/bin/oci-kvm'
 
     def setUp(self):
         """
@@ -26,8 +25,11 @@ class TestCliKvm(unittest.TestCase):
         unittest.SkipTest
             If the KVM config file does not exists.
         """
-        if not os.path.exists(TestCliKvm.KVM):
-            raise unittest.SkipTest("%s not present" % TestCliKvm.KVM)
+        super(TestCliKvm, self).setUp()
+        self.oci_kvm_path = self.properties.get_property('oci-kvm-path')
+        if not os.path.exists(self.oci_kvm_path):
+            raise unittest.SkipTest("%s not present" %
+                                    self.oci_kvm_path)
 
     def test_display_help(self):
         """
@@ -38,6 +40,6 @@ class TestCliKvm(unittest.TestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([TestCliKvm.KVM, '--help'])
-        except Exception, e:
+            _ = subprocess.check_output([self.oci_kvm_path, '--help'])
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))

@@ -8,15 +8,21 @@ import unittest
 
 import oci_utils
 import oci_utils.oci_api
-from decorators import skipUnlessOCI, skipUnlessOCISDKInstalled, skipUnlessRoot
+from tools.decorators import skipUnlessOCI, skipUnlessOCISDKInstalled, skipUnlessRoot, skipItAsUnresolved
+from tools.oci_test_case import OciTestCase
 from oci_utils.exceptions import OCISDKError
 
 
-class TestOCISession(unittest.TestCase):
+def cmp(a, b):
+    return (a > b) - (a < b)
+
+
+class TestOCISession(OciTestCase):
     """ OCI session Test case.
     """
 
     def setUp(self):
+        super(TestOCISession, self).setUp()
         self._session = None
 
     def setUpSession(self):
@@ -25,6 +31,7 @@ class TestOCISession(unittest.TestCase):
                 auth_method=oci_utils.oci_api.DIRECT)
         return self._session
 
+    @skipItAsUnresolved()
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
     def test_config_file_auth(self):
@@ -47,6 +54,7 @@ class TestOCISession(unittest.TestCase):
                          'Not expeceted instance hostname [%s <> %s]' % (
                          i.get_display_name(), socket.gethostname()))
 
+    @skipItAsUnresolved()
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
     def test_instance_principal_auth(self):
@@ -69,6 +77,7 @@ class TestOCISession(unittest.TestCase):
                          'Not expeceted instance hostname [%s <> %s]' % (
                          i.get_display_name(), socket.gethostname()))
 
+    @skipItAsUnresolved()
     @skipUnlessOCI()
     @skipUnlessRoot()
     @skipUnlessOCISDKInstalled()
@@ -83,13 +92,14 @@ class TestOCISession(unittest.TestCase):
         s = oci_utils.oci_api.OCISession(auth_method=oci_utils.oci_api.PROXY)
         self.assertIsNotNone(s, 'fail to get session using PROXY mode')
         self.assertEqual(s.auth_method, oci_utils.oci_api.PROXY,
-                         'auth mode of returned session is not PROXY')
+                         'auth mode of returned session is not PROXY [%s]' % str(s.auth_method))
         i = s.this_instance()
         self.assertIsNotNone(i, 'PROXY session\'s OCI instance is None ')
         self.assertEqual(i.get_display_name(), socket.gethostname(),
                          'Not expeceted instance hostname [%s <> %s]' % (
                          i.get_display_name(), socket.gethostname()))
 
+    @skipItAsUnresolved()
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
     def test_oci_session(self):
@@ -101,7 +111,7 @@ class TestOCISession(unittest.TestCase):
             No return value.
         """
         # invalid config file -> should fail
-        with self.assertRaisesRegexp(OCISDKError, 'Failed to authenticate'):
+        with self.assertRaisesRegex(OCISDKError, 'Failed to authenticate'):
             s = oci_utils.oci_api.OCISession(
                 config_file='/dev/null',
                 auth_method=oci_utils.oci_api.DIRECT)
@@ -306,6 +316,6 @@ class TestOCISession(unittest.TestCase):
         self.assertIsNotNone(_f, 'None list of instances returned')
         self.assertTrue(_f[0] == self.setUpSession().this_instance())
 
-        _all_wildcard = sorted(self.setUpSession().find_instances('*'))
+        _all_wildcard = sorted(self.setUpSession().find_instances('.*'))
         _all = sorted(self.setUpSession().all_instances())
         self.assertFalse(cmp(_all_wildcard, _all))

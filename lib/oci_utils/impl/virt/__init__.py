@@ -24,4 +24,4 @@ def block_device_has_mounts(device):
     parts = device.get('partitions')
     if not parts:
         return False
-    return sum([len(x['mountpoint']) for x in parts.values()]) != 0
+    return sum([len(x['mountpoint']) for x in list(parts.values())]) != 0

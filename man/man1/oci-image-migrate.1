@@ -1,0 +1,98 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-image-migrate.1
+.\"
+.\" Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+.\" Licensed under the Universal Permissive License v 1.0 as shown
+.\" at http://oss.oracle.com/licenses/upl.
+.\"
+.TH OCI-IMAGE-MIGRATE 1 "JUNE 2019" Linux "User Manuals"
+.SH NAME
+oci-image-migrate \- assist the migration of on premise virtual machines to the
+Oracle Cloud Infrastructure
+.SH SYNOPSIS
+.B oci-image-migrate [-i|--input-image
+.I input_image
+.B ] [-b|--bucket
+.I bucket_name
+.B ] [-o|--output-image
+.I output_image
+.B ] [-v|--verbose] [--help]
+
+.SH DESCRIPTION
+The
+.B oci-image-migrate
+utility prepares an on-premise legacy image for importing into the
+.B Oracle Cloud Infrastructure.
+.B oci-image-migrate
+verifies and validates the prerequisites for the import of
+the image, installs the cloud-init software package and disables the network
+interfaces except the primary one which will be set up as a dhcp client.
+.B oci-image-migrate
+uploads the image file to the specified object storage location with a new image
+name if specified.
+
+.B oci-image-migrate
+must be run with root priviliges, either as user root or using
+.BR sudo(8)
+on an on-premise physical or virtual server.
+.B oci-image-migrate
+requires the
+.B oci-cli
+utility installed and configured.
+
+See
+.BR https://docs.cloud.oracle.com/iaas/Content/API/SDKDocs/cliinstall.htm
+or
+.BR https://docs.cloud.oracle.com/iaas/Content/API/SDKDocs/climanualinst.htm
+for more information.
+
+.B oci-image-migrate
+supports the migration of qcow2 and vmdk single file images.
+
+.SH OPTIONS
+.IP "-i|--input-image"
+The full path name of the on-premise custom image. This option is mandatory.
+.IP "-b|--bucket"
+The name of the object storage or bucket in the
+.B Oracle Cloud Infrastructure,
+ the destination of the modified image file. This option is mandatory.
+.IP "-o|--output-image"
+The oci-image-name or the name of the image as it will be saved in the object
+storage in
+.B Oracle Cloud Infrastructure.
+This argument is optional, the default is the on-premise image name.
+
+.IP "-v|--verbose"
+Show information about the image file on the console. This information is also
+written to a result file in /var/tmp.
+
+.IP "--help"
+Print a summary of the command line options.
+
+.SH DIAGNOSTICS
+Returns an exit status of 0 for success or 1 if an error occured.
+
+.SH EXAMPLES
+.PP
+.nf
+.RS
+oci-image-migrate -i /data/images/Ubuntu1804.qcow2 -b MyObjectStorage -o Ubuntu1804LTS -v
+.RE
+.fi
+.PP
+Verifies if the conditions for import of the image file /data/images/Ubuntu1804.qcow2
+in the
+.B Oracle Cloud Infrastructure
+are met, updates the network configuration, installs the cloud-init package,
+sets a default cloud user and uploads the modified file to the object storage
+MyObjectStorage as Ubuntu1804LTS.
+
+.SH SEE ALSO
+.BR oci-image-migrate-upload(1)
+.BR oci-image-migrate-import(1)
+.BR ocid (8)
+.BR oci-metadata (1)
+
+
+.SH COPYRIGHT
+Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.

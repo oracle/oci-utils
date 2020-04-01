@@ -5,10 +5,11 @@
 
 import unittest
 
-from decorators import skipUnlessOCI
+from tools.decorators import skipUnlessOCI
+from tools.oci_test_case import OciTestCase
 
 
-class TestVirtHelpers(unittest.TestCase):
+class TestVirtHelpers(OciTestCase):
     """
     Virt helpers Test cases.
     These are really basic tests to insure code runs well.

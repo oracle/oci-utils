@@ -5,13 +5,12 @@
 import os
 import subprocess
 import unittest
+from tools.oci_test_case import OciTestCase
 
 
-class TestCliOciNetworkConfig(unittest.TestCase):
+class TestCliOciNetworkConfig(OciTestCase):
     """ oci-iscsi-config tests.
     """
-
-    NETWORK_CONFIG = '/bin/oci-network-config'
 
     def setUp(self):
         """
@@ -26,9 +25,11 @@ class TestCliOciNetworkConfig(unittest.TestCase):
         unittest.Skiptest
             If the NETWORK_Config does not exist.
         """
-        if not os.path.exists(TestCliOciNetworkConfig.NETWORK_CONFIG):
+        super(TestCliOciNetworkConfig, self).setUp()
+        self.oci_net_config = self.properties.get_property('oci-network-config')
+        if not os.path.exists(self.oci_net_config):
             raise unittest.SkipTest("%s not present" %
-                                    TestCliOciNetworkConfig.NETWORK_CONFIG)
+                                    self.oci_net_config)
 
     def test_display_help(self):
         """
@@ -39,9 +40,8 @@ class TestCliOciNetworkConfig(unittest.TestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([
-                TestCliOciNetworkConfig.NETWORK_CONFIG, '--help'])
-        except Exception, e:
+            _ = subprocess.check_output([self.oci_net_config, '--help'])
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_show_no_check(self):
@@ -53,7 +53,6 @@ class TestCliOciNetworkConfig(unittest.TestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([
-                TestCliOciNetworkConfig.NETWORK_CONFIG, '--show', '--quiet'])
-        except Exception, e:
+            _ = subprocess.check_output([self.oci_net_config, '--show', '--quiet'])
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))

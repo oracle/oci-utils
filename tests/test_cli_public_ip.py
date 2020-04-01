@@ -5,13 +5,12 @@
 import os
 import subprocess
 import unittest
+from tools.oci_test_case import OciTestCase
 
 
-class TestCliOciPublicIp(unittest.TestCase):
+class TestCliOciPublicIp(OciTestCase):
     """ oci-public-ip tests.
     """
-
-    PUBLIC_IP = '/bin/oci-public-ip'
 
     def setUp(self):
         """
@@ -26,9 +25,10 @@ class TestCliOciPublicIp(unittest.TestCase):
         unittest.Skiptest
             If the PUBLIC_IP does not exist.
         """
-        if not os.path.exists(TestCliOciPublicIp.PUBLIC_IP):
-            raise unittest.SkipTest("%s not present" %
-                                    TestCliOciPublicIp.PUBLIC_IP)
+        super(TestCliOciPublicIp, self).setUp()
+        self.oci_public_ip = self.properties.get_property('oci-public-ip')
+        if not os.path.exists(self.oci_public_ip):
+            raise unittest.SkipTest("%s not present" % self.oci_public_ip)
 
     def test_display_help(self):
         """
@@ -39,9 +39,8 @@ class TestCliOciPublicIp(unittest.TestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([TestCliOciPublicIp.PUBLIC_IP,
-                                         '--help'])
-        except Exception, e:
+            _ = subprocess.check_output([self.oci_public_ip, '--help'])
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_get(self):
@@ -52,9 +51,8 @@ class TestCliOciPublicIp(unittest.TestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([TestCliOciPublicIp.PUBLIC_IP,
-                                         '--get', '--human-readable'])
-        except subprocess.CalledProcessError, e:
+            _ = subprocess.check_output([self.oci_public_ip, '--get', '--human-readable'])
+        except subprocess.CalledProcessError as e:
             if e.returncode != 1:
                 # when we cannot find the public IP , exit code is 1.
                 self.fail('Execution has failed: %s' % str(e))
@@ -67,9 +65,8 @@ class TestCliOciPublicIp(unittest.TestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([TestCliOciPublicIp.PUBLIC_IP,
-                                         '--list-servers'])
-        except Exception, e:
+            _ = subprocess.check_output([self.oci_public_ip, '--list-servers'])
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_list_all(self):
@@ -80,7 +77,6 @@ class TestCliOciPublicIp(unittest.TestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([TestCliOciPublicIp.PUBLIC_IP,
-                                         '--all', '--json'])
-        except Exception, e:
+            _ = subprocess.check_output([self.oci_public_ip, '--all', '--json'])
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))

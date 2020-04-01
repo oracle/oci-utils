@@ -1,4 +1,5 @@
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+
+# Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -6,18 +7,35 @@
 
 
 import os.path
+from oci_utils.impl.network_helpers import is_ip_reachable
+from oci_utils.impl import VIRSH_CMD
 import subprocess
 import unittest
+
 
 from oci_utils.impl.network_helpers import is_ip_reachable
 from oci_utils.metadata import InstanceMetadata
 
-__all__ = ['skipUnlessRoot',
+__all__ = ['skipUnlessRecorder',
+           'skipUnlessRoot',
            'skipUnlessOCI',
            'needsOCICLI',
-           'skipUnlessOCISDKInstalled']
+           'skipUnlessOCISDKInstalled',
+           'skipItAsUnresolved']
 
 __can_connect_to_oci_sap = None
+
+_run_under_recorder = False
+
+
+def skipUnlessRecorder():
+    """skip the test unless we are running under custom test runner
+        i.e OciUtilsTestRunnerRecord or OciUtilsTestRunnerReplay
+        see setup.py
+    """
+    if not _run_under_recorder:
+        return unittest.skip("custom test runner must be activated")
+    return lambda func: func
 
 
 def skipUnlessOCI():
@@ -36,6 +54,22 @@ def skipUnlessOCI():
     if not __can_connect_to_oci_sap:
         return unittest.skip("must be run on an OCI instance")
     return lambda func: func
+
+
+def skipUnlessVirSHInstalled():
+    """skip the test is libverit not installed
+
+    """
+    if not os.path.exists(VIRSH_CMD):
+        return unittest.skip('virsh not installed')
+    return lambda func: func
+
+
+def skipItAsUnresolved():
+    """
+    just skip the test
+    """
+    return unittest.skip("Unresolved")
 
 
 __current_user_id = None
@@ -76,7 +110,7 @@ def skipUnlessOCISDKInstalled():
     if __sdk_installed is None:
         try:
             # --GT-- not used
-            import oci
+            # import oci
             __sdk_installed = True
         except ImportError:
             __sdk_installed = False

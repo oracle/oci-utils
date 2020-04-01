@@ -1,0 +1,256 @@
+# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+
+# Oracle Cloud Infrastructure.  See the manual page for more information.
+
+# ----------------------------------------------------------------------------
+# Configuration and status data with respect to the oci-image-migrate.
+# ----------------------------------------------------------------------------
+#
+# dummy format key
+dummy_format_key : '01234567'
+#
+# encoding; Click suffers from the Unicode text model in Python 3, oci cli
+# commands will fail if the encoding is not set correctly.
+lc_all: en_US.utf8
+#
+# log file path, without .log extension, timestamp and extension added runtime.
+# logfilepath : /var/tmp/oci-image-migrate
+#
+# result file path without extension, image references are added runtime,
+resultfilepath : /var/tmp/oci-image-migrate
+#
+# Dictionary containing utilities which might be needed with the packages
+# which provide them.
+helpers_list : 
+    qemu-nbd   : qemu-img
+    qemu-img   : qemu-img
+    blkid      : util-linux
+    lsblk      : util-linux
+    sfdisk     : util-linux
+    fdisk      : util-linux
+    parted     : parted,
+    partx      : util-linux
+    lvmdiskscan: lvm2
+    oci        : oci-cli
+#
+# oci configuration file
+ociconfigfile : ~/.oci/config
+#
+# recognised file system types.
+filesystem_types :
+    - ext2
+    - ext3
+    - ext4
+    - xfs
+    - btrfs
+    - ocfs2
+logical_vol_types : 
+    - LVM2_member
+#
+# partition names and types to be ignored.
+partition_to_skip : 
+    - swap
+    - /dev/shm
+    - /sys
+    - /dev/pts
+    - /proc
+    - none
+    - dummy
+#
+# recognised partition types.
+partition_types : 
+    00:  Empty
+    01:  FAT12
+    02:  XENIX root
+    03:  XENIX usr
+    04:  FAT16 <32M
+    05:  Extended
+    06:  FAT16
+    07:  HPFS/NTFS
+    08:  AIX
+    09:  AIX bootable
+    0a:  OS/2 Boot Manag
+    0b:  W95 FAT32
+    0c:  W95 FAT32 (LBA)
+    0e:  W95 FAT16 (LBA)
+    0f:  W95 Extd (LBA)
+    10:  OPUS
+    11:  Hidden FAT12
+    12:  Compaq diagnost
+    14:  Hidden FAT16 <32>
+    16:  Hidden FAT16
+    17:  Hidden HPFS/NTFS
+    18:  AST SmartSleep
+    1b:  Hidden W95 FAT32
+    1c:  Hidden W95 FAT32
+    1e:  Hidden W95 FAT16
+    24:  NEC DOS
+    39:  Plan 9
+    3c:  PartitionMagic
+    40:  Venix 80286
+    41:  PPC PReP Boot
+    42:  SFS
+    4d:  QNX4.x
+    4e:  QNX4.x 2nd part
+    4f:  QNX4.x 3rd part
+    50:  OnTrack DM
+    51:  OnTrack DM6 Aux
+    52:  CP/M
+    53:  OnTrack DM6 Aux
+    54:  OnTrackDM6
+    55:  EZ-Drive
+    56:  Golden Bow
+    5c:  Priam Edisk
+    61:  SpeedStor
+    63:  GNU HURD or Sys
+    64:  Novell Netware
+    65:  Novell Netware
+    70:  DiskSecure Mult
+    75:  PC/IX
+    80:  Old Minix
+    81:  Minix / old Lin
+    82:  Linux swap / Solaris x86
+    83:  Linux
+    84:  OS/2 hidden C
+    85:  Linux extended
+    86:  NTFS volume set
+    87:  NTFS volume set
+    88:  Linux plaintext
+    8e:  Linux LVM
+    93:  Amoeba
+    94:  Amoeba BBT
+    9f:  BSD/OS
+    a0:  IBM Thinkpad hi
+    a5:  FreeBSD
+    a6:  OpenBSD
+    a7:  NeXTSTEP
+    a8:  Darwin UFS
+    a9:  NetBSD
+    ab:  Darwin boot
+    af:  HFS / HFS+
+    b7:  BSDI fs
+    b8:  BSDI swap
+    bb:  Boot Wizard hid
+    be:  Solaris boot
+    bf:  Solaris
+    c1:  DRDOS/sec (FAT-12)
+    c4:  DRDOS/sec (FAT-16)
+    c6:  DRDOS/sec (FAT-16B)
+    c7:  Syrinx
+    da:  Non-FS data
+    db:  CP/M / CTOS / .
+    de:  Dell Utility
+    df:  BootIt
+    e1:  DOS access
+    e3:  DOS R/O
+    e4:  SpeedStor
+    eb:  BeOS fs
+    ee:  GPT
+    ef:  EFI (FAT-12/16/
+    f0:  Linux/PA-RISC b
+    f1:  SpeedStor
+    f4:  SpeedStor
+    f2:  DOS secondary
+    fb:  VMware VMFS
+    fc:  VMware VMKCORE
+    fd:  Linux raid auto
+    fe:  LANstep
+    ff:  BBT
+#
+# list of valid boot configurations.
+valid_boot_types : 
+    - 'BIOS'
+    - 'UEFI'
+#
+# list of directories required for a normal boot of a linux type os; if
+# those directories reside in separate partitions, those partition have to
+# be in the same image file.
+essential_dir_list :
+    - /boot
+    - /bin
+    - /etc
+    - /home
+    - /lib
+    - /opt
+    - /sbin
+    - /srv
+    - /usr
+    - /var
+
+# ifcfg
+default_ifcfg : /etc/sysconfig/network-scripts
+default_ifcfg_config : 
+    - TYPE="Ethernet"
+    - PROXY_METHOD="none"
+    - BROWSER_ONLY="no"
+    - BOOTPROTO="dhcp"
+    - DEFROUTE="yes"
+    - IPV4_FAILURE_FATAL="no"
+    - IPV6INIT="yes"
+    - IPV6_AUTOCONF="yes"
+    - IPV6_DEFROUTE="yes"
+    - IPV6_FAILURE_FATAL="no"
+    - IPV6_ADDR_GEN_MODE="stable-privacy"
+    - NAME="_XXXX_"
+    - DEVICE="_XXXX_"
+    - NM_CONTROLLED="no"
+    - ONBOOT="yes"
+#
+# interfaces file
+default_interfaces : /etc/network
+default_interfaces_config :
+    - '# The loopback network interface'
+    - auto lo
+    - iface lo inet loopback
+    - '# The primary network interface'
+    - auto _XXXX_
+    - iface _XXXX_ inet dhcp
+#
+# netplan
+default_netplan : /etc/netplan
+default_netplan_file : 10-default-network.yaml
+default_netplan_config :
+    network:
+        ethernets :
+            _XXXX_ :
+                dhcp4: true
+#
+# network manager
+default_nwmconfig : /etc/NetworkManager/NetworkManager.conf
+default_nwconnections : /etc/NetworkManager/system-connections
+default_nwm_conf_file : 
+   - '[main]'
+   - 'plugins=ifupdown,keyfile'
+   - ''
+   - '[ifupdown]'
+   - 'managed=false'
+   - ''
+   - '[keyfile]'
+   - 'unmanaged-devices='
+   - ''
+   - '[device]'
+   - 'wifi.scan-rand-mac-address=no'
+#
+# systemd_networkd
+default_systemd :
+    - /etc/systemd/network
+    - /lib/systemd/network
+default_systemd_file : /etc/systemd/network/10-default-cfg.network
+default_systemd_config :
+    - '[Match]'
+    - 'Name=_XXXX_'
+    - '[Network]'
+    - 'DHCP=ipv4'
+#
+# list of supported operating systems.
+valid_os :
+    - ORACLE LINUX SERVER
+    - RHEL
+    - CENTOS
+    - UBUNTU
+#
+# cloud-config
+cloudconfig_file : /etc/cloud/cloud.cfg
+default_clouduser : opc

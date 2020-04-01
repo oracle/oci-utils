@@ -102,10 +102,10 @@ def discovery(ipaddr):
                                               '-p', ipaddr + ':3260'],
                                              stderr=dev_null)
         iqns = []
-        for line in output.split('\n'):
-            if 'iqn' not in line:
+        for line in output.splitlines():
+            if b'iqn' not in line:
                 continue
-            match = _DISCOVERY_PATTERN.match(line.strip())
+            match = _DISCOVERY_PATTERN.match(line.strip().decode())
             if match:
                 iqns.append(match.group(1))
         return iqns
@@ -151,35 +151,35 @@ def session():
 
         device_info = {}
         target = None
-        for line in output.split('\n'):
+        for line in output.splitlines():
             # new section describing a different Target is starting
             # save any data collected about the previous Target
-            if 'Target:' in line:
+            if b'Target:' in line:
                 if target is not None and device_info != {}:
                     devices[target] = device_info
                     device_info = {}
-                match = _TARGET_PATTERN.search(line.strip())
+                match = _TARGET_PATTERN.search(line.strip().decode())
                 if match:
                     target = match.group(1)
                 else:
                     target = None
                 continue
-            if 'Current Portal:' in line:
-                match = _PORTAL_PATTERN.search(line.strip())
+            if b'Current Portal:' in line:
+                match = _PORTAL_PATTERN.search(line.strip().decode())
                 if match:
                     device_info['current_portal_ip'] = match.group(2)
                     device_info['current_portal_port'] = match.group(3)
-            if 'Persistent Portal:' in line:
-                match = _PORTAL_PATTERN.search(line.strip())
+            if b'Persistent Portal:' in line:
+                match = _PORTAL_PATTERN.search(line.strip().decode())
                 if match:
                     device_info['persistent_portal_ip'] = match.group(2)
                     device_info['persistent_portal_port'] = match.group(3)
-            if 'iSCSI Session State:' in line:
-                match = _SESS_STATE_PATTERN.search(line.strip())
+            if b'iSCSI Session State:' in line:
+                match = _SESS_STATE_PATTERN.search(line.strip().decode())
                 if match:
                     device_info['session_state'] = match.group(1)
-            if 'Attached scsi disk' in line:
-                match = _DISK_PATTERN.search(line.strip())
+            if b'Attached scsi disk' in line:
+                match = _DISK_PATTERN.search(line.strip().decode())
                 if match:
                     device_info['device'] = match.group(1)
                     device_info['state'] = match.group(2)

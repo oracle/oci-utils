@@ -1,3 +1,4 @@
+
 # oci-utils
 #
 # Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
@@ -11,6 +12,7 @@ and network configuration changes.
 
 import argparse
 import logging
+import logging.handlers
 import os
 import subprocess
 import sys
@@ -21,7 +23,9 @@ from datetime import datetime, timedelta
 import daemon
 import daemon.pidfile
 import sdnotify
-
+import signal
+import select
+import fcntl
 import oci_utils
 import oci_utils.iscsiadm
 import oci_utils.metadata
@@ -53,7 +57,8 @@ def parse_args():
                         'public_ip')
     parser.add_argument('--no-daemon', action='store_true',
                         help='run ocid in the foreground, useful for debugging')
-    parser.add_argument('--test', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--stop-all', action='store_true',
+                        help='gracefull stop running ocid daemon')
 
     args = parser.parse_args()
     # when no argument is given set to True
@@ -86,9 +91,7 @@ class OcidThread(threading.Thread):
         The number of iterations.
     active : bool
         Indicator if thread is running.
-    first_iter_done: bool
-        Indicator if first iteration is finished.
-    threadLock : lock
+    thread_lock : lock
         The thread lock.
     """
 
@@ -126,9 +129,12 @@ class OcidThread(threading.Thread):
                 self.sleeptime = 60
         self.repeat = repeat
         self.active = False
-        self.first_iter_done = False
-        self.threadLock = threading.Lock()
-        self.thr_logger = logging.getLogger('oci-utils.ocid.%s' % self.name)
+        self.thread_lock = threading.Lock()
+        self.thr_logger = logging.getLogger('oci-utils.ocid.workers.%s.%s' % (self.name, self.thread_name))
+        # evt used to wait between iterations and for worker mgr to ask us to stop
+        self.blocking_evt = threading.Event()
+        # evt used by worker mgr to wiat for first iteration to be completed
+        self.first_iteration_evt = threading.Event()
 
     def __str__(self):
         return self.thread_name
@@ -144,43 +150,16 @@ class OcidThread(threading.Thread):
         """
         return self.thread_name
 
-    def stop(self):
-        """
-        Tell the thread to stop.
-
-        Returns
-        -------
-            No return value.
-        """
-        # de-activate
+    def request_stop(self):
+        self.thr_logger.debug('been requested to stop')
         self.active = False
+        self.blocking_evt.set()
 
-    def get_context(self):
-        """
-        Collect the context of the thread.
-
-        Returns
-        -------
-        dict
-            The context.
-        """
-        # make sure it's not running
-        self.threadLock.acquire()
-        # save context
-        ctx = self.context
-        self.threadLock.release()
-        return ctx
-
-    def is_first_iter_done(self):
+    def wait_first_iteration(self):
         """
         Verify the end of the first iteration.
-
-        Returns
-        -------
-        bool
-            True or Ralse.
         """
-        return self.first_iter_done
+        self.first_iteration_evt.wait()
 
     def run(self):
         """
@@ -195,61 +174,26 @@ class OcidThread(threading.Thread):
         while True:
             self.thr_logger.debug("Running thread func for "
                                   "thread %s" % self.thread_name)
-            self.threadLock.acquire()
+            self.thread_lock.acquire()
             if not self.active:
                 # shutting down.
-                self.threadLock.release()
-                sys.exit(0)
+                self.thread_lock.release()
+                self.thr_logger.debug('shutting down')
+                break
             try:
                 self.context = self.ocidfunc(self.context, self.thr_logger)
             except Exception as e:
                 self.thr_logger.error("Error running ocid "
                                       "thread '%s': %s" % (self.thread_name, e))
                 self.thr_logger.exception(e)
-            self.threadLock.release()
+            self.thread_lock.release()
             # ocidfunc completed at least once
-            self.first_iter_done = True
+            self.first_iteration_evt.set()
             if not self.repeat:
                 # run the main function once only
                 break
-            time_slept = 0
-            # sleep sleep_unit sec at a time so we can shut down cleanly in
-            # no more than that time
-            sleep_unit = 10
-            while time_slept < self.sleeptime:
-                if self.sleeptime - time_slept < sleep_unit:
-                    time.sleep(self.sleeptime - time_slept)
-                    time_slept = self.sleeptime
-                else:
-                    time.sleep(sleep_unit)
-                    time_slept += sleep_unit
-                if not self.active:
-                    # shutting down
-                    sys.exit(0)
-
-
-def test_func(context):
-    """
-    OCID thread function for testing purposes.
-
-    Parameters
-    ----------
-    context : dict
-        The thread context.
-
-    Returns
-    -------
-    dict
-        The new context.
-    """
-    if 'fname' not in context:
-        raise ValueError("fname must be defined in the context")
-    if 'counter' not in context:
-        raise ValueError("counter must be defined in the context")
-    with open(context['fname'], "w+") as f:
-        f.write("hello %d\n" % context['counter'])
-    context['counter'] += 1
-    return context
+            self.thr_logger.debug('Waiting on evt, tm = %d' % self.sleeptime)
+            self.blocking_evt.wait(self.sleeptime)
 
 
 def public_ip_func(context, func_logger):
@@ -271,10 +215,9 @@ def public_ip_func(context, func_logger):
         try:
             sess = oci_utils.oci_api.OCISession()
             return {'publicIp': sess.this_instance().get_public_ip()}
-        except OCISDKError, e:
-            # enough for now
-            # TODO : use thread subclass instead of func indirection
-            pass
+        except OCISDKError as e:
+            func_logger.exception()
+
     # fallback
     external_ip = get_ip_info()[1]
 
@@ -304,21 +247,18 @@ def iscsi_func(context, func_logger):
             except Exception:
                 pass
         max_volumes = 8
-        try:
+        if 'max_volumes' in context:
             max_volumes = int(context['max_volumes'])
-        except Exception:
-            pass
+
         auto_detach = True
-        try:
+        if 'auto_detach' in context:
             auto_detach = context['auto_detach']
-        except Exception:
-            pass
+
         # the number of iterations to wait before detaching an offline volume
         detach_retry = 5
-        try:
+        if 'detach_retry' in context:
             detach_retry = int(context['detach_retry'])
-        except Exception:
-            pass
+
         if max_volumes > _MAX_VOLUMES_LIMIT:
             func_logger.warn("Your configured max_volumes(%s) is over the "
                              "limit(%s)\n" %
@@ -445,16 +385,14 @@ def iscsi_func(context, func_logger):
 
     # look for perviously failed volumes that are now in the session
     # (e.g. the user supplied the password using oci-iscsi-config)
-    for iqn in attach_failed.keys():
+    for iqn in list(attach_failed.keys()):
         if iqn in session_devs:
             del attach_failed[iqn]
             cache_changed = True
 
     detach_retry = 5
-    try:
+    if 'detach_retry' in context:
         detach_retry = int(context['detach_retry'])
-    except Exception:
-        pass
 
     # look for disconnected devices in the current session
     # these devices were disconnected from the instance in the console,
@@ -681,13 +619,7 @@ def start_thread(name, repeat):
 
     true_list = ['true', 'True', 'TRUE']
 
-    if name == 'test':
-        th = OcidThread(name=name,
-                        ocidfunc=test_func,
-                        context={'fname': '/tmp/ocid-test', 'counter': 1},
-                        sleeptime=10,
-                        repeat=repeat)
-    elif name == 'public_ip':
+    if name == 'public_ip':
         is_enabled = OCIUtilsConfiguration.get('public_ip', 'enabled')
         if is_enabled not in true_list:
             return None
@@ -762,12 +694,6 @@ def start_threads(args, repeat):
     # set up threads
     threads = {}
 
-    if args.test:
-        # start the test thread
-        __ocid_logger.debug('starting thread \'test\'')
-        th = start_thread('test', repeat)
-        if th:
-            threads['test'] = th
     if not args.refresh or args.refresh is True:
         # is not a refresh request or is a request to refresh all
         # so start all threads
@@ -793,46 +719,6 @@ def start_threads(args, repeat):
     return threads
 
 
-def monitor_threads(threads, arguments):
-    """
-    Monitor the threads.
-
-    Parameters
-    ----------
-    threads: dict
-        The threads to monitor.
-    arguments: namespace
-        The parsed command line.
-        # --GT-- not used, kept to avoid to break the function call.
-
-    Returns
-    -------
-    int
-        0
-    """
-    try:
-        # exit and let systemd restart the process to avoid issues with
-        # potential memory leaks
-        time.sleep(60 * 60 * 2)
-    except Exception:
-        # the sleep was interrupted
-        pass
-
-    for th in threads.keys():
-        threads[th].stop()
-
-    # give up to 30 seconds for threads to exit cleanly
-    timeout = datetime.now() + timedelta(seconds=30)
-    while timeout > datetime.now():
-        thread_running = False
-        for th in threads.keys():
-            if threads[th].is_alive():
-                thread_running = True
-        if not thread_running:
-            break
-    return 0
-
-
 def wait_for_threads(threads):
     """
     Wait for threads to finish.
@@ -847,7 +733,9 @@ def wait_for_threads(threads):
     int
         0
     """
-    for th in threads.keys():
+    __ocid_logger.debug('Waiting for threads...')
+    for th in list(threads.keys()):
+        __ocid_logger.debug('Waiting for %s...' % th)
         threads[th].join()
         __ocid_logger.debug('Thread %s finished.' % th)
     return 0
@@ -876,27 +764,33 @@ def daemon_main(arguments):
     threads = start_threads(arguments, repeat=True)
     __ocid_logger.debug('threads started')
     # wait for every thread to complete the ocid func at least once
-    first_iter_done = False
-    while not first_iter_done:
-        first_iter_done = True
-        for th in threads.keys():
-            if not threads[th].is_first_iter_done():
-                # not finished yet
-                first_iter_done = False
-                __ocid_logger.debug('waiting for thread %s to finish the '
-                                    'first iteration' % th)
-                time.sleep(1)
+    for th in list(threads.keys()):
+        __ocid_logger.debug('waiting for first iteration of %s to complete' % threads[th].getName())
+        threads[th].wait_first_iteration()
 
     __ocid_logger.debug('all threads finished the first iteration')
 
-    if arguments.no_daemon:
-        os._exit(monitor_threads(threads, arguments))
-    else:
-        # Inform systemd that dependent services can now start
-        notifier = sdnotify.SystemdNotifier()
-        notifier.notify("READY=1")
+    if os.path.exists('/var/run/ocid.fifo'):
+        # should not happen, but ...
+        os.unlink('/var/run/ocid.fifo')
+    os.mkfifo('/var/run/ocid.fifo')
 
-    monitor_threads(threads, arguments)
+    # Inform systemd that dependent services can now start
+    notifier = sdnotify.SystemdNotifier()
+    notifier.notify("READY=1")
+    __ocid_logger.debug('systemd notifier notified')
+
+    try:
+        __ocid_logger.debug('selecting on signal...')
+        r, _, _ = select.select([os.open('/var/run/ocid.fifo', os.O_RDONLY | os.O_NONBLOCK)], [], [])
+        __ocid_logger.debug('out of selecting for [%s]' % str(r))
+    except Exception as e:
+        __ocid_logger.debug('error selecting: %s' % str(e))
+
+    for th in list(threads.keys()):
+        threads[th].request_stop()
+
+    wait_for_threads(threads)
 
 
 def main():
@@ -907,6 +801,7 @@ def main():
     -------
         No return value.
     """
+
     try:
         if os.geteuid() != 0:
             sys.stderr.write("This program must be run as root.\n")
@@ -916,21 +811,29 @@ def main():
 
         args = parse_args()
 
+        if args.stop_all:
+            with os.fdopen(os.open('/var/run/ocid.fifo', os.O_WRONLY | os.O_NONBLOCK), "w") as f:
+                f.write('stop')
+            return 0
+
         if pidlock.is_locked():
             if not args.refresh:
                 sys.stderr.write("ocid already running.\n")
                 return 1
         __ocid_logger.debug('Starting daemon...')
-        if args.no_daemon:
+
+        daemon_context = daemon.DaemonContext(pidfile=pidlock, umask=0o033, detach_process=(not args.no_daemon))
+        daemon_context.files_preserve = [fn.stream.fileno()
+                                         for fn in __ocid_logger.parent.handlers if issubclass(fn.__class__, logging.StreamHandler)]
+        with daemon_context:
             daemon_main(args)
-        else:
-            daemon_context = daemon.DaemonContext(pidfile=pidlock, umask=0o033)
-            with daemon_context:
-                daemon_main(args)
+
+        __ocid_logger.debug('Daemon gonna exit...')
+        os.unlink('/var/run/ocid.fifo')
         return 0
 
     except Exception as e:
-        print e
+        __ocid_logger.exception('internal error')
 
 
 if __name__ == "__main__":

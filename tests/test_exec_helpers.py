@@ -4,10 +4,10 @@
 
 import unittest
 
-from decorators import skipUnlessRoot
+from tools.decorators import skipUnlessRoot
+from tools.oci_test_case import OciTestCase
 
-
-class TestExecHelpers(unittest.TestCase):
+class TestExecHelpers(OciTestCase):
     """ Test around lib/oci_utils/impl/sudo_utils.py.
     """
     @skipUnlessRoot()

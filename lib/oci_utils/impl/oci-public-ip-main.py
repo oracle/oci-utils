@@ -76,7 +76,7 @@ def main():
     if args.list_servers:
         # print the list of known STUN servers and exit
         for server in STUN_SERVERS:
-            print server
+            print(server)
         sys.exit(0)
 
     external_ip = None
@@ -144,26 +144,26 @@ def main():
 
     if args.all:
         if args.json:
-            print json.dumps({'publicIps': external_ips})
+            print(json.dumps({'publicIps': external_ips}))
         elif args.get:
-            print external_ips
+            print(external_ips)
         else:
-            print "Public IP addresses: "
-            print "  Primary public IP: %s " % external_ips[0]
+            print("Public IP addresses: ")
+            print("  Primary public IP: %s " % external_ips[0])
             if len(external_ips) < 2:
-                print "  Other public IP(s): None"
+                print("  Other public IP(s): None")
                 return 0
-            print "  Other public IP(s):"
+            print("  Other public IP(s):")
             for ip in external_ips[1:]:
-                print "    %s" % ip
+                print("    %s" % ip)
         return 0
     elif external_ip is not None:
         if args.json:
-            print json.dumps({'publicIp': external_ip})
+            print(json.dumps({'publicIp': external_ip}))
         elif args.get:
-            print external_ip
+            print(external_ip)
         else:
-            print "Public IP address: %s" % external_ip
+            print("Public IP address: %s" % external_ip)
 
         return 0
     else:

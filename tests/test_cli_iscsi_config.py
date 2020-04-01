@@ -5,13 +5,12 @@
 import os
 import subprocess
 import unittest
+from tools.oci_test_case import OciTestCase
 
 
-class TestCliOciIscsiConfig(unittest.TestCase):
+class TestCliOciIscsiConfig(OciTestCase):
     """ oci-iscsi-config tests.
     """
-
-    ISCSI_CONFIG = '/bin/oci-iscsi-config'
 
     def setUp(self):
         """
@@ -26,9 +25,11 @@ class TestCliOciIscsiConfig(unittest.TestCase):
         unittest.SkipTest
             If the ISCSI_CONFIG file does not exist.
         """
-        if not os.path.exists(TestCliOciIscsiConfig.ISCSI_CONFIG):
+        super(TestCliOciIscsiConfig, self).setUp()
+        self.iscsi_config_path = self.properties.get_property('oci-iscsi-config-path')
+        if not os.path.exists(self.iscsi_config_path):
             raise unittest.SkipTest("%s not present" %
-                                    TestCliOciIscsiConfig.ISCSI_CONFIG)
+                                    self.iscsi_config_path)
 
     def test_display_help(self):
         """
@@ -39,9 +40,9 @@ class TestCliOciIscsiConfig(unittest.TestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([TestCliOciIscsiConfig.ISCSI_CONFIG,
+            _ = subprocess.check_output([self.iscsi_config_path,
                                          '--help'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_show_no_check(self):
@@ -53,9 +54,9 @@ class TestCliOciIscsiConfig(unittest.TestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([TestCliOciIscsiConfig.ISCSI_CONFIG,
+            _ = subprocess.check_output([self.iscsi_config_path,
                                          '--show'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
     def test_show_all_no_check(self):
@@ -67,7 +68,7 @@ class TestCliOciIscsiConfig(unittest.TestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([TestCliOciIscsiConfig.ISCSI_CONFIG,
+            _ = subprocess.check_output([self.iscsi_config_path,
                                          '--show', '--all'])
-        except Exception, e:
+        except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
