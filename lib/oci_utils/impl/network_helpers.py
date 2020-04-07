@@ -10,6 +10,7 @@
 import os
 import socket
 import subprocess
+import signal
 import logging
 from socket import inet_ntoa
 from struct import pack
@@ -318,6 +319,7 @@ def add_route_table(table_name):
     """
     Adds a new routing table by name
     Add a new entry in /etc/iproute2/rt_tables
+    If a table of that name already exists, silently aboret the operation
     Parameters
     ----------
     table_name : str
@@ -337,6 +339,10 @@ def add_route_table(table_name):
             if len(line.strip()) > 0 and not line.startswith('#'):
                 # trust the format of that file
                 tables_num.append(int(line.split()[0]))
+                # check if table already exits
+                if line.split()[1] == table_name:
+                    _logger.debug('routing table with name %s already exists' % table_name)
+                    return True
     _new_table_num_to_use = -1
     for n in range(255):
         if n not in tables_num:
@@ -655,3 +661,24 @@ def remove_firewall_rule(*args):
         return (1, _out)
 
     return (0, '')
+
+
+def kill_processes_in_namespace(namespace):
+    """
+    Kills remaining process within a network namespace
+
+    parameters:
+    -----------
+        namespace : the namespace name as str
+    Returns:
+    --------
+        None
+    """
+    _logger.debug('killing process for namespace [%s]' % namespace)
+    _out = sudo_utils.call_output(['/usr/sbin/ip', 'netns', 'pids', namespace])
+    # one pid per line
+    for pid in _out.splitlines():
+        try:
+            os.kill(int(pid), signal.SIGKILL)
+        except (ValueError, OSError) as e:
+            _logger.warning('Cannot terminate [%s]: %s ' % (pid, str(e)))
