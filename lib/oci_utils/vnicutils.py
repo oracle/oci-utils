@@ -317,6 +317,11 @@ class VNICUtils(object):
         # 1.1 compute list of interface which need configuration
         # 1.2 compute list of interface which need deconfiguration
         for _intf in _all_intf:
+
+            if _intf['IS_PRIMARY']:
+                # in nay case we touch the primary
+                continue
+
             # Is this intf excluded ?
             _excluded = False
             for excl in self.vnic_info['exclude']:
@@ -485,7 +490,15 @@ class VNICUtils(object):
                 # fecth right intf
                 for intf in _all_intf:
                     if intf['VNIC'] == vnic:
+                        if intf['IS_PRIMARY']:
+                            raise Exception('We cannot unconfigure the primary')
                         self._deconfig_secondary_addr(intf['IFACE'], ip, intf['NS'])
+        else:
+            # unconfigure all
+            for intf in _all_intf:
+                if intf['IS_PRIMARY']:
+                    continue
+                self._auto_deconfig_intf(intf)
 
         return (0, '')
 
@@ -535,8 +548,16 @@ class VNICUtils(object):
                 if _i.get('address'):
                     _intf['CONFSTATE'] = '-'
                 _found = False
+                _primary = None
                 for md_vnic in InstanceMetadata()['vnics']:
+                    if _primary is None:
+                        # primary always come first
+                        _primary = md_vnic
                     if md_vnic['macAddr'].upper() == _intf['MAC']:
+                        if _intf == _primary:
+                            _intf['IS_PRIMARY'] = True
+                        else:
+                            _intf['IS_PRIMARY'] = False
                         _intf['ADDR'] = md_vnic['privateIp']
                         _intf['SPREFIX'] = md_vnic['subnetCidrBlock'].split('/')[0]
                         _intf['SBITS'] = md_vnic['subnetCidrBlock'].split('/')[1]
