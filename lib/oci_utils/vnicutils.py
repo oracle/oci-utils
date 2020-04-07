@@ -378,7 +378,7 @@ class VNICUtils(object):
                 _logger.warning('Cannot deconfigure %s: %s' % (_intf, str(e)))
         return (0, '')
 
-    def _deconfig_addr(self, device, address, namespace=None):
+    def _deconfig_secondary_addr(self, device, address, namespace=None):
         """
         Removes an IP address from a device
 
@@ -403,7 +403,8 @@ class VNICUtils(object):
         _ip_cmd = ['/usr/sbin/ip']
         if namespace:
             _ip_cmd.extend(['netns', 'exec', namespace])
-        ret = sudo_utils.call(_ip_cmd.extend('addr', 'del', '%s/32' % address, 'dev', device))
+        _ip_cmd.extend(['addr', 'del', '%s/32' % address, 'dev', device])
+        ret = sudo_utils.call(_ip_cmd)
         if ret != 0:
             raise Exception("cannot remove IP address %s on interface %s" % (address, device))
 
@@ -441,7 +442,7 @@ class VNICUtils(object):
             # delete addr from phys iface
             # deleting namespace will move phys iface back to main
             # note that we may be deleting sec addr from a vlan here
-            _ip_cmd.extend(['addr', 'del', intf_infos['ADDR'], 'dev', intf_infos['IFACE']])
+            _ip_cmd.extend(['addr', 'del', '%s/%s' % (intf_infos['ADDR'], SBITS), 'dev', intf_infos['IFACE']])
             _logger.debug('deleting interface [%s]' % intf_infos['IFACE'])
             ret = sudo_utils.call(_ip_cmd)
             if ret != 0:
@@ -484,7 +485,9 @@ class VNICUtils(object):
                 # fecth right intf
                 for intf in _all_intf:
                     if intf['VNIC'] == vnic:
-                        self._deconfig_addr(intf['IFACE'], ip, intf['NS'])
+                        self._deconfig_secondary_addr(intf['IFACE'], ip, intf['NS'])
+
+        return (0, '')
 
     def get_network_config(self):
         """
@@ -652,7 +655,8 @@ def _auto_config_secondary_intf(net_namespace_info, intf_infos):
         _logger.debug("adding secondary IP address %s to interface (or VLAN) %s" %
                       (secondary_ip, intf_infos['IFACE']))
         _ip_cmd = list(_ip_cmd_p)
-        ret = sudo_utils.call(_ip_cmd.extend('addr', 'add', '%s/32' % secondary_ip, 'dev', intf_infos['IFACE']))
+        _ip_cmd.extend('addr', 'add', '%s/32' % secondary_ip, 'dev', intf_infos['IFACE'])
+        ret = sudo_utils.call(_ip_cmd)
         if ret != 0:
             raise Exception('Cannot add secondary address')
 
