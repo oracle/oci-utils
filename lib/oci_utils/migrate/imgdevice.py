@@ -17,7 +17,8 @@ import threading
 import time
 from glob import glob as glob
 
-from oci_utils.migrate import bytes_to_hex, console_msg, pause_msg
+from oci_utils.migrate import bytes_to_hex, console_msg, \
+    pause_msg, terminal_dimension
 from oci_utils.migrate import get_config_data
 from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import migrate_utils
@@ -81,9 +82,9 @@ class UpdateImage(threading.Thread):
                 'Installing the cloud-init package, this might take a while.')
             #
             # create progressbar here
-            _, clmns = os.popen('stty size', 'r').read().split()
+            _, nbcols = terminal_dimension()
             cloud_init_install = migrate_tools.ProgressBar(
-                int(clmns), 0.2, progress_chars=['installing cloud-init'])
+                nbcols, 0.2, progress_chars=['installing cloud-init'])
             cloud_init_install.start()
             #
             # chroot
@@ -426,8 +427,8 @@ class DeviceData(object):
                              exc_info=False)
             return False
         finally:
-            _, clmns = os.popen('stty size', 'r').read().split()
-            cleanup = migrate_tools.ProgressBar(int(clmns), 0.2,
+            _, nbcols = terminal_dimension()
+            cleanup = migrate_tools.ProgressBar(nbcols, 0.2,
                                                 progress_chars=['cleaning up'])
             cleanup.start()
             #

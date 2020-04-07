@@ -22,7 +22,7 @@ import yaml
 from functools import wraps
 from glob import glob
 
-from oci_utils.migrate import console_msg, read_yn
+from oci_utils.migrate import console_msg, read_yn, terminal_dimension
 from oci_utils.migrate import get_config_data
 from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import pause_msg
@@ -76,6 +76,67 @@ def state_loop(maxloop, intsec=1):
                     time.sleep(intsec)
         return loop_func
     return wrap
+
+
+def display_name_exists(display_name, compartment_id):
+    """
+    Verify if the image with display_name exist in compartment.
+
+    Parameters
+    ----------
+    display_name: str
+        The display name.
+    compartment_id: str
+        The ocid of the compartment.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    _logger.debug('Verify if %s exists in compartment %s'
+                  % (display_name, compartment_id))
+    cmd = ['oci', 'compute', 'image', 'list', '--compartment-id',
+           '%s' % compartment_id, '--display-name',
+           '%s' % display_name]
+    object_status = migrate_tools.run_popen_cmd(cmd)
+    if object_status is None:
+        _logger.debug('Object %s is not present in %s'
+                      % (display_name, compartment_id))
+        return False
+    else:
+        _logger.debug('Object %s is present in %s'
+                      % (display_name, compartment_id))
+        return True
+
+
+def get_lifecycle_state(display_name, compartment_id):
+    """
+    Collect the lifecycle state of on object in a compartment.
+
+    Parameters
+    ----------
+    display_name: str
+        The object name.
+    compartment_id: str
+        The compartment ocid.
+
+    Returns
+    -------
+        str: the lifecycle state.
+    """
+    _logger.debug('Retrieving the lifecycle state of %s' % display_name)
+    cmd = ['oci', 'compute', 'image', 'list', '--compartment-id',
+           '%s' % compartment_id, '--display-name', '%s' % display_name]
+    try:
+        object_list = json.loads(migrate_tools.run_popen_cmd(cmd))
+        for object_x in object_list['data']:
+            if object_x['display-name'] == display_name:
+                return object_x['lifecycle-state']
+            else:
+                _logger.debug('object %s not found.' % display_name)
+    except Exception as e:
+        raise OciMigrateException('Failed to collect the compute image '
+                                  'list: %s' % str(e))
 
 
 def enter_chroot(newroot):
@@ -537,9 +598,9 @@ def mount_imgfn(imgname):
     #
     # link img with first free nbd device
     migrate_tools.result_msg(msg='Mount image %s' % imgname, result=True)
-    _, clmns = os.popen('stty size', 'r').read().split()
+    _, nbcols = terminal_dimension()
     try:
-        mountwait = migrate_tools.ProgressBar(int(clmns), 0.2,
+        mountwait = migrate_tools.ProgressBar(nbcols, 0.2,
                                               progress_chars=['mounting image'])
         mountwait.start()
         qemucmd = ['-c', devpath, imgname]
@@ -645,9 +706,9 @@ def mount_partition(devname, mountpoint=None):
     # actual mount
     cmd = ['mount', devname, mntpoint]
     pause_msg(cmd)
-    _, clmns = os.popen('stty size', 'r').read().split()
+    _, nbcols = terminal_dimension()
     try:
-        mountpart = migrate_tools.ProgressBar(int(clmns), 0.2,
+        mountpart = migrate_tools.ProgressBar(nbcols, 0.2,
                                               progress_chars=['mount %s' % devname])
         mountpart.start()
         _logger.debug('command: %s' % cmd)
@@ -780,8 +841,8 @@ def mount_fs(mountpoint):
     pause_msg(cmd)
     _logger.debug('Mounting %s' % mountpoint)
     try:
-        _, clmns = os.popen('stty size', 'r').read().split()
-        mountwait = migrate_tools.ProgressBar(int(clmns), 0.2,
+        _, nbcols = terminal_dimension()
+        mountwait = migrate_tools.ProgressBar(nbcols, 0.2,
                                               progress_chars=['mounting %s' % mountpoint])
         mountwait.start()
         _logger.debug('Command: %s' % cmd)
@@ -997,8 +1058,8 @@ def mount_lvm2(devname):
         ?? need to collect lvm2 list this way??
     """
     try:
-        _, clmns = os.popen('stty size', 'r').read().split()
-        mountwait = migrate_tools.ProgressBar(int(clmns), 0.2,
+        _, nbcols = terminal_dimension()
+        mountwait = migrate_tools.ProgressBar(int(nbcols), 0.2,
                                               progress_chars=['mounting lvm'])
         mountwait.start()
         #
@@ -1074,9 +1135,14 @@ def get_oci_config(section='DEFAULT'):
     """
     _logger.debug('Reading the %s configuration file.'
                   % get_config_data('ociconfigfile'))
+    oci_config_file = get_config_data('ociconfigfile')
+    _logger.debug('oci config file path: %s' % oci_config_file)
+    if oci_config_file.startswith('~/'):
+        oci_config_file = os.path.expanduser('~') + oci_config_file[1:]
+        _logger.debug('oci config file expected at %s' % oci_config_file)
     oci_cli_configer = ConfigParser()
     try:
-        rf = oci_cli_configer.read(get_config_data('ociconfigfile'))
+        rf = oci_cli_configer.read(oci_config_file)
         sectiondata = dict(oci_cli_configer.items(section))
         _logger.debug('OCI configuration: %s' % sectiondata)
         return sectiondata
@@ -1086,6 +1152,75 @@ def get_oci_config(section='DEFAULT'):
         raise OciMigrateException('Failed to read OCI configuration %s: %s.' %
                                   (get_config_data('ociconfigfile'),
                                    str(e)))
+
+
+def get_tenancy_data(tenancy):
+    """
+    Collect the compartment data for a tenancy.
+
+    Parameters
+    ----------
+    tenancy: str
+        The tenancy ocid
+
+    Returns
+    -------
+        dict: a dictionary with the data of all compartments in this tenancy.
+        raises an exception on failure.
+    """
+    _logger.debug('Collecting compartment data for tenancy %s' % tenancy)
+    cmd = ['oci', 'iam', 'compartment', 'list', '-c', '%s' % tenancy, '--all']
+    _logger.debug('Running %s' % cmd)
+    try:
+        return json.loads(migrate_tools.run_popen_cmd(cmd))
+    except Exception as e:
+        raise OciMigrateException('Failed to collect compartment data for '
+                                  'tenancy %s: %s' % (tenancy, str(e)))
+
+
+def get_os_namespace():
+    """
+    Collect the object storage namespace name.
+    Returns
+    -------
+       str: object storage namespace name
+       raises an exception on failure.
+    """
+    _logger.debug('Collect the object storage namespace name.')
+    cmd = ['oci', 'os', 'ns', 'get']
+    try:
+        ns_dict = json.loads(migrate_tools.run_popen_cmd(cmd))
+        return ns_dict['data']
+    except Exception as e:
+        raise OciMigrateException('Failed to collect object storage namespace'
+                                  ' name: %s' % str(e))
+
+
+def find_compartment_id(compartment, compartment_dict):
+    """
+    Find the compartment ocid for compartment in the compartment dictinary.
+
+    Parameters
+    ----------
+    compartment: str
+        The compartment name.
+    compartment_dict: dict
+        The dictionary containing data for all? compartments in this tenancy.
+
+    Returns
+    -------
+        str: the ocid of the compartment on success, raises an exception
+             on failure.
+    """
+    _logger.debug('Looking for the ocid of compartment %s' % compartment)
+    for k, v in list(compartment_dict.items()):
+        for x in v:
+            if x['name'] == compartment:
+                compartment_data = x
+                console_msg(msg='Compartment: %s' % compartment_data['name'])
+                compartment_id = compartment_data['id']
+                return compartment_id
+    raise OciMigrateException('Failed to find the ocid for %s' % compartment)
 
 
 def bucket_exists(bucket_name):
@@ -1099,7 +1234,7 @@ def bucket_exists(bucket_name):
 
     Returns
     -------
-        object: The bucket on success, raise an exception otherwise
+        dict: The bucket on success, raise an exception otherwise
     """
     _logger.debug('Test bucket %s.' % bucket_name)
     path_name = os.getenv('PATH')
@@ -1116,7 +1251,8 @@ def bucket_exists(bucket_name):
     cmd = ['oci', 'os', 'object', 'list', '--bucket-name', bucket_name]
     pause_msg(cmd)
     try:
-        bucketresult = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
+        # bucketresult = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
+        bucketresult = json.loads(migrate_tools.run_popen_cmd(cmd))
         _logger.debug('Result: \n%s' % bucketresult)
         return bucketresult
     except Exception as e:
@@ -1134,7 +1270,7 @@ def object_exists(bucket, object_name):
 
     Parameters
     ----------
-    bucket: object
+    bucket: dict
         The bucket.
     object_name: str
         The object name.
@@ -1144,10 +1280,11 @@ def object_exists(bucket, object_name):
         bool: True on success, False otherwise.
     """
     _logger.debug('Testing if %s already exists.' % object_name)
-    testresult_json = json.loads(bucket)
-    _logger.debug('Result: \n%s', testresult_json)
-    if 'data' in testresult_json:
-        for res in testresult_json['data']:
+    #bucket_data = json.loads(bucket)
+    bucket_data = bucket
+    _logger.debug('Result: \n%s', bucket_data)
+    if 'data' in bucket_data:
+        for res in bucket_data['data']:
             if str(res['name']) == object_name:
                 _logger.debug('%s found' % object_name)
                 return True
@@ -1156,6 +1293,45 @@ def object_exists(bucket, object_name):
     else:
         _logger.debug('Bucket %s is empty.' % bucket)
     return False
+
+
+def import_image(image_name, display_name, compartment_id, os_namespace, os_name, launch_mode):
+    """
+    Import an os image from object storage in the custom images repository
+    from the OCI.
+
+    Parameters
+    ----------
+    image_name: str
+        The name of the image in the object storage.
+    display_name: str
+        The name the image will be stored in the custom images repository.
+    compartment_id: str
+        The ocid of the compartment the image will be stored.
+    os_namespace: str
+        The name of the object storage namespace used.
+    os_name: str
+        The object storage name.
+    launch_mode: str
+        The mode the instance created from the custom image will be started.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    _logger.debug('Importing image %s to %s as %s'
+                  % (image_name, compartment_id, display_name))
+    cmd = ['oci', 'compute', 'image', 'import', 'from-object', '--bucket-name',
+           '%s' % os_name, '--compartment-id', '%s' % compartment_id,
+           '--name', '%s' % image_name, '--namespace', '%s' % os_namespace,
+           '--launch-mode', launch_mode, '--display-name', '%s' % display_name]
+    try:
+        _ = migrate_tools.run_popen_cmd(cmd)
+        _logger.debug('Successfully started import of %s' % image_name)
+        return True
+    except Exception as e:
+        raise OciMigrateException('Failed to start import of %s: %s'
+                                  % (image_name, str(e)))
 
 
 def set_default_user(cfgfile, username):

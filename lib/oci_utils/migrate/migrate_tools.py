@@ -10,6 +10,7 @@ import logging
 import os
 import subprocess
 import sys
+import shutil
 import threading
 import time
 from datetime import datetime
@@ -51,75 +52,6 @@ def error_msg(msg=None):
     time.sleep(1)
 
 
-def result_msg(msg, flags='a', result=False):
-    """
-    Write information to the log file, the result file and the console if the
-    result flag is set.
-
-    Parameters
-    ----------
-    msg: str
-        The message.
-    flags: str
-        The flags for the open file command.
-    result: bool
-        Flag, write to console if True.
-
-    Returns
-    -------
-        No return value.
-    """
-    _logger.debug('%s' % msg)
-    try:
-        with open(resultfilename, flags) as f:
-            f.write('  %s: %s\n' % (datetime.now().strftime('%H:%M:%S'), msg))
-    except Exception as e:
-        _logger.error('   Failed to write to %s: %s' % (resultfilename, str(e)))
-    if result:
-        if msg is not None:
-            print('  %s' % msg)
-        else:
-            print('  Just mentioning I am here.')
-
-
-def is_root():
-    """
-    Verify is operator is the root user.
-
-    Returns
-    -------
-        bool: True on success, False otherwise.
-    """
-    if os.getuid() == 0:
-        return True
-    else:
-        return False
-
-
-def get_magic_data(image):
-    """
-    Collect the magic number of the image file.
-
-    Parameters
-    ----------
-    image: str
-        Full path of the image file.
-
-    Returns
-    -------
-        str: Magic string on success, None otherwise.
-    """
-    magic_hex = None
-    try:
-        with open(image, 'rb') as f:
-            magic = f.read(4)
-            magic_hex = bytes_to_hex(magic)
-            _logger.debug('Image magic number: %8s' % magic_hex)
-    except Exception as e:
-        _logger.critical('   Image %s is not accessible: 0X%s' % (image, str(e)))
-    return magic_hex
-
-
 def exec_exists(executable):
     """
     Verify if executable exists in path.
@@ -134,10 +66,7 @@ def exec_exists(executable):
         bool: True on success, False otherwise.
 
     """
-    return subprocess.call(['which', executable],
-                           stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL,
-                           shell=False) == 0
+    return True if shutil.which(executable) else False
 
 
 def exec_rename(fromname, toname):
@@ -191,6 +120,152 @@ def exec_rename(fromname, toname):
         raise OciMigrateException('Failed to rename %s to %s: %s'
                                   % (fromname, toname, str(e)))
     return False
+
+
+def get_magic_data(image):
+    """
+    Collect the magic number of the image file.
+
+    Parameters
+    ----------
+    image: str
+        Full path of the image file.
+
+    Returns
+    -------
+        str: Magic string on success, None otherwise.
+    """
+    magic_hex = None
+    try:
+        with open(image, 'rb') as f:
+            magic = f.read(4)
+            magic_hex = bytes_to_hex(magic)
+            _logger.debug('Image magic number: %8s' % magic_hex)
+    except Exception as e:
+        _logger.critical('   Image %s is not accessible: 0X%s' % (image, str(e)))
+    return magic_hex
+
+
+def get_nameserver():
+    """
+    Get the nameserver definitions.
+
+    Returns
+    -------
+    bool: True on success, False otherwise.
+    """
+    global nameserver
+    _logger.debug("Getting nameservers.")
+    dnslist = []
+    cmd = ['nmcli', 'dev', 'show']
+    try:
+        nmlist = run_popen_cmd(cmd).decode('utf-8').split('\n')
+        for nmitem in nmlist:
+            if 'DNS' in nmitem.split(':')[0]:
+                dnslist.append(nmitem.split(':')[1].lstrip().rstrip())
+        nameserver = dnslist[0]
+        _logger.debug('Nameserver set to %s' % nameserver)
+        return True
+    except Exception as e:
+        _logger.error('   Failed to identify nameserver: %s.' % str(e))
+        return False
+
+
+def is_root():
+    """
+    Verify is operator is the root user.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    return True if os.getuid() == 0 else False
+
+
+def isthreadrunning(threadid):
+    """
+    Verify if thread is active.
+
+    Parameters
+    ----------
+    threadid: thread
+        The thread to test.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    _logger.debug('Testing thread.')
+    if threadid in threading.enumerate():
+        return True
+    return False
+
+
+def restore_nameserver():
+    """
+    Restore nameserver configuration.
+
+    Returns
+    -------
+    bool: True on success, False otherwise.
+    """
+    resolvpath = '/etc/resolv.conf'
+    try:
+        #
+        # save used one
+        if os.path.isfile(resolvpath):
+            exec_rename(resolvpath, resolvpath + '_temp_' + current_time)
+        else:
+            _logger.debug('No %s found.' % resolvpath)
+        #
+        # restore original one
+        if os.path.isfile(resolvpath + '_' + current_time):
+            exec_rename(resolvpath + '_' + current_time, resolvpath)
+        else:
+            _logger.debug('No %s found.' % resolvpath + '_' + current_time)
+        return True
+    except Exception as e:
+        error_msg('Failed to restore nameserver: %s'
+                  '\n  continuing but might cause issues installing cloud-init.'
+                  % str(e))
+        return False
+
+
+def result_msg(msg, flags='a', result=False):
+    """
+    Write information to the log file, the result file and the console if the
+    result flag is set.
+
+    Parameters
+    ----------
+    msg: str
+        The message.
+    flags: str
+        The flags for the open file command.
+    result: bool
+        Flag, write to console if True.
+
+    Returns
+    -------
+        No return value.
+    """
+    _logger.debug('%s' % msg)
+    try:
+        with open(resultfilename, flags) as f:
+            f.write('  %s: %s\n' % (datetime.now().strftime('%H:%M:%S'), msg))
+    except IOError as e:
+        errornb, strerror = e.args
+        #
+        # trap permission denied errors if running as non root.
+        if errornb != 13:
+            _logger.error('   Failed to write to %s' % (resultfilename, strerror))
+    except Exception as e:
+        _logger.error('   Failed to write to %s: %s' % (resultfilename, str(e)))
+    if result:
+        if msg is not None:
+            print('  %s' % msg)
+        else:
+            print('  Just mentioning I am here.')
 
 
 def run_call_cmd(command):
@@ -264,31 +339,6 @@ def run_popen_cmd(command):
         raise OciMigrateException('%s does not exist' % command[0])
 
 
-def get_nameserver():
-    """
-    Get the nameserver definitions.
-
-    Returns
-    -------
-    bool: True on success, False otherwise.
-    """
-    global nameserver
-    _logger.debug("Getting nameservers.")
-    dnslist = []
-    cmd = ['nmcli', 'dev', 'show']
-    try:
-        nmlist = run_popen_cmd(cmd).decode('utf-8').split('\n')
-        for nmitem in nmlist:
-            if 'DNS' in nmitem.split(':')[0]:
-                dnslist.append(nmitem.split(':')[1].lstrip().rstrip())
-        nameserver = dnslist[0]
-        _logger.debug('Nameserver set to %s' % nameserver)
-        return True
-    except Exception as e:
-        _logger.error('   Failed to identify nameserver: %s.' % str(e))
-        return False
-
-
 def set_nameserver():
     """
     Setting temporary nameserver.
@@ -317,56 +367,6 @@ def set_nameserver():
         error_msg('Failed to set nameserver: %s'
                   '\n  continuing but might cause issues installing cloud-init.'
                   % str(e))
-        return False
-
-
-def restore_nameserver():
-    """
-    Restore nameserver configuration.
-
-    Returns
-    -------
-    bool: True on success, False otherwise.
-    """
-    resolvpath = '/etc/resolv.conf'
-    try:
-        #
-        # save used one
-        if os.path.isfile(resolvpath):
-            exec_rename(resolvpath, resolvpath + '_temp_' + current_time)
-        else:
-            _logger.debug('No %s found.' % resolvpath)
-        #
-        # restore original one
-        if os.path.isfile(resolvpath + '_' + current_time):
-            exec_rename(resolvpath + '_' + current_time, resolvpath)
-        else:
-            _logger.debug('No %s found.' % resolvpath + '_' + current_time)
-        return True
-    except Exception as e:
-        error_msg('Failed to restore nameserver: %s'
-                  '\n  continuing but might cause issues installing cloud-init.'
-                  % str(e))
-        return False
-
-
-def isthreadrunning(threadid):
-    """
-    Verify if thread is active.
-
-    Parameters
-    ----------
-    threadid: thread
-        The thread to test.
-
-    Returns
-    -------
-        bool: True on success, False otherwise.
-    """
-    _logger.debug('Testing thread.')
-    if threadid in threading.enumerate():
-        return True
-    else:
         return False
 
 

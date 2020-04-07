@@ -13,7 +13,7 @@
 # 2019-07-04 implemented Networkmanager to ignore secondary vnics
 
 declare -r THIS=$(basename "$0")
-declare -r MD_URL='http://169.254.169.254/opc/v1/vnics/'
+declare -r MD_URL='http://169.254.169.254/opc/v2/vnics/'
 declare -r NA='-'
 declare -r RTS_FILE='/etc/iproute2/rt_tables'
 declare -ir RT_ID_MIN=10 # in case lower ones are reserved
@@ -134,7 +134,7 @@ oci_vcn_md_read() {
     # WARNING: assumes no string values with commas or double quotes
     # WARNING: assumes no sub-objects with identical field names
     [ -n "$CURL" ] || oci_vcn_err "cannot find curl command"
-    $CURL -s $MD_URL | tr , '\n' >"$tmpfile" || oci_vcn_err "cannot read metadata"
+    $CURL -H 'Authorization: Bearer Oracle' -s $MD_URL | tr , '\n' >"$tmpfile" || oci_vcn_err "cannot read metadata"
     MD_MACS=($(grep -w macAddr "$tmpfile" | cut -f 4 -d '"')) || exit $? # string
     local -i i
     for i in $(seq 0 $((${#MD_MACS[@]} - 1))); do

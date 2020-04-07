@@ -55,7 +55,7 @@ def get_timestamp(fname):
 
 def get_newer(fname1, fname2):
     """
-    Get the newer file, compare tiemstamp of files and return the file with
+    Get the newer file, compare timestamp of files and return the file with
     the most recent modification time.
 
     Parameters
