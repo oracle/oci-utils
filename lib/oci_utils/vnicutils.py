@@ -251,6 +251,17 @@ class VNICUtils(object):
 
         return 0, ''
 
+    def _is_intf_excluded(self, interface):
+        """
+        Checks if this interface is excluded
+        Checks if interface name, VNIC ocid or ip addr is part of excluded items
+        """
+
+        for excl in self.vnic_info['exclude']:
+            if excl in (interface['IFACE'], interface['VNIC'], interface['ADDR']):
+                return True
+        return False
+
     def exclude(self, item, save=True):
         """
         Add item to the "exclude" list. IP addresses or interfaces that are
@@ -323,12 +334,8 @@ class VNICUtils(object):
                 continue
 
             # Is this intf excluded ?
-            _excluded = False
-            for excl in self.vnic_info['exclude']:
-                if excl in (_intf['IFACE'], _intf['VNIC'], _intf['ADDR']):
-                    _excluded = True
-            if _excluded:
-                break
+            if self._is_intf_excluded(_intf):
+                continue
 
             # add secondary IPs if any
             if sec_ip:
@@ -452,14 +459,15 @@ class VNICUtils(object):
             _logger.debug('deleting interface [%s]' % intf_infos['IFACE'])
             ret = sudo_utils.call(_ip_cmd)
             if ret != 0:
-                raise Exception("cannot remove ip address  %s" % intf_infos['IFACE'])
+                raise Exception("cannot remove ip address [%s] from %s" % (intf_infos['ADDR'], intf_infos['IFACE']))
             NetworkHelpers.remove_ip_addr_rules(intf_infos['ADDR'])
 
         # delete namespace
-        _logger.debug('deleting namespace [%s]' % intf_infos['NS'])
-        ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'delete', intf_infos['NS']])
-        if ret != 0:
-            raise Exception('Cannot delete network namespace')
+        if intf_infos['NS']:
+            _logger.debug('deleting namespace [%s]' % intf_infos['NS'])
+            ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'delete', intf_infos['NS']])
+            if ret != 0:
+                raise Exception('Cannot delete network namespace')
 
         NetworkHelpers.add_mac_to_nm(intf_infos['MAC'])
 
@@ -497,7 +505,14 @@ class VNICUtils(object):
         else:
             # unconfigure all
             for intf in _all_intf:
+                # Is this intf the primary  ?
                 if intf['IS_PRIMARY']:
+                    continue
+                # Is this intf has a configuration to be removed ?
+                if intf['CONFSTATE'] == 'ADD':
+                    continue
+                # Is this intf excluded ?
+                if self._is_intf_excluded(intf):
                     continue
                 self._auto_deconfig_intf(intf)
 
@@ -555,7 +570,7 @@ class VNICUtils(object):
                         # primary always come first
                         _primary = md_vnic
                     if md_vnic['macAddr'].upper() == _intf['MAC']:
-                        if _intf == _primary:
+                        if md_vnic == _primary:
                             _intf['IS_PRIMARY'] = True
                         else:
                             _intf['IS_PRIMARY'] = False
@@ -633,7 +648,7 @@ def _auto_config_intf_routing(net_namespace_info, intf_infos):
         NetworkHelpers.add_route_table(_route_table_name)
         _logger.debug("default route add")
         ret, out = NetworkHelpers.add_static_ip_route(
-            ['default', 'via', intf_infos['VIRTRT'], 'table', _route_table_name])
+            'default', 'via', intf_infos['VIRTRT'], 'table', _route_table_name)
         if ret != 0:
             raise Exception("cannot add default route via %s on %s to table %s" %
                             (intf_infos['VIRTRT'], intf_infos['IFACE'], _route_table_name))

@@ -456,10 +456,10 @@ def add_static_ip_route(*args, **kwargs):
     routing_cmd.extend(['route', 'add'])
     routing_cmd.extend(args)
     _logger.debug('adding route : [%s]' % ' '.join(args))
-    _out = sudo_utils.call_output(routing_cmd)
-    if _out is not None and len(_out) > 0:
+    _ret = sudo_utils.call(routing_cmd)
+    if _ret != 0:
         _logger.warning('add of ip route failed')
-        return (1, _out)
+        return (1, 'add of ip route failed')
 
     return (0, '')
 
@@ -565,9 +565,9 @@ def remove_ip_addr_rules(ip_addr):
 
     # now del all rules by priority number
     for prio_num in prio_nums:
-        _out = sudo_utils.call_output(['/sbin/ip', 'rule', 'del', 'pref', prio_num])
-        if _out is not None and len(_out) > 0:
-            _logger.warning('cannot delete rule [%s]: %s' % (prio_num, str(_out)))
+        _ret = sudo_utils.call(['/sbin/ip', 'rule', 'del', 'pref', prio_num])
+        if _ret != 0:
+            _logger.warning('cannot delete rule [%s]' % prio_num)
 
 
 def remove_static_ip_rules(link_name):
@@ -593,9 +593,9 @@ def remove_static_ip_rules(link_name):
         # all line listed are like '<rule number>:\t<rule as string> '
         # when underlying device is down (i.e virtual network is down) the command append '[detached]' we have to remove this
         _command.extend(re.compile("\d:\t").split(_line.strip())[1].replace('[detached] ', '').split(' '))
-        _out = sudo_utils.call_output(_command)
-        if _out is not None and len(_out) > 0:
-            _logger.warning('cannot delete rule [%s]: %s' % (' '.join(_command), str(_out)))
+        _ret = sudo_utils.call(_command)
+        if _ret != 0:
+            _logger.warning('cannot delete rule [%s]' % ' '.join(_command))
 
 
 def add_static_ip_rule(*args, **kwargs):
@@ -611,10 +611,10 @@ def add_static_ip_rule(*args, **kwargs):
     ip_rule_cmd = ['/usr/sbin/ip', 'rule', 'add']
     ip_rule_cmd.extend(args)
     _logger.debug('adding rule : [%s]' % ' '.join(args))
-    _out = sudo_utils.call_output(ip_rule_cmd)
-    if _out is not None and len(_out) > 0:
+    _ret = sudo_utils.call(ip_rule_cmd)
+    if _ret != 0:
         _logger.warning('add of ip rule failed')
-        return (1, _out)
+        return (1, 'add of ip rule failed')
 
     return (0, '')
 
@@ -632,10 +632,10 @@ def add_firewall_rule(*args, **kwargs):
     fw_rule_cmd = ['/usr/sbin/iptables']
     fw_rule_cmd.extend(args)
     _logger.debug('adding fw rule : [%s]' % ' '.join(args))
-    _out = sudo_utils.call_output(fw_rule_cmd)
-    if _out is not None and len(_out) > 0:
+    _ret = sudo_utils.call(fw_rule_cmd)
+    if _ret != 0:
         _logger.warning('add of firewall rule failed')
-        return (1, _out)
+        return (1, 'add of firewall rule failed')
 
     if kwargs.get('script'):
         kwargs.get('script').write(' '.join(fw_rule_cmd))
@@ -655,10 +655,10 @@ def remove_firewall_rule(*args):
     fw_rule_cmd = ['/usr/sbin/iptables']
     fw_rule_cmd.extend(args)
     _logger.debug('removing fw rule : [%s]' % ' '.join(args))
-    _out = sudo_utils.call_output(fw_rule_cmd)
-    if _out is not None and len(_out) > 0:
+    _ret = sudo_utils.call(fw_rule_cmd)
+    if _ret != 0:
         _logger.warning('removal of firewall rule failed')
-        return (1, _out)
+        return (1, 'removal of firewall rule failed')
 
     return (0, '')
 
