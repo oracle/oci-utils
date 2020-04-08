@@ -435,7 +435,7 @@ class VNICUtils(object):
         if intf_infos['NS']:
             _ip_cmd.extend(['netns,', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
 
-        if intf_infos['VLTAG'] != 0:
+        if intf_infos['VLAN']:
             # delete vlan and macvlan, removes the addrs (pri and sec) as well
             _macvlan_name = "%s.%s" % (intf_infos['IFACE'], intf_infos['VLTAG'])
             _ip_cmd.extend(['link', 'del', 'link', intf_infos['VLTAG'], 'dev', _macvlan_name])
@@ -447,7 +447,8 @@ class VNICUtils(object):
             # delete addr from phys iface
             # deleting namespace will move phys iface back to main
             # note that we may be deleting sec addr from a vlan here
-            _ip_cmd.extend(['addr', 'del', '%s/%s' % (intf_infos['ADDR'], SBITS), 'dev', intf_infos['IFACE']])
+            _ip_cmd.extend(['addr', 'del', '%s/%s' % (intf_infos['ADDR'],
+                                                      intf_infos['SBITS']), 'dev', intf_infos['IFACE']])
             _logger.debug('deleting interface [%s]' % intf_infos['IFACE'])
             ret = sudo_utils.call(_ip_cmd)
             if ret != 0:
@@ -562,7 +563,7 @@ class VNICUtils(object):
                         _intf['SPREFIX'] = md_vnic['subnetCidrBlock'].split('/')[0]
                         _intf['SBITS'] = md_vnic['subnetCidrBlock'].split('/')[1]
                         _intf['VIRTRT'] = md_vnic['virtualRouterIp']
-                        _intf['VLTAG'] = md_vnic['vlanTag']
+                        _intf['VLTAG'] = str(md_vnic['vlanTag'])
                         _intf['VNIC'] = md_vnic['vnicId']
                         _found = True
                         break
