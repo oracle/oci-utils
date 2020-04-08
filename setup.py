@@ -335,6 +335,10 @@ class sync_rpm(create_rpm):
             raise DistutilsExecError("rpmbuild execution failed")
 
 
+if sys.version_info.major < 3:
+    print('Only python verison 3 or above is supported')
+    sys.exit(1)
+
 setup(
     name="oci-utils",
     version="0.11.0",
@@ -347,7 +351,7 @@ setup(
     url="http://github.com/oracle/oci-utils/",
     package_dir={'': 'lib'},
     packages=find_packages('lib'),
-    setup_requires=["flake8"],
+    setup_requires=[],
     long_description=read('README'),
     test_suite="tests",
     data_files=[(os.path.join(sys.prefix, 'libexec'),
