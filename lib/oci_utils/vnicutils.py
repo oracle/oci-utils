@@ -18,7 +18,59 @@ from .impl import sudo_utils
 
 _logger = logging.getLogger('oci-utils.vnicutils')
 
+
 _INTF_MTU = 9000
+
+
+class _intf_dict(dict):
+    """
+    Creates a new dictionnary representing an interface
+    keys are
+        CONFSTATE  'unconfig' indicates missing IP config, 'missing' missing VNIC,
+                        'excl' excluded (-X), '-' hist configuration match oci vcn configuration
+        ADDR       IP address
+        SPREFIX    subnet CIDR prefix
+        SBITS      subnet mask bits
+        VIRTRT     virutal router IP address
+        NS         namespace (if any)
+        IND        interface index (if BM)
+        IFACE      interface (underlying physical if VLAN is also set)
+        VLTAG      VLAN tag (if BM)
+        VLAN       IP virtual LAN (if any)
+        STATE      state of interface
+        MAC        MAC address
+        VNIC       VNIC object identifier
+        IS_PRIMARY is this interface the primary one ?
+    """
+
+    def __init__(self):
+        super().__init__(CONFSTATE='unconfig',
+                         ADDR='-',
+                         SPREFIX='-',
+                         VIRTRT='-',
+                         NS='-',
+                         IND='-',
+                         IFACE='-',
+                         VLTAG='-',
+                         VLAN='-',
+                         STATE='ADD',
+                         MAC='-',
+                         VNIC='-',
+                         IS_PRIMARY=False)
+
+    def __eq__(self, other):
+        return self['MAC'].upper() == other['MAC'].upper()
+
+    def __setitem__(self, key, value):
+        """
+        everything stored as str
+        """"
+        if type(value) == bytes:
+            super().__setitem__(key, value.decode())
+        else if type(value) != str:
+            super().__setitem__(key, str(value))
+        else:
+            super().__setitem__(key, value)
 
 
 class VNICUtils(object):
@@ -530,62 +582,81 @@ class VNICUtils(object):
            keys are
             CONFSTATE  'unconfig' indicates missing IP config, 'missing' missing VNIC,
                             'excl' excluded (-X), '-' hist configuration match oci vcn configuration
-            ADDR    IP address
-            SPREFIX subnet CIDR prefix
-            SBITS   subnet mask bits
-            VIRTRT  virutal router IP address
-            NS      namespace (if any)
-            IND     interface index (if BM)
-            IFACE   interface (underlying physical if VLAN is also set)
-            VLTAG   VLAN tag (if BM)
-            VLAN    IP virtual LAN (if any)
-            STATE   state of interface
-            MAC     MAC address
-            VNIC    VNIC object identifier
+            ADDR       IP address
+            SPREFIX    subnet CIDR prefix
+            SBITS      subnet mask bits
+            VIRTRT     virutal router IP address
+            NS         namespace (if any)
+            IND        interface index (if BM)
+            IFACE      interface (underlying physical if VLAN is also set)
+            VLTAG      VLAN tag (if BM)
+            VLAN       IP virtual LAN (if any)
+            STATE      state of interface
+            MAC        MAC address
+            VNIC       VNIC object identifier
+            IS_PRIMARY is this interface the primary one ?
         """
         interfaces = []
 
         _all_intfs = NetworkHelpers.get_network_namespace_infos()
 
+        _all_from_system = []
         for _namespace, _nintfs in _all_intfs.items():
             for _i in _nintfs:
                 if "NO-CARRIER" in _i['flags'] or "LOOPBACK" in _i['flags']:
                     continue
                 if _i['type'] != 'ether':
                     continue
-                _intf = {}
-                _intf['MAC'] = _i.get('mac', '').upper()
-                _intf['IFACE'] = _i['device'].decode()
-                _intf['IND'] = _i['index'].decode()
+                _intf = _intf_dict()
+                if _i.get('mac'):
+                    _intf['MAC'] = _i.get('mac')
+                _intf['IFACE'] = _i['device']
+                _intf['IND'] = _i['index']
                 _intf['STATE'] = _i['opstate']
                 _intf['NS'] = _namespace
-                _intf['VLAN'] = _i.get('vlanid', '')
-                _intf['CONFSTATE'] = 'ADD'
+                if _i.get('vlanid'):
+                    _intf['VLAN'] = _i.get('vlanid')
                 if _i.get('address'):
                     _intf['CONFSTATE'] = '-'
-                _found = False
-                _primary = None
-                for md_vnic in InstanceMetadata()['vnics']:
-                    if _primary is None:
-                        # primary always come first
-                        _primary = md_vnic
-                    if md_vnic['macAddr'].upper() == _intf['MAC']:
-                        if md_vnic == _primary:
-                            _intf['IS_PRIMARY'] = True
-                        else:
-                            _intf['IS_PRIMARY'] = False
-                        _intf['ADDR'] = md_vnic['privateIp']
-                        _intf['SPREFIX'] = md_vnic['subnetCidrBlock'].split('/')[0]
-                        _intf['SBITS'] = md_vnic['subnetCidrBlock'].split('/')[1]
-                        _intf['VIRTRT'] = md_vnic['virtualRouterIp']
-                        _intf['VLTAG'] = str(md_vnic['vlanTag'])
-                        _intf['VNIC'] = md_vnic['vnicId']
-                        _found = True
-                        break
-                if not _found:
-                    _intf['CONFSTATE'] = 'DELETE'
+                _all_from_system.append(_intf)
 
-                interfaces.append(_intf)
+        _all_from_metadata = []
+        _first_loop = True
+        for md_vnic in InstanceMetadata()['vnics']:
+            _intf = _intf_dict()
+            if _first_loop:
+                # primary always come first
+                _intf['IS_PRIMARY'] = True
+                _first_loop = False
+            _intf['CONFSTATE'] = 'ADD'
+            _intf['MAC'] = md_vnic['macAddr'].upper()
+            _intf['ADDR'] = md_vnic['privateIp']
+            _intf['SPREFIX'] = md_vnic['subnetCidrBlock'].split('/')[0]
+            _intf['SBITS'] = md_vnic['subnetCidrBlock'].split('/')[1]
+            _intf['VIRTRT'] = md_vnic['virtualRouterIp']
+            _intf['VLTAG'] = md_vnic['vlanTag']
+            _intf['VNIC'] = md_vnic['vnicId']
+            _all_from_metadata.append(_intf)
+
+        # now we correlate informations
+        # precedence is given to metadata
+        for interface in _all_from_metadata:
+            try:
+                found = _all_from_system.index(interface)
+                interface.update(_all_from_system.pop(found))
+                interfaces.append(interface)
+            except ValueError as ignored:
+                pass
+
+        # now collect the one left omr systeme
+        for interface in _all_from_system:
+            interface['CONFSTATE'] = 'DELETE'
+            interfaces.append(interface)
+
+        # final round for the excluded
+        for interface in interfaces:
+            if self._is_intf_excluded(interface):
+                interface['CONFSTATE'] = 'EXCL'
 
         return interfaces
 
