@@ -194,24 +194,6 @@ def api_show_network_config():
         i += 1
 
 
-def _to_str_list(dirty_list):
-    """
-    compute a new list from the one passed in argument
-    converting anything to str type
-    None become ''
-    bytes become basestring
-    """
-    _result = []
-    for item in dirty_list:
-        if item is None:
-            _result.append('')
-        elif isinstance(item, bytes):
-            _result.append(item.decode())
-        else:
-            _result.append(str(item))
-    return _result
-
-
 def do_show_network_config(vnic_utils):
     """
     Display the currect network interface configuration as well as the
@@ -237,13 +219,13 @@ def do_show_network_config(vnic_utils):
     print(_fmt.format('CONFIG', 'ADDR', 'SPREFIX', 'SBITS', 'VIRTRT',
                       'NS', 'IND', 'IFACE', 'VLTAG', 'VLAN', 'STATE', 'MAC', 'VNIC'))
     for item in ret:
-        print(_fmt.format(*_to_str_list((item.get('CONFSTATE', 'n/a'),
-                                         item.get('ADDR', 'n/a'), item.get('SPREFIX', 'n/a'),
-                                         item.get('SBITS', 'n/a'), item.get('VIRTRT', 'n/a'),
-                                         item.get('NS', 'default'), item.get('IND', 'n/a'),
-                                         item.get('IFACE', 'n/a'), item.get('VLTAG', 'n/a'),
-                                         item.get('VLAN', 'n/a'), item.get('STATE', 'n/a'),
-                                         item.get('MAC', 'n/a'), item.get('VNIC', 'n/a')))))
+        print(_fmt.format(item['CONFSTATE'],
+                          item['ADDR'], item['SPREFIX'],
+                          item['SBITS'], item['VIRTRT'],
+                          item['NS'], item['IND'],
+                          item['IFACE'], item['VLTAG'],
+                          item['VLAN'], item['STATE'],
+                          item['MAC'], item['VNIC']))
 
 
 def do_detach_vnic(detach_options, vnic_utils):

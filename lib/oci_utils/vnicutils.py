@@ -28,38 +28,18 @@ class _intf_dict(dict):
     keys are
         CONFSTATE  'unconfig' indicates missing IP config, 'missing' missing VNIC,
                         'excl' excluded (-X), '-' hist configuration match oci vcn configuration
-        ADDR       IP address
-        SPREFIX    subnet CIDR prefix
-        SBITS      subnet mask bits
-        VIRTRT     virutal router IP address
-        NS         namespace (if any)
-        IND        interface index (if BM)
-        IFACE      interface (underlying physical if VLAN is also set)
-        VLTAG      VLAN tag (if BM)
-        VLAN       IP virtual LAN (if any)
-        STATE      state of interface
-        MAC        MAC address
-        VNIC       VNIC object identifier
         IS_PRIMARY is this interface the primary one ?
     """
 
     def __init__(self):
         super().__init__(CONFSTATE='unconfig',
-                         ADDR='-',
-                         SPREFIX='-',
-                         VIRTRT='-',
-                         NS='-',
-                         IND='-',
-                         IFACE='-',
-                         VLTAG='-',
-                         VLAN='-',
-                         STATE='ADD',
-                         MAC='-',
-                         VNIC='-',
                          IS_PRIMARY=False)
 
     def __eq__(self, other):
         return self['MAC'].upper() == other['MAC'].upper()
+
+    def __missing__(self, key):
+        return '-'
 
     def __setitem__(self, key, value):
         """
@@ -644,9 +624,10 @@ class VNICUtils(object):
             try:
                 found = _all_from_system.index(interface)
                 interface.update(_all_from_system.pop(found))
-                interfaces.append(interface)
-            except ValueError as ignored:
+            except ValueError:
                 pass
+            finally:
+                interfaces.append(interface)
 
         # now collect the one left omr systeme
         for interface in _all_from_system:
