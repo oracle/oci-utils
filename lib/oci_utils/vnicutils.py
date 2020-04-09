@@ -67,7 +67,7 @@ class _intf_dict(dict):
         """
         if type(value) == bytes:
             super().__setitem__(key, value.decode())
-        else if type(value) != str:
+        elif type(value) != str:
             super().__setitem__(key, str(value))
         else:
             super().__setitem__(key, value)
