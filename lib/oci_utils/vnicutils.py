@@ -64,7 +64,7 @@ class _intf_dict(dict):
     def __setitem__(self, key, value):
         """
         everything stored as str
-        """"
+        """
         if type(value) == bytes:
             super().__setitem__(key, value.decode())
         else if type(value) != str:
