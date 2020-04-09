@@ -17,7 +17,6 @@ BuildRequires: systemd
 
 BuildRequires: python3-devel
 BuildRequires: python3-setuptools
-#BuildRequires: python3-flake8
 Requires: python3
 Requires: python3-daemon
 Requires: python3-sdnotify
