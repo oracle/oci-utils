@@ -354,12 +354,21 @@ class VNICUtils(object):
 
         _all_intf = self.get_network_config()
 
+        # we may need a mapping of intf by physical NIC index
+        # for BMs secondary VNIC are not plumbed
+        # {<index>: <intf name>}
+        _by_nic_index = {}
+
         _all_to_be_configured = []
         _all_to_be_deconfigured = []
 
         # 1.1 compute list of interface which need configuration
         # 1.2 compute list of interface which need deconfiguration
         for _intf in _all_intf:
+
+            if _intf['IFACE'] != '-':
+                # keep track of interface by NIC index
+                _by_nic_index[_intf['NIC_I']] = _intf['IFACE']
 
             if _intf['IS_PRIMARY']:
                 # in nay case we touch the primary
@@ -397,7 +406,17 @@ class VNICUtils(object):
 
         for _intf in _all_to_be_configured:
             try:
-                _auto_config_intf(ns_i, _intf)
+                # for BMs, IFACE can be empty ('-'), we local physical NIC
+                # thank to NIC index
+                if InstanceMetadata()['instance']['shape'].startswith('BM') and _intf['IFACE'] == '-':
+                    # make a copy of it to change the IFACE
+                    _i = dict(_intf)
+                    _i['IFACE'] = _by_nic_index[_intf['NIC_I']]
+                    _i['STATE'] = "UP"
+                    _auto_config_intf(ns_i, _i)
+
+                else:
+                    _auto_config_intf(ns_i, _intf)
 
                 # disable network manager for that device
                 NetworkHelpers.remove_mac_from_nm(_intf['MAC'])
@@ -573,6 +592,7 @@ class VNICUtils(object):
             VLAN       IP virtual LAN (if any)
             STATE      state of interface
             MAC        MAC address
+            NIC_I      (physical) NIC index
             VNIC       VNIC object identifier
             IS_PRIMARY is this interface the primary one ?
         """
@@ -616,6 +636,7 @@ class VNICUtils(object):
             _intf['VIRTRT'] = md_vnic['virtualRouterIp']
             _intf['VLTAG'] = md_vnic['vlanTag']
             _intf['VNIC'] = md_vnic['vnicId']
+            _intf['NIC_I'] = md_vnic['nicIndex']
             _all_from_metadata.append(_intf)
 
         # now we correlate informations
