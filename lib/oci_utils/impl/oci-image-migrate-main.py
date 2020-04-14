@@ -232,25 +232,18 @@ def test_helpers():
     missing = []
     path_env_var = os.getenv('PATH')
     _logger.debug('PATH is %s' % path_env_var)
-    for util in helpers_list:
-        cmd = ['which', util]
-        try:
-            ocipath = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
-            _logger.debug('%s path is %s' % (util, ocipath))
-        except Exception as e:
-            _logger.error('   Cannot find %s anymore: %s' % (util, str(e)),
-                          exc_info=True)
+    for util, package in helpers_list.items():
         try:
             _logger.debug('Availability of %s' % util)
             fullcmd = migrate_tools.exec_exists(util)
             _logger.debug('full path: %s' % fullcmd)
-            if migrate_tools.exec_exists(util):
+            if migrate_tools.exec_exists(util) is not None:
                 helpers.append(util)
             else:
                 missing.append(util)
         except Exception as e:
-            _logger.error('   utility %s is not installed: %s'
-                          % (helpers_list[util], str(e)))
+            _logger.error('   %s is not found, verify presense of %s: %s'
+                          % (helpers_list[util], package, str(e)))
     return helpers, missing
 
 
@@ -320,8 +313,11 @@ def main():
                             + '.res'
             migrate_tools.resultfilename = resultfilename
             migrate_tools.result_msg(msg='\n  Running %s at %s\n'
-                                     % (os.path.basename(' '.join(sys.argv)),
-                                     time.ctime()), flags='w', result=True)
+                                         % ((os.path.basename(sys.argv[0])
+                                            + ' '
+                                            + ' '.join(sys.argv[1:])),
+                                              time.ctime()),
+                                              flags='w', result=True)
         else:
             raise OciMigrateException('Missing argument: input image path.')
         #
@@ -337,12 +333,12 @@ def main():
             show_utilities(util_list, missing_list)
         if missing_list:
             raise OciMigrateException('%s needs packages %s installed.\n'
-                                      % (sys.argv[0], missing_list), 1)
+                                      % (sys.argv[0], missing_list))
         #
         # if qemu-img is used, the minimal version is 3
         qemuversioninfo = qemu_img_version()
-        if qemuversioninfo[1] < 3:
-            raise OciMigrateException('Minimal version of qemu-img is 3, '
+        if qemuversioninfo[1] < 2:
+            raise OciMigrateException('Minimal version of qemu-img is 2, '
                                       '%s found.' % qemuversioninfo[0])
         else:
             _logger.debug('release data ok')
@@ -388,7 +384,8 @@ def main():
             raise OciMigrateException('Object %s already exists in object '
                                       'storage %s.' % (output_name, bucket_name))
         else:
-            _logger.debug('Object %s does not yet exists in object storage %s' % (output_name, bucket_name))
+            _logger.debug('Object %s does not yet exists in object storage %s'
+                          % (output_name, bucket_name))
     except Exception as e:
         _logger.error('*** ERROR *** %s\n' % str(e))
         exit_with_msg('  *** ERROR *** %s\n' % str(e))
@@ -435,6 +432,43 @@ def main():
                             imageclazz['clazz'])
     image_object = imageclassdef(imagepath)
     #
+    # Local volume groups.
+    migrate_tools.local_volume_groups = migrate_utils.exec_vgs_noheadings()
+    _logger.debug('Workstation volume groups: %s'
+                  % migrate_tools.local_volume_groups)
+    #
+    # Rename local volume groups
+    if bool(migrate_tools.local_volume_groups):
+        rename_msg = '\n   The workstation has logical volumes defined. To avoid ' \
+                     'duplicates, the \n   logical volume groups will be temporary' \
+                     ' renamed to a hexadecimal uuid.\n   If you are sure the ' \
+                     'image to be uploaded does not contain logical volumes,\n' \
+                     '   or there are no conflicting volume group names, '\
+                     'the rename can be skipped\n\n   Keep the volume group names?'
+        if not read_yn(rename_msg, waitenter=True):
+            if migrate_utils.verify_local_fstab():
+                fstab_msg = '\n   The fstab file on this workstation seems to ' \
+                            'contain device references\n   using /dev/mapper ' \
+                            'devices. The volume group names on this ' \
+                            'workstation\n   will be renamed temporarily. ' \
+                            '/dev/mapper devices referring to logical volumes\n' \
+                            '   can create problems in this context. To avoid ' \
+                            'this situation\n   exit now and modify the ' \
+                            'device specification to LABEL or UUID.\n\n   Continue?'
+                if not read_yn(fstab_msg, waitenter=True):
+                    exit_with_msg('Exiting')
+                _logger.debug('Rename local volume groups to avoid conflicts.')
+                vgrename_res = migrate_utils.rename_volume_groups(
+                    migrate_tools.local_volume_groups, 'FORWARD')
+                migrate_tools.local_volume_group_rename = True
+            else:
+                _logger.debug('fstab file has no /dev/mapper devices.')
+        else:
+            _logger.debug('Not renaming the volume groups.')
+            _ = migrate_utils.reset_vg_list(migrate_tools.local_volume_groups)
+    else:
+        _logger.debug('No local volume groups, no conflicts.')
+    #
     # Generic data collection
     try:
         imgres, imagedata = collect_image_data(image_object)
@@ -453,6 +487,14 @@ def main():
         _logger.critical('   %s failed image check: %s' % (imagepath, str(e)))
         exit_with_msg('*** ERROR *** Problem detected during investigation of '
                       'the image %s: %s, exiting.' % (imagepath, str(e)))
+    #
+    # Restore volume group names.
+    if migrate_tools.local_volume_group_rename:
+        _logger.debug('Restore local volume groups.')
+        vgrename_res = migrate_utils.rename_volume_groups(
+            migrate_tools.local_volume_groups, 'BACKWARD')
+    else:
+        _logger.debug('No local volume group names to restore.')
     #
     # passed prerequisites and changes?
     prereq_passed = True
@@ -477,7 +519,7 @@ def main():
         #
         if imgres:
             prereq_msg += '\n\n  %s data collection and processing succeeded.' \
-                      % imagepath
+                          % imagepath
         else:
             prereq_passed = False
         #

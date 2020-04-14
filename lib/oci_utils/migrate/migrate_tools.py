@@ -8,9 +8,9 @@
 """
 import logging
 import os
+import shutil
 import subprocess
 import sys
-import shutil
 import threading
 import time
 from datetime import datetime
@@ -26,6 +26,8 @@ resultfilename = '/tmp/oci_image_migrate_result.dat'
 nameserver = '8.8.8.8'
 migrate_preparation = True
 migrate_non_upload_reason = ''
+local_volume_groups = list()
+local_volume_group_rename = False
 
 
 def error_msg(msg=None):
@@ -63,10 +65,11 @@ def exec_exists(executable):
 
     Returns
     -------
-        bool: True on success, False otherwise.
+        str: full path on success, None otherwise.
 
     """
-    return True if shutil.which(executable) else False
+    _logger.debug('which %s' % executable)
+    return shutil.which(executable)
 
 
 def exec_rename(fromname, toname):
@@ -159,7 +162,7 @@ def get_nameserver():
     dnslist = []
     cmd = ['nmcli', 'dev', 'show']
     try:
-        nmlist = run_popen_cmd(cmd).decode('utf-8').split('\n')
+        nmlist = run_popen_cmd(cmd).decode('utf-8').splitlines()
         for nmitem in nmlist:
             if 'DNS' in nmitem.split(':')[0]:
                 dnslist.append(nmitem.split(':')[1].lstrip().rstrip())
@@ -258,7 +261,7 @@ def result_msg(msg, flags='a', result=False):
         #
         # trap permission denied errors if running as non root.
         if errornb != 13:
-            _logger.error('   Failed to write to %s' % (resultfilename, strerror))
+            _logger.error('   Failed to write to %s: %s' % (resultfilename, strerror))
     except Exception as e:
         _logger.error('   Failed to write to %s: %s' % (resultfilename, str(e)))
     if result:
@@ -309,7 +312,7 @@ def run_popen_cmd(command):
         failure.
     """
     _logger.debug('%s command' % command)
-    if exec_exists(command[0]):
+    if exec_exists(command[0]) is not None:
         _logger.debug('running %s' % command)
         try:
             ext_process = subprocess.Popen(command,

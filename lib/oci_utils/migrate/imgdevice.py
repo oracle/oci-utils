@@ -176,7 +176,7 @@ class DeviceData(object):
             str: mount point on success, None on failure, reraises an
             eventual exception.
         """
-        _logger.debug('Entering mount')
+        _logger.debug('Entering mount_img')
         try:
             nbdpath = migrate_utils.mount_imgfn(self._fn)
             _logger.debug('%s successfully mounted' % nbdpath)
@@ -448,7 +448,7 @@ class DeviceData(object):
                 migrate_utils.unmount_part(mnt)
             #
             # release lvm
-            _logger.debug('release volume groups')
+            _logger.debug('Release volume groups: %s' % self._img_info['volume_groups'])
             if 'volume_groups' in self._img_info:
                 migrate_utils.unmount_lvm2(self._img_info['volume_groups'])
             else:
@@ -773,11 +773,12 @@ class DeviceData(object):
             #
             # import operation system type dependant modules
             osrelease = self.get_os_release()
-            if not osrelease:
-                oscollectmesg += '\n  . Unable to collect OS information.'
-            else:
+            if bool(osrelease):
                 self._img_info['osinformation'] = osrelease
                 _logger.debug('OS type: %s' % osrelease['ID'])
+            else:
+                oscollectmesg += '\n  . Unable to collect OS information.'
+                raise OciMigrateException('Failed to find OS release information')
             #
             # import os-type specific modules
             os_spec_mod = migrate_utils.find_os_specific(osrelease['ID'])
@@ -823,6 +824,7 @@ class DeviceData(object):
                     'Failed to mount essential partitions.')
             #
             if oscollectmesg:
+                _logger.debug('OS Collect message:\n%' % oscollectmesg)
                 raise OciMigrateException(oscollectmesg)
             else:
                 _logger.debug('OS data collected.')
@@ -1237,7 +1239,6 @@ class DeviceData(object):
             list: Relevant lines of fstab files as list.
         """
         fstabdata = list()
-        # fstabfile = self._img_info['rootmnt'][1] + '/etc/fstab'
         _logger.debug('Fstabfile: %s' % fstabfile)
         try:
             with open(fstabfile, 'r') as f:

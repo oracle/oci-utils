@@ -101,7 +101,7 @@ def pause_msg(msg=None):
     -------
         No return value.
     """
-    if os.environ.get('OCIPAUSE'):
+    if os.environ.get('_OCI_PAUSE'):
         ban0 = '\n  Press a key to continue'
         if msg is not None:
             ban0 = '\n  %s' % msg + ban0

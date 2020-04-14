@@ -77,7 +77,7 @@ def cleanup_udev(rootdir):
                             shutil.move(fullfn, mv_fullfn)
                             fndata = open(mv_fullfn, 'r').read()
                             newf = open(fullfn, 'w')
-                            for lx in fndata.split('\n'):
+                            for lx in fndata.splitlines():
                                 if not re.match("(.*)KERNEL==\"eth(.*)", lx):
                                     newf.write('%s\n' % lx)
                             newf.close()

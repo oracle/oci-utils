@@ -55,19 +55,20 @@ Requires: %{name} = %{version}-%{release}
 %description outest
 Utilities unit tests
 
-# Temporary workaround
-# Does not run on OL8 due to missing nbd driver
-%if 0%{?rhel} == 7
 %package migrate
 Summary: Migrate vm from on-premise to the OCI
 Group: Development/Tools
 Requires: util-linux
 Requires: parted
+Requires: qemu-img >= 15:2.12
+%if 0%{?rhel} == 7
 Requires: python36-pyyaml
-Requires: qemu-img >= 15:3.1
+%else
+Requires: python3-pyyaml
+Requires: python36
+%endif
 %description migrate
 Utilities for migrating on-premise guests to Oracle Cloud Infrastructure.
-%endif
 
 %pre
 # some old version of oci-utils, used to leave this behind.
@@ -104,16 +105,8 @@ rm -rf %{buildroot}
 %exclude %{python3_sitelib}/oci_utils/kvm/*
 %exclude %{_bindir}/oci-kvm
 %exclude %{_datadir}/man/man1/oci-kvm.1.gz
-# Temporary workaround
-# Does not run on OL8 due to missing nbd driver
-%if 0%{?rhel} == 7
 %exclude %{_bindir}/oci-image-migrate*
 %exclude %{_datadir}/man/man1/oci-image-migrate*1.gz
-%endif
-# Temporary workaround
-# Does not run on OL8 due to missing nbd driver
-%exclude %{_sysconfdir}/oci-utils/oci-migrate-conf.yaml
-#--
 %defattr(-,root,root)
 %{python3_sitelib}/oci_utils*
 %{_bindir}/oci-*
@@ -127,11 +120,9 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/oci-utils/oci-image-cleanup.conf
 # Temporary workaround
 # Does not run on OL8 due to missing nbd driver
-%if 0%{?rhel} == 7
 %exclude %{_bindir}/oci-image-migrate
 %exclude %{_bindir}/oci-image-migrate-import
 %exclude %{_bindir}/oci-image-migrate-upload
-%endif
 %{_datadir}/man
 %exclude %{_datadir}/man/man1/oci-kvm.1.gz
 %dir %{_localstatedir}/lib/oci-utils
@@ -156,9 +147,7 @@ rm -rf %{buildroot}
 %preun kvm
 %systemd_preun oci-kvm-config.service
 
-# Temporary workaround
-# Does not run on OL8 due to missing nbd driver
-%if 0%{?rhel} == 7
+
 %files migrate
 %{_bindir}/oci-image-migrate
 %{_bindir}/oci-image-migrate-import
@@ -172,7 +161,6 @@ rm -rf %{buildroot}
 %{_datadir}/man/man1/oci-image-migrate*1.gz
 %config %{_sysconfdir}/oci-utils/oci-migrate-conf.yaml
 %exclude  %{python3_sitelib}/oci_utils/migrate/tests
-%endif
 
 %changelog
 * Wed Apr 1 2020 Guido Tijskens <guido.tijskens@oracle.com> -- 0.11.0

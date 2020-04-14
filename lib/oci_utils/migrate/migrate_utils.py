@@ -19,8 +19,9 @@ import subprocess
 import sys
 import time
 import yaml
-from functools import wraps
+import uuid
 from glob import glob
+from functools import wraps
 
 from oci_utils.migrate import console_msg, read_yn, terminal_dimension
 from oci_utils.migrate import get_config_data
@@ -314,6 +315,7 @@ def exec_qemunbd(qemunbd_args):
 
     """
     cmd = ['qemu-nbd'] + qemunbd_args
+    _logger.debug('Running %s' % cmd)
     pause_msg(cmd)
     try:
         return migrate_tools.run_call_cmd(cmd)
@@ -540,7 +542,7 @@ def exec_sfdisk(devname):
     try:
         result = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         partdata = dict()
-        for devx in result.split('\n'):
+        for devx in result.splitlines():
             if devx.startswith(devname):
                 key = devx.split(':')[0].strip()
                 migrate_tools.result_msg(msg='sfdisk partition %s' % key)
@@ -585,6 +587,7 @@ def mount_imgfn(imgname):
     """
     #
     # create nbd devices
+    _logger.debug('Running mount image file name.')
     migrate_tools.result_msg(msg='Load nbd')
     if not create_nbd():
         raise OciMigrateException('Failed ot load nbd module')
@@ -651,7 +654,7 @@ def unmount_imgfn(devname):
             raise Exception('%s returned %d' % (qemucmd, qemunbd_ret))
         #
         # clear lvm cache, if necessary.
-        if exec_pvscan():
+        if exec_pvscan(['--cache']):
             _logger.debug('lvm cache updated')
         else:
             _logger.error('  Failed to clear LVM cache.')
@@ -920,18 +923,25 @@ def unmount_pseudo(pseudomounts):
     return res
 
 
-def exec_pvscan(devname=None):
+def exec_pvscan(pvscan_args, devname=None):
     """
     Update the lvm cache.
+
+    Parameters
+    ----------
+        pvscan_args: list
+            List of strings, arguments for pvscan
+        devname: str
+            Device name to scan.
 
     Returns
     -------
         bool: True on success, raises an exception on failure.
     """
+    _logger.debug('Running pvscan %s' % pvscan_args)
+    cmd = ['pvscan'] + pvscan_args
     if devname is not None:
-        cmd = ['pvscan', '--cache', devname]
-    else:
-        cmd = ['pvscan', '--cache']
+        cmd.append(devname)
     pause_msg(cmd)
     try:
         _logger.debug('command: %s' % cmd)
@@ -950,20 +960,113 @@ def exec_pvscan(devname=None):
                                   'volumes: %s' % (devname, str(e)))
 
 
-def exec_vgscan():
+def exec_vgs_noheadings():
+    """
+    List the local volume group and generates a new (temporary) name as
+    a hex UUID.
+
+    Returns
+    -------
+        list: list of lists [orginal volume group name, new volume group name].
+    """
+    _logger.debug('Executing vgs')
+    cmd = ['vgs', '--noheadings']
+    pause_msg(cmd)
+    vg_list = list()
+    try:
+        _logger.debug('command: %s' % cmd)
+        output = migrate_tools.run_popen_cmd(cmd).decode('utf-8').splitlines()
+        for vg_record in output:
+            if len(vg_record) > 0:
+                vg_list.append([vg_record.split()[0], uuid.uuid4().hex])
+        _logger.debug('Volume groups found: %s' % vg_list)
+        return vg_list
+    except Exception as e:
+        _logger.critical('   Failed to list current volume groups: %s' % str(e))
+
+
+def reset_vg_list(vg_list):
+    """
+    Update the local volume group list
+
+    Parameters
+    ----------
+    vg_list: list (of lists)
+        The volume group rename list.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    _logger.debug('Updating the vg list.')
+    for vg_l in vg_list:
+        _logger.debug('Updating %s to %s.' % (vg_l[1], vg_l[0]))
+        vg_l[1] = vg_l[0]
+    return True
+
+
+def rename_volume_groups(vg_list, direction):
+    """
+    Rename a list of volume groups.
+
+    Parameters
+    ----------
+    vg_list: list
+        list of lists [original name, new name]
+    direction: str
+        if FORWARD, rename original name to new name, if BACKWARD from new name
+        to original name.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    _logger.debug('Rename volume group')
+    result = True
+    #
+    for vg_names in vg_list:
+        if direction == 'FORWARD':
+            cmd = ['vgrename', vg_names[0], vg_names[1]]
+        elif direction == 'BACKWARD':
+            cmd = ['vgrename', vg_names[1], vg_names[0]]
+        else:
+            _logger.debug('Invalid argument %s' % direction)
+            return False
+        #
+        pause_msg(cmd)
+        try:
+            _logger.debug('command: %s' % cmd)
+            output = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
+            if 'successfully renamed' in output:
+                _logger.debug('%s succeeded' % cmd)
+            else:
+                _logger.debug('%s failed' % cmd)
+                result = False
+        except Exception as e:
+            _logger.debug('Execution of vgrename failed: %s' % str(e))
+            result = False
+    return result
+
+
+def exec_vgscan(vgscan_args):
     """
     Scan the system for (new) volume groups.
 
+    Parameters
+    ----------
+        vgscan_args: list
+            list of strings, arguments for vgscan
     Returns
     -------
         bool: True on success, raises an exeception on failure.
     """
-    cmd = ['vgscan', '--verbose']
+    _logger.debug('executing vgscan %s' % vgscan_args)
+    cmd = ['vgscan'] + vgscan_args
     pause_msg(cmd)
     try:
         _logger.debug('command: %s' % cmd)
         output = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
-        _logger.debug('Volume groups scanned: %s' % str(output))
+        _logger.debug('Volume groups scanned:\n%s' % str(output))
         return True
     except Exception as e:
         #
@@ -973,7 +1076,36 @@ def exec_vgscan():
                                   % str(e))
 
 
-def exec_lvscan():
+def exec_lvscan(lvscan_args):
+    """
+    Scan the system for logical volumes.
+
+    Parameters
+    ----------
+        lvscan_args: list
+            list of strings, arguments for lvscan
+    Returns
+    -------
+        list:  A list of strings, the output of lvscan --verbose on success,
+               raises an exeception on failure.
+    """
+    _logger.debug('Running lvscan %s' % lvscan_args)
+    cmd = ['lvscan'] + lvscan_args
+    pause_msg(cmd)
+    try:
+        _logger.debug('command: %s' % cmd)
+        output = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
+        _logger.debug('Logical volumes scanned:\n%s' % str(output))
+        return output.splitlines()
+    except Exception as e:
+        #
+        # lvscan failed
+        _logger.critical('   Failed to scan for logical volumes: %s' % str(e))
+        raise OciMigrateException('Failed to scan for logical volume: %s'
+                                  % str(e))
+
+
+def new_volume_groups():
     """
     Scan the system for (new) logical volumes.
 
@@ -982,38 +1114,37 @@ def exec_lvscan():
         dict:  inactive, supposed new, volume groups with list of logical
         volumes on success, raises an exeception on failure.
     """
-    cmd = ['lvscan', '--verbose']
-    pause_msg(cmd)
-    try:
-        _logger.debug('command: %s' % cmd)
-        output = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
-        _logger.debug('Logical volumes scanned: %s' % str(output))
-        new_vgs = dict()
-        for lvdevdesc in output.splitlines():
-            if 'inactive' in lvdevdesc:
-                lvarr = re.sub(r"'", "", lvdevdesc).split()
-                lvdev = lvarr[1]
-                vgarr = re.sub(r"/", " ", lvdev).split()
-                vgdev = vgarr[1]
-                lvdev = vgarr[2]
-                mapperdev = re.sub(r"-", "--", vgdev) \
-                    + '-' \
-                    + re.sub(r"-", "--", lvdev)
-                _logger.debug('vg %s lv %s mapper %s'
-                              % (vgdev, lvdev, mapperdev))
+    _logger.debug('Looking for logical volumes in image file.')
+    lv_list = exec_lvscan(['--verbose'])
+    _logger.debug('Logical volumes scanned:\n%s' % lv_list)
+    new_vgs = dict()
+    for lvdevdesc in lv_list:
+            #if 'inactive' in lvdevdesc:
+        lvarr = re.sub(r"'", "", lvdevdesc).split()
+        lvdev = lvarr[1]
+        vgarr = re.sub(r"/", " ", lvdev).split()
+        vgdev = vgarr[1]
+        lvdev = vgarr[2]
+        mapperdev = re.sub(r"-", "--", vgdev) + '-' + re.sub(r"-", "--", lvdev)
+        _logger.debug('vg: %s lv: %s mapper: %s' % (vgdev, lvdev, mapperdev))
+        #
+        for vg_names in migrate_tools.local_volume_groups:
+            if vgdev == vg_names[1]:
+                #
+                # is a local volume group
+                break
+            else:
                 if vgdev not in list(new_vgs.keys()):
+                    #
+                    # new volume group
                     new_vgs[vgdev] = [(lvdev, mapperdev)]
                 else:
+                    #
+                    # existing volume group, new logical volume
                     new_vgs[vgdev].append((lvdev, mapperdev))
-                _logger.debug('vg: %s  lv: %s' % (vgdev, lvdev))
+                _logger.debug('vg: %s lv: %s added' % (vgdev, lvdev))
         _logger.debug('New logical volumes: %s' % new_vgs)
-        return new_vgs
-    except Exception as e:
-        #
-        # vgscan failed
-        _logger.critical('   Failed to scan for logical volumes: %s' % str(e))
-        raise OciMigrateException('Failed to scan for logical volume: %s'
-                                  % str(e))
+    return new_vgs
 
 
 def exec_vgchange(changecmd):
@@ -1027,14 +1158,14 @@ def exec_vgchange(changecmd):
 
     Returns
     -------
-        <> : vgchange output.
+        str: vgchange output.
     """
     cmd = ['vgchange'] + changecmd
     _logger.debug('vgchange command: %s' % cmd)
     pause_msg(cmd)
     try:
         output = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
-        _logger.debug('vgchange result: %s' % output)
+        _logger.debug('vgchange result:\n%s' % output)
         return output
     except Exception as e:
         _logger.critical('   Failed to execute %s: %s' % (cmd, str(e)))
@@ -1057,6 +1188,7 @@ def mount_lvm2(devname):
         list: The list of mounted partitions.
         ?? need to collect lvm2 list this way??
     """
+    _logger.debug('Running mount lvm2 %s' % devname)
     try:
         _, nbcols = terminal_dimension()
         mountwait = migrate_tools.ProgressBar(int(nbcols), 0.2,
@@ -1064,7 +1196,7 @@ def mount_lvm2(devname):
         mountwait.start()
         #
         # physical volumes
-        if exec_pvscan(devname):
+        if exec_pvscan(['--cache'], devname):
             _logger.debug('pvscan %s succeeded' % devname)
         else:
             _logger.critical('   pvscan %s failed' % devname)
@@ -1072,7 +1204,7 @@ def mount_lvm2(devname):
         pause_msg('pvscan test')
         #
         # volume groups
-        if exec_vgscan():
+        if exec_vgscan(['--verbose']):
             _logger.debug('vgscan succeeded')
         else:
             _logger.critical('   vgscan failed')
@@ -1080,7 +1212,7 @@ def mount_lvm2(devname):
         pause_msg('vgscan test')
         #
         # logical volumes
-        vgs = exec_lvscan()
+        vgs = new_volume_groups()
         if vgs is not None:
             _logger.debug('lvscan succeeded: %s' % vgs)
         else:
@@ -1089,14 +1221,14 @@ def mount_lvm2(devname):
         pause_msg('lvscan test')
         #
         # make available
-        vgchangeargs = ['--activate', 'y']
-        vgchangeres = exec_vgchange(vgchangeargs)
-        _logger.debug('vgchange: %s' % vgchangeres)
+        vgchange_args = ['--activate', 'y']
+        vgchange_res = exec_vgchange(vgchange_args)
+        _logger.debug('vgchange:\n%s' % vgchange_res)
         #
-        pause_msg('vgchangeres test')
+        pause_msg('vgchange_res test')
         vgfound = False
-        if vgchangeres is not None:
-            for resline in vgchangeres.splitlines():
+        if vgchange_res is not None:
+            for resline in vgchange_res.splitlines():
                 _logger.debug('vgchange line: %s' % resline)
                 for vg in list(vgs.keys()):
                     if vg in resline:
@@ -1104,10 +1236,10 @@ def mount_lvm2(devname):
                         vgfound = True
                     else:
                         _logger.debug('vg %s not in l' % vg)
-            _logger.debug('vgchange: %s, %s' % (vgchangeres, vgfound))
+            _logger.debug('vgchange: %s, %s' % (vgchange_res, vgfound))
             #
             # for the sake of testing
-            pause_msg('vgchangeres test')
+            pause_msg('vgchange_res test')
         else:
             _logger.critical('   vgchange failed')
         return vgs
@@ -1237,21 +1369,9 @@ def bucket_exists(bucket_name):
         dict: The bucket on success, raise an exception otherwise
     """
     _logger.debug('Test bucket %s.' % bucket_name)
-    path_name = os.getenv('PATH')
-    _logger.debug('PATH is %s' % path_name)
-    cmd = ['which', 'oci']
-    try:
-        ocipath = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
-        _logger.debug('oci path is %s' % ocipath)
-    except Exception as e:
-        _logger.error('  Cannot find oci anymore: %s' % str(e))
-        raise OciMigrateException('Unable to find oci cli, although it has '
-                                  'been verified successfully earlier in '
-                                  'this process.')
     cmd = ['oci', 'os', 'object', 'list', '--bucket-name', bucket_name]
     pause_msg(cmd)
     try:
-        # bucketresult = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
         bucketresult = json.loads(migrate_tools.run_popen_cmd(cmd))
         _logger.debug('Result: \n%s' % bucketresult)
         return bucketresult
@@ -1433,17 +1553,18 @@ def unmount_lvm2(vg):
         # make unavailable
         # for vg_name in vg.keys():
         for vg_name in list(vg.keys()):
-            vgchangeres = exec_vgchange(['--activate', 'n', vg_name])
-            _logger.debug('vgchange: %s' % vgchangeres)
+            vgchange_args = ['--activate', 'n', vg_name]
+            vgchange_res = exec_vgchange(vgchange_args)
+            _logger.debug('vgchange: %s' % vgchange_res)
         #
         # remove physical volume: clear cache, if necessary
-        if exec_pvscan():
+        if exec_pvscan(['--cache']):
             _logger.debug('pvscan clear succeeded')
         else:
             _logger.error('  pvscan failed')
     except Exception as e:
-        _logger.error('  Failed to release lvms %s: %s' % vg, str(e))
-        migrate_tools.error_msg('Failed to release lvms %s: %s' % vg, str(e))
+        _logger.error('  Failed to release lvms %s: %s' % (vg, str(e)))
+        migrate_tools.error_msg('Failed to release lvms %s: %s' % (vg, str(e)))
         # raise OciMigrateException('Exception raised during release
         # lvms %s: %s' % (vg, str(e)))
 
@@ -1867,3 +1988,26 @@ def show_hex_dump(bindata):
     except Exception as e:
         _logger.error('  exception: %s' % str(e))
     return hexdata
+
+
+def verify_local_fstab():
+    """
+    Verify if fstab file contains entries using /dev/mapper, which could cause
+    an issue with logical volumes on the image file under investigation.
+
+    Returns
+    -------
+        bool: True if /dev/mapper entries are foune, False otherwise.
+    """
+    _logger.debug('Running local fstab check.')
+    fstab_file = '/etc/fstab'
+    try:
+        with open(fstab_file, 'r') as fstab:
+            for fstab_line in fstab:
+                if '/dev/mapper' in fstab_line.split('#', 1)[0]:
+                    _logger.debug('Found a line in fstab:\n%s' % fstab_line)
+                    return True
+    except Exception as e:
+        _logger.debug("Failed to verify local fstab file")
+        return True
+    return False
