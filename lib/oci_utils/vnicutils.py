@@ -44,6 +44,13 @@ class _intf_dict(dict):
     def __missing__(self, key):
         return '-'
 
+    def has(self, key):
+        """
+        Check that key is found in this dict and that
+        the value is not None
+        """
+        return self.__contains__(key) and self.__getitem__(key) is not None
+
     def __setitem__(self, key, value):
         """
         everything stored as str
@@ -269,7 +276,7 @@ class VNICUtils(object):
         NetworkHelpers.remove_ip_addr_rules(_interface_to_delete['ADDR'])
 
         # 2. remove addr from the system
-        if 'NS' in _interface_to_delete:
+        if _interface_to_delete.has('NS'):
             NetworkHelpers.remove_ip_addr(_interface_to_delete['IFACE'],
                                           _interface_to_delete['ADDR'], _interface_to_delete['NS'])
         else:
@@ -486,17 +493,17 @@ class VNICUtils(object):
         Raise:
             Exception. if configuration failed
         """
-        if 'NS' in intf_infos:
+        if intf_infos.has('NS'):
             NetworkHelpers.kill_processes_in_namespace(intf_infos['NS'])
 
         # unsetup routes
         _auto_deconfig_intf_routing(intf_infos)
 
         _ip_cmd = ['/usr/sbin/ip']
-        if 'NS' in intf_infos:
+        if intf_infos.has('NS'):
             _ip_cmd.extend(['netns,', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
 
-        if intf_infos['VLAN']:
+        if intf_infos.has('VLAN'):
             # delete vlan and macvlan, removes the addrs (pri and sec) as well
             _macvlan_name = "%s.%s" % (intf_infos['IFACE'], intf_infos['VLTAG'])
             _ip_cmd.extend(['link', 'del', 'link', intf_infos['VLTAG'], 'dev', _macvlan_name])
@@ -517,7 +524,7 @@ class VNICUtils(object):
             NetworkHelpers.remove_ip_addr_rules(intf_infos['ADDR'])
 
         # delete namespace
-        if 'NS' in intf_infos:
+        if intf_infos.has('NS'):
             _logger.debug('deleting namespace [%s]' % intf_infos['NS'])
             ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'delete', intf_infos['NS']])
             if ret != 0:
@@ -616,7 +623,9 @@ class VNICUtils(object):
                 _intf['IFACE'] = _i['device']
                 _intf['IND'] = _i['index']
                 _intf['STATE'] = _i['opstate']
-                _intf['NS'] = _namespace
+                # default namespace is empty string
+                if _namespace and _namespace != '':
+                    _intf['NS'] = _namespace
                 if _i.get('vlanid'):
                     _intf['VLAN'] = _i.get('vlanid')
                 if _i.get('address'):
@@ -677,7 +686,7 @@ def _auto_deconfig_intf_routing(intf_infos):
         Exception. if configuration failed
     """
     # for namespaces the subnet and default routes will be auto deleted with the namespace
-    if 'NS' not in intf_infos:
+    if intf_infos.has('NS'):
         if InstanceMetadata()['instance']['shape'].startswith('BM'):
             _route_table_name = 'ort%svl%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
         else:
@@ -756,7 +765,7 @@ def _auto_config_secondary_intf(net_namespace_info, intf_infos):
         Exception. if configuration failed
     """
     _ip_cmd_p = ['/usr/sbin/ip']
-    if 'NS' in intf_infos:
+    if intf_infos.has('NS'):
         _ip_cmd_p.extend(['netns,', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
 
     if InstanceMetadata()['instance']['shape'].startswith('BM'):
@@ -818,7 +827,7 @@ def _auto_config_intf(net_namespace_info, intf_infos):
     _vlan_name = '%sv%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
     if _is_bm_shape and intf_infos['VLTAG'] != "0":
         _ip_cmd = ['/usr/sbin/ip']
-        if 'NS' in intf_infos:
+        if intf_infos.has('NS'):
             _ip_cmd.extend(['netns,', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
 
         _macvlan_name = "%s.%s" % (intf_infos['IFACE'], intf_infos['VLTAG'])
@@ -830,7 +839,7 @@ def _auto_config_intf(net_namespace_info, intf_infos):
             raise Exception("cannot create MAC VLAN interface %s for MAC address %s" %
                             (_macvlan_name, intf_infos['MAC']))
 
-        if 'NS' in intf_infos:
+        if intf_infos.has('NS'):
             # if physical iface/nic is in a namespace pull out the created mac vlan
             sudo_utils.call(['/usr/sbin/ip', 'netns,', 'exec', intf_infos['NS'],
                              '/usr/sbin/ip', 'link', 'set', _macvlan_name, 'netns', '1'])

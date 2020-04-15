@@ -103,11 +103,11 @@ def _fetch_link_info(namespace, devname):
 
     _cmd.extend(['-oneline', '-json', 'link', 'show', 'dev', devname])
 
-    link_info = sudo_utils.call_output(_cmd).strip()
-    if not link_info:
+    link_info = sudo_utils.call_output(_cmd)
+    if link_info is None or not link_info.strip():
         return {}
     # the ip command return a json array
-    link_info_j = json.loads(link_info)
+    link_info_j = json.loads(link_info.strip())
 
     for obj in link_info_j:
         return {
@@ -677,8 +677,9 @@ def kill_processes_in_namespace(namespace):
     _logger.debug('killing process for namespace [%s]' % namespace)
     _out = sudo_utils.call_output(['/usr/sbin/ip', 'netns', 'pids', namespace])
     # one pid per line
-    for pid in _out.splitlines():
-        try:
-            os.kill(int(pid), signal.SIGKILL)
-        except (ValueError, OSError) as e:
-            _logger.warning('Cannot terminate [%s]: %s ' % (pid, str(e)))
+    if _out:
+        for pid in _out.splitlines():
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+            except (ValueError, OSError) as e:
+                _logger.warning('Cannot terminate [%s]: %s ' % (pid, str(e)))
