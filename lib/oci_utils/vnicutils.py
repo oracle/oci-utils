@@ -51,6 +51,12 @@ class _intf_dict(dict):
         """
         return self.__contains__(key) and self.__getitem__(key) is not None
 
+    def get_conf_state(self):
+        """
+        Gets confifugatiom state
+        """
+        if self.__getitem__('ADDR')
+
     def __setitem__(self, key, value):
         """
         everything stored as str
@@ -424,7 +430,6 @@ class VNICUtils(object):
                     _i['IFACE'] = _by_nic_index[_intf['NIC_I']]
                     _i['STATE'] = "up"
                     _auto_config_intf(ns_i, _i)
-
                 else:
                     _auto_config_intf(ns_i, _intf)
 
@@ -512,16 +517,17 @@ class VNICUtils(object):
             if ret != 0:
                 raise Exception("cannot remove VLAN %s" % intf_infos['VLTAG'])
         else:
-            # delete addr from phys iface
-            # deleting namespace will move phys iface back to main
-            # note that we may be deleting sec addr from a vlan here
-            _ip_cmd.extend(['addr', 'del', '%s/%s' % (intf_infos['ADDR'],
-                                                      intf_infos['SBITS']), 'dev', intf_infos['IFACE']])
-            _logger.debug('deleting interface [%s]' % intf_infos['IFACE'])
-            ret = sudo_utils.call(_ip_cmd)
-            if ret != 0:
-                raise Exception("cannot remove ip address [%s] from %s" % (intf_infos['ADDR'], intf_infos['IFACE']))
-            NetworkHelpers.remove_ip_addr_rules(intf_infos['ADDR'])
+            if intf_infos.has('ADDR'):
+                # delete addr from phys iface
+                # deleting namespace will move phys iface back to main
+                # note that we may be deleting sec addr from a vlan here
+                _ip_cmd.extend(['addr', 'del', '%s/%s' % (intf_infos['ADDR'],
+                                                          intf_infos['SBITS']), 'dev', intf_infos['IFACE']])
+                _logger.debug('deleting interface [%s]' % intf_infos['IFACE'])
+                ret = sudo_utils.call(_ip_cmd)
+                if ret != 0:
+                    raise Exception("cannot remove ip address [%s] from %s" % (intf_infos['ADDR'], intf_infos['IFACE']))
+                NetworkHelpers.remove_ip_addr_rules(intf_infos['ADDR'])
 
         # delete namespace
         if intf_infos.has('NS'):
@@ -630,6 +636,7 @@ class VNICUtils(object):
                     _intf['VLAN'] = _i.get('vlanid')
                 if _i.get('address'):
                     _intf['CONFSTATE'] = '-'
+                    _intf['ADDR'] = _i.get('address')
                 _all_from_system.append(_intf)
 
         _all_from_metadata = []
@@ -656,7 +663,10 @@ class VNICUtils(object):
         for interface in _all_from_metadata:
             try:
                 found = _all_from_system.index(interface)
+                # the IS_PRIMARY attr as precedence on metadata side
+                _is_p = interface['IS_PRIMARY']
                 interface.update(_all_from_system.pop(found))
+                interface['IS_PRIMARY'] = _is_p
             except ValueError:
                 pass
             finally:
@@ -824,8 +834,11 @@ def _auto_config_intf(net_namespace_info, intf_infos):
     # for BM case , create virtual interface if needed
     _is_bm_shape = InstanceMetadata()['instance']['shape'].startswith('BM')
     _macvlan_name = None
-    _vlan_name = '%sv%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
+    _vlan_name = ''
     if _is_bm_shape and intf_infos['VLTAG'] != "0":
+
+        _vlan_name = '%sv%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
+
         _ip_cmd = ['/usr/sbin/ip']
         if intf_infos.has('NS'):
             _ip_cmd.extend(['netns,', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
@@ -878,7 +891,14 @@ def _auto_config_intf(net_namespace_info, intf_infos):
         _ip_cmd_prefix.extend(['netns,', 'exec', net_namespace_info['name'], '/usr/sbin/ip'])
 
     _ip_cmd = list(_ip_cmd_prefix)
-    _ip_cmd.extend(['addr', 'add', '%s/%s' % (intf_infos['ADDR'], intf_infos['SBITS']), 'dev', intf_infos['IFACE']])
+    _ip_cmd.extend(['addr', 'add', '%s/%s' % (intf_infos['ADDR'], intf_infos['SBITS']), 'dev'])
+    if _vlan_name:
+        # add the addr on the vlan intf then (BM case)
+        _ip_cmd.append(_vlan_name)
+    else:
+        # add the addr on the intf then (VM case)
+        _ip_cmd.append(intf_infos['IFACE'])
+
     ret = sudo_utils.call(_ip_cmd)
     if ret != 0:
         raise Exception('cannot add IP address %s/%s on interface %s' %
