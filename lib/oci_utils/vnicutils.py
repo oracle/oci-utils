@@ -51,12 +51,6 @@ class _intf_dict(dict):
         """
         return self.__contains__(key) and self.__getitem__(key) is not None
 
-    def get_conf_state(self):
-        """
-        Gets confifugatiom state
-        """
-        if self.__getitem__('ADDR')
-
     def __setitem__(self, key, value):
         """
         everything stored as str
