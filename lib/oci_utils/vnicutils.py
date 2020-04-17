@@ -663,22 +663,23 @@ class VNICUtils(object):
             try:
                 # locate the one with same ether address
                 _candidates = [_i for _i in _all_from_system if _i['MAC'] == interface['MAC']]
-                if len(_candidates):
+                if len(_candidates) == 1:
                     # only one found , no ambiguity
                     _is_p = interface['IS_PRIMARY']
-                    interface.update(_all_from_system.pop(found))
+                    interface.update(_candidates[0])
                     interface['IS_PRIMARY'] = _is_p
-                else:
+                elif len(_candidates) >= 2:
                     # surely macvlan/vlans involved (BM case)
-                    #  the macvlan interface give us the addr
-                    #  the vlan interface give us the actual link
-                    _macvlan_i = [_i for _i in _candidates if _i['LINKTYPE'] == 'macvlan']
-                    _vlan_i = [_i for _i in _candidates if _i['LINKTYPE'] == 'vlan']
+                    #  the macvlan interface give us the addr and the actual link
+                    #  the vlan interface give us the vlan name
+                    _macvlan_i = [_i for _i in _candidates if _i['LINKTYPE'] == 'macvlan'][0]
+                    _vlan_i = [_i for _i in _candidates if _i['LINKTYPE'] == 'vlan'][0]
                     _is_p = interface['IS_PRIMARY']
                     interface.update(_macvlan_i)
                     interface['IS_PRIMARY'] = _is_p
-                    interface['VLAN'] = _vlan_i['']
-                    interface['IFACE'] = _vlan_i['LINK']
+                    interface['VLAN'] = _vlan_i['IFACE']
+                    interface['IFACE'] = _macvlan_i['LINK']
+                    interface['CONFSTATE'] = '-'
             except ValueError:
                 pass
             finally:
