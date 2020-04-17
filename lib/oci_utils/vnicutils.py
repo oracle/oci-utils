@@ -621,6 +621,11 @@ class VNICUtils(object):
                 if _i.get('mac'):
                     _intf['MAC'] = _i.get('mac')
                 _intf['IFACE'] = _i['device']
+                _intf['LINK'] = _i['link']
+                if 'subtype' in _i:
+                    _intf['LINKTYPE'] = _i['subtype']
+                else:
+                    _intf['LINKTYPE'] = 'ether'
                 _intf['IND'] = _i['index']
                 _intf['STATE'] = _i['opstate']
                 # default namespace is empty string
@@ -656,11 +661,24 @@ class VNICUtils(object):
         # precedence is given to metadata
         for interface in _all_from_metadata:
             try:
-                found = _all_from_system.index(interface)
-                # the IS_PRIMARY attr as precedence on metadata side
-                _is_p = interface['IS_PRIMARY']
-                interface.update(_all_from_system.pop(found))
-                interface['IS_PRIMARY'] = _is_p
+                # locate the one with same ether address
+                _candidates = [_i for _i in _all_from_system if _i['MAC'] == interface['MAC']]
+                if len(_candidates):
+                    # only one found , no ambiguity
+                    _is_p = interface['IS_PRIMARY']
+                    interface.update(_all_from_system.pop(found))
+                    interface['IS_PRIMARY'] = _is_p
+                else:
+                    # surely macvlan/vlans involved (BM case)
+                    #  the macvlan interface give us the addr
+                    #  the vlan interface give us the actual link
+                    _macvlan_i = [_i for _i in _candidates if _i['LINKTYPE'] == 'macvlan']
+                    _vlan_i = [_i for _i in _candidates if _i['LINKTYPE'] == 'vlan']
+                    _is_p = interface['IS_PRIMARY']
+                    interface.update(_macvlan_i)
+                    interface['IS_PRIMARY'] = _is_p
+                    interface['VLAN'] = _vlan_i['']
+                    interface['IFACE'] = _vlan_i['LINK']
             except ValueError:
                 pass
             finally:

@@ -77,7 +77,7 @@ def _get_link_infos(namespace):
     if link_infos is None or not link_infos.strip():
         return []
     # the ip command return a json array
-    link_info_j = json.loads(link_info.strip())
+    link_info_j = json.loads(link_infos.strip())
     _infos = []
     for obj in link_info_j:
         _addr_info = {}
@@ -95,7 +95,13 @@ def _get_link_infos(namespace):
                     obj['addr_info'][0]['local'],
                     obj['addr_info'][0]['prefixlen'])).network)
             }
+
+        if 'linkinfo' in obj:
+            _addr_info['subtype'] = obj['linkinfo']['info_kind']
         _addr_info.update({
+            'link': obj.get('link'),
+            'device': obj.get('ifname'),
+            'index': obj.get('ifindex'),
             'mac': obj.get('address').upper(),
             'opstate': obj.get('operstate'),
             'type': obj.get('link_type'),
