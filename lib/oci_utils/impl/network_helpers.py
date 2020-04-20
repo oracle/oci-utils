@@ -63,8 +63,9 @@ def _get_link_infos(namespace):
             address_prefix_l : IP address prefix length (if any)
             address_subnet : IP address subnet (if any)
             broadcast : IP address broadcast (if any),
-            type: link type
+            type: link type (as returned by kernel)
             flags: link flags
+            is_vf: is this a vf ?
         }
     """
     _cmd = ['/usr/sbin/ip']
@@ -76,6 +77,7 @@ def _get_link_infos(namespace):
     link_infos = sudo_utils.call_output(_cmd)
     if link_infos is None or not link_infos.strip():
         return []
+    _vfs_mac = []
     # the ip command return a json array
     link_info_j = json.loads(link_infos.strip())
     _infos = []
@@ -95,6 +97,10 @@ def _get_link_infos(namespace):
                     obj['addr_info'][0]['local'],
                     obj['addr_info'][0]['prefixlen'])).network)
             }
+        # grab VF mac if any
+        if 'vfinfo_list' in obj:
+            for _v in obj['vfinfo_list']:
+                _vfs_mac.append(obj['vfinfo_list']['mac'])
 
         if 'linkinfo' in obj:
             _addr_info['subtype'] = obj['linkinfo']['info_kind']
@@ -108,6 +114,13 @@ def _get_link_infos(namespace):
             'flags': obj.get('flags')
         })
         _infos.append(_addr_info)
+
+    # now loop again to set the 'is_vf' flag
+    for _info in _infos:
+        if _info['mac'] in _vfs_mac:
+            _info['is_vf'] = True
+        else:
+            _info['is_vf'] = False
     return _infos
 
 

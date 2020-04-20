@@ -26,7 +26,7 @@ class _intf_dict(dict):
     """
     Creates a new dictionnary representing an interface
     keys are
-        CONFSTATE  'unconfig' indicates missing IP config, 'missing' missing VNIC,
+        CONFSTATE  'uncfg' indicates missing IP config, 'missing' missing VNIC,
                         'excl' excluded (-X), '-' hist configuration match oci vcn configuration
         IS_PRIMARY is this interface the primary one ?
     """
@@ -35,7 +35,7 @@ class _intf_dict(dict):
         if other:
             super().__init__(other)
         else:
-            super().__init__(CONFSTATE='unconfig',
+            super().__init__(CONFSTATE='uncfg',
                              IS_PRIMARY=False)
 
     def __eq__(self, other):
@@ -589,7 +589,7 @@ class VNICUtils(object):
         -------
         list of dict
            keys are
-            CONFSTATE  'unconfig' indicates missing IP config, 'missing' missing VNIC,
+            CONFSTATE  'uncfg' indicates missing IP config, 'missing' missing VNIC,
                             'excl' excluded (-X), '-' hist configuration match oci vcn configuration
             ADDR       IP address
             SPREFIX    subnet CIDR prefix
@@ -654,6 +654,8 @@ class VNICUtils(object):
             _intf['VIRTRT'] = md_vnic['virtualRouterIp']
             _intf['VLTAG'] = md_vnic['vlanTag']
             _intf['VNIC'] = md_vnic['vnicId']
+            i
+            # VMs do not havre such attr
             _intf['NIC_I'] = md_vnic['nicIndex']
             _all_from_metadata.append(_intf)
 
@@ -680,6 +682,8 @@ class VNICUtils(object):
                     interface['VLAN'] = _vlan_i['IFACE']
                     interface['IFACE'] = _macvlan_i['LINK']
                     interface['CONFSTATE'] = '-'
+                # clean up system list
+                _all_from_system = [_i for _i in _all_from_system if _i['MAC'] != interface['MAC']]
             except ValueError:
                 pass
             finally:
@@ -694,6 +698,9 @@ class VNICUtils(object):
         for interface in interfaces:
             if self._is_intf_excluded(interface):
                 interface['CONFSTATE'] = 'EXCL'
+            if interface['is_vf'] and interface['CONFSTATE'] == 'DELETE':
+                # revert this as '-' , as DELETE state means nothing for VFs
+                interface['CONFSTATE'] = '-'
 
         return interfaces
 
