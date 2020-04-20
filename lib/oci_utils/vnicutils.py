@@ -654,9 +654,9 @@ class VNICUtils(object):
             _intf['VIRTRT'] = md_vnic['virtualRouterIp']
             _intf['VLTAG'] = md_vnic['vlanTag']
             _intf['VNIC'] = md_vnic['vnicId']
-
-            # VMs do not have such attr
-            _intf['NIC_I'] = md_vnic['nicIndex']
+            if 'nicIndex' in md_vnic:
+                # VMs do not have such attr
+                _intf['NIC_I'] = md_vnic['nicIndex']
             _all_from_metadata.append(_intf)
 
         # now we correlate informations
