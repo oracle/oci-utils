@@ -378,7 +378,7 @@ class VNICUtils(object):
                 # keep track of interface by NIC index
                 _by_nic_index[_intf['NIC_I']] = _intf['IFACE']
 
-            if _intf.has(['IS_PRIMARY']):
+            if _intf.has('IS_PRIMARY'):
                 # in nay case we touch the primary
                 continue
 
@@ -416,28 +416,28 @@ class VNICUtils(object):
             try:
                 # for BMs, IFACE can be empty ('-'), we local physical NIC
                 # thank to NIC index
+
+                # make a copy of it to change the IFACE
+                _intf_to_use = _intf_dict(_intf)
                 if InstanceMetadata()['instance']['shape'].startswith('BM') and _intf['IFACE'] == '-':
-                    # make a copy of it to change the IFACE
-                    _i = _intf_dict(_intf)
-                    _i['IFACE'] = _by_nic_index[_intf['NIC_I']]
-                    _i['STATE'] = "up"
-                    _auto_config_intf(ns_i, _i)
-                else:
-                    _auto_config_intf(ns_i, _intf)
+                    _intf_to_use['IFACE'] = _by_nic_index[_intf['NIC_I']]
+                    _intf_to_use['STATE'] = "up"
+
+                _auto_config_intf(ns_i, _intf_to_use)
 
                 # disable network manager for that device
                 NetworkHelpers.remove_mac_from_nm(_intf['MAC'])
 
                 # setup routes
-                _auto_config_intf_routing(ns_i, _intf)
+                _auto_config_intf_routing(ns_i, _intf_to_use)
 
                 # setup secondary IPs if any
                 if 'SECONDARY_IPS' in _intf:
-                    _auto_config_secondary_intf(ns_i, _intf)
+                    _auto_config_secondary_intf(ns_i, _intf_to_use)
 
             except Exception as e:
                 # best effort , just issue warning
-                _logger.warning('Cannot configure %s: %s' % (_intf, str(e)))
+                _logger.warning('Cannot configure %s: %s' % (_intf_to_use, str(e)))
 
         # 3 deconfigure the one which need it
         for _intf in _all_to_be_deconfigured:
@@ -558,14 +558,14 @@ class VNICUtils(object):
                 # fecth right intf
                 for intf in _all_intf:
                     if intf['VNIC'] == vnic:
-                        if _intf.has(['IS_PRIMARY']):
+                        if intf.has('IS_PRIMARY'):
                             raise Exception('We cannot unconfigure the primary')
                         self._deconfig_secondary_addr(intf['IFACE'], ip, intf['NS'])
         else:
             # unconfigure all
             for intf in _all_intf:
                 # Is this intf the primary  ?
-                if _intf.has(['IS_PRIMARY']):
+                if intf.has('IS_PRIMARY'):
                     continue
                 # Is this intf has a configuration to be removed ?
                 if intf['CONFSTATE'] == 'ADD':
