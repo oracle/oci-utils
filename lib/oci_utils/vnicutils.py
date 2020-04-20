@@ -28,15 +28,13 @@ class _intf_dict(dict):
     keys are
         CONFSTATE  'uncfg' indicates missing IP config, 'missing' missing VNIC,
                         'excl' excluded (-X), '-' hist configuration match oci vcn configuration
-        IS_PRIMARY is this interface the primary one ?
     """
 
     def __init__(self, other=None):
         if other:
             super().__init__(other)
         else:
-            super().__init__(CONFSTATE='uncfg',
-                             IS_PRIMARY=False)
+            super().__init__(CONFSTATE='uncfg')
 
     def __eq__(self, other):
         return self['MAC'].upper() == other['MAC'].upper()
@@ -380,7 +378,7 @@ class VNICUtils(object):
                 # keep track of interface by NIC index
                 _by_nic_index[_intf['NIC_I']] = _intf['IFACE']
 
-            if _intf['IS_PRIMARY']:
+            if _intf.has(['IS_PRIMARY']):
                 # in nay case we touch the primary
                 continue
 
@@ -560,14 +558,14 @@ class VNICUtils(object):
                 # fecth right intf
                 for intf in _all_intf:
                     if intf['VNIC'] == vnic:
-                        if intf['IS_PRIMARY']:
+                        if _intf.has(['IS_PRIMARY']):
                             raise Exception('We cannot unconfigure the primary')
                         self._deconfig_secondary_addr(intf['IFACE'], ip, intf['NS'])
         else:
             # unconfigure all
             for intf in _all_intf:
                 # Is this intf the primary  ?
-                if intf['IS_PRIMARY']:
+                if _intf.has(['IS_PRIMARY']):
                     continue
                 # Is this intf has a configuration to be removed ?
                 if intf['CONFSTATE'] == 'ADD':
@@ -604,7 +602,7 @@ class VNICUtils(object):
             MAC        MAC address
             NIC_I      (physical) NIC index
             VNIC       VNIC object identifier
-            IS_PRIMARY is this interface the primary one ?
+            IS_PRIMARY is this interface the primary one ? (can be missing)
         """
         interfaces = []
 
@@ -667,18 +665,14 @@ class VNICUtils(object):
                 _candidates = [_i for _i in _all_from_system if _i['MAC'] == interface['MAC']]
                 if len(_candidates) == 1:
                     # only one found , no ambiguity
-                    _is_p = interface['IS_PRIMARY']
                     interface.update(_candidates[0])
-                    interface['IS_PRIMARY'] = _is_p
                 elif len(_candidates) >= 2:
                     # surely macvlan/vlans involved (BM case)
                     #  the macvlan interface give us the addr and the actual link
                     #  the vlan interface give us the vlan name
                     _macvlan_i = [_i for _i in _candidates if _i['LINKTYPE'] == 'macvlan'][0]
                     _vlan_i = [_i for _i in _candidates if _i['LINKTYPE'] == 'vlan'][0]
-                    _is_p = interface['IS_PRIMARY']
                     interface.update(_macvlan_i)
-                    interface['IS_PRIMARY'] = _is_p
                     interface['VLAN'] = _vlan_i['IFACE']
                     interface['IFACE'] = _macvlan_i['LINK']
                     interface['CONFSTATE'] = '-'
