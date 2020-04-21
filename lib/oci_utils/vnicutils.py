@@ -699,6 +699,17 @@ class VNICUtils(object):
         return interfaces
 
 
+def _compute_routing_table_name(interface_info):
+    """
+    Compute the routing table name for a givne interface
+    return the name as str
+    """
+    if InstanceMetadata()['instance']['shape'].startswith('BM'):
+        return 'ort%svl%s' % (interface_info['NIC_I'], interface_info['VLTAG'])
+    else:
+        return 'ort%s' % interface_info['IND']
+
+
 def _auto_deconfig_intf_routing(intf_infos):
     """
     Deconfigure interface routing
@@ -710,11 +721,8 @@ def _auto_deconfig_intf_routing(intf_infos):
         Exception. if configuration failed
     """
     # for namespaces the subnet and default routes will be auto deleted with the namespace
-    if intf_infos.has('NS'):
-        if InstanceMetadata()['instance']['shape'].startswith('BM'):
-            _route_table_name = 'ort%svl%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
-        else:
-            _route_table_name = 'ort%s' % intf_infos['IFACE']
+    if not intf_infos.has('NS'):
+        _route_table_name = _compute_routing_table_name(intf_infos)
         # TODO: rename method to remove_ip_rules
         NetworkHelpers.remove_ip_addr_rules(_route_table_name)
         NetworkHelpers.delete_route_table(_route_table_name)
@@ -749,15 +757,12 @@ def _auto_config_intf_routing(net_namespace_info, intf_infos):
                 raise Exception("cannot start ssh daemon")
             _logger.debug('sshd daemon started')
     else:
-        if InstanceMetadata()['instance']['shape'].startswith('BM'):
-            _route_table_name = 'ort%svl%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
-        else:
-            _route_table_name = 'ort%s' % intf_infos['IFACE']
+        _route_table_name = _compute_routing_table_name(intf_infos)
 
         NetworkHelpers.add_route_table(_route_table_name)
         _logger.debug("default route add")
         ret, out = NetworkHelpers.add_static_ip_route(
-            'default', 'via', intf_infos['VIRTRT'], 'table', _route_table_name)
+            'default', 'via', intf_infos['VIRTRT'], 'dev', intf_infos['IFACE'], 'table', _route_table_name)
         if ret != 0:
             raise Exception("cannot add default route via %s on %s to table %s" %
                             (intf_infos['VIRTRT'], intf_infos['IFACE'], _route_table_name))
@@ -792,10 +797,7 @@ def _auto_config_secondary_intf(net_namespace_info, intf_infos):
     if intf_infos.has('NS'):
         _ip_cmd_p.extend(['netns,', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
 
-    if InstanceMetadata()['instance']['shape'].startswith('BM'):
-        _route_table_name = 'ort%svl%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
-    else:
-        _route_table_name = 'ort%s' % intf_infos['IFACE']
+    _route_table_name = _compute_routing_table_name(intf_infos)
 
     for secondary_ip in intf_infos['SECONDARY_IPS']:
         _logger.debug("adding secondary IP address %s to interface (or VLAN) %s" %
@@ -938,6 +940,3 @@ def _auto_config_intf(net_namespace_info, intf_infos):
         ret = sudo_utils.call(_ip_cmd)
         if ret != 0:
             raise Exception("cannot set interface $iface MTU" % intf_infos['IFACE'])
-
-    _logger.debug("added IP address %s on interface %s with MTU %s" %
-                  (intf_infos['ADDR'], intf_infos['IFACE'], str(_INTF_MTU)))

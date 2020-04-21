@@ -58,6 +58,8 @@ def call(cmd, log_output=True):
     """
     _c = _prepare_command(cmd)
     try:
+        if _logger.isEnabledFor(logging.DEBUG):
+            _logger.debug('Executing [%s]' % ' '.join(_c))
         subprocess.check_call(_c, stderr=subprocess.STDOUT)
     except OSError:
         return 404
