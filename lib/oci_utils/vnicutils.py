@@ -7,10 +7,8 @@
 import logging
 import os
 import os.path
-import subprocess
 
 from . import cache
-from oci_utils import _configuration as OCIUtilsConfiguration
 from .oci_api import OCISession
 from .metadata import InstanceMetadata
 from .impl import network_helpers as NetworkHelpers
@@ -634,6 +632,11 @@ class VNICUtils(object):
                 if _i.get('address'):
                     _intf['CONFSTATE'] = '-'
                     _intf['ADDR'] = _i.get('address')
+                else:
+                    if not _i.get('is_vf'):
+                        # by default, before correlation, set it to DELETE
+                        _intf['CONFSTATE'] = 'DELETE'
+
                 _all_from_system.append(_intf)
 
         _all_from_metadata = []
@@ -644,7 +647,6 @@ class VNICUtils(object):
                 # primary always come first
                 _intf['IS_PRIMARY'] = True
                 _first_loop = False
-            _intf['CONFSTATE'] = 'ADD'
             _intf['MAC'] = md_vnic['macAddr'].upper()
             _intf['ADDR'] = md_vnic['privateIp']
             _intf['SPREFIX'] = md_vnic['subnetCidrBlock'].split('/')[0]
@@ -676,6 +678,11 @@ class VNICUtils(object):
                     interface['VLAN'] = _vlan_i['IFACE']
                     interface['IFACE'] = _macvlan_i['LINK']
                     interface['CONFSTATE'] = '-'
+                # if, after correlation we have an addr , it's should be in ADD state
+                if interface.has('ADDR'):
+                    interface['CONFSTATE'] = '-'
+                else:
+                    interface['CONFSTATE'] = 'ADD'
                 # clean up system list
                 _all_from_system = [_i for _i in _all_from_system if _i['MAC'] != interface['MAC']]
             except ValueError:
