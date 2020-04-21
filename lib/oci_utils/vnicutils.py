@@ -671,7 +671,7 @@ class VNICUtils(object):
                 if len(_candidates) == 1:
                     # only one found , no ambiguity
                     interface.update(_candidates[0])
-                    _candidates[0].has('ADDR'):
+                    if _candidates[0].has('ADDR'):
                         interface['CONFSTATE'] = '-'
                 elif len(_candidates) >= 2:
                     # surely macvlan/vlans involved (BM case)
