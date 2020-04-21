@@ -65,8 +65,7 @@ def call(cmd, log_output=True):
         return 404
     except subprocess.CalledProcessError as e:
         if log_output:
-            _logger.debug("Error executing {}: {}\n{}\n"
-                          .format(_c, e.returncode, e.output))
+            _logger.debug("execution failed: ec=%s, output=%s" % (e.returncode, e.output))
         return e.returncode
     return 0
 

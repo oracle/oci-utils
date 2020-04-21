@@ -743,6 +743,12 @@ def _auto_config_intf_routing(net_namespace_info, intf_infos):
     Raise:
         Exception. if configuration failed
     """
+
+    _intf_to_use = intf_infos['IFACE']
+    if InstanceMetadata()['instance']['shape'].startswith('BM') and intf_infos['VLTAG'] != "0":
+        # in that case we operate on the VLAN tagged intf no
+        _intf_to_use = '%sv%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
+
     if net_namespace_info:
         _logger.debug("default route add")
         ret, out = NetworkHelpers.add_static_ip_route(
@@ -760,19 +766,21 @@ def _auto_config_intf_routing(net_namespace_info, intf_infos):
         _route_table_name = _compute_routing_table_name(intf_infos)
 
         NetworkHelpers.add_route_table(_route_table_name)
+
         _logger.debug("default route add")
         ret, out = NetworkHelpers.add_static_ip_route(
-            'default', 'via', intf_infos['VIRTRT'], 'dev', intf_infos['IFACE'], 'table', _route_table_name)
+            'default', 'via', intf_infos['VIRTRT'], 'dev', _intf_to_use, 'table', _route_table_name)
         if ret != 0:
             raise Exception("cannot add default route via %s on %s to table %s" %
-                            (intf_infos['VIRTRT'], intf_infos['IFACE'], _route_table_name))
+                            (intf_infos['VIRTRT'], _intf_to_use, _route_table_name))
         _logger.debug("added default route via %s dev %s table %s" %
-                      (intf_infos['VIRTRT'], intf_infos['IFACE'], _route_table_name))
+                      (intf_infos['VIRTRT'], _intf_to_use, _route_table_name))
 
         # create source-based rule to use table
         ret, out = NetworkHelpers.add_static_ip_rule('from', intf_infos['ADDR'], 'lookup', _route_table_name)
         if ret != 0:
             raise Exception("cannot add rule from %s use table %s" % (intf_infos['ADDR'], _route_table_name))
+
         _logger.debug("added rule for routing from %s lookup %s with default via %s" %
                       (intf_infos['ADDR'], _route_table_name, intf_infos['VIRTRT']))
 
