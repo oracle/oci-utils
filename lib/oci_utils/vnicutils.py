@@ -665,14 +665,15 @@ class VNICUtils(object):
             try:
                 # locate the one with same ether address
                 _candidates = [_i for _i in _all_from_system if _i['MAC'] == interface['MAC']]
+                _state = '-'
                 if len(_candidates) != 0:
                     # we have correlation state is at least 'ADD'
-                    interface['CONFSTATE'] = 'ADD'
+                    _state = 'ADD'
                 if len(_candidates) == 1:
                     # only one found , no ambiguity
                     interface.update(_candidates[0])
                     if _candidates[0].has('ADDR'):
-                        interface['CONFSTATE'] = '-'
+                        _state = '-'
                 elif len(_candidates) >= 2:
                     # surely macvlan/vlans involved (BM case)
                     #  the macvlan interface give us the addr and the actual link
@@ -683,8 +684,9 @@ class VNICUtils(object):
                     interface['VLAN'] = _vlan_i['IFACE']
                     interface['IFACE'] = _macvlan_i['LINK']
                     if _vlan_i.has('ADDR'):
-                        interface['CONFSTATE'] = '-'
+                        _state = '-'
 
+                interface['CONFSTATE'] = _state
                 # clean up system list
                 _all_from_system = [_i for _i in _all_from_system if _i['MAC'] != interface['MAC']]
             except ValueError:
