@@ -313,7 +313,7 @@ def add_route_table(table_name):
                     _logger.debug('routing table with name %s already exists' % table_name)
                     return True
     _new_table_num_to_use = -1
-    for n in range(255):
+    for n in range(10, 255):
         if n not in tables_num:
             _new_table_num_to_use = n
             break
@@ -424,7 +424,7 @@ def add_static_ip_route(*args, **kwargs):
         routing_cmd.extend(['-netns', kwargs['namespace']])
     routing_cmd.extend(['route', 'add'])
     routing_cmd.extend(args)
-    _logger.debug('adding route : [%s]' % ' '.join(args))
+    _logger.debug('adding route : [%s]' % ' '.join(routing_cmd))
     _ret = sudo_utils.call(routing_cmd)
     if _ret != 0:
         _logger.warning('add of ip route failed')
@@ -468,7 +468,7 @@ def remove_mac_from_nm(mac):
 
     nm_conf = StringIO()
     nm_conf.write('[keyfile]\n')
-    nm_conf.write('unmanaged-devices+=mac%s\n' % mac)
+    nm_conf.write('unmanaged-devices+=mac:%s\n' % mac)
 
     sudo_utils.write_to_file(_cf, nm_conf.getvalue())
 

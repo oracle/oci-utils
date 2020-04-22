@@ -60,14 +60,12 @@ def call(cmd, log_output=True):
     try:
         if _logger.isEnabledFor(logging.DEBUG):
             _logger.debug('Executing [%s]' % ' '.join(_c))
-        subprocess.check_call(_c, stderr=subprocess.STDOUT)
+        cp = subprocess.run(_c, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if cp.returncode != 0 and log_output:
+            _logger.debug("execution failed: ec=%s, output=[%s], stderr=[%s] " % (cp.returncode, cp.stdout, cp.stderr))
+        return cp.returncode
     except OSError:
         return 404
-    except subprocess.CalledProcessError as e:
-        if log_output:
-            _logger.debug("execution failed: ec=%s, output=%s" % (e.returncode, e.output))
-        return e.returncode
-    return 0
 
 
 def call_output(cmd, log_output=True):
