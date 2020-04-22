@@ -215,7 +215,7 @@ def do_show_network_config(vnic_utils):
 
     ret = vnic_utils.get_network_config()
 
-    _fmt = "{:5} {:15} {:15} {:5} {:15} {:10} {:3} {:10} {:5} {:11} {:5} {:17} {}"
+    _fmt = "{:6} {:15} {:15} {:5} {:15} {:10} {:3} {:15} {:5} {:11} {:5} {:17} {}"
     print(_fmt.format('CONFIG', 'ADDR', 'SPREFIX', 'SBITS', 'VIRTRT',
                       'NS', 'IND', 'IFACE', 'VLTAG', 'VLAN', 'STATE', 'MAC', 'VNIC'))
     for item in ret:
