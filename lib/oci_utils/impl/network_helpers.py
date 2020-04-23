@@ -59,10 +59,15 @@ def _get_link_infos(namespace):
             index : interface system index
             device : device name
             opstate : interface operational state : up, down, unknown
-            address : IP address (if any)
-            address_prefix_l : IP address prefix length (if any)
-            address_subnet : IP address subnet (if any)
-            broadcast : IP address broadcast (if any),
+            addresses : [     IP addresses (if any)
+                 {
+                        vlanid : VLAN ID (can be None)
+                        address : IP address (if any)
+                        address_prefix_l : IP address prefix length (if any)
+                        address_subnet : IP address subnet (if any)
+                        broadcast : IP address broadcast (if any),
+                 }
+            ]
             type: link type (as returned by kernel)
             flags: link flags
             is_vf: is this a vf ?
@@ -82,21 +87,23 @@ def _get_link_infos(namespace):
     link_info_j = json.loads(link_infos.strip())
     _infos = []
     for obj in link_info_j:
-        _addr_info = {}
-        if 'addr_info'in obj and len(obj['addr_info']) > 0 and len(obj['addr_info'][0].keys()) > 0:
-            if obj['addr_info'][0].get('linkinfo') and obj['addr_info'][0].get('linkinfo')['info_kind'] == 'vlan':
-                _vlanid = obj['addr_info'][0].get('linkinfo')['info_data']['id']
-            else:
-                _vlanid = None
-            _addr_info = {
-                'vlanid': _vlanid,
-                'broadcast': obj['addr_info'][0].get('broadcast'),
-                'address_prefix_l': obj['addr_info'][0].get('prefixlen'),
-                'address': obj['addr_info'][0].get('local'),
-                'address_subnet': str(IPNetwork('%s/%s' % (
-                    obj['addr_info'][0]['local'],
-                    obj['addr_info'][0]['prefixlen'])).network)
-            }
+        _addr_info = {'addresses': []}
+        if 'addr_info'in obj:
+            for a_info in obj['addr_info']:
+                if a_info.get('linkinfo') and a_info.get('linkinfo')['info_kind'] == 'vlan':
+                    _vlanid = a_info.get('linkinfo')['info_data']['id']
+                else:
+                    _vlanid = None
+                _addr_info['addresses'].append({
+                    'vlanid': _vlanid,
+                    'broadcast': obj['addr_info'][0].get('broadcast'),
+                    'address_prefix_l': obj['addr_info'][0].get('prefixlen'),
+                    'address': obj['addr_info'][0].get('local'),
+                    'address_subnet': str(IPNetwork('%s/%s' % (
+                        obj['addr_info'][0]['local'],
+                        obj['addr_info'][0]['prefixlen'])).network)
+                })
+
         # grab VF mac if any
         if 'vfinfo_list' in obj:
             for _v in obj['vfinfo_list']:
@@ -137,10 +144,15 @@ def get_network_namespace_infos():
                   index : interface system index
                   device : device name
                   opstate : interface operational state : up, down, unknown
-                  address : IP address (if any)
-                  address_prefix_l : IP address prefix length (if any)
-                  address_subnet : IP address subnet (if any)
-                  broadcast : IP address broadcast (if any),
+                  addresses : [     IP addresses (if any)
+                        {
+                         vlanid : VLAN ID (can be None)
+                         address : IP address (if any)
+                         address_prefix_l : IP address prefix length (if any)
+                         address_subnet : IP address subnet (if any)
+                         broadcast : IP address broadcast (if any),
+                        }
+                     ]
                   type: link type
                   flags: link flags
               }

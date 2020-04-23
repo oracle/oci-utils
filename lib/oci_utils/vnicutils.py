@@ -338,14 +338,14 @@ class VNICUtils(object):
             if save:
                 self.save_vnic_info()
 
-    def auto_config(self, sec_ip, quiet, show):
+    def auto_config(self, secondary_ips, quiet, show):
         """
         Auto configure VNICs. Run the secondary vnic script in automatic
         configuration mode (-c).
 
         Parameters
         ----------
-        sec_ip: list of tuple (<ip adress>,<vnic ocid>)
+        secondary_ips: list of tuple (<ip adress>,<vnic ocid>)
             secondary IPs to ad to vnics. can be None or empty
         quiet: bool
             Do we run the underlying script silently?
@@ -444,6 +444,7 @@ class VNICUtils(object):
             except Exception as e:
                 # best effort , just issue warning
                 _logger.warning('Cannot deconfigure %s: %s' % (_intf, str(e)))
+
         return (0, '')
 
     def _deconfig_secondary_addr(self, device, address, namespace=None):
@@ -629,9 +630,11 @@ class VNICUtils(object):
                     _intf['NS'] = _namespace
                 if _i.get('vlanid'):
                     _intf['VLAN'] = _i.get('vlanid')
-                if _i.get('address'):
+                if len(_i.get('addresses', [])) > 0:
                     _intf['CONFSTATE'] = '-'
-                    _intf['ADDR'] = _i.get('address')
+                    _intf['ADDR'] = _i.get('addresses')[0]['address']
+                    if len(_i.get('addresses', [])) > 1:
+                        _intf['SECONDARY_ADDR'] = _i.get('addresses')[1]['address']
                 else:
                     if not _i.get('is_vf'):
                         # by default, before correlation, set it to DELETE
