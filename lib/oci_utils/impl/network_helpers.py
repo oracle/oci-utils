@@ -308,7 +308,7 @@ def add_route_table(table_name):
     Returns
     -------
         bool
-            True for success, False for failure
+            True for success or table already exists, False for failure.
     """
 
     # first , find a free number for the table

@@ -338,14 +338,14 @@ class VNICUtils(object):
             if save:
                 self.save_vnic_info()
 
-    def auto_config(self, secondary_ips, quiet, show):
+    def auto_config(self, sec_ip, quiet, show):
         """
         Auto configure VNICs. Run the secondary vnic script in automatic
         configuration mode (-c).
 
         Parameters
         ----------
-        secondary_ips: list of tuple (<ip adress>,<vnic ocid>)
+        sec_ip: list of tuple (<ip adress>,<vnic ocid>)
             secondary IPs to ad to vnics. can be None or empty
         quiet: bool
             Do we run the underlying script silently?
@@ -365,7 +365,11 @@ class VNICUtils(object):
         # {<index>: <intf name>}
         _by_nic_index = {}
 
+        # the interfaces to be configured according to metadata
         _all_to_be_configured = []
+        # the interfaces on which a secondary interface must be added
+        _all_to_be_modified = []
+        # the interfaces to be unconfigured according to metadata
         _all_to_be_deconfigured = []
 
         # 1.1 compute list of interface which need configuration
@@ -397,6 +401,8 @@ class VNICUtils(object):
                 _all_to_be_configured.append(_intf)
             if _intf['CONFSTATE'] == 'DELETE':
                 _all_to_be_deconfigured.append(_intf)
+            if 'SECONDARY_IPS' in _intf:
+                _all_to_be_modified.append(_intf)
 
         # 2 configure the one which need it
         ns_i = None
@@ -414,7 +420,6 @@ class VNICUtils(object):
             try:
                 # for BMs, IFACE can be empty ('-'), we local physical NIC
                 # thank to NIC index
-
                 # make a copy of it to change the IFACE
                 _intf_to_use = _intf_dict(_intf)
                 if InstanceMetadata()['instance']['shape'].startswith('BM') and _intf['IFACE'] == '-':
@@ -429,10 +434,6 @@ class VNICUtils(object):
                 # setup routes
                 _auto_config_intf_routing(ns_i, _intf_to_use)
 
-                # setup secondary IPs if any
-                if 'SECONDARY_IPS' in _intf:
-                    _auto_config_secondary_intf(ns_i, _intf_to_use)
-
             except Exception as e:
                 # best effort , just issue warning
                 _logger.warning('Cannot configure %s: %s' % (_intf_to_use, str(e)))
@@ -444,6 +445,10 @@ class VNICUtils(object):
             except Exception as e:
                 # best effort , just issue warning
                 _logger.warning('Cannot deconfigure %s: %s' % (_intf, str(e)))
+
+        # 4 add secondaries IP address
+        for _intf in _all_to_be_modified:
+            _auto_config_secondary_intf(ns_i, _intf_to_use)
 
         return (0, '')
 
@@ -634,7 +639,7 @@ class VNICUtils(object):
                     _intf['CONFSTATE'] = '-'
                     _intf['ADDR'] = _i.get('addresses')[0]['address']
                     if len(_i.get('addresses', [])) > 1:
-                        _intf['SECONDARY_ADDR'] = _i.get('addresses')[1]['address']
+                        _intf['SECONDARY_ADDRS'] = [ip['address'] for ip in _i.get('addresses')[1:]]
                 else:
                     if not _i.get('is_vf'):
                         # by default, before correlation, set it to DELETE
@@ -820,7 +825,16 @@ def _auto_config_secondary_intf(net_namespace_info, intf_infos):
 
     _route_table_name = _compute_routing_table_name(intf_infos)
 
+    _sec_addrs = []
+    if intf_infos.has('SECONDARY_ADDRS'):
+        _sec_addrs = [ip['address'] for ip in intf_infos['SECONDARY_ADDRS']]
+
     for secondary_ip in intf_infos['SECONDARY_IPS']:
+        if secondary_ip in _sec_addrs:
+            _logger.debug("secondary IP address %s already plumbed on the interface (or VLAN) %s" %
+                          (secondary_ip, intf_infos['IFACE']))
+            continue
+
         _logger.debug("adding secondary IP address %s to interface (or VLAN) %s" %
                       (secondary_ip, intf_infos['IFACE']))
         _ip_cmd = list(_ip_cmd_p)
