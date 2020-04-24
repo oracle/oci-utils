@@ -448,7 +448,7 @@ class VNICUtils(object):
 
         # 4 add secondaries IP address
         for _intf in _all_to_be_modified:
-            _auto_config_secondary_intf(ns_i, _intf_to_use)
+            _auto_config_secondary_intf(ns_i, _intf)
 
         return (0, '')
 
@@ -557,14 +557,31 @@ class VNICUtils(object):
         _all_intf = self.get_network_config()
 
         # if we have secondary addrs specified, just take care of these
+        #  vnic OCID give us the mac address then select the right interface which has the ip
         if sec_ip:
+            _translated = []
+            _all_vnic_md = InstanceMetadata()['vnics']
+            # 1. locate the MAC: translate ip/vnic to ip/mac
             for (ip, vnic) in sec_ip:
+                _found = False
+                for md_vnic in _all_vnic_md:
+                    if md_vnic['vnicId'] == vnic:
+                        _found = True
+                        _translated.append((ip, md_vnic['macAddr']))
+                        break
+                if not _found:
+                    _logger.warning('VNIC not found : %s ' % vnic)
+
+            for (ip, mac) in _translated:
                 # fecth right intf
                 for intf in _all_intf:
-                    if intf['VNIC'] == vnic:
+                    if intf['MAC'] == mac:
                         if intf.has('IS_PRIMARY'):
                             raise Exception('We cannot unconfigure the primary')
-                        self._deconfig_secondary_addr(intf['IFACE'], ip, intf['NS'])
+                        if ip not in intf['SECONDARY_IPS']:
+                            _logger.warning('IP not found' % ip)
+                        else:
+                            self._deconfig_secondary_addr(intf['IFACE'], ip, intf['NS'])
         else:
             # unconfigure all
             for intf in _all_intf:
@@ -838,7 +855,7 @@ def _auto_config_secondary_intf(net_namespace_info, intf_infos):
         _logger.debug("adding secondary IP address %s to interface (or VLAN) %s" %
                       (secondary_ip, intf_infos['IFACE']))
         _ip_cmd = list(_ip_cmd_p)
-        _ip_cmd.extend('addr', 'add', '%s/32' % secondary_ip, 'dev', intf_infos['IFACE'])
+        _ip_cmd.extend(['addr', 'add', '%s/32' % secondary_ip, 'dev', intf_infos['IFACE']])
         ret = sudo_utils.call(_ip_cmd)
         if ret != 0:
             raise Exception('Cannot add secondary address')
