@@ -96,12 +96,12 @@ def _get_link_infos(namespace):
                     _vlanid = None
                 _addr_info['addresses'].append({
                     'vlanid': _vlanid,
-                    'broadcast': obj['addr_info'][0].get('broadcast'),
-                    'address_prefix_l': obj['addr_info'][0].get('prefixlen'),
-                    'address': obj['addr_info'][0].get('local'),
+                    'broadcast': a_info.get('broadcast'),
+                    'address_prefix_l': a_info.get('prefixlen'),
+                    'address': a_info.get('local'),
                     'address_subnet': str(IPNetwork('%s/%s' % (
-                        obj['addr_info'][0]['local'],
-                        obj['addr_info'][0]['prefixlen'])).network)
+                        a_info['local'],
+                        a_info['prefixlen'])).network)
                 })
 
         # grab VF mac if any
@@ -120,6 +120,7 @@ def _get_link_infos(namespace):
             'type': obj.get('link_type'),
             'flags': obj.get('flags')
         })
+        _logger.debug('new system interface found : %s' % _addr_info)
         _infos.append(_addr_info)
 
     # now loop again to set the 'is_vf' flag

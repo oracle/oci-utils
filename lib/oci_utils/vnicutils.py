@@ -47,16 +47,23 @@ class _intf_dict(dict):
         """
         return self.__contains__(key) and self.__getitem__(key) is not None
 
+    @staticmethod
+    def _to_str(value):
+        if type(value) == bytes:
+            return value.decode()
+        if type(value) != str:
+            return str(value)
+        return value
+
     def __setitem__(self, key, value):
         """
         everything stored as str
         """
-        if type(value) == bytes:
-            super().__setitem__(key, value.decode())
-        elif type(value) != str:
-            super().__setitem__(key, str(value))
+
+        if type(value) == list:
+            super().__setitem__(key, [_intf_dict._to_str(_v) for _v in value])
         else:
-            super().__setitem__(key, value)
+            super().__setitem__(key, _intf_dict._to_str(value))
 
 
 class VNICUtils(object):
@@ -567,6 +574,7 @@ class VNICUtils(object):
                 for md_vnic in _all_vnic_md:
                     if md_vnic['vnicId'] == vnic:
                         _found = True
+                        _logger.debug('located vnic, mac is %s' % md_vnic['macAddr'])
                         _translated.append((ip, md_vnic['macAddr']))
                         break
                 if not _found:
@@ -574,14 +582,16 @@ class VNICUtils(object):
 
             for (ip, mac) in _translated:
                 # fecth right intf
+                _found = False
                 for intf in _all_intf:
                     if intf['MAC'] == mac:
-                        if intf.has('IS_PRIMARY'):
-                            raise Exception('We cannot unconfigure the primary')
-                        if ip not in intf['SECONDARY_IPS']:
-                            _logger.warning('IP not found' % ip)
-                        else:
+                        if 'SECONDARY_ADDRS' in intf and ip in intf['SECONDARY_ADDRS']:
+                            _found = True
                             self._deconfig_secondary_addr(intf['IFACE'], ip, intf['NS'])
+                            break
+                if not _found:
+                    _logger.warning('IP %s not found' % ip)
+
         else:
             # unconfigure all
             for intf in _all_intf:
@@ -624,6 +634,7 @@ class VNICUtils(object):
             NIC_I      (physical) NIC index
             VNIC       VNIC object identifier
             IS_PRIMARY is this interface the primary one ? (can be missing)
+            SECONDARY_ADDRS secondary addresses
         """
         interfaces = []
 
