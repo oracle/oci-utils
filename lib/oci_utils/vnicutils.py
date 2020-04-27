@@ -400,7 +400,7 @@ class VNICUtils(object):
                 for (ip, vnic) in sec_ip:
                     if vnic == _intf['VNIC']:
                         if 'SECONDARY_IPS' not in _intf:
-                            _intf['SECONDARY_IPS'] = ip
+                            _intf['SECONDARY_IPS'] = [ip]
                         else:
                             _intf['SECONDARY_IPS'].append(ip)
 
