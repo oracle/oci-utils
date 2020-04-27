@@ -587,7 +587,10 @@ class VNICUtils(object):
                     if intf['MAC'] == mac:
                         if 'SECONDARY_ADDRS' in intf and ip in intf['SECONDARY_ADDRS']:
                             _found = True
-                            self._deconfig_secondary_addr(intf['IFACE'], ip, intf['NS'])
+                            if intf.has('VLAN'):
+                                self._deconfig_secondary_addr(intf['VLAN'], ip, intf['NS'])
+                            else:
+                                self._deconfig_secondary_addr(intf['IFACE'], ip, intf['NS'])
                             break
                 if not _found:
                     _logger.warning('IP %s not found' % ip)
@@ -720,6 +723,8 @@ class VNICUtils(object):
                     interface['IFACE'] = _macvlan_i['LINK']
                     if _vlan_i.has('ADDR'):
                         _state = '-'
+                    if _vlan_i.has('SECONDARY_ADDRS'):
+                        interface['SECONDARY_ADDRS'] = _vlan_i['SECONDARY_ADDRS']
 
                 interface['CONFSTATE'] = _state
                 # clean up system list
