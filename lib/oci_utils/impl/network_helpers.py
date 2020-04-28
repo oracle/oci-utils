@@ -90,6 +90,8 @@ def _get_link_infos(namespace):
         _addr_info = {'addresses': []}
         if 'addr_info'in obj:
             for a_info in obj['addr_info']:
+                if a_info['family'] != 'inet':
+                    continue
                 if a_info.get('linkinfo') and a_info.get('linkinfo')['info_kind'] == 'vlan':
                     _vlanid = a_info.get('linkinfo')['info_data']['id']
                 else:

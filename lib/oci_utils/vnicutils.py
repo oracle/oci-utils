@@ -509,7 +509,7 @@ class VNICUtils(object):
 
         _ip_cmd = ['/usr/sbin/ip']
         if intf_infos.has('NS'):
-            _ip_cmd.extend(['netns,', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
+            _ip_cmd.extend(['netns', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
 
         if intf_infos.has('VLAN'):
             # delete vlan and macvlan, removes the addrs (pri and sec) as well
@@ -803,7 +803,7 @@ def _auto_config_intf_routing(net_namespace_info, intf_infos):
     if net_namespace_info:
         _logger.debug("default route add")
         ret, out = NetworkHelpers.add_static_ip_route(
-            ['default', 'via', intf_infos['VIRTRT']], namespace=net_namespace_info['name'])
+            'default', 'via', intf_infos['VIRTRT'], namespace=net_namespace_info['name'])
         if ret != 0:
             raise Exception("cannot add namespace %s default gateway %s: %s" %
                             (net_namespace_info['name'], intf_infos['VIRTRT'], out))
@@ -854,7 +854,7 @@ def _auto_config_secondary_intf(net_namespace_info, intf_infos):
     """
     _ip_cmd_p = ['/usr/sbin/ip']
     if intf_infos.has('NS'):
-        _ip_cmd_p.extend(['netns,', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
+        _ip_cmd_p.extend(['netns', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
 
     _route_table_name = _compute_routing_table_name(intf_infos)
 
@@ -925,7 +925,7 @@ def _auto_config_intf(net_namespace_info, intf_infos):
 
         _ip_cmd = ['/usr/sbin/ip']
         if intf_infos.has('NS'):
-            _ip_cmd.extend(['netns,', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
+            _ip_cmd.extend(['netns', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
 
         _macvlan_name = "%s.%s" % (intf_infos['IFACE'], intf_infos['VLTAG'])
         _ip_cmd.extend(['link', 'add', 'link', intf_infos['IFACE'], 'name', _macvlan_name, 'address',
@@ -938,7 +938,7 @@ def _auto_config_intf(net_namespace_info, intf_infos):
 
         if intf_infos.has('NS'):
             # if physical iface/nic is in a namespace pull out the created mac vlan
-            sudo_utils.call(['/usr/sbin/ip', 'netns,', 'exec', intf_infos['NS'],
+            sudo_utils.call(['/usr/sbin/ip', 'netns', 'exec', intf_infos['NS'],
                              '/usr/sbin/ip', 'link', 'set', _macvlan_name, 'netns', '1'])
 
         # create an ip vlan on top of the mac vlan
@@ -972,7 +972,7 @@ def _auto_config_intf(net_namespace_info, intf_infos):
                       (intf_infos['ADDR'], intf_infos['SBITS'], intf_infos['IFACE']))
     _ip_cmd_prefix = ['/usr/sbin/ip']
     if net_namespace_info is not None:
-        _ip_cmd_prefix.extend(['netns,', 'exec', net_namespace_info['name'], '/usr/sbin/ip'])
+        _ip_cmd_prefix.extend(['netns', 'exec', net_namespace_info['name'], '/usr/sbin/ip'])
 
     _ip_cmd = list(_ip_cmd_prefix)
     _ip_cmd.extend(['addr', 'add', '%s/%s' % (intf_infos['ADDR'], intf_infos['SBITS']), 'dev'])
