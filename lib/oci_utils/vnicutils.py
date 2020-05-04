@@ -922,12 +922,12 @@ def _auto_config_intf(net_namespace_info, intf_infos):
     if _is_bm_shape and intf_infos['VLTAG'] != "0":
 
         _vlan_name = '%sv%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
+        _macvlan_name = "%s.%s" % (intf_infos['IFACE'], intf_infos['VLTAG'])
 
         _ip_cmd = ['/usr/sbin/ip']
         if intf_infos.has('NS'):
             _ip_cmd.extend(['netns', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
 
-        _macvlan_name = "%s.%s" % (intf_infos['IFACE'], intf_infos['VLTAG'])
         _ip_cmd.extend(['link', 'add', 'link', intf_infos['IFACE'], 'name', _macvlan_name, 'address',
                         intf_infos['MAC'], 'type', 'macvlan'])
         _logger.debug('creating macvlan [%s]' % _macvlan_name)
@@ -947,6 +947,14 @@ def _auto_config_intf(net_namespace_info, intf_infos):
         if ret != 0:
             raise Exception("cannot create VLAN %s on MAC VLAN %s" % (_vlan_name, _macvlan_name))
 
+    _intf_dev_to_use = None
+    if _vlan_name:
+        # add the addr on the vlan intf then (BM case)
+        _intf_dev_to_use = _vlan_name
+    else:
+        # add the addr on the intf then (VM case)
+        _intf_dev_to_use = intf_infos['IFACE']
+
     # move the iface(s) to the target namespace if requested
     if net_namespace_info is not None:
         if _is_bm_shape and _macvlan_name:
@@ -956,12 +964,12 @@ def _auto_config_intf(net_namespace_info, intf_infos):
             if ret != 0:
                 raise Exception("cannot move MAC VLAN $macvlan into namespace %s" % net_namespace_info['name'])
 
-        _logger.debug("%s link move %s" % (intf_infos['IFACE'], net_namespace_info['name']))
+        _logger.debug("%s link move %s" % (_intf_dev_to_use, net_namespace_info['name']))
         ret = sudo_utils.call(['/usr/sbin/ip', 'link', 'set', 'dev',
-                               intf_infos['IFACE'], 'netns', net_namespace_info['name']])
+                               _intf_dev_to_use, 'netns', net_namespace_info['name']])
         if ret != 0:
             raise Exception("cannot move interface %s into namespace %s" %
-                            (intf_infos['IFACE'], net_namespace_info['name']))
+                            (_intf_dev_to_use, net_namespace_info['name']))
 
     # add IP address to interface
     if net_namespace_info:
@@ -975,13 +983,7 @@ def _auto_config_intf(net_namespace_info, intf_infos):
         _ip_cmd_prefix.extend(['netns', 'exec', net_namespace_info['name'], '/usr/sbin/ip'])
 
     _ip_cmd = list(_ip_cmd_prefix)
-    _ip_cmd.extend(['addr', 'add', '%s/%s' % (intf_infos['ADDR'], intf_infos['SBITS']), 'dev'])
-    if _vlan_name:
-        # add the addr on the vlan intf then (BM case)
-        _ip_cmd.append(_vlan_name)
-    else:
-        # add the addr on the intf then (VM case)
-        _ip_cmd.append(intf_infos['IFACE'])
+    _ip_cmd.extend(['addr', 'add', '%s/%s' % (intf_infos['ADDR'], intf_infos['SBITS']), 'dev', _intf_dev_to_use])
 
     ret = sudo_utils.call(_ip_cmd)
     if ret != 0:

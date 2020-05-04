@@ -59,7 +59,7 @@ def _get_link_infos(namespace):
             index : interface system index
             device : device name
             opstate : interface operational state : up, down, unknown
-            addresses : [     IP addresses (if any)
+            addresses : [     # IP addresses (if any)
                  {
                         vlanid : VLAN ID (can be None)
                         address : IP address (if any)
