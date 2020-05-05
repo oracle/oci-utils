@@ -36,6 +36,34 @@ _NM_CONF_DIR = "/etc/NetworkManager/conf.d/"
 _logger = logging.getLogger('oci-utils.net-helper')
 
 
+def create_network_namespace(name):
+    """
+    Creates network namespace
+    parameter:
+      name : namespace name as str
+    raise:
+      exception :in case of error
+    retur none
+    """
+    ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'add', name])
+    if ret != 0:
+        raise Exception('Cannot create network namespace')
+
+
+def destroy_network_namespace(name):
+    """
+    Destroy network namespace
+    parameter:
+      name : namespace name as str
+    raise:
+      exception :in case of error
+    retur none
+    """
+    ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'delete', name])
+    if ret != 0:
+        raise Exception('Cannot delete network namespace')
+
+
 def _get_namespaces():
     """
     Gets list of network namespace

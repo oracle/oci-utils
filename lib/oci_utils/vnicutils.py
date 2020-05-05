@@ -12,58 +12,10 @@ from . import cache
 from .oci_api import OCISession
 from .metadata import InstanceMetadata
 from .impl import network_helpers as NetworkHelpers
+from .impl.network_interface import NetworkInterfaceSetupHelper, _intf_dict
 from .impl import sudo_utils
 
 _logger = logging.getLogger('oci-utils.vnicutils')
-
-
-_INTF_MTU = 9000
-
-
-class _intf_dict(dict):
-    """
-    Creates a new dictionnary representing an interface
-    keys are
-        CONFSTATE  'uncfg' indicates missing IP config, 'missing' missing VNIC,
-                        'excl' excluded (-X), '-' hist configuration match oci vcn configuration
-    """
-
-    def __init__(self, other=None):
-        if other:
-            super().__init__(other)
-        else:
-            super().__init__(CONFSTATE='uncfg')
-
-    def __eq__(self, other):
-        return self['MAC'].upper() == other['MAC'].upper()
-
-    def __missing__(self, key):
-        return '-'
-
-    def has(self, key):
-        """
-        Check that key is found in this dict and that
-        the value is not None
-        """
-        return self.__contains__(key) and self.__getitem__(key) is not None
-
-    @staticmethod
-    def _to_str(value):
-        if type(value) == bytes:
-            return value.decode()
-        if type(value) != str:
-            return str(value)
-        return value
-
-    def __setitem__(self, key, value):
-        """
-        everything stored as str
-        """
-
-        if type(value) == list:
-            super().__setitem__(key, [_intf_dict._to_str(_v) for _v in value])
-        else:
-            super().__setitem__(key, _intf_dict._to_str(value))
 
 
 class VNICUtils(object):
@@ -448,7 +400,8 @@ class VNICUtils(object):
         # 3 deconfigure the one which need it
         for _intf in _all_to_be_deconfigured:
             try:
-                self._auto_deconfig_intf(_intf)
+                _auto_deconfig_intf_routing(_intf)
+                _auto_deconfig_intf(_intf)
             except Exception as e:
                 # best effort , just issue warning
                 _logger.warning('Cannot deconfigure %s: %s' % (_intf, str(e)))
@@ -459,7 +412,7 @@ class VNICUtils(object):
 
         return (0, '')
 
-    def _deconfig_secondary_addr(self, device, address, namespace=None):
+    def _deconfig_secondary_addr(self, intf_infos, address):
         """
         Removes an IP address from a device
 
@@ -475,71 +428,10 @@ class VNICUtils(object):
         ------
             Exception in case of failure
         """
-
-        _logger.debug("Removing IP addr [%s] from [%s]" % (address, device))
-
         _logger.debug("Removing IP addr rules")
         NetworkHelpers.remove_ip_addr_rules(address)
-
-        _ip_cmd = ['/usr/sbin/ip']
-        if namespace and namespace != '-':
-            _ip_cmd.extend(['netns', 'exec', namespace])
-        _ip_cmd.extend(['addr', 'del', '%s/32' % address, 'dev', device])
-        ret = sudo_utils.call(_ip_cmd)
-        if ret != 0:
-            raise Exception("cannot remove IP address %s on interface %s" % (address, device))
-
-    def _auto_deconfig_intf(self, intf_infos):
-        """
-        Deconfigures interface
-
-        parameter:
-
-        intf_info: interface info as dict
-        keys: see VNICITils.get_network_config
-
-        Raise:
-            Exception. if configuration failed
-        """
-        if intf_infos.has('NS'):
-            NetworkHelpers.kill_processes_in_namespace(intf_infos['NS'])
-
-        # unsetup routes
-        _auto_deconfig_intf_routing(intf_infos)
-
-        _ip_cmd = ['/usr/sbin/ip']
-        if intf_infos.has('NS'):
-            _ip_cmd.extend(['netns', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
-
-        if intf_infos.has('VLAN'):
-            # delete vlan and macvlan, removes the addrs (pri and sec) as well
-            _macvlan_name = "%s.%s" % (intf_infos['IFACE'], intf_infos['VLTAG'])
-            _ip_cmd.extend(['link', 'del', 'link', intf_infos['VLTAG'], 'dev', _macvlan_name])
-            _logger.debug('deleting macvlan [%s]' % _macvlan_name)
-            ret = sudo_utils.call(_ip_cmd)
-            if ret != 0:
-                raise Exception("cannot remove VLAN %s" % intf_infos['VLTAG'])
-        else:
-            if intf_infos.has('ADDR'):
-                # delete addr from phys iface
-                # deleting namespace will move phys iface back to main
-                # note that we may be deleting sec addr from a vlan here
-                _ip_cmd.extend(['addr', 'del', '%s/%s' % (intf_infos['ADDR'],
-                                                          intf_infos['SBITS']), 'dev', intf_infos['IFACE']])
-                _logger.debug('deleting interface [%s]' % intf_infos['IFACE'])
-                ret = sudo_utils.call(_ip_cmd)
-                if ret != 0:
-                    raise Exception("cannot remove ip address [%s] from %s" % (intf_infos['ADDR'], intf_infos['IFACE']))
-                NetworkHelpers.remove_ip_addr_rules(intf_infos['ADDR'])
-
-        # delete namespace
-        if intf_infos.has('NS'):
-            _logger.debug('deleting namespace [%s]' % intf_infos['NS'])
-            ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'delete', intf_infos['NS']])
-            if ret != 0:
-                raise Exception('Cannot delete network namespace')
-
-        NetworkHelpers.add_mac_to_nm(intf_infos['MAC'])
+        _logger.debug("Removing IP addr [%s] from [%s]" % (address, intf_infos))
+        NetworkInterfaceSetupHelper(intf_infos).remove_secondary_address(address)
 
     def auto_deconfig(self, sec_ip, quiet, show):
         """
@@ -587,10 +479,7 @@ class VNICUtils(object):
                     if intf['MAC'] == mac:
                         if 'SECONDARY_ADDRS' in intf and ip in intf['SECONDARY_ADDRS']:
                             _found = True
-                            if intf.has('VLAN'):
-                                self._deconfig_secondary_addr(intf['VLAN'], ip, intf['NS'])
-                            else:
-                                self._deconfig_secondary_addr(intf['IFACE'], ip, intf['NS'])
+                            self._deconfig_secondary_addr(intf, ip)
                             break
                 if not _found:
                     _logger.warning('IP %s not found' % ip)
@@ -607,7 +496,8 @@ class VNICUtils(object):
                 # Is this intf excluded ?
                 if self._is_intf_excluded(intf):
                     continue
-                self._auto_deconfig_intf(intf)
+                _auto_deconfig_intf_routing(intf)
+                _auto_deconfig_intf(intf)
 
         return (0, '')
 
@@ -852,9 +742,6 @@ def _auto_config_secondary_intf(net_namespace_info, intf_infos):
     Raise:
         Exception. if configuration failed
     """
-    _ip_cmd_p = ['/usr/sbin/ip']
-    if intf_infos.has('NS'):
-        _ip_cmd_p.extend(['netns', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
 
     _route_table_name = _compute_routing_table_name(intf_infos)
 
@@ -870,11 +757,8 @@ def _auto_config_secondary_intf(net_namespace_info, intf_infos):
 
         _logger.debug("adding secondary IP address %s to interface (or VLAN) %s" %
                       (secondary_ip, intf_infos['IFACE']))
-        _ip_cmd = list(_ip_cmd_p)
-        _ip_cmd.extend(['addr', 'add', '%s/32' % secondary_ip, 'dev', intf_infos['IFACE']])
-        ret = sudo_utils.call(_ip_cmd)
-        if ret != 0:
-            raise Exception('Cannot add secondary address')
+
+        NetworkInterfaceSetupHelper(intf_infos).add_secondary_address(secondary_ip)
 
         NetworkHelpers.add_route_table(_route_table_name)
 
@@ -911,102 +795,31 @@ def _auto_config_intf(net_namespace_info, intf_infos):
     # create network namespace if needed
     if net_namespace_info is not None:
         _logger.debug('creating namespace [%s]' % net_namespace_info['name'])
-        ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'add', net_namespace_info['name']])
-        if ret != 0:
-            raise Exception('Cannot create network namespace')
+        NetworkHelpers.create_network_namespace(net_namespace_info['name'])
 
-    # for BM case , create virtual interface if needed
-    _is_bm_shape = InstanceMetadata()['instance']['shape'].startswith('BM')
-    _macvlan_name = None
-    _vlan_name = ''
-    if _is_bm_shape and intf_infos['VLTAG'] != "0":
+    NetworkInterfaceSetupHelper(intf_infos, net_namespace_info['name']).setup()
 
-        _vlan_name = '%sv%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
-        _macvlan_name = "%s.%s" % (intf_infos['IFACE'], intf_infos['VLTAG'])
 
-        _ip_cmd = ['/usr/sbin/ip']
-        if intf_infos.has('NS'):
-            _ip_cmd.extend(['netns', 'exec', intf_infos['NS'], '/usr/sbin/ip'])
+def _auto_deconfig_intf(intf_infos):
+    """
+    Deconfigures interface
 
-        _ip_cmd.extend(['link', 'add', 'link', intf_infos['IFACE'], 'name', _macvlan_name, 'address',
-                        intf_infos['MAC'], 'type', 'macvlan'])
-        _logger.debug('creating macvlan [%s]' % _macvlan_name)
-        ret = sudo_utils.call(_ip_cmd)
-        if ret != 0:
-            raise Exception("cannot create MAC VLAN interface %s for MAC address %s" %
-                            (_macvlan_name, intf_infos['MAC']))
+    parameter:
 
-        if intf_infos.has('NS'):
-            # if physical iface/nic is in a namespace pull out the created mac vlan
-            sudo_utils.call(['/usr/sbin/ip', 'netns', 'exec', intf_infos['NS'],
-                             '/usr/sbin/ip', 'link', 'set', _macvlan_name, 'netns', '1'])
+    intf_info: interface info as dict
+    keys: see VNICITils.get_network_config
 
-        # create an ip vlan on top of the mac vlan
-        ret = sudo_utils.call(['/usr/sbin/ip', 'link', 'add', 'link', _macvlan_name,
-                               'name', _vlan_name, 'type', 'vlan', 'id', intf_infos['VLTAG']])
-        if ret != 0:
-            raise Exception("cannot create VLAN %s on MAC VLAN %s" % (_vlan_name, _macvlan_name))
+    Raise:
+        Exception. if configuration failed
+    """
+    if intf_infos.has('NS'):
+        NetworkHelpers.kill_processes_in_namespace(intf_infos['NS'])
 
-    _intf_dev_to_use = None
-    if _vlan_name:
-        # add the addr on the vlan intf then (BM case)
-        _intf_dev_to_use = _vlan_name
-    else:
-        # add the addr on the intf then (VM case)
-        _intf_dev_to_use = intf_infos['IFACE']
+    NetworkInterfaceSetupHelper(intf_infos).tear_down()
 
-    # move the iface(s) to the target namespace if requested
-    if net_namespace_info is not None:
-        if _is_bm_shape and _macvlan_name:
-            _logger.debug("macvlan link move %s" % net_namespace_info['name'])
-            ret = sudo_utils.call(['/usr/sbin/ip', 'link', 'set', 'dev',
-                                   _macvlan_name, 'netns', net_namespace_info['name']])
-            if ret != 0:
-                raise Exception("cannot move MAC VLAN $macvlan into namespace %s" % net_namespace_info['name'])
+    # delete namespace
+    if intf_infos.has('NS'):
+        _logger.debug('deleting namespace [%s]' % intf_infos['NS'])
+        NetworkHelpers.destroy_network_namespace(intf_infos['NS'])
 
-        _logger.debug("%s link move %s" % (_intf_dev_to_use, net_namespace_info['name']))
-        ret = sudo_utils.call(['/usr/sbin/ip', 'link', 'set', 'dev',
-                               _intf_dev_to_use, 'netns', net_namespace_info['name']])
-        if ret != 0:
-            raise Exception("cannot move interface %s into namespace %s" %
-                            (_intf_dev_to_use, net_namespace_info['name']))
-
-    # add IP address to interface
-    if net_namespace_info:
-        _logger.debug("addr %s/%s add on %s ns '%s'" %
-                      (intf_infos['ADDR'], intf_infos['SBITS'], intf_infos['IFACE'], net_namespace_info['name']))
-    else:
-        _logger.debug("addr %s/%s add on %s" %
-                      (intf_infos['ADDR'], intf_infos['SBITS'], intf_infos['IFACE']))
-    _ip_cmd_prefix = ['/usr/sbin/ip']
-    if net_namespace_info is not None:
-        _ip_cmd_prefix.extend(['netns', 'exec', net_namespace_info['name'], '/usr/sbin/ip'])
-
-    _ip_cmd = list(_ip_cmd_prefix)
-    _ip_cmd.extend(['addr', 'add', '%s/%s' % (intf_infos['ADDR'], intf_infos['SBITS']), 'dev', _intf_dev_to_use])
-
-    ret = sudo_utils.call(_ip_cmd)
-    if ret != 0:
-        raise Exception('cannot add IP address %s/%s on interface %s' %
-                        (intf_infos['ADDR'], intf_infos['SBITS'], intf_infos['IFACE']))
-
-    if _is_bm_shape and _macvlan_name:
-        _logger.debug("vlans set up")
-        _ip_cmd = list(_ip_cmd_prefix)
-        _ip_cmd.extend(['link', 'set', 'dev', _macvlan_name, 'mtu', str(_INTF_MTU), 'up'])
-        ret = sudo_utils.call(_ip_cmd)
-        if ret != 0:
-            raise Exception("cannot set MAC VLAN %s up" % _macvlan_name)
-
-        _ip_cmd = list(_ip_cmd_prefix)
-        _ip_cmd.extend(['link', 'set', 'dev', _vlan_name, 'mtu', str(_INTF_MTU), 'up'])
-        ret = sudo_utils.call(_ip_cmd)
-        if ret != 0:
-            raise Exception("cannot set VLAN %s up" % _vlan_name)
-    else:
-        _logger.debug("%s set up" % intf_infos['IFACE'])
-        _ip_cmd = list(_ip_cmd_prefix)
-        _ip_cmd.extend(['link', 'set', 'dev', intf_infos['IFACE'], 'mtu', str(_INTF_MTU), 'up'])
-        ret = sudo_utils.call(_ip_cmd)
-        if ret != 0:
-            raise Exception("cannot set interface $iface MTU" % intf_infos['IFACE'])
+    NetworkHelpers.add_mac_to_nm(intf_infos['MAC'])
