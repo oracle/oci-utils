@@ -253,7 +253,7 @@ class NetworkInterfaceSetupHelper:
         _ip_cmd = ['/usr/sbin/ip']
         if self.info.has('NS'):
             _ip_cmd.extend(['netns', 'exec', self.info['NS'], '/usr/sbin/ip'])
-        _ip_cmd.extend(['addr', 'add', '%s/32' % ip_address, 'dev', _dev])
+        _ip_cmd.extend(['addr', 'del', '%s/32' % ip_address, 'dev', _dev])
         ret = sudo_utils.call(_ip_cmd)
         if ret != 0:
-            raise Exception('Cannot add secondary address')
+            raise Exception('Cannot remove secondary address')
