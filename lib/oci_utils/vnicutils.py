@@ -533,6 +533,15 @@ class VNICUtils(object):
 
         _all_intfs = NetworkHelpers.get_network_namespace_infos()
 
+        # for BM cases (using macvlan/vlan) when using namespace , some interfaces (the macvlan ones within namespace)
+        # do not have the 'link' property but the 'link_idx'
+        # First build a "link by id" map
+        # Note: loopback appears with index '1' in all namespaces.
+        _link_by_idx = {}
+        for _namespace, _nintfs in _all_intfs.items():
+            for _i in _nintfs:
+                _link_by_idx[_i['index']] = _i['device']
+
         _all_from_system = []
         for _namespace, _nintfs in _all_intfs.items():
             for _i in _nintfs:
@@ -544,7 +553,12 @@ class VNICUtils(object):
                 if _i.get('mac'):
                     _intf['MAC'] = _i.get('mac')
                 _intf['IFACE'] = _i['device']
-                _intf['LINK'] = _i['link']
+                if 'link' in _i and _i['link'] is not None:
+                    _intf['LINK'] = _i['link']
+                else:
+                    # in that case, try with index if we have it
+                    if _i['link_idx']:
+                        _intf['LINK'] = _link_by_idx[_i['link_idx']]
                 if 'subtype' in _i:
                     _intf['LINKTYPE'] = _i['subtype']
                 else:
@@ -796,8 +810,9 @@ def _auto_config_intf(net_namespace_info, intf_infos):
     if net_namespace_info is not None:
         _logger.debug('creating namespace [%s]' % net_namespace_info['name'])
         NetworkHelpers.create_network_namespace(net_namespace_info['name'])
-
-    NetworkInterfaceSetupHelper(intf_infos, net_namespace_info['name']).setup()
+        NetworkInterfaceSetupHelper(intf_infos, net_namespace_info['name']).setup()
+    else:
+        NetworkInterfaceSetupHelper(intf_infos).setup()
 
 
 def _auto_deconfig_intf(intf_infos):

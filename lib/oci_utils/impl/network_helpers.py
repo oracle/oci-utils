@@ -83,6 +83,8 @@ def _get_link_infos(namespace):
     --------
         list of
         {
+            link : underlying link of thie interface (may be None)
+            link_idx: underlying link index of thie interface (may be None)
             mac : mac address
             index : interface system index
             device : device name
@@ -141,8 +143,10 @@ def _get_link_infos(namespace):
 
         if 'linkinfo' in obj:
             _addr_info['subtype'] = obj['linkinfo']['info_kind']
+
         _addr_info.update({
             'link': obj.get('link'),
+            'link_idx': obj.get('link_index'),
             'device': obj.get('ifname'),
             'index': obj.get('ifindex'),
             'mac': obj.get('address').upper(),

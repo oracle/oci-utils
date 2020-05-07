@@ -195,7 +195,7 @@ class NetworkInterfaceSetupHelper:
         if self.info.has('VLAN'):
             # delete vlan and macvlan, removes the addrs (pri and sec) as well
             _macvlan_name = "%s.%s" % (self.info['IFACE'], self.info['VLTAG'])
-            _ip_cmd.extend(['link', 'del', 'link', self.info['VLTAG'], 'dev', _macvlan_name])
+            _ip_cmd.extend(['link', 'del', 'link', self.info['VLAN'], 'dev', _macvlan_name])
             _logger.debug('deleting macvlan [%s]' % _macvlan_name)
             ret = sudo_utils.call(_ip_cmd)
             if ret != 0:
