@@ -90,7 +90,7 @@ def br_link_mode_check(phys_dev):
     vepa = "VEPA"
     res = sudo_utils.call_popen_output(
         [BRIDGE_CMD, 'link', 'show', 'dev', '"{}"'.format(phys_dev)])
-    if res and vepa == res.split()[-1]:
+    if res and vepa == res.split()[-1].decode().upper():
         return True
     _logger.debug('br_link_mode_check, return False, server_type: %s ' % vepa)
     return False
@@ -113,15 +113,19 @@ def validate_kvm_env(check_for_bm_shape=True):
     """
     phys_dev = get_phys_device()
     if phys_dev is None:
+        _logger.debug('No physical device found')
         return False
 
     if not iommu_check():
+        _logger.debug('iommu_check failed')
         return False
 
     if check_for_bm_shape:
         if not sriov_numvfs_check(phys_dev):
+            _logger.debug('sriov_numvfs_check failed')
             return False
         if not br_link_mode_check(phys_dev):
+            _logger.debug('br_link_mode_check failed')
             return False
     return True
 

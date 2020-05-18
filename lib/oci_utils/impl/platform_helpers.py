@@ -32,10 +32,11 @@ def get_phys_device():
         return None
     phys_dev = None
     output = sudo_utils.call_output([IP_CMD, '-o', '-4', 'addr', 'show'])
-    lines = str(output).split('\n')
+    lines = output.splitlines()
     for line in lines:
-        if private_ip in line.strip():
-            phys_dev = line.strip().split()[1]
+        _l = line.decode().strip()
+        if private_ip in _l:
+            phys_dev = _l.split()[1]
     _logger.debug('%s physical devices found' % len(phys_dev))
     return phys_dev
 
