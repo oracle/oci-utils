@@ -800,6 +800,7 @@ def create_fs_pool(disk, name):
 
     # grab the uuid of the device
     _uuid = sudo_utils.call_output([LSBLK_CMD, '--output', 'uuid', '--noheadings', _new_part])
+    _uuid = _uuid.decode().strip()
 
     if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-define-as', '--name=%s' % name, '--type=fs', '--source-dev=/dev/disk/by-uuid/%s' % _uuid, '--target=/oci-%s' % name]):
         print_error('Failed to define pool')
