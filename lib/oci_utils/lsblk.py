@@ -52,7 +52,7 @@ def list():
                  '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME'], stderr=DEVNULL).decode('utf-8')
         devices = {}
         # with python3, output id byte-like object, cast it to str
-        for line in str(output).split('\n'):
+        for line in output.splitlines():
             match = _LSBLK_PATTERN.match(line.strip())
             if match:
                 dev = match.group(1)

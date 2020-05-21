@@ -72,7 +72,7 @@ def get_interfaces():
                 # TODO: virtual functions
                 for line in subprocess.check_output(
                         ['/usr/sbin/ip', 'link', 'show', n]).splitlines():
-                    line = line.strip()
+                    line = line.strip().decode()
                     if not line.startswith('vf '):
                         continue
 
