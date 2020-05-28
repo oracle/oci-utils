@@ -176,6 +176,8 @@ rm -rf %{buildroot}
 %changelog
 * Wed Apr 1 2020 Guido Tijskens <guido.tijskens@oracle.com> -- 0.11.0
 - add oci-image-migrate code
+- remove of python2 support on all platform
+- move to by-uuid device name for libvirt storage pool build
 
 * Wed Dec 4 2019 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.10.2
 - Update to use Python 3 on OL8
