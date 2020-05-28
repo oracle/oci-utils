@@ -20,7 +20,7 @@ from time import sleep
 from ..exceptions import OCISDKError
 
 __all__ = ['lock_thread', 'release_thread', 'read_config', 'SUDO_CMD',
-           'CAT_CMD', 'SH_CMD', 'CP_CMD', 'TOUCH_CMD', 'CHMOD_CMD']
+           'CAT_CMD', 'SH_CMD', 'CP_CMD', 'TOUCH_CMD', 'CHMOD_CMD', 'LSBLK_CMD']
 
 CAT_CMD = '/usr/bin/cat'
 TOUCH_CMD = '/usr/bin/touch'
@@ -35,6 +35,7 @@ BRIDGE_CMD = '/sbin/bridge'
 PARTED_CMD = '/sbin/parted'
 MK_XFS_CMD = '/sbin/mkfs.xfs'
 SYSTEMCTL_CMD = '/bin/systemctl'
+LSBLK_CMD = '/bin/lsblk'
 
 
 def print_error(msg, *args):
@@ -192,23 +193,23 @@ def read_config():
     oci_utils_config = ConfigParser()
     # assign default
     oci_utils_config.add_section('auth')
-    oci_utils_config.set('auth','auth_method','auto')
-    oci_utils_config.set('auth','oci_sdk_user','opc')
+    oci_utils_config.set('auth', 'auth_method', 'auto')
+    oci_utils_config.set('auth', 'oci_sdk_user', 'opc')
     oci_utils_config.add_section('iscsi')
-    oci_utils_config.set('iscsi','enabled','true')
-    oci_utils_config.set('iscsi','scan_interval','60')
-    oci_utils_config.set('iscsi','max_volumes','8')
-    oci_utils_config.set('iscsi','auto_resize','true')
-    oci_utils_config.set('iscsi','auto_detach','true')
-    oci_utils_config.set('iscsi','detach_retry','5')
+    oci_utils_config.set('iscsi', 'enabled', 'true')
+    oci_utils_config.set('iscsi', 'scan_interval', '60')
+    oci_utils_config.set('iscsi', 'max_volumes', '8')
+    oci_utils_config.set('iscsi', 'auto_resize', 'true')
+    oci_utils_config.set('iscsi', 'auto_detach', 'true')
+    oci_utils_config.set('iscsi', 'detach_retry', '5')
     oci_utils_config.add_section('vnic')
-    oci_utils_config.set('vnic','enabled','true')
-    oci_utils_config.set('vnic','scan_interval','60')
-    oci_utils_config.set('vnic','vf_net','false')
+    oci_utils_config.set('vnic', 'enabled', 'true')
+    oci_utils_config.set('vnic', 'scan_interval', '60')
+    oci_utils_config.set('vnic', 'vf_net', 'false')
     oci_utils_config.add_section('public_ip')
-    oci_utils_config.set('public_ip','enabled','true')
-    oci_utils_config.set('public_ip','refresh_interval','600')
-    
+    oci_utils_config.set('public_ip', 'enabled', 'true')
+    oci_utils_config.set('public_ip', 'refresh_interval', '600')
+
     if not os.path.exists(__oci_utils_conf_d):
         return oci_utils_config
 
