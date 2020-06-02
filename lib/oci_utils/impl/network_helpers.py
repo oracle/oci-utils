@@ -266,7 +266,7 @@ def remove_static_ip_routes(link_name):
     _logger.debug('routes found [%s]' % _lines)
     for _line in _lines:
         _command = ['/sbin/ip', 'route', 'del']
-        _command.extend(_line.strip().split(' '))
+        _command.extend(_line.decode().strip().split(' '))
         _out = sudo_utils.call_output(_command)
         if _out is not None and len(_out) > 0:
             _logger.warning('removal of ip route (%s) failed' % _line)
@@ -319,7 +319,7 @@ def remove_static_ip_rules(link_name):
         _command = ['/sbin/ip', 'rule', 'del']
         # all line listed are like '<rule number>:\t<rule as string> '
         # when underlying device is down (i.e virtual network is down) the command append '[detached]' we have to remove this
-        _command.extend(re.compile("\d:\t").split(_line.strip())[1].replace('[detached] ', '').split(' '))
+        _command.extend(re.compile("\d:\t").split(_line.decode().strip())[1].replace('[detached] ', '').split(' '))
         _out = sudo_utils.call_output(_command)
         if _out is not None and len(_out) > 0:
             _logger.warning('cannot delete rule [%s]: %s' % (' '.join(_command), str(_out)))
