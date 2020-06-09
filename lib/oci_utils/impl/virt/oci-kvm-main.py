@@ -67,10 +67,10 @@ def parse_args():
                                help='Name a of storage pool to be used for root disk')
     create_parser.add_argument('-s', '--disk-size', action='store', type=_disk_size_in_gb,
                                help='Size of the disk in GB to be created when using storage pool')
-    create_parser.add_argument('-n', '--net', action='store', type=str,
+    create_parser.add_argument('-n', '--net', action='store', action='append', type=str,
                                help='IP or name of the VNIC that should be attached '
                                     'to the VM')
-    create_parser.add_argument('-v', '--virtual-network', action='store', type=str,
+    create_parser.add_argument('-v', '--virtual-network', action='append', type=str,
                                help='The name of libvirt nework to attach the guest to')
     create_parser.add_argument('-D', '--domain', action='store', type=str,
                                help='Name of the virtual machine',
@@ -155,6 +155,15 @@ def create_vm(args):
         print("--net and --virtual_network option are exclusive", file=sys.stderr)
         return 1
 
+    # insure unicity in networking options in BM case
+
+    _all_net_names = set()
+    for n_name in args.net:
+        if n_name not in _all_net_names:
+            _all_net_names.add(n_name)
+        else:
+            print('duplicate virtual network name [%s], ignore it', vn_n)
+
     if '--network' in args.virt:
         sys.stderr.write(
             "--network is not a supported option. Please retry without "
@@ -164,7 +173,7 @@ def create_vm(args):
                                      root_disk=args.disk,
                                      pool=args.pool,
                                      disk_size=args.disk_size,
-                                     network=args.net, virtual_network=args.virtual_network, extra_args=args.virt)
+                                     network=list(_all_net_names), virtual_network=args.virtual_network, extra_args=args.virt)
 
 
 def destroy_vm(args):

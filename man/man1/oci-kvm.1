@@ -134,13 +134,13 @@ subcommand, specify the name of the pool. When not specified, the default name i
 When entering the
 .B create
 subcommand, on bare metal instance host, specify the IP address of the Oracle Cloud Infrastructure VNIC to be assigned to the new guest.
-On a virtual machine instance host,specify the name of the Oracle Cloud Infrastructure VNIC. If this
+On a virtual machine instance host,specify the name of the Oracle Cloud Infrastructure VNIC (can be repeated multiple times). If this
 option is not specified, an unused VNIC is chosen arbitrarily.
 For the
 .B create-network
 subcommand, specify the IP address of the Oracle Cloud Infrastructure VNIC that is needed to build the network.
 .IP "-v VIRTUAL_NETWORK, --virtual-network VIRTUAL_NETWORK"
-Specify the name of the libvirt virtual network to attach the guest to.
+Specify the name of the libvirt virtual network to attach the guest to (can be repeated multiple times).
 .IP "-N HOST, --netfshost HOST"
 For the
 .B create-pool
