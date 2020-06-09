@@ -67,7 +67,7 @@ def parse_args():
                                help='Name a of storage pool to be used for root disk')
     create_parser.add_argument('-s', '--disk-size', action='store', type=_disk_size_in_gb,
                                help='Size of the disk in GB to be created when using storage pool')
-    create_parser.add_argument('-n', '--net', action='store', action='append', type=str,
+    create_parser.add_argument('-n', '--net', action='append', type=str,
                                help='IP or name of the VNIC that should be attached '
                                     'to the VM')
     create_parser.add_argument('-v', '--virtual-network', action='append', type=str,
