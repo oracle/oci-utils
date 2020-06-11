@@ -20,7 +20,7 @@ BuildRequires: python3-setuptools
 Requires: python3
 Requires: python3-daemon
 Requires: python3-sdnotify
-
+Requires: python36-oci-sdk
 
 Requires: cloud-utils-growpart
 # for lsblk
@@ -38,9 +38,11 @@ Group: Development/Tools
 Requires: %{name} = %{version}-%{release}
 
 %if 0%{?rhel} >= 8
+Requires: python3-libvirt
 Requires: python3-netaddr
 Requires: network-scripts
 %else
+Requires: python36-libvirt
 Requires: python36-netaddr
 %endif
 
