@@ -46,8 +46,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Utility for creating and '
                                                  'managing KVM virtual '
                                                  'machines on an OCI '
-                                                 'instance.',
-                                     add_help=False)
+                                                 'instance.')
     subparser = parser.add_subparsers(dest='mode')
     create_parser = subparser.add_parser(_create,
                                          help='Create a new virtual machine')
@@ -118,9 +117,6 @@ def parse_args():
 
     delete_network_parser.add_argument('-N', '--network-name', action='store', required=True, type=str,
                                        help='the name of the network')
-
-    parser.add_argument('--help', action='help',
-                        help='Display this help')
 
     return parser
 

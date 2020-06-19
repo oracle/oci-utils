@@ -42,7 +42,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Utility for listing or '
                                                  'configuring iSCSI devices '
                                                  'on an OCI '
-                                                 'instance.', add_help=False)
+                                                 'instance.')
     parser.add_argument('-i', '--interactive', action='store_true',
                         help='Run in interactive mode')
     parser.add_argument('-s', '--show', action='store_true',
@@ -88,8 +88,6 @@ def parse_args():
                                        'OCID.  WARNING: this is irreversible.')
     parser.add_argument('--debug', action='store_true',
                         help=argparse.SUPPRESS)
-    parser.add_argument('--help', action='help',
-                        help='Display this help')
 
     args = parser.parse_args()
     return args
