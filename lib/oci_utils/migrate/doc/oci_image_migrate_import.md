@@ -12,7 +12,7 @@ custom images repository in teh Oracle Cloud Infrastructure.
                                        -c COMPARTMENTNAME 
                                        [-d DISPLAYNAME]
                                        [-l {PARAVIRTUALIZED,EMULATED,NATIVE}]
-                                       [--verbose] [--help]
+                                       [--verbose] [--yes] [--help]
 
     Utility to import a (verified and modified) on-premise legacy images which
     was uploaded to object storage in the custom images folderof the Oracle
@@ -33,8 +33,9 @@ custom images repository in teh Oracle Cloud Infrastructure.
                         ,EMULATED,NATIVE}
                         The mode the instance created from the custom image
                         will be started; the default is PARAVIRTUALIZED.
-    --verbose, -v         Show verbose information.
-    --help                Display this help
+    -v, --verbose       Show verbose information.
+    -y, --yes           The answer on Yes/No questions is supposed to be yes.
+    --help              Display this help
 
 The environment variable _OCI_UTILS_DEBUG changes the logging level of
 the python code.

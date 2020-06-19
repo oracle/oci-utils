@@ -6,7 +6,6 @@
 """ Build an rpm from oci-utils.
 """
 import fnmatch
-
 import os
 import subprocess
 import sys
@@ -14,9 +13,7 @@ import logging
 from distutils.core import Command
 from distutils.dist import Distribution
 from distutils.errors import DistutilsExecError
-
 from setuptools.command.test import test as TestCommand
-
 from distutils import log
 
 
@@ -198,6 +195,31 @@ class oci_validation_tests(Command):
                              self.tf_config, '-auto-approve', 'tools/provisionning/test_instance/'))
 
 
+class oci_migrate_tests(TestCommand):
+    """ Run oci-image-migrate unittests
+    """
+    description = 'run OCI image migrate unittest'
+    TestCommand.user_options.extend([
+        ('tests-base=', None, 'Specify the namespace for test properties')
+    ])
+
+    def finalize_options(self):
+        TestCommand.finalize_options(self)
+        self.tests_base = None
+
+    def initialize_options(self):
+        TestCommand.initialize_options(self)
+        self.tests_base = None
+
+    def run(self):
+        logging.basicConfig(level=logging.WARNING)
+        if self.tests_base:
+            import tools.oci_test_case
+            tools.oci_test_case.OciTestCase._set_base(self.tests_base)
+        TestCommand.run(self)
+
+
+
 class print_recorded_commands(Command):
     description = 'pretty print of recorded commands'
     user_options = [
@@ -269,7 +291,7 @@ class create_rpm(Command):
             DistutilsExecError
                 On any error.
         """
-        log.info("runnig sdist command now...")
+        log.info("running sdist command now...")
         self.run_command('sdist')
         log.info("tarball created, building the RPM now...")
         _cwd = os.path.dirname(os.path.abspath(__file__))
@@ -399,7 +421,7 @@ setup(
                 (os.path.join("/opt", "oci-utils", "tests"),
                  get_content(get_reloc_path('tests'), '*', False)),
                 (os.path.join("/opt", "oci-utils", "tests", "data"),
-                 get_content(get_reloc_path('tests/data'), '*'))
+                 get_content(get_reloc_path('tests/data'), '*')),
                 ],
     scripts=['bin/oci-public-ip',
              'bin/oci-metadata',
@@ -428,5 +450,6 @@ setup(
               'sync_rpm': sync_rpm,
               'print_rcmds': print_recorded_commands,
               'oci_tests': oci_tests,
-              'oci_validation_tests': oci_validation_tests
+              'oci_validation_tests': oci_validation_tests,
+              'oci_migrate_tests': oci_migrate_tests,
               })

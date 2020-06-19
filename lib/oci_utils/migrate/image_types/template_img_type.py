@@ -5,48 +5,48 @@
 # at http://oss.oracle.com/licenses/upl.
 
 """
-Module to handle sometype formatted virtual disk images, intended as a template.
+Module to handle template type formatted virtual disk images.
 """
 import logging
 import os
 import struct
 
 from oci_utils.migrate import migrate_tools
+from oci_utils.migrate.exception import OciMigrateException
 from oci_utils.migrate.imgdevice import DeviceData
-from oci_utils.migrate.migrate_utils import OciMigrateException
 
 """  
-typedef struct SometypeHeader {
+typedef struct Template_Img {
       uint32_t magic;
       uint32_t version;
       ...
-  } SometypeHeader;
+  } Template_Img;
 """
 
-format_data = {'01234567': {'name': 'sometype',
-                            'module': 'sometype',
-                            'clazz': 'SomeTypeHead',
+format_data = {'01234567': {'name': 'templatetype',
+                            'module': 'templatetype',
+                            'clazz': 'TemplateTypeHead',
                             'prereq': {'MAX_IMG_SIZE_GB': 300.0}}}
 
-_logger = logging.getLogger('oci-utils.some-img-type')
+_logger = logging.getLogger('oci-utils.template-img-type')
 
 
-class SomeTypeHead(DeviceData):
+class TemplateTypeHead(DeviceData):
     """
-    Class to analyse header of sometype image file; ref whatever..
+    Class to analyse header of templatetype image file; ref whatever..
 
     Attributes
     ----------
         filename: str
-            The full path of the vmdk image file.
+            The full path of the template image file.
         stat: tuple
             The image file stat data.
         img_tag: str
             The bare file name.
-        somehead_dict: dict
+        templatehead_dict: dict
             The SomeType file header as a dictionary.
     """
-    # sometype header definition:
+    # templatetype header definition:
     uint32_t = 'I'  # 32bit unsigned int
     uint64_t = 'Q'  # 64bit unsigned long
     header2_structure = [[uint32_t, '%#x', 'magic'],
@@ -55,20 +55,20 @@ class SomeTypeHead(DeviceData):
                          ]
 
     # struct format string
-    sometypehead_fmt = '>' + ''.join(f[0] for f in header2_structure)
-    head_size = struct.calcsize(sometypehead_fmt)
+    templatetypehead_fmt = '>' + ''.join(f[0] for f in header2_structure)
+    head_size = struct.calcsize(templatetypehead_fmt)
 
     def __init__(self, filename):
         """
-        Initialisation of the sometype header analysis.
+        Initialisation of the templatetype header analysis.
 
         Parameters
         ----------
         filename: str
-            Full path of the qcow2 image file.
+            Full path of the template_type image file.
         """
-        super(SomeTypeHead, self).__init__(filename)
-        _logger.debug('sometype header size: %d bytes' % self.head_size)
+        super(TemplateTypeHead, self).__init__(filename)
+        _logger.debug('templatetype header size: %d bytes' % self.head_size)
 
         try:
             with open(self._fn, 'rb') as f:
@@ -80,15 +80,15 @@ class SomeTypeHead(DeviceData):
             raise OciMigrateException('Failed to read the header of %s: %s'
                                       % (self._fn, str(e)))
 
-        sometypeheader = struct.unpack(SomeTypeHead.sometypehead_fmt, head_bin)
+        templatetypeheader = struct.unpack(TemplateTypeHead.templatetypehead_fmt, head_bin)
 
         self.stat = os.stat(self._fn)
         self.img_tag = os.path.splitext(os.path.split(self._fn)[1])[0]
-        self.somehead_dict = dict((name[2], sometypeheader[i])
+        self.templatehead_dict = dict((name[2], templatetypeheader[i])
                                   for i, name
-                                  in enumerate(SomeTypeHead.header2_structure))
+                                  in enumerate(TemplateTypeHead.header2_structure))
         self.img_header = dict()
-        self.img_header['head'] = self.somehead_dict
+        self.img_header['head'] = self.templatehead_dict
         migrate_tools.result_msg(msg='Got image %s header' % filename, result=True)
         #
         # mount the image using the nbd

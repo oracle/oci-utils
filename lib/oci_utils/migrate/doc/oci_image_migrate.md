@@ -14,8 +14,7 @@ oci-image-migrate prepares the image of an on-premise vm for being migrate to
 
 
     # oci-image-migrate --help
-    usage: oci-image-migrate [-i INPUTIMAGE] [-b BUCKETNAME] [-o OUTPUTIMAGE]
-                             [--verbose] [--help]
+    usage: oci-image-migrate [-i INPUTIMAGE] [--verbose] [--yes] [--help]
 
     Utility to support preparation of on-premise legacy images for importing in
     the Oracle Cloud Infrastructure.
@@ -23,13 +22,9 @@ oci-image-migrate prepares the image of an on-premise vm for being migrate to
     optional arguments:
       -i INPUTIMAGE, --input-mage INPUTIMAGE
                             The on-premise image for migration to OCI.
-      -b BUCKETNAME, --bucket BUCKETNAME
-                            The destination bucket in OCI to store the converted
-                            image.
-      -o OUTPUTIMAGE, --output-image OUTPUTIMAGE
-                            The output image name.
       -v, --verbose         Show verbose information.
-      --help                Display this help`
+      -y, --yes             The answer on Yes/No questions is supposed to be yes.
+      --help                Display this help.
 
 The environment variable _OCI_UTILS_DEBUG changes the logging level of
 the python code.
@@ -46,10 +41,10 @@ The image type specific code has
 
     format_data = {'01234567': {'name': 'sometype',
                                 'module': 'sometype',
-                                'clazz': 'SomeTypeHead',
+                                'clazz': 'TemplateTypeHead',
                                 'prereq': {'MAX_IMG_SIZE_GB': 300.0}}}
                            
-1. a class definition **SomeTypeHead**,  which is a child of the 
+1. a class definition **TemplateTypeHead**,  which is a child of the 
 **DeviceData** class, contains a structure defining the header of the image 
 file, which has methods:
    1. **show_header** to display the header data;
@@ -94,7 +89,9 @@ datastructure **img_info** for analysing the image:
 
     parted Model
            Disk
+           Disk Flags
            Partition Table
+           Partion List with detail
 
     partitions /dev/nbd<n>p<m>  start
                                 size
@@ -144,8 +141,11 @@ datastructure **img_info** for analysing the image:
     remountlist [ list of mountpoints used while chroot]
 
     ostype <ref to os dependent code>
+    
+    kernelversion <version of kernel booted by default>
+    
+    kernellist [ list of kernels defined in grub config file ]
 
-    oci_config {the contents of the oci cli configuration file}
 
 ## Installation
 
@@ -159,7 +159,6 @@ datastructure **img_info** for analysing the image:
 
    1. The python setuptools package is at the latest release.
 
-   1. The oci cli package is installed and configured.
 
 ### The install
 
@@ -179,3 +178,27 @@ datastructure **img_info** for analysing the image:
 1. Install the rpm:
 
        # yum localinstall oci-utils/rpmbuild/RPMS/noarch/oci-utils-migrate
+
+### Known issues
+
+1. The cloud-init service, although enabled does not start at first boot in 
+OCI. The issue is noticed on ubuntu18 server. This is probably related to 
+the situation described in https://bugs.launchpad.net/bugs/1669675.
+The workaround: 
+   1. connect to the instance using vnc or serial console.
+   1. delete the contents of /var/lib/cloud.
+   1. eventually delete /var/log/cloud* files.
+   1. explicitly start the cloud-init service
+   1. reboot the instance
+
+1. Entries in /etc/fstab as /dev/disk/by-id are not supported yet.
+The workaround:
+   1. update the /etc/fstab file so it refers to partitions via label, uuid,
+   logical volume.
+   
+1 The instance created from a migrated image does not boot,  is  unable to find boot 
+disk because initramfs does not include the correct kernel module to recognise the 
+bootable partition. The issue is being worked on.  The workaround:                                                                       
+                                                                                                                               
+   1. rebuild initramfs before migration so it includes all modules and rebuilding  
+   again after first boot with the necessary ones.        

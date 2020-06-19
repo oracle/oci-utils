@@ -12,9 +12,9 @@ import os
 import struct
 
 from oci_utils.migrate import migrate_tools
+from oci_utils.migrate.exception import OciMigrateException
 from oci_utils.migrate.imgdevice import DeviceData
-from oci_utils.migrate.migrate_utils import gigabyte as gigabyte
-from oci_utils.migrate.migrate_utils import OciMigrateException
+from oci_utils.migrate.migrate_data import gigabyte as gigabyte
 
 """
   typedef struct QCowHeader {
@@ -126,8 +126,9 @@ class Qcow2Head(DeviceData):
                                  % ('QCOW2 file header data', '-'*30),
                                  result=False)
         for f in Qcow2Head.header2_structure:
-            migrate_tools.result_msg(msg=''.join(["  %-30s" % f[2], f[1]
-                                                  % self.qcowhead_dict[f[2]]]), result=False)
+            migrate_tools.result_msg(
+                msg=''.join(["  %-30s" % f[2], f[1] % self.qcowhead_dict[f[2]]]),
+                result=False)
 
     def image_size(self):
         """

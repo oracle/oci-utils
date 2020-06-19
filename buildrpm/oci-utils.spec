@@ -60,6 +60,7 @@ Summary: Migrate vm from on-premise to the OCI
 Group: Development/Tools
 Requires: util-linux
 Requires: parted
+Requires: bind-utils
 Requires: qemu-img >= 15:2.12
 %if 0%{?rhel} == 7
 Requires: python36-pyyaml
@@ -69,6 +70,13 @@ Requires: python36
 %endif
 %description migrate
 Utilities for migrating on-premise guests to Oracle Cloud Infrastructure.
+
+%package oumtest
+Summary: OCI utils migrate tests
+Group: Development/Tools
+Requires: %{name}-migrate = %{version}-%{release}
+%description oumtest
+Utilities migrate unit tests
 
 %pre
 # some old version of oci-utils, used to leave this behind.
@@ -83,7 +91,7 @@ Utilities for migrating on-premise guests to Oracle Cloud Infrastructure.
 %install
 %{__python3} setup.py install -O1 --prefix=%{_prefix} --root=%{buildroot}
 %{__mkdir_p} %{buildroot}%{_localstatedir}/lib/oci-utils
-# use for outest package
+# use for outest and oumtest package
 %{__mkdir_p} $RPM_BUILD_ROOT/opt/oci-utils
 %{__mkdir_p} $RPM_BUILD_ROOT/opt/oci-utils/lib
 %{__cp} -r tests %{buildroot}/opt/oci-utils
@@ -118,11 +126,9 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/oci-utils.conf.d/00-oci-utils.conf
 %dir %attr(0755,root,root) %{_sysconfdir}/oci-utils
 %config %{_sysconfdir}/oci-utils/oci-image-cleanup.conf
-# Temporary workaround
-# Does not run on OL8 due to missing nbd driver
-%exclude %{_bindir}/oci-image-migrate
-%exclude %{_bindir}/oci-image-migrate-import
-%exclude %{_bindir}/oci-image-migrate-upload
+%exclude %{_bindir}/oci-image-migrate*
+%exclude %{python3_sitelib}/oci_utils/impl/migrate
+%exclude %{python3_sitelib}/oci_utils/migrate
 %{_datadir}/man
 %exclude %{_datadir}/man/man1/oci-kvm.1.gz
 %dir %{_localstatedir}/lib/oci-utils
@@ -139,6 +145,7 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/oci-utils.conf.d/10-oci-kvm.conf
 
 %files outest
+%exclude /opt/oci-utils/tests/test_mig*
 /opt/oci-utils
 
 %post kvm
@@ -147,20 +154,27 @@ rm -rf %{buildroot}
 %preun kvm
 %systemd_preun oci-kvm-config.service
 
-
 %files migrate
-%{_bindir}/oci-image-migrate
-%{_bindir}/oci-image-migrate-import
-%{_bindir}/oci-image-migrate-upload
+%{_bindir}/oci-image-migrate*
 %{python3_sitelib}/oci_utils/__init__*
 %{python3_sitelib}/oci_utils/exceptions*
 %{python3_sitelib}/oci_utils/impl/__init__*
-%{python3_sitelib}/oci_utils/impl/oci-image-migrate*
-%{python3_sitelib}/oci_utils/migrate*
+%{python3_sitelib}/oci_utils/impl/migrate
+%{python3_sitelib}/oci_utils/migrate
 %exclude  %{python3_sitelib}/oci_utils/migrate/tests
 %{_datadir}/man/man1/oci-image-migrate*1.gz
 %config %{_sysconfdir}/oci-utils/oci-migrate-conf.yaml
 %exclude  %{python3_sitelib}/oci_utils/migrate/tests
+
+%files oumtest
+/opt/oci-utils/lib
+/opt/oci-utils/tools
+/opt/oci-utils/tests/data
+/opt/oci-utils/README
+/opt/oci-utils/requirements.txt
+/opt/oci-utils/setup*
+/opt/oci-utils/tests/test_mig*
+/opt/oci-utils/tests/__init__*
 
 %changelog
 * Wed Apr 1 2020 Guido Tijskens <guido.tijskens@oracle.com> -- 0.11.0

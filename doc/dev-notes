@@ -75,14 +75,14 @@ How to test oci-utils.
         inherit from. Tis class is responsible to :
             - instanciate a logger for the (child) test class
             - setup the TreeConfigParser instance to hold test configurations.
-                    A TreeConfigParser maintain a set of key/value pair configuration items for tests. see
+                    A TreeConfigParser maintains a set of key/value pair configuration items for tests. see
                     'Unit tests configuration' section for details
         It is important that any tests which has a set-up phase (has a setUp method) call the the one from OciTestCase first
 
     Unit tests configuration
 
         Tests configuration are managed by a TreeConfigParser. This parser acts exactly as a configparser.ConfigParser class
-        Execept that it handle mutliple configuration files at once. Each file been specific to a test, test class, test class module
+        Execept that it handles multiple configuration files at once. Each file is specific to a test, test class, test class module
         and overall test run base. This allows to define per test configuration value with default values on a hierarchical structure
             ex: test call Foo on bar.py module
               class Foo:
@@ -98,9 +98,9 @@ How to test oci-utils.
                   /var/tmp/bar/Foo/my_foo/properties.cfg
 
               Configuration files will sourced from the highest level to the lowest
-              This allow test developper to have fine graine test confiration values
+              This allow test developer to have fine grain test configuration values
 
-              example: Let's assume we need to define a timout for a remote service. This timeout has a value of 60 secs for the overall
+              example: Let's assume we need to define a timeout for a remote service. This timeout has a value of 60 secs for the overall
                 test suite. We need this timeout to be lower down to 10 secs for all test under 'bar' module. Finally one test under 'bar' module
                 need an infinite timeout
                 /var/tmp/properties.cfg
@@ -119,17 +119,17 @@ How to test oci-utils.
 
   Running tests
 
-        A new setuptool command has been defined : "oci_tests". This comamnd is an extension of the 'test' command
-        Two new options are define:
-            --tests-base: this is used to specified the base directory where tests configuration files and recorded command repository is
+        A new setuptool command has been defined : "oci_tests". This command is an extension of the 'test' command
+        Two new options are defined:
+            --tests-base: this is used to specify the base directory where tests configuration files and recorded command repository is
             --test-runner: this is used to change the default test runner and to record or replay command lines.
                     two runner classes are available:
                         * test_runnner:OciUtilsTestRunnerRecord
-                                This runner will insure that all command lines execution (output , error and exit code ) will be
+                                This runner will ensure that all command line execution (output , error and exit code ) will be
                                 recorded to the repository.
                         * test_runnner:OciUtilsTestRunnerReplay
-                                This runner will insure that all command lines execution will be intercepted and that replaced
-                                by reading output and exit code from teh repository (i.e form a previous use of the OciUtilsTestRunnerRecord runner)
+                                This runner will ensure that all command line execution will be intercepted and replaced
+                                by reading output and exit code from the repository (i.e form a previous use of the OciUtilsTestRunnerRecord runner)
                     These custom runners will allow tests to be executed without any platform requirement. I.e CLIs and the results
                     will be "replayed" as if they were actually run on the platform. Test relying on specific platform resource or CLI behavior
                     can then be run anywhere.

@@ -17,13 +17,16 @@ import threading
 import time
 from glob import glob as glob
 
-from oci_utils.migrate import bytes_to_hex, console_msg, \
-    pause_msg, terminal_dimension
-from oci_utils.migrate import get_config_data
+from oci_utils.migrate import ProgressBar
+from oci_utils.migrate import bytes_to_hex
+from oci_utils.migrate import console_msg
 from oci_utils.migrate import migrate_tools
-from oci_utils.migrate import migrate_utils
+from oci_utils.migrate import pause_msg
 from oci_utils.migrate import reconfigure_network
+from oci_utils.migrate import system_tools
+from oci_utils.migrate import terminal_dimension
 from oci_utils.migrate.exception import OciMigrateException
+from oci_utils.migrate.migrate_tools import get_config_data as get_config_data
 
 _logger = logging.getLogger('oci-utils.imgdevice')
 
@@ -71,25 +74,26 @@ class UpdateImage(threading.Thread):
         -------
             No return value.
         """
+        _logger.debug('__ chroot jail operations.')
         migrate_tools.result_msg(msg='Creating chroot jail.')
-        pause_msg('chroot jail entry')
+        pause_msg('chroot jail entry', pause_flag='_OCI_CHROOT')
         os_type = self._imgdata['ostype']
         try:
             self._imgdata['pseudomountlist'] \
-                = migrate_utils.mount_pseudo(self._imgdata['rootmnt'][1])
+                = system_tools.mount_pseudo(self._imgdata['rootmnt'][1])
             migrate_tools.result_msg(msg='Mounted proc, sys, dev')
             console_msg(
-                'Installing the cloud-init package, this might take a while.')
+                'Executing os specific operations, this might take a while.')
             #
             # create progressbar here
             _, nbcols = terminal_dimension()
-            cloud_init_install = migrate_tools.ProgressBar(
-                nbcols, 0.2, progress_chars=['installing cloud-init'])
-            cloud_init_install.start()
+            os_specific_ops = ProgressBar(nbcols, 0.2,
+                                          progress_chars=['os specific operations'])
+            os_specific_ops.start()
             #
             # chroot
             _logger.debug('New root: %s' % self._imgdata['rootmnt'][1])
-            rootfd, pathsave, dir2return2 = migrate_utils.enter_chroot(
+            rootfd, pathsave, dir2return2 = system_tools.enter_chroot(
                 self._imgdata['rootmnt'][1])
             _logger.debug('Changed root to %s.' % self._imgdata['rootmnt'][1])
             #
@@ -107,42 +111,54 @@ class UpdateImage(threading.Thread):
                 else:
                     _logger.debug('Really no /etc/resolv.conf.')
             #
-            # Install cloud-init
+            # chroot entry notification
             pause_msg('In chroot:')
-            pre_cloud_notification = 'Please verify nameserver, proxy, ' \
-                                     'update-repository configuration before ' \
-                                     'proceeding the cloud-init package ' \
-                                     'install.'
+            chroot_notification = 'Please verify nameserver, proxy, ' \
+                                  'update-repository configuration before ' \
+                                  'proceeding the cloud-init package install.'
             #
             # os type specific operations
-            pause_msg(pre_cloud_notification)
-            if os_type.install_cloud_init(
-                    self._imgdata['osinformation']['VERSION_ID']):
-                _logger.debug('Successfully installed cloud-init')
-            else:
-                _logger.critical('  Failed to install cloud init')
-                raise OciMigrateException('Failed to install cloud init')
+            pause_msg(chroot_notification)
+            os_operations = os_type.execute_os_specific_tasks()
             #
-            # Update cloud.cfg file with default user
-            pause_msg('cloud-init installed, updating default user')
-            if migrate_utils.set_default_user(
+            # verifying the return values, only drop an error message on failure,
+            # it is the operator responsibility to evaluate if this is blocking.
+            for method_name, return_val in os_operations.items():
+                if return_val:
+                    _logger.debug('Method %s successfully executed.' % method_name)
+                else:
+                    _logger.error('Failed to execute %s successfully.' % method_name)
+            #
+            # set the default cloud user
+            pause_msg('os specific operations finished, updating default user')
+            if migrate_tools.set_default_user(
                     self._clouddata['cloudconfig_file'],
                     self._clouddata['default_clouduser']):
                 _logger.debug('Default cloud user updated.')
             else:
                 _logger.error('   Failed to update default cloud user.')
-                raise OciMigrateException(
-                    'Failed to update default cloud user.')
+            #    raise OciMigrateException(
+            #        'Failed to update default cloud user.')
+            #
+            # execute ldconfig
+            ldconf = system_tools.exec_ldconfig()
+            if ldconf == 0:
+                _logger.debug('ldconfig successfully executed.')
+            else:
+                _logger.error('Execution of ldconfig failed, the modified '
+                              'image might not be able to execute cloud-init '
+                              'tasks successfully.')
+            pause_msg('chroot jail end', pause_flag='_OCI_CHROOT')
         except Exception as e:
             _logger.critical('   *** ERROR *** Unable to perform image update '
                              'operations: %s' % str(e), exc_info=True)
         finally:
-            migrate_utils.leave_chroot(rootfd, dir2return2)
+            system_tools.leave_chroot(rootfd, dir2return2)
             _logger.debug('Left chroot jail.')
-            migrate_utils.unmount_pseudo(self._imgdata['pseudomountlist'])
+            system_tools.unmount_pseudo(self._imgdata['pseudomountlist'])
             migrate_tools.result_msg(msg='Unmounted proc, sys, dev.')
-            if migrate_tools.isthreadrunning(cloud_init_install):
-                cloud_init_install.stop()
+            if system_tools.is_thread_running(os_specific_ops):
+                os_specific_ops.stop()
         time.sleep(1)
         migrate_tools.result_msg(msg='Leaving chroot jail.')
 
@@ -176,16 +192,17 @@ class DeviceData(object):
             str: mount point on success, None on failure, reraises an
             eventual exception.
         """
-        _logger.debug('Entering mount_img')
+        _logger.debug('__ Entering mount_img')
         try:
-            nbdpath = migrate_utils.mount_imgfn(self._fn)
+            nbdpath = migrate_tools.mount_imgfn(self._fn)
             _logger.debug('%s successfully mounted' % nbdpath)
             return nbdpath
         except Exception as e:
             _logger.critical('   %s' % str(e))
             raise OciMigrateException(str(e))
 
-    def umount_img(self, nbd):
+    @staticmethod
+    def umount_img(nbd):
         """
         Unmount loopback mounted image file.
 
@@ -193,8 +210,9 @@ class DeviceData(object):
         -------
             bool: True on success, False Otherwise.
         """
+        _logger.debug('__ Entering unmount_img')
         try:
-            if migrate_utils.unmount_imgfn(nbd):
+            if migrate_tools.unmount_imgfn(nbd):
                 _logger.debug('%s successfully unmounted' % nbd)
                 return True
             else:
@@ -203,7 +221,8 @@ class DeviceData(object):
         except Exception as e:
             raise OciMigrateException(str(e))
 
-    def get_mbr(self, device):
+    @staticmethod
+    def get_mbr(device):
         """
         Collect the Master Boot Record from the device.
 
@@ -216,6 +235,7 @@ class DeviceData(object):
         -------
             bytearray: the MBR on success, None on failure.
         """
+        _logger.debug('__ Read the MBR.')
         try:
             with open(device, 'rb') as f:
                 mbr = f.read(512)
@@ -225,7 +245,8 @@ class DeviceData(object):
             _logger.error('   Failed to read MBR on %s: %s' % (device, str(e)))
             return None
 
-    def get_partition_table(self, mbr):
+    @staticmethod
+    def get_partition_table(mbr):
         """
         Collect and analyse partition table in MBR.
 
@@ -238,6 +259,7 @@ class DeviceData(object):
             bool: True if block has MBR signature, False otherwise.
             list: list with partiton table.
         """
+        _logger.debug('__ Get the partition table from the MBR.')
         bootflag = '80'
         mbrok = False
         partitiontable = list()
@@ -278,7 +300,8 @@ class DeviceData(object):
         _logger.debug('Partition table: %s' % partitiontable)
         return mbrok, partitiontable
 
-    def get_partition_info(self, partition_name):
+    @staticmethod
+    def get_partition_info(partition_name):
         """
         Collect information about partition.
 
@@ -293,14 +316,14 @@ class DeviceData(object):
         """
         #
         # blkid data
-        _logger.debug('Collecting information on %s' % partition_name)
+        _logger.debug('__ Collecting information on %s' % partition_name)
         blkid_args = ['-po', 'udev']
         blkid_args.append(partition_name)
         _logger.debug('blkid %s' % blkid_args)
         migrate_tools.result_msg(
             msg='Investigating partition %s' % partition_name)
         part_info = dict()
-        blkidres = migrate_utils.exec_blkid(blkid_args)
+        blkidres = system_tools.exec_blkid(blkid_args)
         if blkidres is None:
             raise OciMigrateException('Failed to run blkid %s' % blkidres)
         else:
@@ -360,7 +383,7 @@ class DeviceData(object):
                     % partition_name)
         #
         # get label, if any
-        partition_label = migrate_utils.exec_lsblk(['-n', '-o', 'LABEL',
+        partition_label = system_tools.exec_lsblk(['-n', '-o', 'LABEL',
                                                     partition_name])
         if len(partition_label.rstrip()) > 0:
             migrate_tools.result_msg(
@@ -380,6 +403,7 @@ class DeviceData(object):
         -------
             bool: True on success, False otherwise.
         """
+        _logger.debug('__ Process the image.')
         try:
             #
             # mount image.
@@ -402,24 +426,30 @@ class DeviceData(object):
             pause_msg('pausing here for test reasons')
             #
             # update the network configuration.
-            if reconfigure_network.update_network_config(
-                    self._img_info['rootmnt'][1]):
+            nics, nicconfig = \
+                reconfigure_network.update_network_config(self._img_info['rootmnt'][1])
+            if bool(nics):
                 _logger.debug(
                     'Successfully upgraded the network configuration.')
             else:
-                _logger.error('   Failed to update network configuration.')
-                raise OciMigrateException(
-                    'Failed to update network configuration.')
+                _logger.warning('   Failed to update network configuration or '
+                                'no configured network\n   found. Proceeding '
+                                'anyway but this could cause troubles at '
+                                'instance\n   creation time.')
+                migrate_tools.result_msg(
+                    msg='   Failed to update network configuration or no '
+                        'configured network\n   found. Proceeding anyway but '
+                        'this could cause troubles at instance\n   creation '
+                        'time.',
+                    result=False)
+                # raise OciMigrateException(
+                #    'Failed to update network configuration.')
+            #
             # pause here for test reasons..
             pause_msg('pausing here for test reasons')
             #
             # update the image.
             _ = self.update_image()
-            #
-            # just for the matter of completeness:
-            # get the oci configuration.
-            ociconfig = migrate_utils.get_oci_config()
-            self._img_info['oci_config'] = ociconfig
             return True
         except Exception as e:
             _logger.critical('   Image %s handling failed: %s'
@@ -428,8 +458,7 @@ class DeviceData(object):
             return False
         finally:
             _, nbcols = terminal_dimension()
-            cleanup = migrate_tools.ProgressBar(nbcols, 0.2,
-                                                progress_chars=['cleaning up'])
+            cleanup = ProgressBar(nbcols, 0.2, progress_chars=['cleaning up'])
             cleanup.start()
             #
             # unmount partitions from remount
@@ -445,12 +474,13 @@ class DeviceData(object):
             _logger.debug('Unmount filesystems.')
             for mnt in self._mountpoints:
                 _logger.debug('--- %s' % mnt)
-                migrate_utils.unmount_part(mnt)
+                migrate_tools.unmount_part(mnt)
             #
             # release lvm
-            _logger.debug('Release volume groups: %s' % self._img_info['volume_groups'])
             if 'volume_groups' in self._img_info:
-                migrate_utils.unmount_lvm2(self._img_info['volume_groups'])
+                _logger.debug('Release volume groups: %s'
+                              % self._img_info['volume_groups'])
+                migrate_tools.unmount_lvm2(self._img_info['volume_groups'])
             else:
                 _logger.debug('No volume groups defined.')
             #
@@ -458,11 +488,11 @@ class DeviceData(object):
             if self._devicename:
                 _logger.debug('Releasing %s' % str(self._devicename))
                 self.umount_img(self._devicename)
-                if migrate_utils.rm_nbd():
+                if system_tools.rm_nbd():
                     _logger.debug('Kernel module nbd removed.')
                 else:
                     _logger.error('   Failed to remove kernel module nbd.')
-            if migrate_tools.isthreadrunning(cleanup):
+            if system_tools.is_thread_running(cleanup):
                 cleanup.stop()
 
     def get_image_data(self):
@@ -475,7 +505,7 @@ class DeviceData(object):
         """
         #
         # reading from the mounted image file
-        _logger.debug('Collecting data on %s' % self._devicename)
+        _logger.debug('__ Collecting data on %s' % self._devicename)
         try:
             #
             # Master Boot Record:
@@ -486,7 +516,7 @@ class DeviceData(object):
             else:
                 self._img_info['mbr'] = \
                     {'bin': img_mbr,
-                     'hex': migrate_utils.show_hex_dump(img_mbr)}
+                     'hex': system_tools.show_hex_dump(img_mbr)}
                 migrate_tools.result_msg(msg='Found MBR.', result=True)
             #
             # Partition Table from MBR:
@@ -502,7 +532,7 @@ class DeviceData(object):
                                          result=True)
             #
             # Device data
-            parted_data = migrate_utils.exec_parted(self._devicename)
+            parted_data = system_tools.exec_parted(self._devicename)
             if parted_data is None:
                 raise OciMigrateException('Failed to collect parted %s '
                                           'device data.' % self._devicename)
@@ -513,7 +543,7 @@ class DeviceData(object):
                               % self._img_info['parted'])
             #
             # Partition info
-            sfdisk_info = migrate_utils.exec_sfdisk(self._devicename)
+            sfdisk_info = system_tools.exec_sfdisk(self._devicename)
             if sfdisk_info is None:
                 raise OciMigrateException('Failed to collect sfdisk %s '
                                           'partition data.' % self._devicename)
@@ -535,7 +565,7 @@ class DeviceData(object):
             migrate_tools.result_msg(msg='Partition data for device %s'
                                          % self._devicename)
             #
-            # testing purposes
+            #
             pause_msg('verify blkid..')
             for partname in glob(parttemplate):
                 _logger.debug('Get info on %s' % partname)
@@ -546,7 +576,8 @@ class DeviceData(object):
             #
             # need to release mount of image file and exit
             _logger.critical('   Initial partition data collection '
-                             'failed: %s' % str(e), exc_info=True)
+                             'failed: %s' % str(e),
+                             exc_info=True, stack_info=True)
             raise OciMigrateException('Initial partition data collection '
                                       'failed:\n %s' % str(e))
 
@@ -558,6 +589,7 @@ class DeviceData(object):
         -------
             bool: True on success, False otherwise.
         """
+        _logger.debug('__ Mount the filesystems.')
         #
         # initialise logical volume structure
         self._img_info['volume_groups'] = dict()
@@ -581,7 +613,7 @@ class DeviceData(object):
                             'filesystem_types'):
                         _logger.debug('File system %s detected'
                                       % devdetail['ID_FS_TYPE'])
-                        fs_mount_point = migrate_utils.mount_partition(devname)
+                        fs_mount_point = migrate_tools.mount_partition(devname)
                         if fs_mount_point is not None:
                             migrate_tools.result_msg(
                                 msg='Partition %s with file '
@@ -604,7 +636,7 @@ class DeviceData(object):
                         migrate_tools.result_msg(msg='Logical volume %s'
                                                      % devdetail['ID_FS_TYPE'],
                                                  result=True)
-                        volume_groups = migrate_utils.mount_lvm2(devname)
+                        volume_groups = migrate_tools.mount_lvm2(devname)
                         self._img_info['volume_groups'].update(volume_groups)
                     else:
                         _logger.debug('Skipping %s.' % devdetail['ID_FS_TYPE'])
@@ -640,7 +672,7 @@ class DeviceData(object):
                                 'filesystem_types'):
                             _logger.debug('file system %s detected'
                                           % devdetail['ID_FS_TYPE'])
-                            fs_mount_point = migrate_utils.mount_partition(
+                            fs_mount_point = migrate_tools.mount_partition(
                                 partname)
                             if fs_mount_point is not None:
                                 migrate_tools.result_msg(
@@ -674,7 +706,7 @@ class DeviceData(object):
         -------
             bool: True on success, False otherwise.
         """
-        # self._img_info['remountlist'] = []
+        _logger.debug('__ Remount the partions from fstab.')
         rootfs = self._img_info['rootmnt'][1]
         _logger.debug('Mounting on %s' % rootfs)
         # Loop through partition list and create a sorted list of the
@@ -706,7 +738,7 @@ class DeviceData(object):
             if os.path.isdir(mountdir):
                 _logger.debug('Mounting %s on %s.' % (part[1], mountdir))
                 try:
-                    resultmnt = migrate_utils.mount_partition(part[1], mountdir)
+                    resultmnt = migrate_tools.mount_partition(part[1], mountdir)
                     if resultmnt is not None:
                         _logger.debug('Mounted %s successfully.' % resultmnt)
                         migrate_tools.result_msg(msg='Mounted %s on %s.'
@@ -737,15 +769,17 @@ class DeviceData(object):
         -------
             bool: True on success, False otherwise.
         """
+        _logger.debug('__ Unmount the partitions.')
         ret = True
         if 'remountlist' in self._img_info:
             if len(self._img_info['remountlist']) <= 0:
                 return ret
-
-            self._img_info['remountlist'].sort()
+            #
+            # sort inverse to unmount cleanly
+            self._img_info['remountlist'].sort(reverse=True)
             for part in self._img_info['remountlist']:
                 _logger.debug('Releasing %s' % part)
-                if migrate_utils.unmount_something(part):
+                if system_tools.unmount_something(part):
                     _logger.debug('Successfully released %s.' % part)
                 else:
                     _logger.error('   Failed to release %s, might prevent '
@@ -765,6 +799,7 @@ class DeviceData(object):
         -------
             bool: True on success, raise exception otherwise.
         """
+        _logger.debug('__ Collect OS data.')
         self._img_info['remountlist'] = list()
         #
         # Collect the data
@@ -781,14 +816,15 @@ class DeviceData(object):
                 raise OciMigrateException('Failed to find OS release information')
             #
             # import os-type specific modules
-            os_spec_mod = migrate_utils.find_os_specific(osrelease['ID'])
+            os_spec_mod = migrate_tools.find_os_specific(osrelease['ID'])
             _logger.debug('OS specification: %s' % os_spec_mod)
             if os_spec_mod is None:
                 oscollectmesg += '\n  . OS type %s is not recognised.' \
                                  % osrelease['ID']
             else:
                 self._img_info['ostype'] = \
-                    importlib.import_module('oci_utils.migrate.' + os_spec_mod)
+                    importlib.import_module('oci_utils.migrate.os_types.'
+                                            + os_spec_mod)
                 _logger.debug('OS type: %s' % self._img_info['ostype'])
                 self._img_info['ostype'].os_banner()
             #
@@ -824,14 +860,17 @@ class DeviceData(object):
                     'Failed to mount essential partitions.')
             #
             if oscollectmesg:
-                _logger.debug('OS Collect message:\n%' % oscollectmesg)
+                _logger.debug('OS Collect message:\n%s' % oscollectmesg)
                 raise OciMigrateException(oscollectmesg)
             else:
                 _logger.debug('OS data collected.')
             #
             # grub
-            self._img_info['grubdata'] = self.get_grub_data(
+            grub_data, kernel_version, kernel_list = self.get_grub_data(
                 self._img_info['rootmnt'][1])
+            self._img_info['grubdata'] = grub_data
+            self._img_info['kernelversion'] = kernel_version
+            self._img_info['kernellist'] = kernel_list
             #
         except Exception as e:
             _logger.critical('   Failed to collect os data: %s' % str(e),
@@ -847,6 +886,7 @@ class DeviceData(object):
         -------
             No return value, raises an exception on failure
         """
+        _logger.debug('__ Update the image.')
         try:
             cldata = dict()
             cldata['cloudconfig_file'] = get_config_data('cloudconfig_file')
@@ -876,6 +916,7 @@ class DeviceData(object):
         -------
             tuple: partition, mountpoint on success, None otherwise.
         """
+        _logger.debug('__ Get the partition from device data.')
         thepartitions = self._img_info['partitions']
         for k, v in list(thepartitions.items()):
             if 'usage' in v:
@@ -899,14 +940,14 @@ class DeviceData(object):
             (None, None) otherwise
         """
         fs_tab_file = 'fstab'
-        _logger.debug('Looking for root and boot partition in %s'
+        _logger.debug('__ Looking for root and boot partition in %s'
                       % self._mountpoints)
         root_partition, root_mount_point, bootpart, bootmount = None, None, None, None
         try:
             for mnt in self._mountpoints:
                 etcdir = mnt + '/etc'
                 _logger.debug('Looking in partition %s' % mnt)
-                fstab = migrate_utils.exec_search(fs_tab_file, rootdir=etcdir)
+                fstab = migrate_tools.exec_search(fs_tab_file, rootdir=etcdir)
                 if fstab is not None:
                     #
                     # found fstab, reading it
@@ -919,8 +960,9 @@ class DeviceData(object):
                             _logger.debug('Skipping %s' % line)
                         elif line[1] == '/':
                             _logger.debug('Root partition is %s.' % line[0])
-                            root_partition, root_mount_point = self.find_partition(line[0])
-                            if (root_partition, root_mount_point) == (None, None):
+                            root_partition, root_mount_point = \
+                                self.find_partition(line[0])
+                            if (root_partition, root_mount_point) == ('na', 'na'):
                                 _logger.critical(
                                     '   Failed to locate root partition %s.' %
                                     line[0])
@@ -928,14 +970,13 @@ class DeviceData(object):
                                     'Failed to locate root partition %s.' %
                                     line[0])
                             else:
-                                self._img_info['partitions'][root_partition][
-                                    'usage'] \
+                                self._img_info['partitions'][root_partition]['usage'] \
                                     = 'root'
                         else:
                             _logger.debug('Some other partition %s for %s.'
                                           % (line[0], line[1]))
                             part, mount = self.find_partition(line[0])
-                            if (part, mount) == (None, None):
+                            if (part, mount) == ('na', 'na'):
                                 _logger.debug(
                                     'Partition %s not used or not present.'
                                     % line[0])
@@ -959,7 +1000,8 @@ class DeviceData(object):
                                       % str(e))
         return root_partition, root_mount_point
 
-    def skip_partition(self, partdata):
+    @staticmethod
+    def skip_partition(partdata):
         """
         Verify if partition is to be included.
 
@@ -972,9 +1014,9 @@ class DeviceData(object):
         -------
             bool: True on success, False otherwise.
         """
+        _logger.debug('__ Skip partition?.')
         skip_part = True
         _logger.debug(partdata)
-        # migrate_tools.result_msg('skip: ')
         if 'ID_FS_TYPE' in partdata:
             _logger.debug('Skip %s?' % partdata['ID_FS_TYPE'])
             if partdata['ID_FS_TYPE'] not in get_config_data(
@@ -1002,19 +1044,29 @@ class DeviceData(object):
         -------
             tuple: The partition, the current mount point.
         """
-        part, mount = None, None
-        if 'UUID' in uuidornameorlabel:
-            uuid_x = re.split('\\bUUID=\\b', uuidornameorlabel)[1]
-            _logger.debug('%s contains a UUID: %s'
-                          % (uuidornameorlabel, uuid_x))
+        def find_uuid_partition(uuid_part):
+            """
+            Search in the list of partitions the one with a specific uuid.
+
+            Parameters
+            ----------
+            uuid_part: str
+                The uuid.
+
+            Returns
+            -------
+                tuple: The partition, the current mount point.
+            """
+            part_p = 'na'
+            mount_p = 'na'
             for partition, partdata in list(
                     self._img_info['partitions'].items()):
                 if self.skip_partition(partdata):
                     _logger.debug('Skipping %s' % partition)
                 elif 'ID_FS_UUID' in list(partdata.keys()):
                     if partdata['ID_FS_UUID'] == uuid_x:
-                        part = partition
-                        mount = partdata['mountpoint']
+                        part_p = partition
+                        mount_p = partdata['mountpoint']
                         _logger.debug('%s found in %s' % (uuid_x, partition))
                         break
                     else:
@@ -1022,19 +1074,31 @@ class DeviceData(object):
                 else:
                     _logger.debug('%s : No ID_FS_UUID in partdata keys.'
                                   % partition)
-            _logger.debug('break..UUID')
-        elif 'LABEL' in uuidornameorlabel:
-            label_x = re.split('\\bLABEL=\\b', uuidornameorlabel)[1]
-            _logger.debug('%s contains a LABEL: %s'
-                          % (uuidornameorlabel, label_x))
+            return part_p, mount_p
+
+        def find_label_partition(label_part):
+            """
+            Search in the list of partitions the one with a specific label.
+
+            Parameters
+            ----------
+            label_part : str
+                The label.
+
+            Returns
+            -------
+               tuple: The partition, the current mount point.
+            """
+            part_p = 'na'
+            mount_p = 'na'
             for partition, partdata in list(
                     self._img_info['partitions'].items()):
                 if self.skip_partition(partdata):
                     _logger.debug('Skipping %s' % partition)
                 elif 'ID_FS_LABEL' in list(partdata.keys()):
                     if partdata['ID_FS_LABEL'] == label_x:
-                        part = partition
-                        mount = partdata['mountpoint']
+                        part_p = partition
+                        mount_p = partdata['mountpoint']
                         _logger.debug('%s found in %s' % (label_x, partition))
                         break
                     else:
@@ -1042,27 +1106,72 @@ class DeviceData(object):
                 else:
                     _logger.debug('%s: No ID_FS_LABEL in partdata keys.'
                                   % partition)
-            _logger.debug('break..LABEL')
-        elif 'mapper' in uuidornameorlabel:
-            lv_x = re.split('\\bmapper/\\b', uuidornameorlabel)
-            _logger.debug('%s contains a logical volune: %s'
-                          % (uuidornameorlabel, lv_x))
+            return part_p, mount_p
+
+        def find_mapper_partition(mapper_part):
+            """
+            Search in the list of partitions the one with a specific mapper name.
+
+            Parameters
+            ----------
+            mapper_part : str
+                The mapper id.
+
+            Returns
+            -------
+                tuple: The partition, the current mount point.
+            """
+            part_p = 'na'
+            mount_p = 'na'
             for partition, partdata in list(
                     self._img_info['partitions'].items()):
                 if self.skip_partition(partdata):
                     _logger.debug('Skipping %s' % partition)
                 elif partition == uuidornameorlabel:
-                    part = partition
-                    mount = partdata['mountpoint']
+                    part_p = partition
+                    mount_p = partdata['mountpoint']
                     _logger.debug('%s found in %s' % (lv_x, partition))
                     break
-            _logger.debug('break..LVM')
+            return part_p, mount_p
+
+        _logger.debug('__ Find partition and mount point for %s.' % uuidornameorlabel)
+        pause_msg(msg='Looking for partitions', pause_flag='_OCI_PART')
+        part, mount = None, None
+        if 'UUID' in uuidornameorlabel:
+            _logger.debug('UUID')
+            uuid_x = re.split('\\bUUID=\\b', uuidornameorlabel)[1]
+            _logger.debug('%s contains a UUID: %s'
+                          % (uuidornameorlabel, uuid_x))
+            part, mount = find_uuid_partition(uuid_x)
+            _logger.debug('UUID')
+        elif '/dev/disk/by-uuid' in uuidornameorlabel:
+            _logger.debug('/dev/disk/by-uuid')
+            uuid_x = re.split('\\bdev/disk/by-uuid/\\b', uuidornameorlabel)[1]
+            _logger.debug('%s contains a /dev/disk/by-uuid: %s'
+                          % (uuidornameorlabel, uuid_x))
+            part, mount = find_uuid_partition(uuid_x)
+            _logger.debug('/dev/disk/by-uuid')
+        elif 'LABEL' in uuidornameorlabel:
+            _logger.debug('LABEL')
+            label_x = re.split('\\bLABEL=\\b', uuidornameorlabel)[1]
+            _logger.debug('%s contains a LABEL: %s'
+                          % (uuidornameorlabel, label_x))
+            part, mount = find_label_partition(label_x)
+            _logger.debug('LABEL')
+        elif 'mapper' in uuidornameorlabel:
+            _logger.debug('mapper')
+            lv_x = re.split('\\bmapper/\\b', uuidornameorlabel)
+            _logger.debug('%s contains a logical volune: %s'
+                          % (uuidornameorlabel, lv_x))
+            part, mount = find_mapper_partition(lv_x)
+            _logger.debug('LVM')
         else:
-            _logger.error('   Unsupported fstab entry: %s' % uuidornameorlabel)
+            _logger.warning('   Unsupported fstab entry: %s' % uuidornameorlabel)
             part = 'na'
             mount = 'na'
 
         _logger.debug('part found: %s' % part)
+        pause_msg(msg='Looked for partitions', pause_flag='_OCI_PART')
         return part, mount
 
     def get_grub_data(self, loopdir):
@@ -1079,24 +1188,68 @@ class DeviceData(object):
                boot type, BIOS or UEFI,
                boot instructions
         """
+        _logger.debug('__ Retrieve grub data.')
+
+        def find_grub_config_file():
+            """
+            Locate the grub configuration file.
+
+            Returns
+            -------
+                str: full path of the grub configuration file, None if not found.
+            """
+            _logger.debug('__ Looking for grub config file.')
+            grubconflist = ['grub.cfg', 'grub.conf']
+            grub_path = None
+            for grubname in grubconflist:
+                for grubroot in [loopdir + '/boot',
+                                 loopdir + '/grub',
+                                 loopdir + '/grub2']:
+                    _logger.debug('Looking for %s in %s' % (grubname, grubroot))
+                    grubconf = migrate_tools.exec_search(grubname, rootdir=grubroot)
+                    if grubconf is not None:
+                        grub_path = grubconf
+                        _logger.debug('Found grub config file: %s' % grub_path)
+                        break
+                    else:
+                        _logger.debug('No grub config file in %s' % grubroot)
+            return grub_path
+
+        def find_efi_boot_config():
+            """
+            Find out if the image is using BIOS or UEFI boot.
+            Returns
+            -------
+                str: [BIOS|UEFI]
+            """
+            _logger.debug('__ Looking for UEFI boot configuration.')
+            boot_type = 'BIOS'
+            efiboot = migrate_tools.exec_search('BOOT',
+                                                rootdir=loopdir + '/boot',
+                                                dirnames=True)
+            self._img_info['boot_type'] = 'BIOS'
+            if efiboot is not None:
+                #
+                # /boot/../BOOT exists
+                if os.path.isdir(efiboot):
+                    #
+                    # and is not empty
+                    if bool(os.listdir(efiboot)):
+                        boot_type = 'UEFI'
+                        self._img_info['boot_type'] = 'UEFI'
+                    else:
+                        #
+                        # but is empty
+                        _logger.debug('/boot/.../BOOT exists but is empty.')
+            else:
+                #
+                # does not exists
+                _logger.debug('Boot type is not UEFI.')
+            return boot_type
+
         #
-        # find grub.cfg, grub.conf, ...
-        grubconflist = ['grub.cfg', 'grub.conf']
-        grub_cfg_path = None
-        for grubname in grubconflist:
-            for grubroot in [loopdir + '/boot',
-                             loopdir + '/grub',
-                             loopdir + '/grub2']:
-                _logger.debug('Looking for %s in %s' % (grubname, grubroot))
-                grubconf = migrate_utils.exec_search(grubname, rootdir=grubroot)
-                if grubconf is not None:
-                    grub_cfg_path = grubconf
-                    _logger.debug('Found grub config file: %s' % grub_cfg_path)
-                    break
-                else:
-                    _logger.debug('No grub config file in %s' % grubroot)
-        #
-        # if no grub config file is found, need to quit.
+        # if no grub config file is found, this operation is doomed.
+        grub_cfg_path = find_grub_config_file()
         if grub_cfg_path is None:
             raise OciMigrateException(
                 'No grub config file found in %s' % self._fn)
@@ -1104,22 +1257,19 @@ class DeviceData(object):
             migrate_tools.result_msg(msg='Grub config file: %s' % grub_cfg_path,
                                      result=True)
         #
-        # investigate /boot for EFI/efi directory.
-        # if 'EFI' in grub_cfg_path.split('/'):
-        efiboot = migrate_utils.exec_search('EFI',
-                                            rootdir=loopdir + '/boot',
-                                            dirnames=True)
-        if efiboot is not None:
-            self._img_info['boot_type'] = 'UEFI'
-        else:
-            self._img_info['boot_type'] = 'BIOS'
-        migrate_tools.result_msg(msg='Image boot type: %s' % self._img_info[
-            'boot_type'])
+        # investigate boot type
+        self._img_info['boot_type'] = find_efi_boot_config()
+        migrate_tools.result_msg(msg='Image boot type: %s'
+                                     % self._img_info['boot_type'])
+
         #
         # get grub config contents
         grubdata = list()
         grub2 = False
         grubentry = dict()
+        grubefi = dict()
+        kernelversion = '0'
+        kernellist = list()
         _logger.debug('Initialised grub structure')
         try:
             #
@@ -1128,16 +1278,17 @@ class DeviceData(object):
             with open(grub_cfg_path, 'r') as f:
                 for ffsline in f:
                     fsline = ffsline.strip()
-                    if len(fsline.split()) > 0:
+                    fsline_split = re.split('[ "]', fsline)
+                    if bool(fsline.split()):
                         _logger.debug('%s' % fsline)
-                        if fsline.split()[0] == 'menuentry':
+                        if fsline_split[0] == 'menuentry':
                             mentry = True
                             grub2 = True
                             if grubentry:
                                 grubdata.append(grubentry)
                             grubentry = {'menuentry': [fsline]}
                             _logger.debug('grub line: %s' % fsline)
-                        elif fsline.split()[0] == 'search':
+                        elif fsline_split[0] == 'search':
                             if mentry:
                                 grubentry['menuentry'].append(fsline)
                                 _logger.debug('Grub line: %s'
@@ -1145,10 +1296,16 @@ class DeviceData(object):
                             else:
                                 _logger.debug('Not a menuentry, '
                                               'skipping %s' % fsline)
+                        elif fsline_split[0] == 'set':
+                            if 'default_kernelopts' in fsline_split[1]:
+                                grubefi = {'grubefi': [fsline]}
+                                _logger.debug('efi line: %s' % fsline)
                         else:
                             _logger.debug('Skipping %s' % fsline)
-            if grubentry:
+            if bool(grubentry):
                 grubdata.append(grubentry)
+            if bool(grubefi):
+                grubdata.append(grubefi)
         except Exception as e:
             _logger.error('   Errors during reading %s: %s'
                           % (grub_cfg_path, str(e)))
@@ -1158,9 +1315,23 @@ class DeviceData(object):
             _logger.debug('Found grub2 configuration file.')
             migrate_tools.result_msg(msg='Found grub2 configuration file',
                                      result=True)
+            #
+            # find all kernels defined in grub(1) config file.
+            kernellist = system_tools.get_grub2_kernels(grub_cfg_path)
+            _logger.debug('Kernels defined in grub2 config: %s' % kernellist)
         else:
+            #
+            # grub configuration
             migrate_tools.result_msg(msg='Found grub configuration file',
                                      result=True)
+            #
+            # find default kernel in grub(1) config file.
+            kernelversion = system_tools.get_grub_default_kernel(grub_cfg_path)
+            _logger.debug('Default kernel %s' % kernelversion)
+            #
+            # find all kernels defined in grub(1) config file.
+            kernellist = system_tools.get_grub_kernels(grub_cfg_path)
+            _logger.debug('Kernels defined in grub config: %s' % kernellist)
             try:
                 #
                 # check for grub data
@@ -1188,7 +1359,7 @@ class DeviceData(object):
                 raise OciMigrateException('Errors during reading %s: %s'
                                           % (grub_cfg_path, str(e)))
 
-        return grubdata
+        return grubdata, kernelversion, kernellist
 
     def get_os_release(self):
         """
@@ -1200,14 +1371,14 @@ class DeviceData(object):
             dict: Dictionary containing the os and version data on success,
             empty dict otherwise.
         """
-        _logger.debug('Collection os data, looking in %s'
+        _logger.debug('__ Collection os data, looking in %s'
                       % self._mountpoints)
         osdict = dict()
         #
         # hostnamectl is a systemd command, not available in OL/RHEL/CentOS 6
         try:
             for mnt in self._mountpoints:
-                osdata = migrate_utils.exec_search('os-release', rootdir=mnt)
+                osdata = migrate_tools.exec_search('os-release', rootdir=mnt)
                 if osdata is not None:
                     with open(osdata, 'r') as f:
                         osreleasedata = \
@@ -1225,7 +1396,8 @@ class DeviceData(object):
         _logger.debug('os data: %s' % osdict)
         return osdict
 
-    def get_fstab(self, fstabfile):
+    @staticmethod
+    def get_fstab(fstabfile):
         """
         Read and analyse fstab file.
 
@@ -1239,7 +1411,7 @@ class DeviceData(object):
             list: Relevant lines of fstab files as list.
         """
         fstabdata = list()
-        _logger.debug('Fstabfile: %s' % fstabfile)
+        _logger.debug('__ Read fstabfile: %s' % fstabfile)
         try:
             with open(fstabfile, 'r') as f:
                 for fsline in f:
@@ -1261,10 +1433,11 @@ class DeviceData(object):
             bool: True or False.
             str : The eventual fail message.
         """
+        _logger.debug('__ Verify the generic prerequisites.')
         passed_requirement = True
         failmsg = ''
         #
-        # BIOS boot
+        # BIOS/UEFI boot
         if 'boot_type' in self._img_info:
             if self._img_info['boot_type'] in get_config_data(
                     'valid_boot_types'):
@@ -1304,6 +1477,7 @@ class DeviceData(object):
             # implicitly.
             #
             # Bootable
+            #   from MBR
             partitiontable = self._img_info['mbr']['partition_table']
             bootflag = False
             for i in range(0, len(partitiontable)):
@@ -1314,6 +1488,20 @@ class DeviceData(object):
                     migrate_tools.result_msg(msg='The image %s is bootable'
                                                  % self._img_info['img_name'],
                                              result=True)
+            #
+            #   from parted
+            # todo: better way of parsing the partition table.
+            partition_list = self._img_info['parted']['Partition List']
+            for part in partition_list:
+                for props in part:
+                    if 'boot' in props or 'bios_grub' in props:
+                        _logger.debug('Bootflag found in %s' % part)
+                        bootflag = True
+                        migrate_tools.result_msg(msg='The image %s is bootable'
+                                                     % self._img_info['img_name'],
+                                                 result=True)
+            #
+            #
             if not bootflag:
                 passed_requirement = False
                 _logger.error('   The image %s is not bootable'
@@ -1336,6 +1524,17 @@ class DeviceData(object):
                 _logger.debug('Fstabline: %s' % line)
                 if 'UUID' in line[0]:
                     uuid_x = re.split('\\bUUID=\\b', line[0])[1]
+                    for _, part in list(partitiondata.items()):
+                        _logger.debug('partition: %s' % part)
+                        if 'ID_FS_UUID' in part:
+                            if part['ID_FS_UUID'] == uuid_x:
+                                part_pass = True
+                                migrate_tools.result_msg(
+                                    msg='Found %s in partition table.'
+                                        % uuid_x, result=True)
+                                break
+                elif '/dev/disk/by-uuid' in line[0]:
+                    uuid_x = re.split('\\bdev/disk/by-uuid/\\b', line[0])[1]
                     for _, part in list(partitiondata.items()):
                         _logger.debug('partition: %s' % part)
                         if 'ID_FS_UUID' in part:
@@ -1387,17 +1586,20 @@ class DeviceData(object):
             failmsg += '\n  - fstab file not found.'
         #
         # boot using LVM or UUID
+        # todo: better way to parse grub data.
         if 'grubdata' in self._img_info:
             grubdata = self._img_info['grubdata']
             #
             # grub: 'root=UUID'
             # grub2: '--fs-uuid'
+            # efi: 'default_kernelopts' & 'root=UUID'
             grub_fail = 0
             grub_l = 0
+            _logger.debug('grubdata: %s' % grubdata)
             for entry in grubdata:
                 for key in entry:
                     for le in entry[key]:
-                        l_split = le.split()
+                        l_split = re.split('[ "]', le)
                         if l_split[0] == 'search':
                             grub_l += 1
                             if '--fs-uuid' not in l_split:
@@ -1411,9 +1613,25 @@ class DeviceData(object):
                                         'partition via UUID.' % le)
                         elif l_split[0] == 'kernel':
                             grub_l += 1
-                            if len([a for a in l_split if any(b in a for b in
-                                                              ['root=UUID=',
-                                                               'root=/dev/mapper/'])]) == 0:
+                            if len([a for a in l_split
+                                    if any(b in a for b
+                                           in ['root=UUID=',
+                                               'root=/dev/mapper/'])]) == 0:
+                                _logger.debug(
+                                    'grub line ->%s<- does not specify boot '
+                                    'partition via UUID nor LVM2.' % le)
+                                grub_fail += 1
+                            else:
+                                migrate_tools.result_msg(
+                                    msg='grub line ->%s<- specifies boot '
+                                        'partition via UUID or LVM2.' % le,
+                                    result=True)
+                        elif 'default_kernelopts' in l_split[1]:
+                            grub_l += 1
+                            if len([a for a in l_split
+                                    if any(b in a for b
+                                           in ['root=UUID=',
+                                               'root=/dev/mapper/'])]) == 0:
                                 _logger.debug(
                                     'grub line ->%s<- does not specify boot '
                                     'partition via UUID nor LVM2.' % le)
@@ -1427,7 +1645,7 @@ class DeviceData(object):
                             _logger.debug('skipping %s' % l_split)
             if grub_l == 0:
                 passed_requirement = False
-                failmsg += '\n  - No boot entry found in grub/gru2 config file.'
+                failmsg += '\n  - No boot entry found in grub/grub2 config file.'
             elif grub_fail > 0:
                 passed_requirement = False
                 failmsg += '\n  - grub config file does not guarantee booting ' \
