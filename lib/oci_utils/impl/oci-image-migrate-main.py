@@ -32,8 +32,6 @@ from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import migrate_utils
 from oci_utils.migrate.exception import OciMigrateException
 
-if sys.version_info.major < 3:
-    exit_with_msg('Python version 3 is a requirement to run this utility.')
 
 _logger = logging.getLogger('oci-utils.oci-image-migrate')
 #
@@ -64,8 +62,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(
         description='Utility to support preparation of on-premise legacy '
-                    'images for importing in the Oracle Cloud Infrastructure.',
-        add_help=False)
+                    'images for importing in the Oracle Cloud Infrastructure.')
     #
     parser.add_argument('-i', '--input-image',
                         action='store',
@@ -88,9 +85,6 @@ def parse_args():
                         dest='verbose_flag',
                         default=False,
                         help='Show verbose information.')
-    parser.add_argument('--help',
-                        action='help',
-                        help='Display this help')
     parser._optionals.title = 'Arguments'
 
     args = parser.parse_args()
@@ -315,13 +309,13 @@ def main():
         if args.input_image:
             imagepath = args.input_image.name
             resultfilename = get_config_data('resultfilepath') \
-                            + '_' \
-                            + os.path.splitext(os.path.basename(imagepath))[0] \
-                            + '.res'
+                + '_' \
+                + os.path.splitext(os.path.basename(imagepath))[0] \
+                + '.res'
             migrate_tools.resultfilename = resultfilename
             migrate_tools.result_msg(msg='\n  Running %s at %s\n'
                                      % (os.path.basename(' '.join(sys.argv)),
-                                     time.ctime()), flags='w', result=True)
+                                        time.ctime()), flags='w', result=True)
         else:
             raise OciMigrateException('Missing argument: input image path.')
         #
@@ -477,7 +471,7 @@ def main():
         #
         if imgres:
             prereq_msg += '\n\n  %s data collection and processing succeeded.' \
-                      % imagepath
+                % imagepath
         else:
             prereq_passed = False
         #

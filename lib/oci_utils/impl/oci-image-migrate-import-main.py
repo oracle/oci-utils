@@ -49,8 +49,7 @@ def parse_args():
         description='Utility to import a (verified and modified) on-premise '
                     'legacy image which was uploaded to object storage in '
                     'the custom images folder of the Oracle Cloud '
-                    'Infrastructure.',
-        add_help=False)
+                    'Infrastructure.')
     #
     parser.add_argument('-i', '--image-name',
                         action='store',
@@ -87,7 +86,7 @@ def parse_args():
                         dest='verbose_flag',
                         default=False,
                         help='Show verbose information.')
-    parser.add_argument('--help', action='help', help='Display this help')
+
     parser._optionals.title = 'Arguments'
     args = parser.parse_args()
     if args.display_name is None:
@@ -106,10 +105,10 @@ def main():
     cmdline_args = parse_args()
     console_msg(msg='Importing %s from %s into %s as %s and setting '
                     'launch_mode to %s.' % (cmdline_args.image_name,
-                                           cmdline_args.bucket_name,
-                                           cmdline_args.bucket_name,
-                                           cmdline_args.display_name,
-                                           cmdline_args.launch_mode))
+                                            cmdline_args.bucket_name,
+                                            cmdline_args.bucket_name,
+                                            cmdline_args.display_name,
+                                            cmdline_args.launch_mode))
     compartment = cmdline_args.compartment_name
     bucket = cmdline_args.bucket_name
     object_name = cmdline_args.image_name

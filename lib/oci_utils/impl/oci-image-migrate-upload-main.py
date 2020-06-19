@@ -21,8 +21,6 @@ from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import migrate_utils
 from oci_utils.migrate.exception import OciMigrateException
 
-if sys.version_info.major < 3:
-    exit_with_msg('Python version 3 is a requirement to run this utility.')
 
 _logger = logging.getLogger('oci-utils.import_up')
 
@@ -43,8 +41,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(
         description='Utility to upload on-premise legacy images to object '
-                    'storage of the Oracle Cloud Infrastructure.',
-        add_help=False)
+                    'storage of the Oracle Cloud Infrastructure.')
     #
     parser.add_argument('-i', '--image-name',
                         action='store',
@@ -67,7 +64,6 @@ def parse_args():
                         dest='verbose_flag',
                         default=False,
                         help='Show verbose information.')
-    parser.add_argument('--help', action='help', help='Display this help')
     parser._optionals.title = 'Arguments'
     args = parser.parse_args()
     if args.output_name is None:

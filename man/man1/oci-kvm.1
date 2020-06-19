@@ -195,7 +195,7 @@ oci-kvm create-pool --netfshost 192.168.10.9 --path /FileSystem-20190405-1454 --
 Creates a storage pool on NFS resource FileSystem-20190405-1454 on NFS server 192.168.10.9.
 .RE
 
-oci-kvm create --disk-size 128 --pool guest_pool --net 10.0.0.64 -D foo  --virt --cpu 1 --memory 8g --pxe
+oci-kvm create --disk-size 128 --pool guest_pool --net 10.0.0.64 -D foo  --virt --vcpu 1 --memory 8g --pxe
 .RS 3
 Creates a guest with a root disk of 128GB on storage pool named foo.
 .RE

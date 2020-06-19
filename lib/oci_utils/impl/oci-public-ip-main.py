@@ -35,7 +35,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(
         description='Utility for displaying the public IP address of the '
-                    'current OCI instance.', add_help=False)
+                    'current OCI instance.')
     parser.add_argument('-h', '--human-readable', action='store_true',
                         help='Display human readable output (default)')
     parser.add_argument('-j', '--json', action='store_true',
@@ -56,7 +56,6 @@ def parse_args():
                              'instance instead of the current one.  Requires '
                              'the OCI Python SDK to be installed and '
                              'configured')
-    parser.add_argument('--help', action='help', help='Display this help')
 
     args = parser.parse_args()
     return args
