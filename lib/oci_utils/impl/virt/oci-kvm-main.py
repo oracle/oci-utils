@@ -160,11 +160,21 @@ def create_vm(args):
             "--network is not a supported option. Please retry without "
             "--network option.\n")
         return 1
+
+    # sanity on extra arguments passed to virt-install(1)
+    # some option do not create the guest but display information
+    # this is wrongly interpreted as a succcess by underlying layers and we
+    # may setup things by mistake
+    _virt_install_extra = []
+    for _a in args.virt:
+        if _a not in ('--print-xml',  '--version', '-h', '--help'):
+            _virt_install_extra.append(_a)
+
     return oci_utils.kvm.virt.create(name=args.domain,
                                      root_disk=args.disk,
                                      pool=args.pool,
                                      disk_size=args.disk_size,
-                                     network=args.net, virtual_network=args.virtual_network, extra_args=args.virt)
+                                     network=args.net, virtual_network=args.virtual_network, extra_args=_virt_install_extra)
 
 
 def destroy_vm(args):
