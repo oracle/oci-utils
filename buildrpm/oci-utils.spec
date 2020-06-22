@@ -20,7 +20,6 @@ BuildRequires: python3-setuptools
 Requires: python3
 Requires: python3-daemon
 Requires: python3-sdnotify
-Requires: python36-oci-sdk
 
 Requires: cloud-utils-growpart
 # for lsblk
