@@ -162,7 +162,7 @@ def create_vm(args):
         return 1
 
     # sanity on extra arguments passed to virt-install(1)
-    # some option do not create the guest but display information
+    # some options do not create the guest but display information
     # this is wrongly interpreted as a succcess by underlying layers and we
     # may setup things by mistake
     _virt_install_extra = []
