@@ -71,7 +71,7 @@ class OCISession(object):
 
         global HAVE_OCI_SDK
         if not HAVE_OCI_SDK:
-            raise OCISDKError('Package python-oci-sdk not installed')
+            raise OCISDKError('Package python36-oci-sdk not installed')
 
         self.config_file = config_file
         self.config_profile = config_profile
