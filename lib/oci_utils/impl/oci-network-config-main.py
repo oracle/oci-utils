@@ -129,7 +129,7 @@ def get_oci_api_session(opt_name=None):
             if opt_name is not None:
                 __logger.error("To use the %s option, you need to "
                                "install and configure the OCI Python SDK "
-                               "(python-oci-sdk)\n" % opt_name)
+                               "(python36-oci-sdk)\n" % opt_name)
                 __logger.error(sdk_error)
             else:
                 __logger.error("Failed to access OCI services: %s" % sdk_error)
@@ -184,9 +184,9 @@ def api_show_network_config():
                 print("         IP address: %s" % privip.get_address())
                 print("         OCID: %s" % privip.get_ocid())
                 print("         Hostname: %s" % privip.get_hostname())
-                print("         Subnet: %s (%s)" % \
-                    (privip.get_subnet().get_display_name(),
-                     privip.get_subnet().get_cidr_block()))
+                print("         Subnet: %s (%s)" %
+                      (privip.get_subnet().get_display_name(),
+                       privip.get_subnet().get_cidr_block()))
                 print()
         else:
             print()
@@ -413,8 +413,8 @@ def do_del_private_ip(vnic_utils, delete_options):
 
     if priv_ip.is_primary():
         raise Exception("Cannot delete IP %s, it is the primary private "
-                            "address of the VNIC." %
-                            delete_options.del_private_ip)
+                        "address of the VNIC." %
+                        delete_options.del_private_ip)
     vnic_id = None
     try:
         vnic_id = priv_ip.get_vnic_ocid()
@@ -423,7 +423,7 @@ def do_del_private_ip(vnic_utils, delete_options):
 
     if not priv_ip.delete():
         raise Exception('failed to delete secondary private IP %s' %
-                            delete_options.del_private_ip)
+                        delete_options.del_private_ip)
 
     __logger.info('deconfigure secondary private IP %s' %
                   delete_options.del_private_ip)

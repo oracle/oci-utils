@@ -427,7 +427,7 @@ def do_destroy_volume(sess, ocid, interactive=False):
     if not USE_OCI_SDK or sess is None:
         _logger.error("Need OCI Service to destroy volume.\n"
                       "Make sure to install and configure "
-                      "OCI Python SDK (python-oci-sdk)\n")
+                      "OCI Python SDK (python36-oci-sdk)\n")
         if oci_sdk_error is not None:
             _logger.error("OCI SDK error: %s\n" % oci_sdk_error)
         return 1
@@ -570,7 +570,7 @@ def do_attach_ocid(sess, ocid):
     if not USE_OCI_SDK or sess is None:
         _logger.error("Need OCI Service to create volume.\n"
                       "Make sure to install and configure "
-                      "OCI Python SDK (python-oci-sdk)\n")
+                      "OCI Python SDK (python36-oci-sdk)\n")
         if oci_sdk_error is not None:
             _logger.error("OCI SDK error: %s\n" % oci_sdk_error)
         return False
@@ -640,7 +640,7 @@ def api_detach(sess, iqn):
     if sess is None:
         _logger.error("Need OCI Service to detach volume.\n"
                       "Make sure to install and configure "
-                      "OCI Python SDK (python-oci-sdk)\n")
+                      "OCI Python SDK (python36-oci-sdk)\n")
         return False
 
     for v in sess.this_instance().all_volumes():
@@ -750,7 +750,7 @@ def do_create_volume(sess, size, display_name, use_chap=False):
     if not USE_OCI_SDK or sess is None:
         _logger.error("Need OCI Service to create volume.\n"
                       "Make sure to install and configure "
-                      "OCI Python SDK (python-oci-sdk)\n")
+                      "OCI Python SDK (python36-oci-sdk)\n")
         if oci_sdk_error is not None:
             _logger.error("OCI SDK error: %s\n" % oci_sdk_error)
         return False

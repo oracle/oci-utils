@@ -71,7 +71,7 @@ def main():
     except OCISDKError as e:
         __logger.error("Need OCI Service to inspect the networks.\n"
                        "Make sure to install and configure "
-                       "OCI Python SDK (python-oci-sdk)\n %s" % str(e))
+                       "OCI Python SDK (python36-oci-sdk)\n %s" % str(e))
         return 1
 
     comps = []
@@ -122,7 +122,7 @@ def main():
             continue
         if _compartment.get_ocid() != comp_ocid:
             print("")
-            print("Compartment: %s (%s)" % \
+            print("Compartment: %s (%s)" %
                   (_compartment.get_display_name(), _compartment.get_ocid()))
             comp_ocid = _compartment.get_ocid()
         print("")
@@ -135,7 +135,7 @@ def main():
             print("")
             print("     Subnet: %s Availibility domain: %s" % (
                 subnet.get_display_name(), subnet.get_availability_domain()))
-            print("         Cidr_block: %s Domain name: %s" % \
+            print("         Cidr_block: %s Domain name: %s" %
                   (subnet.get_cidr_block(), subnet.get_domain_name()))
 
             for sl_id in subnet.get_security_list_ids():
@@ -163,23 +163,23 @@ def main():
                 primary = ""
                 if ip.is_primary():
                     primary = "primary"
-                print("       Private IP: %s(%s) Host: %s" % \
+                print("       Private IP: %s(%s) Host: %s" %
                       (ip.get_address(), primary, ip.get_hostname()))
                 vnic = ip.get_vnic()
                 if vnic:
-                    print("         Vnic: %s (%s)" % \
+                    print("         Vnic: %s (%s)" %
                           (vnic.get_ocid(), vnic.get_state()))
                     if subnet.is_public_ip_on_vnic_allowed():
-                        print("         Vnic PublicIP: %s" % \
+                        print("         Vnic PublicIP: %s" %
                               vnic.get_public_ip())
                     instance = vnic.get_instance()
-                    print("         Instance: %s(%s)" % \
+                    print("         Instance: %s(%s)" %
                           (instance.get_hostname(), instance.get_state()))
                     print("         Instance ocid: %s" % (instance.get_ocid()))
                 else:
                     vnic_id = ip.get_vnic_ocid()
                     print("         Vnic: %s(%s)" % (vnic_id, "NotFound"))
-                    print("         Instance: (maybe)%s(%s)" % \
+                    print("         Instance: (maybe)%s(%s)" %
                           (ip.get_display_name(), "NotFound"))
     return 0
 
