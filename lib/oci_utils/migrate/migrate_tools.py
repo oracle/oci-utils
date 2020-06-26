@@ -592,6 +592,7 @@ def result_msg(msg, flags='a', result=False):
     -------
         No return value.
     """
+    msg = '  Just mentioning I am here.' if msg is None else msg
     _logger.debug('%s' % msg)
     try:
         with open(migrate_data.resultfilename, flags) as f:
@@ -607,10 +608,7 @@ def result_msg(msg, flags='a', result=False):
         _logger.error('   Failed to write to %s: %s'
                       % (migrate_data.resultfilename, str(e)))
     if result:
-        if msg is not None:
-            print('  %s' % msg)
-        else:
-            print('  Just mentioning I am here.')
+        sys.stdout.write('  %s\n' % msg)
 
 
 def set_default_user(cfgfile, username):
@@ -950,9 +948,9 @@ def show_parted_data(parted_dict):
     """
     for k, v in sorted(parted_dict.items()):
         if k == 'Partition List':
-            result_msg(msg='%30s :' % k)
+            result_msg(msg='%30s :' % k, result=True)
             for part in v:
-                result_msg(msg='%30s : %s' % (' ', ' '.join(part)))
+                result_msg(msg='%30s : %s' % (' ', ' '.join(part)), result=True)
         else:
             result_msg(msg='%30s : %s' % (k, v), result=True)
     result_msg(msg='\n', result=True)

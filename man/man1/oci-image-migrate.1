@@ -22,8 +22,7 @@ utility prepares an on-premise legacy image for importing into the
 
 .B oci-image-migrate
 .IP \[bu] 2
-verifies and validates the prerequisites for the import of
-the image;
+verifies and validates the prerequisites for the import of the image;
 .IP \[bu]
 disables the network interfaces except the primary one which is
 set up as a dhcp client;
@@ -37,6 +36,12 @@ as
 tries to access remote servers hosting software repositories for the image beiing processed,
 it is important nameserver and proxy settings are allowing those repositories can
 be reached.
+.IP \[bu]
+.B oci-image-migrate
+set the default cloud user to
+.B opc
+regardless what the default of the cloud-init for the operating system would be. See also
+.B /etc/oci-utils/oci-migrate-conf.yaml file.
 .RS 0
 
 .B oci-image-migrate
@@ -110,6 +115,9 @@ eventually delete /var/log/cloud* files.
 explicitly start the cloud-init service.
 .IP \n+[step]
 reboot the instance.
+.IP \[bu]
+or run the script
+.B /usr/local/bin/reinitialise_cloud_init.sh and reboot.
 .RE
 .IP \[bu] "/dev/disk/by-id entries in /etc/fstab are not supported."
 Entries in /etc/fstab as /dev/disk/by-id are not supported yet.

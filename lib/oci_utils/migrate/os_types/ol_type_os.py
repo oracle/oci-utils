@@ -261,7 +261,8 @@ class OsSpecificOps(object):
                         pkg_mgr(self.package_tool['package_install'] + [pkg])
                     _logger.debug('Successfully installed pkg %s:\n%s'
                                   % (pkg, installoutput))
-                    migrate_tools.result_msg(msg='Installed %s.' % pkg)
+                    migrate_tools.result_msg(msg='Installed %s.' % pkg,
+                                             result=False)
                 pause_msg(msg='Installed %s here, or not.' % pkg,
                           pause_flag='_OCI_CHROOT')
             #
@@ -380,7 +381,7 @@ class OsSpecificOps(object):
         # update cloud-init with runcmd command
         if add_oci_region(oci_region_script):
             _logger.debug('oci region successfully added.')
-            migrate_tools.result_msg(msg='Updated OCI region.')
+            migrate_tools.result_msg(msg='Updated OCI region.', result=False)
             return True
         else:
             _logger.debug('Failed to update oci region.')

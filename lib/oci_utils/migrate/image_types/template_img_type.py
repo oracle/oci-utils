@@ -89,14 +89,15 @@ class TemplateTypeHead(DeviceData):
                                   in enumerate(TemplateTypeHead.header2_structure))
         self.img_header = dict()
         self.img_header['head'] = self.templatehead_dict
-        migrate_tools.result_msg(msg='Got image %s header' % filename, result=True)
+        migrate_tools.result_msg(msg='Got image %s header' % filename,
+                                 result=False)
         #
         # mount the image using the nbd
         try:
             self.devicename = self.mount_img()
             _logger.debug('Image data %s' % self.devicename)
             migrate_tools.result_msg(msg='Mounted %s' % self.devicename,
-                                     result=True)
+                                     result=False)
             deviceinfo = self.handle_image()
         except Exception as e:
             _logger.critical('   Error %s' % str(e))

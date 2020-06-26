@@ -252,6 +252,8 @@ valid_os :
     - RHEL
     - CENTOS
     - UBUNTU
+    - DEBIAN
+    - FEDORA
 #
 # cloud-config
 cloudconfig_file : /etc/cloud/cloud.cfg
@@ -291,9 +293,9 @@ reinitialise_cloud_init:
     - '#!/bin/bash'
     - CLOUDINIT='cloud-init'
     - RM=$(which rm)
-    - SYSTEMCTL=$(which systemclt)
+    - SYSTEMCTL=$(which systemctl)
     - VARLIBCLOUD='/var/lib/cloud/'
-    - VARLOGCLOUD='/var/log/cloud
+    - VARLOGCLOUD='/var/log/cloud'
     - ${RM} -rf "${VARLIBCLOUD}*"
     - ${RM} -rf "${VARLOGCLOUD}*"
     - ${SYSTEMCTL} enable ${CLOUDINIT}

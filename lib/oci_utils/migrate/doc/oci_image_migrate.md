@@ -50,7 +50,7 @@ file, which has methods:
    1. **show_header** to display the header data;
    1. **image_size** to return a dictionary containig the physical and 
    logical size for the image file in GigaBytes;
-   1. **image_supported** to test if the image is suppored;
+   1. **image_supported** to test if the image is supported;
    1. **type_specific_prereq_test** to verify the image type specific 
    prerequisites;
    1. **image_data** which collects the data for this image type;

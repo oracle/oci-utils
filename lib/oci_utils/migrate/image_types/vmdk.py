@@ -158,7 +158,8 @@ class VmdkHead(DeviceData):
         self.img_header = dict()
         self.img_header['head'] = self.vmdkhead_dict
         self.img_header['desc'] = self.vmdkdesc_dict
-        migrate_tools.result_msg(msg='Got image %s header' % filename, result=True)
+        migrate_tools.result_msg(msg='Got image %s header' % filename,
+                                 result=False)
 
     def show_header(self):
         """
@@ -214,6 +215,7 @@ class VmdkHead(DeviceData):
             bool: True on success, False otherwise.
             str:  Eventual message on success or failure.
         """
+        _logger.debug('__ Image support.')
         supp = True
         prerequisites = image_defs['prereq']
         msg = ''
@@ -271,6 +273,7 @@ class VmdkHead(DeviceData):
             bool: True or False.
             str : Message
         """
+        _logger.debug('__ Specific prerequisites.')
         prereqs = format_data['4b444d56']['prereq']
         failmsg = ''
         #

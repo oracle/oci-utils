@@ -159,7 +159,7 @@ def reconfigure_ifcfg_config(rootdir):
                 f.writelines(ln.replace('_XXXX_', nic0) + '\n'
                              for ln in get_config_data('default_ifcfg_config'))
             migrate_tools.result_msg(msg='Replaced ifcfg network configuration.',
-                                    result=True)
+                                    result=False)
         except Exception as e:
             _logger.error('  Failed to write %s/ifcfg-eth0' % ifrootdir)
             migrate_tools.error_msg('Failed to write %s: %s' % (dhcpniccfg, str(e)))
@@ -247,7 +247,7 @@ def reconfigure_netplan(rootdir):
                     #          + get_config_data('default_netplan_file'), 'w') \
                     #        as yf:
                     #    yaml.safe_dump(netplan_config, yf, default_flow_style=False)
-                    # igrate_tools.result_msg(msg='Netplan network configuration '
+                    # migrate_tools.result_msg(msg='Netplan network configuration '
                     #                         'files replaced.', result=True)
                 except Exception as e:
                     migrate_tools.error_msg('Failed to write new netplan '
@@ -330,7 +330,7 @@ def reconfigure_networkmanager(rootdir):
         with open(nw_mgr_cfg, 'w') as nwmf:
             nwmf.write('\n'.join(str(x) for x in nwm_config_data))
             migrate_tools.result_msg(msg='Networkmanager configuration updated.',
-                                     result=True)
+                                     result=False)
     else:
         _logger.debug(msg='  No NetworkManager configuration present.')
 
@@ -392,7 +392,7 @@ def reconfigure_interfaces(rootdir):
                     fi.writelines(ln.replace('_XXXX_', int_nics[0]) + '\n'
                                   for ln in get_config_data('default_interfaces_config'))
                 migrate_tools.result_msg(msg='Network interfaces file rewritten.',
-                                         result=True)
+                                         result=False)
             except Exception as e:
                 _logger.error('  Failed to write new interfaces configuration '
                               'file %s: %s' % (net_ifcfg_config, str(e)))
@@ -496,7 +496,7 @@ def update_network_config(rootdir):
         dict: List with dictionary representation of the network
         configuration files.
     """
-    migrate_tools.result_msg(msg='Adjust network configuration.', result=True)
+    migrate_tools.result_msg(msg='Adjust network configuration.', result=False)
     network_config = dict()
     network_list = list()
     #
@@ -532,4 +532,5 @@ def update_network_config(rootdir):
     network_list += netsys_nics
     network_config['systemd-networkd'] = netsys_data
 
+    migrate_tools.result_msg(msg='Adjusted network configuration.', result=True)
     return network_list, network_config

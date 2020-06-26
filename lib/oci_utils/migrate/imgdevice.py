@@ -517,7 +517,7 @@ class DeviceData(object):
                 self._img_info['mbr'] = \
                     {'bin': img_mbr,
                      'hex': system_tools.show_hex_dump(img_mbr)}
-                migrate_tools.result_msg(msg='Found MBR.', result=True)
+                migrate_tools.result_msg(msg='Found MBR.', result=False)
             #
             # Partition Table from MBR:
             mbrok, parttable = self.get_partition_table(
@@ -529,7 +529,7 @@ class DeviceData(object):
                 self._img_info['mbr']['valid'] = mbrok
                 self._img_info['mbr']['partition_table'] = parttable
                 migrate_tools.result_msg(msg='Found partition table.',
-                                         result=True)
+                                         result=False)
             #
             # Device data
             parted_data = system_tools.exec_parted(self._devicename)
@@ -621,7 +621,7 @@ class DeviceData(object):
                                     % (devname,
                                        devdetail['ID_FS_TYPE'],
                                        fs_mount_point),
-                                result=True)
+                                result=False)
                             _logger.debug('%s mounted' % devname)
                             devdetail['mountpoint'] = fs_mount_point
                             self._mountpoints.append(fs_mount_point)
@@ -635,7 +635,7 @@ class DeviceData(object):
                                       % devdetail['ID_FS_TYPE'])
                         migrate_tools.result_msg(msg='Logical volume %s'
                                                      % devdetail['ID_FS_TYPE'],
-                                                 result=True)
+                                                 result=False)
                         volume_groups = migrate_tools.mount_lvm2(devname)
                         self._img_info['volume_groups'].update(volume_groups)
                     else:
@@ -679,7 +679,7 @@ class DeviceData(object):
                                     msg='Partition %s with file system %s '
                                         'mounted on %s.'
                                         % (partname, devdetail['ID_FS_TYPE'],
-                                           fs_mount_point), result=True)
+                                           fs_mount_point), result=False)
                                 _logger.debug('%s mounted' % partname)
                                 devdetail['mountpoint'] = fs_mount_point
                                 self._mountpoints.append(fs_mount_point)
@@ -743,7 +743,7 @@ class DeviceData(object):
                         _logger.debug('Mounted %s successfully.' % resultmnt)
                         migrate_tools.result_msg(msg='Mounted %s on %s.'
                                                      % (part[1], mountdir),
-                                                 result=True)
+                                                 result=False)
                         self._img_info['remountlist'].append(resultmnt)
                     else:
                         _logger.error('   Failed to mount %s.' % mountdir,
@@ -1255,7 +1255,7 @@ class DeviceData(object):
                 'No grub config file found in %s' % self._fn)
         else:
             migrate_tools.result_msg(msg='Grub config file: %s' % grub_cfg_path,
-                                     result=True)
+                                     result=False)
         #
         # investigate boot type
         self._img_info['boot_type'] = find_efi_boot_config()
@@ -1314,7 +1314,7 @@ class DeviceData(object):
         if grub2:
             _logger.debug('Found grub2 configuration file.')
             migrate_tools.result_msg(msg='Found grub2 configuration file',
-                                     result=True)
+                                     result=False)
             #
             # find all kernels defined in grub(1) config file.
             kernellist = system_tools.get_grub2_kernels(grub_cfg_path)
@@ -1323,7 +1323,7 @@ class DeviceData(object):
             #
             # grub configuration
             migrate_tools.result_msg(msg='Found grub configuration file',
-                                     result=True)
+                                     result=False)
             #
             # find default kernel in grub(1) config file.
             kernelversion = system_tools.get_grub_default_kernel(grub_cfg_path)
@@ -1464,7 +1464,7 @@ class DeviceData(object):
                 migrate_tools.result_msg(
                     msg='The image %s contains a valid MBR.'
                         % self._img_info['img_name'],
-                    result=True)
+                    result=False)
             else:
                 passed_requirement = False
                 _logger.debug('The image %s does not contain a '
@@ -1487,7 +1487,7 @@ class DeviceData(object):
                                   % self._img_info['img_name'])
                     migrate_tools.result_msg(msg='The image %s is bootable'
                                                  % self._img_info['img_name'],
-                                             result=True)
+                                             result=False)
             #
             #   from parted
             # todo: better way of parsing the partition table.
@@ -1499,7 +1499,7 @@ class DeviceData(object):
                         bootflag = True
                         migrate_tools.result_msg(msg='The image %s is bootable'
                                                      % self._img_info['img_name'],
-                                                 result=True)
+                                                 result=False)
             #
             #
             if not bootflag:
@@ -1531,7 +1531,7 @@ class DeviceData(object):
                                 part_pass = True
                                 migrate_tools.result_msg(
                                     msg='Found %s in partition table.'
-                                        % uuid_x, result=True)
+                                        % uuid_x, result=False)
                                 break
                 elif '/dev/disk/by-uuid' in line[0]:
                     uuid_x = re.split('\\bdev/disk/by-uuid/\\b', line[0])[1]
@@ -1542,7 +1542,7 @@ class DeviceData(object):
                                 part_pass = True
                                 migrate_tools.result_msg(
                                     msg='Found %s in partition table.'
-                                        % uuid_x, result=True)
+                                        % uuid_x, result=False)
                                 break
                 elif 'LABEL' in line[0]:
                     label_x = re.split('\\bLABEL=\\b', line[0])[1]
@@ -1553,7 +1553,7 @@ class DeviceData(object):
                                 part_pass = True
                                 migrate_tools.result_msg(
                                     msg='Found %s in partition table.'
-                                        % label_x, result=True)
+                                        % label_x, result=False)
                                 break
                 elif 'mapper' in line[0]:
                     lv_x = re.split('\\bmapper/\\b', line[0])[1]
@@ -1563,7 +1563,7 @@ class DeviceData(object):
                             part_pass = True
                             migrate_tools.result_msg(
                                 msg='Found %s in partition table.'
-                                    % lv_x, result=True)
+                                    % lv_x, result=False)
                             break
                 elif '/dev/' in line[0]:
                     _logger.critical('   Device name %s in fstab are '
@@ -1571,7 +1571,7 @@ class DeviceData(object):
                 else:
                     part_pass = True
                     migrate_tools.result_msg(msg='Unrecognised: %s, ignoring.'
-                                                 % line[0], result=True)
+                                                 % line[0], result=False)
 
                 if not part_pass:
                     fstab_pass = False
@@ -1673,7 +1673,7 @@ class DeviceData(object):
                                                  result=True)
                         os_pass = True
                     else:
-                        self._logger.error('   ->OS<- %s is not supported.' % v)
+                        _logger.error('   ->OS<- %s is not supported.' % v)
             if not os_pass:
                 passed_requirement = False
                 failmsg += '\n  - OS %s is not supported' % os_name

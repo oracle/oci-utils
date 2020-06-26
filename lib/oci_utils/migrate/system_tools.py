@@ -595,7 +595,8 @@ def exec_sfdisk(devname):
         for devx in result.splitlines():
             if devx.startswith(devname):
                 key = devx.split(':')[0].strip()
-                migrate_tools.result_msg(msg='sfdisk partition %s' % key)
+                migrate_tools.result_msg(msg='sfdisk partition %s' % key,
+                                         result=False)
                 thispart = {'start': 0, 'size': 0, 'Id': 0, 'bootable': False}
                 val = devx.split(':')[1].split(',')
                 for it in val:

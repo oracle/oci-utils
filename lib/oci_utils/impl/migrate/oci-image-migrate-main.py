@@ -64,8 +64,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(
         description='Utility to support preparation of on-premise legacy '
-                    'images for importing in the Oracle Cloud Infrastructure.',
-        add_help=False)
+                    'images for importing in the Oracle Cloud Infrastructure.')
     #
     parser.add_argument('-i', '--input-image',
                         action='store',
@@ -83,9 +82,6 @@ def parse_args():
                         dest='verbose_flag',
                         default=False,
                         help='Show verbose information.')
-    parser.add_argument('--help',
-                        action='help',
-                        help='Display this help')
     parser._optionals.title = 'Arguments'
 
     args = parser.parse_args()
@@ -268,17 +264,18 @@ def main():
         # input image
         if args.input_image:
             imagepath = args.input_image.name
-            resultfilename = get_config_data('resultfilepath') \
-                            + '_' \
-                            + os.path.splitext(os.path.basename(imagepath))[0] \
-                            + '.res'
+            resultfilename = get_config_data('resultfilepath') + \
+                             '_' + \
+                             os.path.splitext(os.path.basename(imagepath))[0] \
+                             + '.res'
             migrate_data.resultfilename = resultfilename
             migrate_tools.result_msg(msg='\n  Running %s at %s\n'
                                          % ((os.path.basename(sys.argv[0])
-                                            + ' '
-                                            + ' '.join(sys.argv[1:])),
-                                              time.ctime()),
-                                              flags='w', result=True)
+                                             + ' '
+                                             + ' '.join(sys.argv[1:])),
+                                            time.ctime()),
+                                     flags='w',
+                                     result=True)
         else:
             raise OciMigrateException('Missing argument: input image path.')
         #
@@ -309,7 +306,7 @@ def main():
         # Get the nameserver definition
         if system_tools.get_nameserver():
             migrate_tools.result_msg(msg='nameserver %s identified.'
-                                         % migrate_data.nameserver, result=True)
+                                         % migrate_data.nameserver, result=False)
             _logger.debug('Nameserver identified as %s' % migrate_data.nameserver)
         else:
             migrate_tools.error_msg('Failed to identify nameserver, using %s, '
@@ -465,8 +462,8 @@ def main():
                                              '(or EMULATED) at import.',
                                          result=True)
             else:
-                exit_with_msg('*** ERROR *** Something wrong checking the '
-                              'boot type')
+                raise OciMigrateException('Something wrong checking '
+                                          'the boot type')
         else:
             prereq_msg += '\n\n  %s processing failed, check the logfile ' \
                           'and/or set environment variable _OCI_UTILS_DEBUG.' \

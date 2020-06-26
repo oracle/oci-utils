@@ -9,11 +9,11 @@ import unittest
 from tools.oci_test_case import OciTestCase
 
 
-class TestUpload(OciTestCase):
+class TestMigrate(OciTestCase):
     """ Test image validate for migration.
     """
     def setUp(self):
-        super(TestUpload, self).setUp()
+        super(TestMigrate, self).setUp()
         self.oci_migrate_image_path = self.properties.get_property('oci-image-migrate')
         if not os.path.exists(self.oci_migrate_image_path):
             raise unittest.SkipTest("%s not present" %

@@ -165,8 +165,16 @@ def terminal_dimension():
     -------
         tuple: (nb rows, nb colums)
     """
-    rowstr, colstr = os.popen('stty size', 'r').read().split()
-    return int(rowstr), int(colstr)
+    try:
+        # rowstr, colstr = os.popen('stty size', 'r').read().split()
+        # return int(rowstr), int(colstr)
+        terminal_size = os.get_terminal_size()
+        return terminal_size.lines, terminal_size.columns
+    except Exception as e:
+        #
+        # fail to get terminal dimension, because not connected to terminal?
+        # returning dummy
+        return 80, 80
 
 
 class OciMigrateConfParam(object):
