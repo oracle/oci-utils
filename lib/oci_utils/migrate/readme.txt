@@ -41,6 +41,7 @@ supported_formats = {'514649fb': {'name': 'qcow2',
               parted Model
                      Disk
                      Partition Table
+                     Partion List with detail
 
               partitions /dev/nbd<n>p<m>  start
                                           size
@@ -89,3 +90,7 @@ supported_formats = {'514649fb': {'name': 'qcow2',
               remountlist [ list of mounts root and swap excluded ]
 
               ostype <ref to os dependent code>
+
+              kernelversion <version of kernel booted by default>
+
+              kernellist [ list of kernels defined in grub config file ]

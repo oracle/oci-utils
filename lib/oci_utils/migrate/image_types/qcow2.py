@@ -12,9 +12,9 @@ import os
 import struct
 
 from oci_utils.migrate import migrate_tools
+from oci_utils.migrate.exception import OciMigrateException
 from oci_utils.migrate.imgdevice import DeviceData
-from oci_utils.migrate.migrate_utils import gigabyte as gigabyte
-from oci_utils.migrate.migrate_utils import OciMigrateException
+from oci_utils.migrate.migrate_data import gigabyte as gigabyte
 
 """
   typedef struct QCowHeader {
@@ -112,7 +112,8 @@ class Qcow2Head(DeviceData):
                                   enumerate(Qcow2Head.header2_structure))
         self.img_header = dict()
         self.img_header['head'] = self.qcowhead_dict
-        migrate_tools.result_msg(msg='Got image %s header' % filename, result=True)
+        migrate_tools.result_msg(msg='Got image %s header' % filename,
+                                 result=False)
 
     def show_header(self):
         """
@@ -126,8 +127,9 @@ class Qcow2Head(DeviceData):
                                  % ('QCOW2 file header data', '-'*30),
                                  result=False)
         for f in Qcow2Head.header2_structure:
-            migrate_tools.result_msg(msg=''.join(["  %-30s" % f[2], f[1]
-                                                  % self.qcowhead_dict[f[2]]]), result=False)
+            migrate_tools.result_msg(
+                msg=''.join(["  %-30s" % f[2], f[1] % self.qcowhead_dict[f[2]]]),
+                result=False)
 
     def image_size(self):
         """
@@ -157,6 +159,7 @@ class Qcow2Head(DeviceData):
             bool: True on success, False otherwise.
             str:  Eventual message on success or failure.
         """
+        _logger.debug('__ Image support.')
         supp = True
         prerequisites = image_defs['prereq']
         msg = ''
@@ -181,7 +184,7 @@ class Qcow2Head(DeviceData):
             bool: True on success, False otherwise;
             dict: The image data.
         """
-        _logger.debug('image data: %s' % self._fn)
+        _logger.debug('__ Image data: %s' % self._fn)
         # self.devicename = None
         #
         # initialise the dictionary for the image data
@@ -207,6 +210,7 @@ class Qcow2Head(DeviceData):
             bool: True or False.
             str : Message
         """
+        _logger.debug('__ Specific prerequisites.')
         prereqs = format_data['514649fb']['prereq']
         failmsg = ''
         #

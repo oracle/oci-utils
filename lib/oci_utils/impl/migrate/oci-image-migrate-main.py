@@ -18,19 +18,20 @@ Infrastructure. The candidate image needs to comply with:
 """
 
 import argparse
-import importlib
 import logging.config
 import os
-import pkgutil
 import re
 import sys
 import time
 
-from oci_utils.migrate import exit_with_msg, get_config_data, pause_msg, \
-    read_yn, terminal_dimension
+from oci_utils.migrate import exit_with_msg
+from oci_utils.migrate import migrate_data
 from oci_utils.migrate import migrate_tools
-from oci_utils.migrate import migrate_utils
+from oci_utils.migrate import pause_msg
+from oci_utils.migrate import read_yn
+from oci_utils.migrate import system_tools
 from oci_utils.migrate.exception import OciMigrateException
+from oci_utils.migrate.migrate_tools import get_config_data as get_config_data
 
 if sys.version_info.major < 3:
     exit_with_msg('Python version 3 is a requirement to run this utility.')
@@ -53,8 +54,7 @@ def parse_args():
     command line (as returned by argparse's parse_args())
     arguments:
      -i|--input-image <on-premise image>; mandatory.
-     -b|--bucket <bucket name>; mandatory.
-     -o|--output-image <output image name>; optional.
+     -y| --yes suppose the answer YES to all Y/N questions
      -v|--verbose produces verbose output.
      -h|--help
 
@@ -64,8 +64,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(
         description='Utility to support preparation of on-premise legacy '
-                    'images for importing in the Oracle Cloud Infrastructure.',
-        add_help=False)
+                    'images for importing in the Oracle Cloud Infrastructure.')
     #
     parser.add_argument('-i', '--input-image',
                         action='store',
@@ -73,74 +72,20 @@ def parse_args():
                         type=argparse.FileType('r'),
                         required=True,
                         help='The on-premise image for migration to OCI.')
-    parser.add_argument('-b', '--bucket',
-                        action='store',
-                        dest='bucket_name',
-                        required=True,
-                        help='The destination bucket in OCI to store '
-                             'the converted image.')
-    parser.add_argument('-o', '--output-image',
-                        action='store',
-                        dest='output_image',
-                        help='The output image name.')
+    parser.add_argument('--yes', '-y',
+                        action='store_true',
+                        dest='yes_flag',
+                        default=False,
+                        help='Answer YES to all y/n questions.')
     parser.add_argument('--verbose', '-v',
                         action='store_true',
                         dest='verbose_flag',
                         default=False,
                         help='Show verbose information.')
-    parser.add_argument('--help',
-                        action='help',
-                        help='Display this help')
     parser._optionals.title = 'Arguments'
 
     args = parser.parse_args()
     return args
-
-
-def import_formats():
-    """
-    Import modules which handle different image formats and construct the
-    format data dictionary. Check the object definitions for the
-    'format_data' attribute.
-
-    Returns
-    -------
-        dict: Dictionary containing for each image format at least:
-              { magic number : { name : <type name>,
-                                 module : <module name>,
-                                 clazz : <the class name>,
-                                 prereq : <prequisites dictionary>
-                                }
-              }
-    """
-    attr_format = 'format_data'
-    imagetypes = dict()
-    packagename = 'oci_utils.migrate'
-    pkg = __import__(packagename)
-    _logger.debug('pkg name: %s' % pkg)
-    path = os.path.dirname(sys.modules.get(packagename).__file__)
-    _logger.debug('path: %s' % path)
-    #
-    # loop through modules in path, look for the attribute 'format_data' which
-    # defines the basics of the image type, i.e. the magic number, the name and
-    # essentially the class name and eventually prequisites.
-    for _, module_name, _ in pkgutil.iter_modules([path]):
-        type_name = packagename + '.' + module_name
-        _logger.debug('type_name: %s' % type_name)
-        try:
-            impret = importlib.import_module(type_name)
-            _logger.debug('import result: %s' % impret)
-            attrret = getattr(sys.modules[type_name], attr_format)
-            _logger.debug('attribute format_data: %s' % attrret)
-            for key in attrret:
-                if key != get_config_data('dummy_format_key'):
-                    imagetypes.update(attrret)
-                else:
-                    _logger.debug('%s is the dummy key, skipping.' % key)
-        except Exception as e:
-            _logger.debug('attribute %s not found in %s: %s'
-                          % (attr_format, type_name, str(e)))
-    return imagetypes
 
 
 def show_utilities(found, missing):
@@ -158,6 +103,7 @@ def show_utilities(found, missing):
     -------
         No return value.
     """
+    _logger.debug('__ Show found and missing utilities.')
     if found:
         print('\n  %30s\n%s' % ('  Utilities found:', '  ' + '-'*60))
         for util in found:
@@ -182,6 +128,7 @@ def show_supported_formats_data(supported_images):
     -------
         No return value.
     """
+    _logger.debug('__ Show supported image formats.')
     print('\n  %25s\n  %25s\n  %25s : %-20s\n  %25s   %-20s'
           % ('Supported image formats', '-'*25,
              'Magic Key', 'Format data', '-'*20, '-'*20))
@@ -200,7 +147,7 @@ def collect_image_data(img_object):
 
     Parameters
     ----------
-    img_object: Qcow2Head, VmdkHead, SomeTypeHead..  object
+    img_object: Qcow2Head, VmdkHead, TemplateTypeHead..  object
         The image object.
 
     Returns
@@ -208,6 +155,7 @@ def collect_image_data(img_object):
         dict:
             The image data.
     """
+    _logger.debug('__ Collect the image data.')
     try:
         res, img_info = img_object.image_data()
     except Exception as e:
@@ -228,29 +176,23 @@ def test_helpers():
         helpers: List of available utilities.
         missing: List of missing utilities.
     """
+    _logger.debug('__ Verify presence of utilities.')
     helpers = []
     missing = []
     path_env_var = os.getenv('PATH')
     _logger.debug('PATH is %s' % path_env_var)
-    for util in helpers_list:
-        cmd = ['which', util]
-        try:
-            ocipath = migrate_tools.run_popen_cmd(cmd).decode('utf-8')
-            _logger.debug('%s path is %s' % (util, ocipath))
-        except Exception as e:
-            _logger.error('   Cannot find %s anymore: %s' % (util, str(e)),
-                          exc_info=True)
+    for util, package in helpers_list.items():
         try:
             _logger.debug('Availability of %s' % util)
-            fullcmd = migrate_tools.exec_exists(util)
+            fullcmd = system_tools.exec_exists(util)
             _logger.debug('full path: %s' % fullcmd)
-            if migrate_tools.exec_exists(util):
+            if system_tools.exec_exists(util) is not None:
                 helpers.append(util)
             else:
                 missing.append(util)
         except Exception as e:
-            _logger.error('   utility %s is not installed: %s'
-                          % (helpers_list[util], str(e)))
+            _logger.error('   %s is not found, verify presense of %s: %s'
+                          % (helpers_list[util], package, str(e)))
     return helpers, missing
 
 
@@ -263,9 +205,9 @@ def qemu_img_version():
         versiondata: str
         versionnb: int
     """
-    _logger.debug('Retrieve qemu-img release data.')
+    _logger.debug('__ Retrieve qemu-img release data.')
     cmd = ['qemu-img', '--version']
-    versionstring = migrate_tools.run_popen_cmd(cmd).decode('utf-8').splitlines()
+    versionstring = system_tools.run_popen_cmd(cmd).decode('utf-8').splitlines()
     ptrn = re.compile(r'[. -]')
     _logger.debug('qemu-img version: %s' % versionstring)
     for lin in versionstring:
@@ -294,101 +236,82 @@ def main():
     #
     # python version
     pythonver = sys.version_info[0]
-    args = parse_args()
-    #
     _logger.debug('Python version is %s' % pythonver)
     #
-    # Verbose mode is False by default
-    verbose_flag = args.verbose_flag
-    migrate_tools.verbose_flag = verbose_flag
-    _logger.debug('Verbose level set to %s' % verbose_flag)
+    # parse the commandline
+    args = parse_args()
     #
     # Operator needs to be root.
-    if migrate_tools.is_root():
+    if system_tools.is_root():
         _logger.debug('User is root.')
     else:
-        exit_with_msg('  *** ERROR *** %s needs to be run as root user'
-                      % sys.argv[0])
+        exit_with_msg('  *** ERROR *** You must run this program with root '
+                      'privileges')
+    #
+    # Verbose mode is False by default
+    migrate_data.verbose_flag = args.verbose_flag
+    _logger.debug('Verbose level set to %s' % migrate_data.verbose_flag)
+    #
+    # Yes flag
+    migrate_data.yes_flag = args.yes_flag
+    _logger.debug('Answer to yes/no questions supposed to be yes always.')
+    #
+    # collect and save configuration data
+    migrate_data.oci_image_migrate_config = get_config_data('*')
+    #
     try:
         #
         # input image
         if args.input_image:
             imagepath = args.input_image.name
-            resultfilename = get_config_data('resultfilepath') \
-                            + '_' \
-                            + os.path.splitext(os.path.basename(imagepath))[0] \
-                            + '.res'
-            migrate_tools.resultfilename = resultfilename
+            resultfilename = get_config_data('resultfilepath') + \
+                             '_' + \
+                             os.path.splitext(os.path.basename(imagepath))[0] \
+                             + '.res'
+            migrate_data.resultfilename = resultfilename
             migrate_tools.result_msg(msg='\n  Running %s at %s\n'
-                                     % (os.path.basename(' '.join(sys.argv)),
-                                     time.ctime()), flags='w', result=True)
+                                         % ((os.path.basename(sys.argv[0])
+                                             + ' '
+                                             + ' '.join(sys.argv[1:])),
+                                            time.ctime()),
+                                     flags='w',
+                                     result=True)
         else:
             raise OciMigrateException('Missing argument: input image path.')
         #
         # Import the 'format' modules and collect the format data
-        supported_formats = import_formats()
-        if verbose_flag:
+        supported_formats = migrate_tools.import_formats()
+        if not bool(supported_formats):
+            exit_with_msg('  *** ERROR ***  No image format modules found')
+        if migrate_data.verbose_flag:
             show_supported_formats_data(supported_formats)
         #
         # Check the utilities installed.
         util_list, missing_list = test_helpers()
         _logger.debug('%s' % util_list)
-        if verbose_flag:
+        if migrate_data.verbose_flag:
             show_utilities(util_list, missing_list)
         if missing_list:
             raise OciMigrateException('%s needs packages %s installed.\n'
-                                      % (sys.argv[0], missing_list), 1)
+                                      % (sys.argv[0], missing_list))
         #
-        # if qemu-img is used, the minimal version is 3
+        # if qemu-img is used, the minimal version is 2
         qemuversioninfo = qemu_img_version()
-        if qemuversioninfo[1] < 3:
-            raise OciMigrateException('Minimal version of qemu-img is 3, '
+        if qemuversioninfo[1] < 2:
+            raise OciMigrateException('Minimal version of qemu-img is 2, '
                                       '%s found.' % qemuversioninfo[0])
         else:
             _logger.debug('release data ok')
         #
-        # Check if oci-cli is configured.
-        oci_config_file = migrate_utils.get_oci_config()
-        if oci_config_file:
-            migrate_tools.result_msg(msg='oci-cli configuration found.')
-        else:
-            raise OciMigrateException('oci-cli is not configured.')
-        #
         # Get the nameserver definition
-        if migrate_tools.get_nameserver():
-            _logger.debug('Nameserver identified as %s' % migrate_tools.nameserver)
+        if system_tools.get_nameserver():
+            migrate_tools.result_msg(msg='nameserver %s identified.'
+                                         % migrate_data.nameserver, result=False)
+            _logger.debug('Nameserver identified as %s' % migrate_data.nameserver)
         else:
             migrate_tools.error_msg('Failed to identify nameserver, using %s, '
-                                    'but might cause issues.' % migrate_tools.nameserver)
-        #
-        # bucket
-        bucket_name = args.bucket_name
-        migrate_tools.result_msg(msg='Bucket name:  %s' % bucket_name, result=True)
-        #
-        # Verify if object storage exits.
-        try:
-            bucket_data = migrate_utils.bucket_exists(bucket_name)
-            migrate_tools.result_msg(msg='Object storage %s exists.' % bucket_name, result=True)
-        except Exception as e:
-            raise OciMigrateException(str(e))
-        #
-        # output image
-        if args.output_image:
-            output_name = args.output_image
-        else:
-            output_name = os.path.splitext(os.path.basename(imagepath))[0]
-        migrate_tools.result_msg(msg='Output name:  %s\n' % output_name, result=True)
-        #
-        # bucket
-        bucket_name = args.bucket_name
-        migrate_tools.result_msg(msg='Bucket name:  %s' % bucket_name, result=True)
-        #
-        # Verify if object already exists.
-        if migrate_utils.object_exists(bucket_data, output_name):
-            raise OciMigrateException('Object %s already exists in object '
-                                      'storage %s.' % (output_name, bucket_name))
-        else:
-            _logger.debug('Object %s does not yet exists in object storage %s' % (output_name, bucket_name))
+                                    'but might cause issues.'
+                                    % migrate_data.nameserver)
     except Exception as e:
         _logger.error('*** ERROR *** %s\n' % str(e))
         exit_with_msg('  *** ERROR *** %s\n' % str(e))
@@ -397,15 +320,8 @@ def main():
     #
     # initialise output
     migrate_tools.result_msg(msg='Results are written to %s.'
-                                 % resultfilename, result=True)
+                                 % migrate_data.resultfilename, result=True)
     migrate_tools.result_msg(msg='Input image:  %s' % imagepath, result=True)
-    #
-    # output image
-    if args.output_image:
-        output_name = args.output_image
-    else:
-        output_name = os.path.splitext(os.path.basename(imagepath))[0]
-    migrate_tools.result_msg(msg='Output name:  %s\n' % output_name, result=True)
     #
     # Verify if readable.
     fn_magic = migrate_tools.get_magic_data(imagepath)
@@ -430,29 +346,81 @@ def main():
     pause_msg('Image type is %s' % imageclazz['name'])
     #
     # Locate the class and module
-    imageclassdef = getattr(sys.modules['oci_utils.migrate.%s'
+    imageclassdef = getattr(sys.modules['oci_utils.migrate.image_types.%s'
                                         % supported_formats[fn_magic]['name']],
                             imageclazz['clazz'])
     image_object = imageclassdef(imagepath)
     #
+    # Local volume groups.
+    vgs_result = system_tools.exec_vgs_noheadings()
+    migrate_data.local_volume_groups = \
+        vgs_result if bool(vgs_result) \
+            else []
+    _logger.debug('Workstation volume groups: %s'
+                  % migrate_data.local_volume_groups)
+    #
+    # Rename local volume groups
+    if bool(migrate_data.local_volume_groups):
+        rename_msg = '\n   The workstation has logical volumes defined. To avoid ' \
+                     'duplicates, the \n   logical volume groups will be temporary' \
+                     ' renamed to a hexadecimal uuid.\n   If you are sure the ' \
+                     'image to be uploaded does not contain logical volumes,\n' \
+                     '   or there are no conflicting volume group names, '\
+                     'the rename can be skipped\n\n   Keep the volume group names?'
+        if not read_yn(rename_msg,
+                       waitenter=True,
+                       suppose_yes=migrate_data.yes_flag):
+            if migrate_tools.verify_local_fstab():
+                fstab_msg = '\n   The fstab file on this workstation seems to ' \
+                            'contain device references\n   using /dev/mapper ' \
+                            'devices. The volume group names on this ' \
+                            'workstation\n   will be renamed temporarily. ' \
+                            '/dev/mapper devices referring to logical volumes\n' \
+                            '   can create problems in this context. To avoid ' \
+                            'this situation\n   exit now and modify the ' \
+                            'device specification to LABEL or UUID.\n\n   Continue?'
+                if not read_yn(fstab_msg,
+                               waitenter=True,
+                               suppose_yes=migrate_data.yes_flag):
+                    exit_with_msg('Exiting')
+                _logger.debug('Rename local volume groups to avoid conflicts.')
+                vgrename_res = system_tools.exec_rename_volume_groups(
+                    migrate_data.local_volume_groups, 'FORWARD')
+                migrate_data.local_volume_group_rename = True
+            else:
+                _logger.debug('fstab file has no /dev/mapper devices.')
+        else:
+            _logger.debug('Not renaming the volume groups.')
+            _ = system_tools.reset_vg_list(migrate_data.local_volume_groups)
+    else:
+        _logger.debug('No local volume groups, no conflicts.')
+    #
     # Generic data collection
     try:
         imgres, imagedata = collect_image_data(image_object)
-        if verbose_flag:
-            migrate_utils.show_image_data(image_object)
+        if migrate_data.verbose_flag:
+            migrate_tools.show_image_data(image_object)
         if imgres:
             _logger.debug('Image processing succeeded.')
         else:
             _logger.critical('   Image processing failed.', exc_info=False)
         #
         if imagedata:
-            _logger.debug('%s passed verification.' % imagepath)
+            _logger.debug('%s passed.' % imagepath)
         else:
-            _logger.critical('   %s failed image check.' % imagepath, exc_info=False)
+            _logger.critical('   %s failed.' % imagepath, exc_info=False)
     except Exception as e:
-        _logger.critical('   %s failed image check: %s' % (imagepath, str(e)))
+        _logger.critical('   %s failed: %s' % (imagepath, str(e)))
         exit_with_msg('*** ERROR *** Problem detected during investigation of '
                       'the image %s: %s, exiting.' % (imagepath, str(e)))
+    #
+    # Restore volume group names.
+    if migrate_data.local_volume_group_rename:
+        _logger.debug('Restore local volume groups.')
+        vgrename_res = system_tools.exec_rename_volume_groups(
+            migrate_data.local_volume_groups, 'BACKWARD')
+    else:
+        _logger.debug('No local volume group names to restore.')
     #
     # passed prerequisites and changes?
     prereq_passed = True
@@ -477,7 +445,7 @@ def main():
         #
         if imgres:
             prereq_msg += '\n\n  %s data collection and processing succeeded.' \
-                      % imagepath
+                          % imagepath
         else:
             prereq_passed = False
         #
@@ -490,11 +458,12 @@ def main():
                                          result=True)
             elif imagedata['boot_type'] == 'UEFI':
                 migrate_tools.result_msg(msg='\n  Boot type is UEFI, '
-                                             'use launch_mode EMULATED at '
-                                             'import.', result=True)
+                                             'use launch_mode NATIVE '
+                                             '(or EMULATED) at import.',
+                                         result=True)
             else:
-                exit_with_msg('*** ERROR *** Something wrong checking the '
-                              'boot type')
+                raise OciMigrateException('Something wrong checking '
+                                          'the boot type')
         else:
             prereq_msg += '\n\n  %s processing failed, check the logfile ' \
                           'and/or set environment variable _OCI_UTILS_DEBUG.' \
@@ -505,51 +474,13 @@ def main():
     #
     # While prerequisite check did not hit a fatal issue, there might be
     # situations where upload should not proceed.
-    if not migrate_tools.migrate_preparation:
+    if not migrate_data.migrate_preparation:
         exit_with_msg('*** ERROR *** Unable to proceed with uploading image '
                       'to Oracle Cloud Infrastructure: %s'
-                      % migrate_tools.migrate_non_upload_reason)
-    #
-    # Ask for agreement to proceed.
-    if not read_yn('\n  Agree to proceed uploading %s to %s as %s?'
-                   % (imagepath, bucket_name, output_name), waitenter=True):
-        exit_with_msg('\n  Exiting.')
-    #
-    # Prerequisite verification and essential image updates passed, uploading
-    # image.
-    _, nbcols = terminal_dimension()
-    try:
-        uploadprogress = migrate_tools.ProgressBar(
-            nbcols, 0.2, progress_chars=['uploading %s' % output_name])
-        #
-        # Verify if object already exists.
-        if migrate_utils.object_exists(bucket_data, output_name):
-            raise OciMigrateException('Object %s already exists object '
-                                      'storage %s.' % (output_name, bucket_name))
-        else:
-            _logger.debug('Object %s does not yet exists in object storage %s'
-                          % (output_name, bucket_name))
-        #
-        # Upload the image.
-        migrate_tools.result_msg(msg='\n  Uploading %s, this might take a while....'
-                                 % imagepath, result=True)
-        uploadprogress.start()
-        uploadres = migrate_utils.upload_image(imagepath, bucket_name,
-                                               output_name)
-        _logger.debug('Uploadresult: %s' % uploadres)
-        migrate_tools.result_msg(msg='  Finished....\n', result=True)
-        uploadprogress.stop()
-    except Exception as e:
-        _logger.error('   Error while uploading %s to %s: %s.'
-                      % (imagepath, bucket_name, str(e)))
-        exit_with_msg('*** ERROR *** Error while uploading %s to %s: %s.'
-                      % (imagepath, bucket_name, str(e)))
-    finally:
-        #
-        # if progressthread was started, needs to be terminated.
-        if migrate_tools.isthreadrunning(uploadprogress):
-            uploadprogress.stop()
-
+                      % migrate_data.migrate_non_upload_reason)
+    else:
+        migrate_tools.result_msg('Successfully verified and processed image %s '
+                                 'and is ready for upload.' % imagepath)
     return 0
 
 

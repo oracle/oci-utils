@@ -12,6 +12,7 @@ of the Oracle Cloud Infrastructure.
                                            -b BUCKET_NAME
                                            [-o OUTPUT_NAME]
                                            [--verbose] 
+                                           [--yes]
                                            [--help]
 
    Utility to upload on-premise legacy images to object storage of the Oracle
@@ -26,6 +27,7 @@ of the Oracle Cloud Infrastructure.
                         The name the image will be stored in the object
                         storage.
   --verbose, -v         Show verbose information.
+   -y, --yes           The answer on Yes/No questions is supposed to be yes.
   --help                Display this help
 ```
 

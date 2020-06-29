@@ -12,11 +12,12 @@ import os
 import re
 import struct
 
+from oci_utils.migrate import migrate_data
 from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import read_yn
+from oci_utils.migrate.exception import OciMigrateException
 from oci_utils.migrate.imgdevice import DeviceData
-from oci_utils.migrate.migrate_utils import gigabyte as gigabyte
-from oci_utils.migrate.migrate_utils import OciMigrateException
+from oci_utils.migrate.migrate_data import gigabyte as gigabyte
 
 """
 typedef uint64 SectorType;
@@ -119,9 +120,7 @@ class VmdkHead(DeviceData):
         Parameters
         ----------
         filename: str
-            Full path of the qcow2 image file.
-        logger: loggername
-            The logging specification.
+            Full path of the vmdk image file.
         """
         super(VmdkHead, self).__init__(filename)
         _logger.debug('VMDK header size: %d bytes' % self.head_size)
@@ -159,7 +158,8 @@ class VmdkHead(DeviceData):
         self.img_header = dict()
         self.img_header['head'] = self.vmdkhead_dict
         self.img_header['desc'] = self.vmdkdesc_dict
-        migrate_tools.result_msg(msg='Got image %s header' % filename, result=True)
+        migrate_tools.result_msg(msg='Got image %s header' % filename,
+                                 result=False)
 
     def show_header(self):
         """
@@ -195,9 +195,10 @@ class VmdkHead(DeviceData):
         img_sz = {'physical': float(self.stat.st_size)/gigabyte,
                   'logical': float(self.vmdkhead_dict['capacity']*512)/gigabyte}
 
-        migrate_tools.result_msg(msg='Image size: physical %10.2f GB, logical %10.2f GB'
-                                     % (img_sz['physical'], img_sz['logical']),
-                                 result=True)
+        migrate_tools.result_msg(
+            msg='Image size: physical %10.2f GB, logical %10.2f GB'
+                % (img_sz['physical'], img_sz['logical']),
+            result=True)
         return img_sz
 
     def image_supported(self, image_defs):
@@ -214,6 +215,7 @@ class VmdkHead(DeviceData):
             bool: True on success, False otherwise.
             str:  Eventual message on success or failure.
         """
+        _logger.debug('__ Image support.')
         supp = True
         prerequisites = image_defs['prereq']
         msg = ''
@@ -271,6 +273,7 @@ class VmdkHead(DeviceData):
             bool: True or False.
             str : Message
         """
+        _logger.debug('__ Specific prerequisites.')
         prereqs = format_data['4b444d56']['prereq']
         failmsg = ''
         #
@@ -308,6 +311,8 @@ class VmdkHead(DeviceData):
             #
             # Warning, for now, streamOptimized format will probably cause problems.
             if self.img_header['desc']['createType'] == 'streamOptimized':
-                _ = read_yn('  %s\n  Continue' % self.streamoptimized_msg, yn=False)
+                _ = read_yn('  %s\n  Continue' % self.streamoptimized_msg,
+                            yn=False,
+                            suppose_yes=migrate_data.yes_flag)
 
         return passed_requirement, failmsg
