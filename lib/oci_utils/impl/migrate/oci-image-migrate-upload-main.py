@@ -149,7 +149,7 @@ def main():
     if not read_yn('\n  Agree to proceed uploading %s to %s as %s?'
                    % (image_path, bucket_name, output_name),
                    waitenter=True,
-                   suppose_yes = migrate_data.yes_flag):
+                   suppose_yes=migrate_data.yes_flag):
         exit_with_msg('\n  Exiting.')
     #
     # Uploading the image to the Oracle Cloud Infrastructure.

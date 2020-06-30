@@ -33,8 +33,6 @@ from oci_utils.migrate import system_tools
 from oci_utils.migrate.exception import OciMigrateException
 from oci_utils.migrate.migrate_tools import get_config_data as get_config_data
 
-if sys.version_info.major < 3:
-    exit_with_msg('Python version 3 is a requirement to run this utility.')
 
 _logger = logging.getLogger('oci-utils.oci-image-migrate')
 #
@@ -265,9 +263,9 @@ def main():
         if args.input_image:
             imagepath = args.input_image.name
             resultfilename = get_config_data('resultfilepath') + \
-                             '_' + \
-                             os.path.splitext(os.path.basename(imagepath))[0] \
-                             + '.res'
+                '_' + \
+                os.path.splitext(os.path.basename(imagepath))[0] \
+                + '.res'
             migrate_data.resultfilename = resultfilename
             migrate_tools.result_msg(msg='\n  Running %s at %s\n'
                                          % ((os.path.basename(sys.argv[0])
@@ -355,7 +353,7 @@ def main():
     vgs_result = system_tools.exec_vgs_noheadings()
     migrate_data.local_volume_groups = \
         vgs_result if bool(vgs_result) \
-            else []
+        else []
     _logger.debug('Workstation volume groups: %s'
                   % migrate_data.local_volume_groups)
     #
