@@ -27,8 +27,8 @@ from ..impl import sudo_utils
 from ..impl.network_helpers import get_interfaces
 from ..impl.network_helpers import add_route_table
 from ..impl.network_helpers import delete_route_table
-from ..impl.network_helpers import add_static_ip_route, remove_static_ip_routes
-from ..impl.network_helpers import add_static_ip_rule, remove_static_ip_rules
+from ..impl.network_helpers import remove_static_ip_routes
+from ..impl.network_helpers import remove_static_ip_rules
 from ..impl.network_helpers import add_firewall_rule, remove_firewall_rule
 from ..impl.virt import sysconfig, virt_check, virt_utils
 from ..metadata import InstanceMetadata
@@ -158,7 +158,7 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
             The virtual function if found, None,None otherwise.
     """
     configured = sysconfig.read_network_config()
-    ifaces = nic.get_interfaces()
+    ifaces = get_interfaces()
     virt_fns = ifaces[phys].get('virt_fns', {})
     vfs = {virt_fns[v]['mac']: (virt_fns[v]['pci_id'], v) for v in virt_fns}
 
