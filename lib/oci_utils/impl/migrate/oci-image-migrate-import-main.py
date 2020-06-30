@@ -174,7 +174,7 @@ def main():
     if not read_yn('\n  Import %s to %s as %s'
                    % (object_name, compartment, display_name),
                    waitenter=True,
-                   suppose_yes = migrate_data.yes_flag):
+                   suppose_yes=migrate_data.yes_flag):
         exit_with_msg('Exiting.\n')
     #
     # Start the import.
