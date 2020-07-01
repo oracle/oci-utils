@@ -14,6 +14,7 @@ import os
 import sys
 
 import time
+import oci_utils
 import oci_utils.oci_api
 from oci_utils.exceptions import OCISDKError
 from oci_utils.vnicutils import VNICUtils
@@ -212,11 +213,19 @@ def do_show_network_config(vnic_utils):
 
     __logger.info("Operating System level network configuration")
 
-    (ret, out) = vnic_utils.get_network_config()
-    if ret:
-        __logger.error("Failed to execute the VNIC configuration script.")
-    else:
-        print("%s" % out.decode('utf-8'))
+    ret = vnic_utils.get_network_config()
+
+    _fmt = "{:6} {:15} {:15} {:5} {:15} {:10} {:3} {:15} {:5} {:11} {:5} {:17} {}"
+    print(_fmt.format('CONFIG', 'ADDR', 'SPREFIX', 'SBITS', 'VIRTRT',
+                      'NS', 'IND', 'IFACE', 'VLTAG', 'VLAN', 'STATE', 'MAC', 'VNIC'))
+    for item in ret:
+        print(_fmt.format(item['CONFSTATE'],
+                          item['ADDR'], item['SPREFIX'],
+                          item['SBITS'], item['VIRTRT'],
+                          item['NS'], item['IND'],
+                          item['IFACE'], item['VLTAG'],
+                          item['VLAN'], item['STATE'],
+                          item['MAC'], item['VNIC']))
 
 
 def do_detach_vnic(detach_options, vnic_utils):
@@ -236,7 +245,7 @@ def do_detach_vnic(detach_options, vnic_utils):
 
     Raises
     ------
-        StandardError
+        Exception
             if session cannot be acquired
             if the VNIC cannot be detached
 
@@ -273,7 +282,7 @@ def do_create_vnic(create_options):
 
     Raises
     ------
-        StandardError
+        Exception
             if session cannot be acquired
     """
     # needs the OCI SDK installed and configured
@@ -339,7 +348,7 @@ def do_add_private_ip(vnic_utils, add_options):
 
     Raises
     ------
-        StandardError
+        Exception
             On any error.
     """
     # needs the OCI SDK installed and configured
@@ -396,7 +405,7 @@ def do_del_private_ip(vnic_utils, delete_options):
 
     Raises
     ------
-    StandardError
+    Exception
         error getting session
     """
     # needs the OCI SDK installed and configured

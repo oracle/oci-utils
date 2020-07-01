@@ -34,7 +34,7 @@ class ServiceManager(object):
         """
         start the init script
         raise
-          StandardError if start has failed
+          Exception if start has failed
         """
         raise Exception('not implemented')
 
@@ -42,7 +42,7 @@ class ServiceManager(object):
         """
         stop the init script
         raise
-          StandardError if stop has failed
+          Exception if stop has failed
         """
         raise Exception('not implemented')
 
@@ -262,7 +262,7 @@ class SimpleInitScriptGenerator(InitScriptGenerator):
         """
         generates the script
         raise
-         StandardError : error about file creation
+         Exception : error about file creation
         """
         _ouput_file = os.path.join(InitScriptBase._BASE_DIR, self.name)
 

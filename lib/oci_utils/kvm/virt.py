@@ -27,8 +27,8 @@ from ..impl import sudo_utils
 from ..impl.network_helpers import get_interfaces
 from ..impl.network_helpers import add_route_table
 from ..impl.network_helpers import delete_route_table
-from ..impl.network_helpers import add_static_ip_route, remove_static_ip_routes
-from ..impl.network_helpers import add_static_ip_rule, remove_static_ip_rules
+from ..impl.network_helpers import remove_static_ip_routes
+from ..impl.network_helpers import remove_static_ip_rules
 from ..impl.network_helpers import add_firewall_rule, remove_firewall_rule
 from ..impl.virt import sysconfig, virt_check, virt_utils
 from ..metadata import InstanceMetadata
@@ -158,7 +158,7 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
             The virtual function if found, None,None otherwise.
     """
     configured = sysconfig.read_network_config()
-    ifaces = nic.get_interfaces()
+    ifaces = get_interfaces()
     virt_fns = ifaces[phys].get('virt_fns', {})
     vfs = {virt_fns[v]['mac']: (virt_fns[v]['pci_id'], v) for v in virt_fns}
 
@@ -483,10 +483,10 @@ def create(**kargs):
                 storage pool name
             disk_size:int
                 root disk size in GB
-            network : str
-             The ip address or VNIC name
-            virtual_network : str
-              Name of libvirt virtual network (has precedence over 'network')
+            network : [str], list of str
+             The ip address(es) or VNIC name(s)
+            virtual_network : list of str
+              Name(s) of libvirt virtual network (has precedence over 'network')
             extra_args : list()
              Extra options.
 
@@ -522,51 +522,55 @@ def create(**kargs):
             '--disk', _disk_virt_install_args]
 
     if kargs['virtual_network']:
-        args.append('--network')
-        args.append('network=%s,model=e1000' % kargs['virtual_network'])
+        for vn_name in kargs['virtual_network']:
+            args.append('--network')
+            args.append('network=%s,model=e1000' % vn_name)
     else:
         vnics = InstanceMetadata()['vnics']
         interfaces = get_interfaces()
 
         if _is_bm_shape:
+            args.append('--hvm')
+            free_vnic_ip_addrs = []
             free_vnics = find_free_vnics(vnics, interfaces)
             if not kargs['network']:
                 try:
-                    free_vnic_ip_addr = free_vnics.pop()
+                    free_vnic_ip_addrs.append(free_vnics.pop())
                 except KeyError:
                     _print_available_vnics(free_vnics)
                     return 1
             else:
-                free_vnic_ip_addr = kargs['network']
-                print("Assigned IP address {}".format(free_vnic_ip_addr))
+                free_vnic_ip_addrs = kargs['network']
 
-            vnic, vf, vf_num = test_vnic_and_assign_vf(free_vnic_ip_addr, free_vnics)
-            if not vnic:
-                return 1
+            for free_vnic_ip_addr in free_vnic_ip_addrs:
+                vnic, vf, vf_num = test_vnic_and_assign_vf(free_vnic_ip_addr, free_vnics)
+                if not vnic:
+                    return 1
 
-            vf_dev = get_interface_by_pci_id(vf, interfaces)
-            if not create_networking(vf_dev, vnic['vlanTag'], vnic['macAddr']):
-                destroy_networking(vf_dev, vnic['vlanTag'])
-                return 1
-            args.append('--hvm')
-            args.append('--network')
-            args.append('type=direct,source={}.{},source_mode=passthrough,mac={},'
-                        'model=e1000'.format(vf_dev, vnic['vlanTag'], vnic['macAddr']))
-        else:
-            # VM shape case
-            if kargs['network']:
+                vf_dev = get_interface_by_pci_id(vf, interfaces)
+                if not create_networking(vf_dev, vnic['vlanTag'], vnic['macAddr']):
+                    destroy_networking(vf_dev, vnic['vlanTag'])
+                    return 1
+
                 args.append('--network')
-                # find associated mac
-                _mac_to_use = None
-                for intf_name, intf_info in interfaces.items():
-                    if intf_name == kargs['network']:
-                        _mac_to_use = intf_info['mac'].upper()
-                if _mac_to_use is None:
-                    _logger.debug('warning: cannot find MAC address for %s' % kargs['network'])
-                    args.append('type=direct,model=virtio,source_mode=passthrough,source=%s' % kargs['network'])
-                else:
-                    args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' %
-                                (kargs['network'], _mac_to_use))
+                args.append('type=direct,source={}.{},source_mode=passthrough,mac={},'
+                            'model=e1000'.format(vf_dev, vnic['vlanTag'], vnic['macAddr']))
+        else:
+            # VM shape case : vnic are used directly (no VF)
+            if kargs['network']:
+                for vn_name in kargs['network']:
+                    args.append('--network')
+                    # find associated mac
+                    _mac_to_use = None
+                    for intf_name, intf_info in interfaces.items():
+                        if intf_name == vn_name:
+                            _mac_to_use = intf_info['mac'].upper()
+                    if _mac_to_use is None:
+                        _logger.debug('warning: cannot find MAC address for %s' % vn_name)
+                        args.append('type=direct,model=virtio,source_mode=passthrough,source=%s' % vn_name)
+                    else:
+                        args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' %
+                                    (vn_name, _mac_to_use))
             else:
                 # have to find one free interface. i.e not already used by a guest
                 # and not the primary one. the VNICs returned by metadata service is sorted list

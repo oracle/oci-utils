@@ -33,7 +33,8 @@ helpers_list :
     parted     : parted,
     partx      : util-linux
     lvmdiskscan: lvm2
-    oci        : oci-cli
+    dig        : bind-utils
+#    oci        : oci-cli
 #
 # oci configuration file
 ociconfigfile : ~/.oci/config
@@ -46,6 +47,7 @@ filesystem_types :
     - xfs
     - btrfs
     - ocfs2
+    - vfat
 logical_vol_types : 
     - LVM2_member
 #
@@ -250,7 +252,52 @@ valid_os :
     - RHEL
     - CENTOS
     - UBUNTU
+    - DEBIAN
+    - FEDORA
 #
 # cloud-config
 cloudconfig_file : /etc/cloud/cloud.cfg
 default_clouduser : opc
+#
+# OL type specific
+#
+# packages to install pre-upload
+ol_os_packages_to_install:
+    - cloud-init
+    - jq
+#
+# oci region script
+ol_os_oci_region_script : /usr/local/bin/setregion.sh
+#
+# oci region
+ol_os_oci_region_bash :
+    - '#!/bin/bash'
+    - unset http_proxy
+    - unset https_proxy
+    - CURL=$(which curl)
+    - JQ=$(which jq)
+    - CUT=$(which cut)
+    - METADATAURL="http://169.254.169.254"
+    - OCIREGION=$(${CURL} -sfm 5 ${METADATAURL}/opc/v1/instance/ | ${JQ} -r '.region' | ${CUT} -d '-' -f 2)
+    - echo '-'$OCIREGION > /etc/yum/vars/ociregion
+#
+# Ubuntu type specific
+ubuntu_os_packages_to_install:
+    - cloud-init
+#
+# reinitialise cloud-init script
+reinitialise_cloud_init_script : /usr/local/bin/reinitialise_cloud_init.sh
+#
+# reinitialise and restart cloud-init
+reinitialise_cloud_init:
+    - '#!/bin/bash'
+    - CLOUDINIT='cloud-init'
+    - RM=$(which rm)
+    - SYSTEMCTL=$(which systemctl)
+    - VARLIBCLOUD='/var/lib/cloud/'
+    - VARLOGCLOUD='/var/log/cloud'
+    - ${RM} -rf "${VARLIBCLOUD}*"
+    - ${RM} -rf "${VARLOGCLOUD}*"
+    - ${SYSTEMCTL} enable ${CLOUDINIT}
+    - ${SYSTEMCTL} stop ${CLOUDINIT}
+    - ${SYSTEMCTL} start ${CLOUDINIT}

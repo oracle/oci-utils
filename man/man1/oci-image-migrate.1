@@ -12,39 +12,42 @@ Oracle Cloud Infrastructure
 .SH SYNOPSIS
 .B oci-image-migrate [-i|--input-image
 .I input_image
-.B ] [-b|--bucket
-.I bucket_name
-.B ] [-o|--output-image
-.I output_image
-.B ] [-v|--verbose] [--help]
+.B ] [-y|--yes] [-v|--verbose] [--help]
 
 .SH DESCRIPTION
 The
 .B oci-image-migrate
 utility prepares an on-premise legacy image for importing into the
 .B Oracle Cloud Infrastructure.
-.B oci-image-migrate
-verifies and validates the prerequisites for the import of
-the image, installs the cloud-init software package and disables the network
-interfaces except the primary one which will be set up as a dhcp client.
-.B oci-image-migrate
-uploads the image file to the specified object storage location with a new image
-name if specified.
 
 .B oci-image-migrate
-must be run with root priviliges, either as user root or using
+.IP \[bu] 2
+verifies and validates the prerequisites for the import of the image;
+.IP \[bu]
+disables the network interfaces except the primary one which is
+set up as a dhcp client;
+.IP \[bu]
+installs extra software packages of which the cloud-init package is
+highly recommended; the list of software packages which should be
+installed is specified in the configuration file, /etc/oci-utils/oci-migrate-conf.yaml;
+.IP \[bu]
+as
+.B oci-image-migrate
+tries to access remote servers hosting software repositories for the image beiing processed,
+it is important nameserver and proxy settings are allowing those repositories can
+be reached.
+.IP \[bu]
+.B oci-image-migrate
+set the default cloud user to
+.B opc
+regardless what the default of the cloud-init for the operating system would be. See also
+.B /etc/oci-utils/oci-migrate-conf.yaml file.
+.RS 0
+
+.B oci-image-migrate
+must be run with root privileges, either as user root or using
 .BR sudo(8)
 on an on-premise physical or virtual server.
-.B oci-image-migrate
-requires the
-.B oci-cli
-utility installed and configured.
-
-See
-.BR https://docs.cloud.oracle.com/iaas/Content/API/SDKDocs/cliinstall.htm
-or
-.BR https://docs.cloud.oracle.com/iaas/Content/API/SDKDocs/climanualinst.htm
-for more information.
 
 .B oci-image-migrate
 supports the migration of qcow2 and vmdk single file images.
@@ -65,6 +68,9 @@ This argument is optional, the default is the on-premise image name.
 .IP "-v|--verbose"
 Show information about the image file on the console. This information is also
 written to a result file in /var/tmp.
+
+.IP "-y|--yes"
+The answer on Yes/No questions is supposed to be yes
 
 .IP "--help"
 Print a summary of the command line options.
@@ -87,12 +93,57 @@ are met, updates the network configuration, installs the cloud-init package,
 sets a default cloud user and uploads the modified file to the object storage
 MyObjectStorage as Ubuntu1804LTS.
 
+.SH FILES
+.B /etc/oci-utils/oci-migrate-conf.yaml
+
+.SH KNOWN ISSUES
+
+.IP \[bu] 2 "The cloud-init service does not start at first boot in OCI."
+The cloud-init service, although enabled does not start at first boot in
+OCI. This was noticed on ubuntu18 server and is probably related to
+the situation described in https://bugs.launchpad.net/bugs/1669675.
+The workaround:
+.nr step 1 1
+.RS
+.IP \n[step]
+connect to the instance using vnc or serial console.
+.IP \n+[step]
+delete the contents of /var/lib/cloud.
+.IP \n+[step]
+eventually delete /var/log/cloud* files.
+.IP \n+[step]
+explicitly start the cloud-init service.
+.IP \n+[step]
+reboot the instance.
+.IP \[bu]
+or run the script
+.B /usr/local/bin/reinitialise_cloud_init.sh and reboot.
+.RE
+.IP \[bu] "/dev/disk/by-id entries in /etc/fstab are not supported."
+Entries in /etc/fstab as /dev/disk/by-id are not supported yet.
+The workaround:
+.RS
+.IP \[bu]
+update the /etc/fstab file so it refers to partitions via label, uuid, logical volume.
+.RE
+.IP \[bu] "The instance fails to find boot disk."
+The instance created from a migrated image does not boot, is unable to find boot disk because
+.B initramfs
+does not include the correct kernel module to recognise the bootable partition. The issue
+is being worked on.
+The workaround:
+.RS
+.IP \[bu]
+Rebuild initramfs before migration so it includes all modules and
+rebuilding again after first boot with the necessary ones.
+.RE
+
 .SH SEE ALSO
 .BR oci-image-migrate-upload(1)
 .BR oci-image-migrate-import(1)
-.BR ocid (8)
-.BR oci-metadata (1)
+.BR ocid(8)
+.BR oci-metadata(1)
 
 
 .SH COPYRIGHT
-Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2018, 2020 Oracle and/or its affiliates. All rights reserved.

@@ -20,12 +20,14 @@ from time import sleep
 from ..exceptions import OCISDKError
 
 __all__ = ['lock_thread', 'release_thread', 'read_config', 'SUDO_CMD',
-           'CAT_CMD', 'SH_CMD', 'CP_CMD', 'TOUCH_CMD', 'CHMOD_CMD', 'LSBLK_CMD']
+           'CAT_CMD', 'SH_CMD', 'CP_CMD', 'TOUCH_CMD', 'CHMOD_CMD', 'LSBLK_CMD', 'MKDIR_CMD']
+
 
 CAT_CMD = '/usr/bin/cat'
 TOUCH_CMD = '/usr/bin/touch'
 CHMOD_CMD = '/usr/bin/chmod'
 RM_CMD = '/bin/rm'
+MKDIR_CMD = '/bin/mkdir'
 CP_CMD = '/bin/cp'
 SH_CMD = '/bin/sh'
 SUDO_CMD = '/bin/sudo'

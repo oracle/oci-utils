@@ -10,12 +10,16 @@
 import os
 import socket
 import subprocess
+import signal
 import logging
-import shutil
 from socket import inet_ntoa
 from struct import pack
 from . import sudo_utils
 import re
+from netaddr import IPNetwork
+import json
+
+from io import StringIO
 
 __all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route_table',
            'network_prefix_to_mask',
@@ -24,11 +28,180 @@ __all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route
            'add_firewall_rule',
            'remove_firewall_rule',
            'remove_static_ip_routes',
-           'remove_static_ip_rules']
+           'remove_static_ip_rules',
+           'get_network_namespace_infos']
 
 _CLASS_NET_DIR = '/sys/class/net'
-
+_NM_CONF_DIR = "/etc/NetworkManager/conf.d/"
 _logger = logging.getLogger('oci-utils.net-helper')
+
+
+def create_network_namespace(name):
+    """
+    Creates network namespace
+    parameter:
+      name : namespace name as str
+    raise:
+      exception :in case of error
+    retur none
+    """
+    ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'add', name])
+    if ret != 0:
+        raise Exception('Cannot create network namespace')
+
+
+def destroy_network_namespace(name):
+    """
+    Destroy network namespace
+    parameter:
+      name : namespace name as str
+    raise:
+      exception :in case of error
+    retur none
+    """
+    ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'delete', name])
+    if ret != 0:
+        raise Exception('Cannot delete network namespace')
+
+
+def _get_namespaces():
+    """
+    Gets list of network namespace
+    Returns:
+       list of names as string
+    """
+    return [name.split(b' ')[0] for name in subprocess.check_output(['/usr/sbin/ip', 'netns', 'list']).splitlines()]
+
+
+def _get_link_infos(namespace):
+    """
+    Gets all namespace links information
+    parameters:
+    -----------
+        namespace : the network namespace as str ('' means default)
+    returns:
+    --------
+        list of
+        {
+            link : underlying link of thie interface (may be None)
+            link_idx: underlying link index of thie interface (may be None)
+            mac : mac address
+            index : interface system index
+            device : device name
+            opstate : interface operational state : up, down, unknown
+            addresses : [     # IP addresses (if any)
+                 {
+                        vlanid : VLAN ID (can be None)
+                        address : IP address (if any)
+                        address_prefix_l : IP address prefix length (if any)
+                        address_subnet : IP address subnet (if any)
+                        broadcast : IP address broadcast (if any),
+                 }
+            ]
+            type: link type (as returned by kernel)
+            flags: link flags
+            is_vf: is this a vf ?
+        }
+    """
+    _cmd = ['/usr/sbin/ip']
+    if namespace and len(namespace) > 0:
+        _cmd.extend(['-netns', namespace])
+
+    _cmd.extend(['-details', '-json', 'address', 'show'])
+
+    link_infos = sudo_utils.call_output(_cmd)
+    if link_infos is None or not link_infos.strip():
+        return []
+    _vfs_mac = []
+    # the ip command return a json array
+    link_info_j = json.loads(link_infos.strip())
+    _infos = []
+    for obj in link_info_j:
+        _addr_info = {'addresses': []}
+        if 'addr_info'in obj:
+            for a_info in obj['addr_info']:
+                if a_info['family'] != 'inet':
+                    continue
+                if a_info.get('linkinfo') and a_info.get('linkinfo')['info_kind'] == 'vlan':
+                    _vlanid = a_info.get('linkinfo')['info_data']['id']
+                else:
+                    _vlanid = None
+                _addr_info['addresses'].append({
+                    'vlanid': _vlanid,
+                    'broadcast': a_info.get('broadcast'),
+                    'address_prefix_l': a_info.get('prefixlen'),
+                    'address': a_info.get('local'),
+                    'address_subnet': str(IPNetwork('%s/%s' % (
+                        a_info['local'],
+                        a_info['prefixlen'])).network)
+                })
+
+        # grab VF mac if any
+        if 'vfinfo_list' in obj:
+            for _v in obj['vfinfo_list']:
+                _vfs_mac.append(_v['mac'])
+
+        if 'linkinfo' in obj:
+            _addr_info['subtype'] = obj['linkinfo']['info_kind']
+
+        _addr_info.update({
+            'link': obj.get('link'),
+            'link_idx': obj.get('link_index'),
+            'device': obj.get('ifname'),
+            'index': obj.get('ifindex'),
+            'mac': obj.get('address').upper(),
+            'opstate': obj.get('operstate'),
+            'type': obj.get('link_type'),
+            'flags': obj.get('flags')
+        })
+        _logger.debug('new system interface found : %s' % _addr_info)
+        _infos.append(_addr_info)
+
+    # now loop again to set the 'is_vf' flag
+    for _info in _infos:
+        if _info['mac'] in _vfs_mac:
+            _info['is_vf'] = True
+        else:
+            _info['is_vf'] = False
+
+    return _infos
+
+
+def get_network_namespace_infos():
+    """
+    Retrieve par namespace network link info
+    Returns:
+    --------
+      dict: namespace name indexed dict (can be empty) with per namespadce all link info  as dict
+           {
+              'ns name' : {
+                  mac : mac address
+                  index : interface system index
+                  device : device name
+                  opstate : interface operational state : up, down, unknown
+                  addresses : [     IP addresses (if any)
+                        {
+                         vlanid : VLAN ID (can be None)
+                         address : IP address (if any)
+                         address_prefix_l : IP address prefix length (if any)
+                         address_subnet : IP address subnet (if any)
+                         broadcast : IP address broadcast (if any),
+                        }
+                     ]
+                  type: link type
+                  flags: link flags
+              }
+           }
+
+    """
+    _result = {}
+    _ns_list = _get_namespaces()
+    # also gather info from default namespace
+    _ns_list.append('')
+    for _ns in _ns_list:
+        _result[_ns] = _get_link_infos(_ns)
+
+    return _result
 
 
 def get_interfaces():
@@ -39,6 +212,11 @@ def get_interfaces():
     -------
         dict
             The information on the interfaces.
+            keys:
+              physical : boolean, true if physical interface
+              mac : mac address
+              pci : PCI device
+              virtfns : dict of virtual function
     """
     ret = {}
 
@@ -157,6 +335,7 @@ def add_route_table(table_name):
     """
     Adds a new routing table by name
     Add a new entry in /etc/iproute2/rt_tables
+    If a table of that name already exists, silently aboret the operation
     Parameters
     ----------
     table_name : str
@@ -164,7 +343,7 @@ def add_route_table(table_name):
     Returns
     -------
         bool
-            True for success, False for failure
+            True for success or table already exists, False for failure.
     """
 
     # first , find a free number for the table
@@ -176,8 +355,12 @@ def add_route_table(table_name):
             if len(line.strip()) > 0 and not line.startswith('#'):
                 # trust the format of that file
                 tables_num.append(int(line.split()[0]))
+                # check if table already exits
+                if line.split()[1] == table_name:
+                    _logger.debug('routing table with name %s already exists' % table_name)
+                    return True
     _new_table_num_to_use = -1
-    for n in range(255):
+    for n in range(10, 255):
         if n not in tables_num:
             _new_table_num_to_use = n
             break
@@ -261,7 +444,7 @@ def remove_static_ip_routes(link_name):
     _lines = []
     try:
         _lines = subprocess.check_output(['/sbin/ip', 'route', 'show', 'dev', link_name]).splitlines()
-    except subprocess.CalledProcessError as ignored:
+    except subprocess.CalledProcessError:
         pass
     _logger.debug('routes found [%s]' % _lines)
     for _line in _lines:
@@ -277,25 +460,130 @@ def add_static_ip_route(*args, **kwargs):
     add a static route
     Parameters:
         kwargs:
-            device : network device on which assign the route
-            script : a reference to StringIO object to write the command for future use in script
+            namespace : network namespace in which to create the rule
+
         *args : argument list as passed to the ip-route(8) command
     Return:
         (code,message): command code , on failure a message is sent back
     """
-    routing_cmd = ['/usr/sbin/ip', 'route', 'add']
+    routing_cmd = ['/usr/sbin/ip']
+    if kwargs and 'namespace' in kwargs:
+        routing_cmd.extend(['-netns', kwargs['namespace']])
+    routing_cmd.extend(['route', 'add'])
     routing_cmd.extend(args)
-    _logger.debug('adding route : [%s]' % ' '.join(args))
-    _out = sudo_utils.call_output(routing_cmd)
-    if _out is not None and len(_out) > 0:
+    _logger.debug('adding route : [%s]' % ' '.join(routing_cmd))
+    _ret = sudo_utils.call(routing_cmd)
+    if _ret != 0:
         _logger.warning('add of ip route failed')
-        return (1, _out)
-
-    if kwargs.get('script'):
-        kwargs.get('script').write(' '.join(routing_cmd))
-        kwargs.get('script').write('\n')
+        return (1, 'add of ip route failed')
 
     return (0, '')
+
+
+def _compute_nm_conf_filename(mac):
+    """
+    Compute a filename from a mac address
+      - capitalized it
+      - replace ':' by '_'
+      - add .conf at the end
+    """
+    return "%s.conf" % mac.replace(':', '_').upper()
+
+
+def remove_mac_from_nm(mac):
+    """
+    Removes given MAC addres from the one managed by NetworkManager
+
+    Parameters:
+        mac : the mac address as string
+    Return:
+        None
+    """
+    if not mac:
+        raise Exception('Invalid MAC address')
+
+    if not os.path.exists(_NM_CONF_DIR):
+        if sudo_utils.create_dir(_NM_CONF_DIR) != 0:
+            raise Exception('Cannot create directory %s' % _NM_CONF_DIR)
+        _logger.debug('%s created' % _NM_CONF_DIR)
+
+    _cf = os.path.join(_NM_CONF_DIR, _compute_nm_conf_filename(mac))
+    if sudo_utils.create_file(_cf) != 0:
+        raise Exception('Cannot create file %s' % _cf)
+    else:
+        _logger.debug('%s created' % _cf)
+
+    nm_conf = StringIO()
+    nm_conf.write('[keyfile]\n')
+    nm_conf.write('unmanaged-devices+=mac:%s\n' % mac)
+
+    sudo_utils.write_to_file(_cf, nm_conf.getvalue())
+
+    nm_conf.close()
+
+
+def add_mac_to_nm(mac):
+    """
+    Adds given MAC addres from the one managed by NetworkManager
+
+    Parameters:
+        mac : the mac address as string
+    Return:
+        None
+    """
+    # if there is as nm conf file for this mac just remove it.
+    _cf = os.path.join(_NM_CONF_DIR, _compute_nm_conf_filename(mac))
+    if os.path.exists(_cf):
+        sudo_utils.delete_file(_cf)
+    else:
+        _logger.debug('no NetworkManager file for %s' % mac)
+
+
+def remove_ip_addr(device, ip_addr, namespace=None):
+    """
+    Removes an IP address on a given device
+    Parameter:
+        device : network device  as string
+        ip_addr : the ip address as string
+        [namespace]: network namespace as string
+    Return:
+        None
+    raise Exception : renmoval has failed
+    """
+    _cmd = ['/usr/sbin/ip']
+    if namespace and len(namespace) > 0:
+        _cmd.extend(['-netns', namespace])
+    _cmd.extend(['address', 'delete', ip_addr, 'dev', device])
+
+    ret = sudo_utils.call(_cmd)
+    if ret != 0:
+        raise Exception('Cannot remove ip address')
+
+
+def remove_ip_addr_rules(ip_addr):
+    """
+    Remove all ip rules set for an  ip address
+    Parameter:
+        ip_addr : the ip address as string
+    Return:
+        None
+    """
+    _lines = ''
+    try:
+        _lines = subprocess.check_output(['/sbin/ip', 'rule', 'list']).splitlines()
+    except subprocess.CalledProcessError:
+        pass
+    # for any line (i.e rules) if the ip is involved , grab the priority number
+    _matches = [_line for _line in _lines if ip_addr in _line.split()]
+    # now grab the priority numbers
+    # lines are like ''0:\tfrom all lookup local '' : take first item and remove trailing ':'
+    prio_nums = [_l.split()[0][:-1] for _l in _matches]
+
+    # now del all rules by priority number
+    for prio_num in prio_nums:
+        _ret = sudo_utils.call(['/sbin/ip', 'rule', 'del', 'pref', prio_num])
+        if _ret != 0:
+            _logger.warning('cannot delete rule [%s]' % prio_num)
 
 
 def remove_static_ip_rules(link_name):
@@ -311,7 +599,8 @@ def remove_static_ip_rules(link_name):
     _lines = []
     try:
         _lines = subprocess.check_output(['/sbin/ip', 'rule', 'show', 'lookup', link_name]).splitlines()
-    except subprocess.CalledProcessError as ignored:
+    except subprocess.CalledProcessError:
+
         pass
     _logger.debug('rules found [%s]' % _lines)
     for _line in _lines:
@@ -331,7 +620,6 @@ def add_static_ip_rule(*args, **kwargs):
     Parameters:
         kwargs:
             device : network device on which assign the rule
-            script : a reference to StringIO object to write the command for future use in script
         *args : argument list as passed to the ip-rule(8) command
     Return:
         (code,message): command code , on failure a message is sent back
@@ -339,14 +627,10 @@ def add_static_ip_rule(*args, **kwargs):
     ip_rule_cmd = ['/usr/sbin/ip', 'rule', 'add']
     ip_rule_cmd.extend(args)
     _logger.debug('adding rule : [%s]' % ' '.join(args))
-    _out = sudo_utils.call_output(ip_rule_cmd)
-    if _out is not None and len(_out) > 0:
+    _ret = sudo_utils.call(ip_rule_cmd)
+    if _ret != 0:
         _logger.warning('add of ip rule failed')
-        return (1, _out)
-
-    if kwargs.get('script'):
-        kwargs.get('script').write(' '.join(ip_rule_cmd))
-        kwargs.get('script').write('\n')
+        return (1, 'add of ip rule failed')
 
     return (0, '')
 
@@ -364,10 +648,10 @@ def add_firewall_rule(*args, **kwargs):
     fw_rule_cmd = ['/usr/sbin/iptables']
     fw_rule_cmd.extend(args)
     _logger.debug('adding fw rule : [%s]' % ' '.join(args))
-    _out = sudo_utils.call_output(fw_rule_cmd)
-    if _out is not None and len(_out) > 0:
+    _ret = sudo_utils.call(fw_rule_cmd)
+    if _ret != 0:
         _logger.warning('add of firewall rule failed')
-        return (1, _out)
+        return (1, 'add of firewall rule failed')
 
     if kwargs.get('script'):
         kwargs.get('script').write(' '.join(fw_rule_cmd))
@@ -387,9 +671,31 @@ def remove_firewall_rule(*args):
     fw_rule_cmd = ['/usr/sbin/iptables']
     fw_rule_cmd.extend(args)
     _logger.debug('removing fw rule : [%s]' % ' '.join(args))
-    _out = sudo_utils.call_output(fw_rule_cmd)
-    if _out is not None and len(_out) > 0:
+    _ret = sudo_utils.call(fw_rule_cmd)
+    if _ret != 0:
         _logger.warning('removal of firewall rule failed')
-        return (1, _out)
+        return (1, 'removal of firewall rule failed')
 
     return (0, '')
+
+
+def kill_processes_in_namespace(namespace):
+    """
+    Kills remaining process within a network namespace
+
+    parameters:
+    -----------
+        namespace : the namespace name as str
+    Returns:
+    --------
+        None
+    """
+    _logger.debug('killing process for namespace [%s]' % namespace)
+    _out = sudo_utils.call_output(['/usr/sbin/ip', 'netns', 'pids', namespace])
+    # one pid per line
+    if _out:
+        for pid in _out.splitlines():
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+            except (ValueError, OSError) as e:
+                _logger.warning('Cannot terminate [%s]: %s ' % (pid, str(e)))

@@ -23,7 +23,7 @@ repository of the Oracle Cloud Infrastructure
 .I display name
 .B ] [-l|--launch-mode
 .I [PARAVIRTUALIZED|EMULATED|NATIVE]
-.B ] [-v|--verbose] [--help]
+.B ] [-y|--yes] [-v|--verbose] [--help]
 
 .SH DESCRIPTION
 The
@@ -73,6 +73,8 @@ This argument is optional, the default is the image name.
 .IP "-l|--launch-mode"
 The mode an instance created form the custom image will be started. Possible
 modes are PARAVIRTUALIZED, EMULATED and NATIVE. The default is PARAVIRTUALIZED.
+.IP "-y|--yes"
+The answer on Yes/No questions is supposed to be yes
 .IP "-v|--verbose"
 Show more information about the import on the console.
 .IP "--help"

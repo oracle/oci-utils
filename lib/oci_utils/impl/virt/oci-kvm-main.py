@@ -46,8 +46,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Utility for creating and '
                                                  'managing KVM virtual '
                                                  'machines on an OCI '
-                                                 'instance.',
-                                     add_help=False)
+                                                 'instance.')
     subparser = parser.add_subparsers(dest='mode')
     create_parser = subparser.add_parser(_create,
                                          help='Create a new virtual machine')
@@ -67,10 +66,10 @@ def parse_args():
                                help='Name a of storage pool to be used for root disk')
     create_parser.add_argument('-s', '--disk-size', action='store', type=_disk_size_in_gb,
                                help='Size of the disk in GB to be created when using storage pool')
-    create_parser.add_argument('-n', '--net', action='store', type=str,
+    create_parser.add_argument('-n', '--net', action='append', type=str,
                                help='IP or name of the VNIC that should be attached '
                                     'to the VM')
-    create_parser.add_argument('-v', '--virtual-network', action='store', type=str,
+    create_parser.add_argument('-v', '--virtual-network', action='append', type=str,
                                help='The name of libvirt nework to attach the guest to')
     create_parser.add_argument('-D', '--domain', action='store', type=str,
                                help='Name of the virtual machine',
@@ -119,9 +118,6 @@ def parse_args():
     delete_network_parser.add_argument('-N', '--network-name', action='store', required=True, type=str,
                                        help='the name of the network')
 
-    parser.add_argument('--help', action='help',
-                        help='Display this help')
-
     return parser
 
 
@@ -155,16 +151,35 @@ def create_vm(args):
         print("--net and --virtual_network option are exclusive", file=sys.stderr)
         return 1
 
+    # insure unicity in networking options in BM case
+
+    _all_net_names = set()
+    for n_name in args.net:
+        if n_name not in _all_net_names:
+            _all_net_names.add(n_name)
+        else:
+            print('duplicate virtual network name [%s], ignore it', vn_n)
+
     if '--network' in args.virt:
         sys.stderr.write(
             "--network is not a supported option. Please retry without "
             "--network option.\n")
         return 1
+
+    # sanity on extra arguments passed to virt-install(1)
+    # some options do not create the guest but display information
+    # this is wrongly interpreted as a succcess by underlying layers and we
+    # may setup things by mistake
+    _virt_install_extra = []
+    for _a in args.virt:
+        if _a not in ('--print-xml',  '--version', '-h', '--help'):
+            _virt_install_extra.append(_a)
+
     return oci_utils.kvm.virt.create(name=args.domain,
                                      root_disk=args.disk,
                                      pool=args.pool,
                                      disk_size=args.disk_size,
-                                     network=args.net, virtual_network=args.virtual_network, extra_args=args.virt)
+                                     network=list(_all_net_names), virtual_network=args.virtual_network, extra_args=_virt_install_extra)
 
 
 def destroy_vm(args):

@@ -36,7 +36,7 @@ def parse_args():
                                                  'the network, its subnets '
                                                  'and ips assigned for a '
                                                  'given compartment or '
-                                                 'network.', add_help=False)
+                                                 'network.')
     parser.add_argument('-C', '--compartment',
                         metavar='OCID',
                         action='store',
@@ -45,9 +45,6 @@ def parse_args():
                         metavar='OCID',
                         action='store',
                         help='ocid of a given Virtual Cloud Network')
-    parser.add_argument('--help',
-                        action='help',
-                        help='Display this help')
 
     args = parser.parse_args()
     return args
