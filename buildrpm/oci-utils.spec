@@ -20,7 +20,7 @@ BuildRequires: python3-setuptools
 Requires: python3
 Requires: python3-daemon
 Requires: python3-sdnotify
-
+Requires: xfsprogs
 Requires: cloud-utils-growpart
 # for lsblk
 Requires: util-linux
