@@ -5,7 +5,7 @@
 .\"
 .TH OCI-GROWFS 8 "AUG 2018" Linux "User Manuals"
 .SH NAME
-/usr/libexec/oci-growfs \- expand a filesystem to its configured size in a compute instance in the Oracle Cloud Infrastructure. 
+/usr/libexec/oci-growfs \- expand a filesystem to its configured size in a compute instance in the Oracle Cloud Infrastructure.
 
 .SH SYNOPSIS
 .B oci-growfs [-h] [-y|-n]
@@ -28,6 +28,9 @@ section in
 .BR oci-utils.conf.d(5)
 to enable or disable this functionality.
 
+For LVM based root filesystem, oci-growfs only support Logical Volume created on Logical Group
+built with only one Physical volume.
+
 .B oci-growfs
 must be run on a compute instance in the Oracle Cloud Infrastructure, and it requires root privilege.
 
@@ -35,7 +38,7 @@ Note: in the current release only the root filesystem can be resized using
 .B oci-growfs.
 
 .SH OPTIONS
-.IP -h 
+.IP -h
 print the usage help information.
 .IP -y
 answer 'y' to all questions.
