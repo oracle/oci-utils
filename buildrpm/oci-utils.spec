@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.11.1
+Version: 0.11.2
 Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -20,7 +20,7 @@ BuildRequires: python3-setuptools
 Requires: python3
 Requires: python3-daemon
 Requires: python3-sdnotify
-
+Requires: xfsprogs
 Requires: cloud-utils-growpart
 # for lsblk
 Requires: util-linux
@@ -172,10 +172,13 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* thu Jul 16 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.2
+- support for LVM root filesystem in oci-growfs
+
 * Wed Jul 2 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.1
 - multi vnic support for KVM guests
 - removal of libexec/secondary_vnic_all_configure.sh, replaced by python implementation
-- oci-kvm, added sanity around parameers passes as part of extra-args option
+- oci-kvm, added sanity around parameters passes as part of extra-args option
 
 * Wed Apr 1 2020 Guido Tijskens <guido.tijskens@oracle.com> -- 0.11.0
 - add oci-image-migrate code

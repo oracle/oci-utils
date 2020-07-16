@@ -219,7 +219,6 @@ class oci_migrate_tests(TestCommand):
         TestCommand.run(self)
 
 
-
 class print_recorded_commands(Command):
     description = 'pretty print of recorded commands'
     user_options = [
@@ -363,7 +362,7 @@ if sys.version_info.major < 3:
 
 setup(
     name="oci-utils",
-    version="0.11.1",
+    version="0.11.2",
     author="Laszlo Peter, Qing Lin, Guido Tijskens, Emmanuel Jannetti",
     author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com, emmanuel.jannetti@oracle.com",
     description="Oracle Cloud Infrastructure utilities",

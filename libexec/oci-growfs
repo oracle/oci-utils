@@ -1,8 +1,8 @@
-#!/bin/bash 
+#!/bin/bash
 
 # oci-utils
 #
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 
 FORCE=false
@@ -48,18 +48,14 @@ confirm()
     done
 }
 
-xfs_growfs_func(){
+part_growfs_func(){
     if [ $# -ne 2 ]; then
         echo "Invalid disk or partition."
         exit 1
-    fi 
-    which growpart > /dev/null 2>&1
-    [ $? != 0 ] && echo "Please install cloud-utils-growpart." && exit 1
-    which xfs_growfs > /dev/null 2>&1 
-    [ $? != 0 ] && echo "Please re-install cloud-utils-growpart." && exit 1
+    fi
 
     growpart $1 $2 --dry-run && confirm ${F_VALUE} && growpart $1 $2 && xfs_growfs /
-    return $? 
+    return $?
 }
 
 if [ "$EUID" -ne 0 ]; then
@@ -86,27 +82,53 @@ while [ "$#" -gt 0 ]; do
         exit 0
         ;;
     -* | *)
-        echo "unknown option: $1" >&2;  
-        usage; 
+        echo "unknown option: $1" >&2;
+        usage;
         exit 1
         ;;
     esac
 done
 
-root_mount=`mount |grep "/ type"`
-device=`echo ${root_mount}|awk '{print $1}'`
-disk=${device//[0-9]/}
-partition=${device//[^0-9]/}
-fs_type=`echo ${root_mount}|awk '{print $5}'`
 
-case "${fs_type}" in
-    xfs)
-       xfs_growfs_func $disk $partition
-       ;;
-    *)
-       echo "Type ${fs_type} not supported yet."
-       exit 1
-       ;;
-esac
+# first get storage type used for root FS
+_storage=`/usr/bin/findmnt --canonicalize --noheadings --output SOURCE /`
+# expecting lvm or part,
+/usr/bin/lsblk --noheadings -o TYPE,NAME $_storage | while read _type _sto
+do
+    case "${_type}" in
+        part)
+            part_growfs_func /dev/${_sto//[0-9]/} ${_sto//[^0-9]/}
+            exit $?
+            ;;
+        lvm)
+            # 1. find LV and VG of the device
+            #     we pipe to  awk  to strip away any leading space
+            _root_vg=`/usr/sbin/lvs --noheadings --options vg_name --select lv_dm_path=$_storage | awk '{print $1}'`
+            echo "root VG: ${_root_vg}"
+            [ "${_root_vg}" == "" ] && echo "Cannot find root volume group." && exit 1
+
+            # 2. find all PVs involve in the VG used for root
+            for _pv in `/usr/sbin/pvs --noheadings --options pv_name --select vg_name=${_root_vg}`
+            do
+                # 3. find device of PVs
+                _device=`/usr/sbin/pvs --noheadings --options devices --select pv_name=${_pv}`
+                # device is suffixed with extne number like /dev/sda3(0) , just keep disk information parts
+                _device=${_device//([0-9]*)/}
+                # 3.1 extend the partittion
+                echo "calling part_growfs_func ${_device//[0-9]/} ${_device//[^0-9]/}"
+                part_growfs_func ${_device//[0-9]/} ${_device//[^0-9]/}
+                [ $? != 0 ] && echo "Cannot extend physical volume disk partition." && exit 1
+                # 3.1 extend the PV
+                echo "calling /usr/sbin/pvresize ${_pv}"
+                /usr/sbin/pvresize ${_pv}
+                [ $? != 0 ] && echo "Cannot extend physical volume." && exit 1
+            done
+            # 4. extend the LV and the FS
+            _lv_path=`/usr/sbin/lvs --noheadings --options lv_path --select lv_dm_path=$_storage`
+            echo "calling /usr/sbin/lvextend -l +100%FREE --resizefs ${_lv_path}"
+            /usr/sbin/lvextend -l +100%FREE --resizefs ${_lv_path}
+            exit $?
+    esac
+done
 
 exit $?
