@@ -172,7 +172,7 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
-* thu Jul 16 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.2
+* Thu Jul 16 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.2
 - support for LVM root filesystem in oci-growfs
 
 * Wed Jul 2 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.1
