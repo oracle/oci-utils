@@ -80,6 +80,7 @@ def main():
         comps.append(comp)
     else:
         comp = sess.all_compartments()
+        __logger.debug('no compartement specified, requesting all, got (%d)' % len(comp))
         comps.extend(comp)
 
     if len(comps) == 0:
@@ -103,12 +104,17 @@ def main():
         # get all vcns for the compartment.
         for comp in comps:
             comp_vcns = comp.all_vcns()
+            if __logger.isEnabledFor(logging.DEBUG):
+                __logger.debug('Requesting VCNs of [%s], got (%d)' % (comp.get_display_name(), len(comp_vcns)))
             for vcn in comp_vcns:
                 vcn.set_compartment_name(comp.get_display_name())
             vcns += comp_vcns
 
     if len(vcns) == 0:
-        __logger.error("VCN not found: %s\n" % args.vcn)
+        if args.vcn is not None:
+            __logger.error("VCN not found: %s\n" % args.vcn)
+        else:
+            __logger.error("No VCN information found")
         return 1
 
     comp_ocid = None
@@ -123,17 +129,17 @@ def main():
                   (_compartment.get_display_name(), _compartment.get_ocid()))
             comp_ocid = _compartment.get_ocid()
         print("")
-        print("  vcn: %s " % vcn.get_display_name())
+        print("  vcn: %s (%s)" % (vcn.get_display_name(), vcn.get_ocid()))
         sll = vcn.all_security_lists()
         for _, value in list(sll.items()):
             value.print_security_list("    ")
 
         for subnet in vcn.all_subnets():
             print("")
-            print("     Subnet: %s Availibility domain: %s" % (
-                subnet.get_display_name(), subnet.get_availability_domain()))
-            print("         Cidr_block: %s Domain name: %s" %
-                  (subnet.get_cidr_block(), subnet.get_domain_name()))
+            print("     Subnet: %s (%s)" % (subnet.get_display_name(), subnet.get_ocid()))
+            print("                Availibility domain: %s" % subnet.get_availability_domain())
+            print("                Cidr_block: %s" % subnet.get_cidr_block())
+            print("                DNS Domain Name: %s" % subnet.get_domain_name())
 
             for sl_id in subnet.get_security_list_ids():
                 try:
