@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -221,7 +221,7 @@ class OCISession(object):
         try:
             call_name = client_func.__name__
         except Exception:
-            pass
+            _logger.debug('function name not found', stack_info=True, exc_info=True)
         try:
             result = client_func(*args, **kwargs)
             next_res = result
@@ -229,7 +229,7 @@ class OCISession(object):
                 next_res = client_func(*args, page=next_res.next_page, **kwargs)
                 result.data.extend(next_res.data)
         except Exception as e:
-            _logger.debug("API call %s failed: %s" % (call_name, e))
+            _logger.debug("API call %s failed: %s" % (call_name, e), stack_info=True, exc_info=True)
             raise
         finally:
             release_thread()
