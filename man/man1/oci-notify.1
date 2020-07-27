@@ -1,0 +1,57 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-notify.1
+.\"
+.\" Copyright (c) 2020Oracle and/or its affiliates. All rights reserved.
+.\" Licensed under the Universal Permissive License v 1.0 as shown
+.\" at http://oss.oracle.com/licenses/upl.
+.\"
+.TH OCI-NOTIFY 1 "JULY 2020" Linux "User Manuals"
+.SH NAME
+oci-notify - Send a message and data to a Oracle Cloud Infrastructure
+notification server.
+.SH SYNOPSIS
+.B oci-notify -c
+.I OCID_TOPIC
+
+.B oci-notify -t
+.I TITLE
+.B -f
+.I FILE
+
+.SH DESCRIPTION
+The
+.B oci-notify -c
+.I topic
+command configures a notification server topic by creating or updating the
+.B
+oci.conf
+file.
+
+The
+.B oci-notify -t
+.I subject
+.B -f
+.I file
+command sends the file
+.I file
+with subject
+.I title
+to the configured notification server of the Oracle Cloud Infrastructure.
+
+The
+.B oci-notify
+expects the configuration files by default in
+.B /etc/oci-utils
+but this is overruled by the environment variable
+.B OCI_CONFIG_DIR.
+
+the
+.B oci-notify
+command writes log and error messages to the logfile /var/log/oci-notify.log
+
+.SH DIAGNOSTICS
+Return an exit status of 0 for success or 1 if an error occurred.
+
+.SH "SEE ALSO"
+.BR ocid (8)
+.BR oci-utils.conf.d (5)
