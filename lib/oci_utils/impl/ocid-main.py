@@ -1,7 +1,7 @@
 
 # oci-utils
 #
-# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -218,7 +218,7 @@ def public_ip_func(context, func_logger):
             sess = oci_utils.oci_api.OCISession()
             instance = sess.this_instance()
             if instance is None:
-               raise OCISDKError('Cannot get instance')
+                raise OCISDKError('Cannot get instance')
             return {'publicIp': instance.get_public_ip()}
         except OCISDKError as e:
             func_logger.exception('failed to retrieve public ip information')
@@ -306,10 +306,10 @@ def iscsi_func(context, func_logger):
         # get a list of volumes attached to the instance
         instance = context['oci_sess'].this_instance()
         if instance is None:
-           func_logger.debug('Cannot get current instance')
+            func_logger.debug('Cannot get current instance')
         else:
-           volumes = instance.all_volumes(refresh=True)
-           for v in volumes:
+            volumes = instance.all_volumes(refresh=True)
+            for v in volumes:
                 vol = {'iqn': v.get_iqn(),
                        'ipaddr': v.get_portal_ip(),
                        'user': v.get_user(),
