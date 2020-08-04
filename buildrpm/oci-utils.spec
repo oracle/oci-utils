@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.11.2
+Version: 0.11.3
 Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -172,6 +172,9 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Tue Aug 4 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.3
+- LINUX-7672 - fix for python3 byte handling issue.
+
 * Thu Jul 16 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.2
 - support for LVM root filesystem in oci-growfs
 
