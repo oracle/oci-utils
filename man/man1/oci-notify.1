@@ -5,7 +5,7 @@
 .\" Licensed under the Universal Permissive License v 1.0 as shown
 .\" at http://oss.oracle.com/licenses/upl.
 .\"
-.TH OCI-NOTIFY 1 "JULY 2020" Linux "User Manuals"
+.TH OCI-NOTIFY 1 "AUGUST 2020" Linux "User Manuals"
 .SH NAME
 oci-notify - Send a message and data to a Oracle Cloud Infrastructure
 notification server.
@@ -20,37 +20,65 @@ notification server.
 
 .SH DESCRIPTION
 The
-.B oci-notify -c
-.I topic
-command configures a notification server topic by creating or updating the
-.B
-oci.conf
-file.
+.B oci-notify
+utility sends a message to an
+.B Oracle Cloud Infrastructure
+notification service. A message is composed of a title and file. Large files
+are split into 64KB chunks. It is the responsibility of the notification service
+configuration where and how the messages are delivered.
 
-The
-.B oci-notify -t
-.I subject
-.B -f
-.I file
-command sends the file
-.I file
-with subject
-.I title
-to the configured notification server of the Oracle Cloud Infrastructure.
+.B oci-notify
+command writes log and error messages to the logfile
+.B /var/log/oci-notify.log
 
-The
+.B oci-notify
+expects
+.B oci-sdk
+as well as
+.B oci-cli
+installed. Authentication is attempted via
+.B oci-sdk
+configuration. On failure, the instance principal authentication is used.
+
 .B oci-notify
 expects the configuration files by default in
 .B /etc/oci-utils
 but this is overruled by the environment variable
 .B OCI_CONFIG_DIR.
 
-the
 .B oci-notify
-command writes log and error messages to the logfile /var/log/oci-notify.log
+must be run with root privileges, either as user root or using
+.B sudo(8).
+
+.SH OPTIONS
+.IP "oci-notify -c <topic>"
+configures a notification server topic by creating or updating the
+.B
+oci.conf
+file. The
+.B topic
+is the
+.B ocid
+of the notification service.
+
+.IP "oci-notify -t <subject> -f <file>
+sends the file
+.B file
+with subject
+.B title
+to the configured notification server of the
+.B Oracle Cloud Infrastructure.
+
+.B subject
+is a text string used as message header, email subject, etc ... The
+.B subject
+is prepended with the instance name.
+
+.B file
+is the full or relative path of the file to send.
 
 .SH DIAGNOSTICS
-Return an exit status of 0 for success or 1 if an error occurred.
+Return an exit status of 0 for success or a positive value if an error occurred.
 
 .SH "SEE ALSO"
 .BR ocid (8)

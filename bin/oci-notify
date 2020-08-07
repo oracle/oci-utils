@@ -11,10 +11,9 @@ ocisdk=python36-oci-sdk
 #
 # configuration directory; environment variable OCI_CONFIG_DIR overrules
 # the default configuration directory /etc/oci-utils.
-if [ -z ${OCI_CONFIG_DIR+x} ]; then
+config_dir=/etc/oci-utils
+if [ ! -z ${OCI_CONFIG_DIR+x} ]; then
     config_dir=/etc/oci-utils
-else
-    config_dir=${OCI_CONFIG_DIR}
 fi
 # OCI config: topic OCID etc.
 oci_config_file=$config_dir/oci.conf
@@ -24,7 +23,7 @@ oci_api_key_file=$config_dir/oci_api_key.pem
 oci_cli_config_file=$config_dir/oci_cli.conf
 
 # log
-log_file=/var/log/oci_notify.log
+log_file=/var/log/oci-notify.log
 
 usage() {
     cat >&2 << EOF
@@ -69,9 +68,7 @@ log_error() {
 oci_cli_check() {
     which oci > /dev/null 2>&1
     if [ ${?} -gt 0 ]; then
-        log_error "oci_cli is not installed."
-        echo "Install and configure ${ocicli}."
-        echo "The configuration file is expected to be ${oci_cli_config_file}."
+        log_error "oci_cli is not installed; install ${ocicli}."
         exit 1
     else
         log_debug "oci_cli is installed."
@@ -82,8 +79,7 @@ oci_cli_config_check() {
     if [ ! -f "$oci_cli_config_file" ]; then
         #
         # oci cli config file is not found at expected location.
-        log_error "oci cli configuration file ${oci_cli_config_file} was not found." >&2
-        exit 2
+        log_debug "oci cli configuration file ${oci_cli_config_file} was not found." >&2
     else
         log_debug "${oci_cli_config_file} found."
     fi
@@ -174,7 +170,7 @@ EOF
     #
     # send a configuration message.
     instance_name=$(get_instance_name)
-    title="oci_utils: Notification enabled on instance $instance_name"
+    title="oci-utils: Notification enabled on instance $instance_name"
     out_file=$(mktemp "$work_dir/config_XXXX")
     cat > "$out_file" <<EOF
 Configured OCI notification service topic OCID on instance $instance_name: $ocid_topic
@@ -289,11 +285,11 @@ run_as_root_check
 
 python3_check
 
+oci_sdk_check
+
 oci_cli_check
 
 oci_cli_config_check
-
-oci_sdk_check
 
 while getopts "t:f:c:h" OPTION; do
     case "$OPTION" in
@@ -371,7 +367,8 @@ if ! [ -z "${title+x}" ]; then
             log_error "Please configure OCI notification service topic OCID with al-config." >&2
             exit 1
         fi
-        send_message "${topic}" "${title}" "${file}"
+        instance_name=$(get_instance_name)
+        send_message "${topic}" "${instance_name}: ${title}" "${file}"
     fi
 elif ! [ -z "${notification_ocid+x}" ]; then
     configure_notification "${notification_ocid}"
