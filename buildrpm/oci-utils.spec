@@ -26,6 +26,13 @@ Requires: cloud-utils-growpart
 Requires: util-linux
 # for iscsiadm
 Requires: iscsi-initiator-utils
+#
+%if 0%{?rhel} == 7
+Requires: python36-netaddr
+%else
+Requires: network-scripts
+Requires: python3-netaddr
+%endif
 
 
 %description
@@ -38,11 +45,8 @@ Requires: %{name} = %{version}-%{release}
 
 %if 0%{?rhel} >= 8
 Requires: python3-libvirt
-Requires: python3-netaddr
-Requires: network-scripts
 %else
 Requires: python36-libvirt
-Requires: python36-netaddr
 %endif
 
 %description kvm
