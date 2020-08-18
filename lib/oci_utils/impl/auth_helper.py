@@ -91,7 +91,10 @@ class OCIAuthProxy(object):
         resp = {'status': 'DEBUG'}
         while resp['status'] == 'DEBUG':
             line = self.helper.stdout.readline()
-            resp = json.loads(line.strip())
+            try:
+                resp = json.loads(line.strip())
+            except ValueError as e:
+                raise OCISDKError('%s is not valid JSON' % line.strip())
             if resp['status'] == 'ERROR':
                 raise OCISDKError('API Proxy error: %s' % resp['data'])
         return resp
