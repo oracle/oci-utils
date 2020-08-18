@@ -216,12 +216,13 @@ class OCISession(object):
             If the timeout is reached.
         """
         lock_thread(timeout=self._sdk_lock_timeout)
-        # for loggin purposes
+        # for login purposes
         call_name = str(client_func)
         try:
             call_name = client_func.__name__
         except Exception:
-            _logger.debug('function name not found', stack_info=True, exc_info=True)
+            _logger.debug('function name not found',
+                          stack_info=True, exc_info=True)
         try:
             result = client_func(*args, **kwargs)
             next_res = result
@@ -229,7 +230,8 @@ class OCISession(object):
                 next_res = client_func(*args, page=next_res.next_page, **kwargs)
                 result.data.extend(next_res.data)
         except Exception as e:
-            _logger.debug("API call %s failed: %s" % (call_name, e), stack_info=True, exc_info=True)
+            _logger.debug("API call %s failed: %s" % (call_name, e),
+                          stack_info=True, exc_info=True)
             raise
         finally:
             release_thread()
@@ -939,10 +941,10 @@ class OCISession(object):
                                           instance_id=instance_id).data
             return OCIInstance(self, instance_data)
         except Exception as e:
-            _logger.error('Failed to fetch instance: %s. \n'
+            _logger.debug('Failed to fetch instance: %s. \n'
                           'Check your connection and settings.' % e)
-
-        return None
+            raise OCISDKError('Failed to fetch instance %s' % instance_id)
+        # return None
 
     def get_subnet(self, subnet_id, refresh=False):
         """
@@ -966,7 +968,7 @@ class OCISession(object):
             return OCISubnet(self, subnet_data=sn_data)
         except oci_sdk.exceptions.ServiceError:
             _logger.debug('failed to get subnet', exc_info=True)
-            return None
+            # return None
 
         return None
 
@@ -1031,7 +1033,8 @@ class OCISession(object):
             raise Exception('ocid must be provided')
 
         try:
-            c_data = self._identity_client.get_compartment(compartment_id=kargs['ocid']).data
+            c_data = \
+                self._identity_client.get_compartment(compartment_id=kargs['ocid']).data
             return OCICompartment(session=self, compartment_data=c_data)
         except Exception as e:
             _logger.error('error getting compartment: %s' % e)
