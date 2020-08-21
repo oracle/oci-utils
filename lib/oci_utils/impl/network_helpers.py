@@ -83,7 +83,7 @@ def _get_link_infos(namespace):
     --------
         list of
         {
-            link : underlying link of thie interface (may be None)
+            link : underlying link of this interface (may be None)
             link_idx: underlying link index of thie interface (may be None)
             mac : mac address
             index : interface system index
@@ -139,7 +139,8 @@ def _get_link_infos(namespace):
         # grab VF mac if any
         if 'vfinfo_list' in obj:
             for _v in obj['vfinfo_list']:
-                _vfs_mac.append(_v['mac'])
+                if 'mac' in _v.keys():
+                    _vfs_mac.append(_v['mac'])
 
         if 'linkinfo' in obj:
             _addr_info['subtype'] = obj['linkinfo']['info_kind']

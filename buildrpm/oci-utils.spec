@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.11.3
-Release: 1%{?dist}
+Release: 2%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -175,7 +175,10 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
-* Mon Aug 17 2020 Guido Tijskens <guido.tijskens@oracle.com> --0.11.3.1
+* Fri Aug 21 2020 Gudio Tijskens <guido.tijskens@oracle.com> --0.11.3-2
+- LINUX-7916 Error seen when creating a new vnic with oci-utils v0.11.3-0 on KVM image
+
+* Mon Aug 17 2020 Guido Tijskens <guido.tijskens@oracle.com> --0.11.3-1
 - ACL-180
 
 * Tue Aug 4 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.3
