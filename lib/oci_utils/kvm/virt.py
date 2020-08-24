@@ -159,7 +159,7 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
     """
     configured = sysconfig.read_network_config()
     ifaces = get_interfaces()
-    virt_fns = ifaces[phys].get('virt_fns', {})
+    virt_fns = ifaces[phys].get('virtfns', {})
     vfs = {virt_fns[v]['mac']: (virt_fns[v]['pci_id'], v) for v in virt_fns}
 
     # First, remove entries where the mac address is configured via sysconfig

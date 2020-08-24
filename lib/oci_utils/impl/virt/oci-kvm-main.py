@@ -154,11 +154,12 @@ def create_vm(args):
     # insure unicity in networking options in BM case
 
     _all_net_names = set()
-    for n_name in args.net:
-        if n_name not in _all_net_names:
-            _all_net_names.add(n_name)
-        else:
-            print('duplicate virtual network name [%s], ignore it', vn_n)
+    if args.net:
+        for n_name in args.net:
+            if n_name not in _all_net_names:
+                _all_net_names.add(n_name)
+            else:
+                print('duplicate virtual network name [%s], ignore it', vn_n)
 
     if '--network' in args.virt:
         sys.stderr.write(

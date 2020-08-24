@@ -139,7 +139,8 @@ def _get_link_infos(namespace):
         # grab VF mac if any
         if 'vfinfo_list' in obj:
             for _v in obj['vfinfo_list']:
-                _vfs_mac.append(_v['mac'])
+                if 'mac' in _v:
+                    _vfs_mac.append(_v['mac'])
 
         if 'linkinfo' in obj:
             _addr_info['subtype'] = obj['linkinfo']['info_kind']
