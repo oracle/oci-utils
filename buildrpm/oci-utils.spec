@@ -179,6 +179,7 @@ rm -rf %{buildroot}
 - LINUX-7986 - fix crash while printing network interfaces on BM shapes with oci-network-config command
 - LINUX-7918 - fix regression on -n option of oci-kvm command
 - LINUX-7918 - fix free vnic search for oci-kvm command on BM shapes
+- LINUX-8011 - interpreter crashes displaying iSCSI information
 
 * Mon Aug 17 2020 Guido Tijskens <guido.tijskens@oracle.com> --0.11.3.1
 - ACL-180
