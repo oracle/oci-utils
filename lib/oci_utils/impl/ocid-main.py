@@ -1,7 +1,7 @@
 
 # oci-utils
 #
-# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -34,6 +34,8 @@ from oci_utils import _configuration as OCIUtilsConfiguration
 from oci_utils import _MAX_VOLUMES_LIMIT
 from oci_utils import vnicutils
 from oci_utils.cache import get_timestamp, load_cache, write_cache
+from oci_utils.packages.stun import get_ip_info
+from oci_utils.exceptions import OCISDKError
 
 __ocid_logger = logging.getLogger('oci-utils.ocid')
 
@@ -214,9 +216,12 @@ def public_ip_func(context, func_logger):
     if oci_utils.oci_api.HAVE_OCI_SDK:
         try:
             sess = oci_utils.oci_api.OCISession()
-            return {'publicIp': sess.this_instance().get_public_ip()}
+            instance = sess.this_instance()
+            if instance is None:
+                raise OCISDKError('Cannot get instance')
+            return {'publicIp': instance.get_public_ip()}
         except OCISDKError as e:
-            func_logger.exception()
+            func_logger.exception('failed to retrieve public ip information')
 
     # fallback
     external_ip = get_ip_info()[1]
@@ -299,17 +304,21 @@ def iscsi_func(context, func_logger):
     inst_volumes = []
     if context['oci_sess'] is not None:
         # get a list of volumes attached to the instance
-        volumes = context['oci_sess'].this_instance().all_volumes(refresh=True)
-        for v in volumes:
-            vol = {'iqn': v.get_iqn(),
-                   'ipaddr': v.get_portal_ip(),
-                   'user': v.get_user(),
-                   'password': v.get_password()}
-            inst_volumes.append(vol)
-            if v.get_portal_ip() in all_iqns:
-                all_iqns[v.get_portal_ip()].append(v.get_iqn())
-            else:
-                all_iqns[v.get_portal_ip()] = [v.get_iqn()]
+        instance = context['oci_sess'].this_instance()
+        if instance is None:
+            func_logger.debug('Cannot get current instance')
+        else:
+            volumes = instance.all_volumes(refresh=True)
+            for v in volumes:
+                vol = {'iqn': v.get_iqn(),
+                       'ipaddr': v.get_portal_ip(),
+                       'user': v.get_user(),
+                       'password': v.get_password()}
+                inst_volumes.append(vol)
+                if v.get_portal_ip() in all_iqns:
+                    all_iqns[v.get_portal_ip()].append(v.get_iqn())
+                else:
+                    all_iqns[v.get_portal_ip()] = [v.get_iqn()]
     else:
         # fall back to scanning
         for r in range(context['max_volumes'] + 1):

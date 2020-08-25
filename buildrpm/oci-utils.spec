@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.11.2
-Release: 0%{?dist}
+Version: 0.11.3
+Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -26,7 +26,13 @@ Requires: cloud-utils-growpart
 Requires: util-linux
 # for iscsiadm
 Requires: iscsi-initiator-utils
-
+#
+%if 0%{?rhel} == 7
+Requires: python36-netaddr
+%else
+Requires: network-scripts
+Requires: python3-netaddr
+%endif
 
 %description
 A package with useful scripts for querying/validating the state of Oracle Cloud Infrastructure instances running Oracle Linux and facilitating some common configuration tasks.
@@ -38,11 +44,8 @@ Requires: %{name} = %{version}-%{release}
 
 %if 0%{?rhel} >= 8
 Requires: python3-libvirt
-Requires: python3-netaddr
-Requires: network-scripts
 %else
 Requires: python36-libvirt
-Requires: python36-netaddr
 %endif
 
 %description kvm
@@ -172,6 +175,12 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Mon Aug 17 2020 Guido Tijskens <guido.tijskens@oracle.com> --0.11.3.1
+- ACL-180
+
+* Tue Aug 4 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.3
+- LINUX-7672 - fix for python3 byte handling issue.
+
 * Thu Jul 16 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.2
 - support for LVM root filesystem in oci-growfs
 
