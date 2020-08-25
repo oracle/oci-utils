@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.11.3
-Release: 2%{?dist}
+Release: 3%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -175,7 +175,7 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
-* Tue Aug 25 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.3.2
+* Tue Aug 25 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.3.3
 - LINUX-7986 - fix crash while printing network interfaces on BM shapes with oci-network-config command
 - LINUX-7918 - fix regression on -n option of oci-kvm command
 - LINUX-7918 - fix free vnic search for oci-kvm command on BM shapes
