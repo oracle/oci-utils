@@ -286,7 +286,7 @@ def display_current_devices(oci_sess, session, disks):
             print("         Volume name:    %s" % oci_vol.get_display_name())
             print("         Volume OCID:    %s" % oci_vol.get_ocid())
             print("         Volume size:    %s" %
-                  oci_vol.get_size(format_str=oci_vol.HUMAN.name))
+                  oci_vol.get_size(format_str=OCI_VOLUME_SIZE_FMT.HUMAN.name))
 
     print()
 
