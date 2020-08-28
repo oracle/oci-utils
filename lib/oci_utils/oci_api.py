@@ -270,6 +270,7 @@ class OCISession(object):
             try:
                 _logger.debug('trying %s auth' % auth_method)
                 _auth_mechanisms[auth_method]()
+                _logger.debug('%s auth ok' % auth_method)
                 return auth_method
             except Exception as e:
                 _logger.debug(' %s auth has failed: %s' % (auth_method, str(e)))
@@ -280,6 +281,7 @@ class OCISession(object):
             try:
                 _logger.debug('trying %s auth' % method)
                 _auth_mechanisms[method]()
+                _logger.debug('%s auth ok' % method)
                 return method
             except Exception as e:
                 _logger.debug(' %s auth has failed: %s' % (method, str(e)))

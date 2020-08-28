@@ -213,7 +213,7 @@ def read_config():
     oci_utils_config.set('public_ip', 'refresh_interval', '600')
     oci_utils_config.add_section('ocid')
     oci_utils_config.set('ocid', 'sdk_lock_timeout', '60')
-    oci_utils_config.set('ocid', 'debug', False)
+    oci_utils_config.set('ocid', 'debug', 'False')
 
     if not os.path.exists(__oci_utils_conf_d):
         return oci_utils_config
