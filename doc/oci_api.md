@@ -93,7 +93,7 @@ import oci_utils.oci_api
 
 sess = oci_utils.oci_api.OCISession(config_file='/path/to/file',
                                     config_profile='PROFILE',
-				    auth_method=None, debug=False)
+				    auth_method=None)
 ```
 
 Valid values for auth_method are:
@@ -108,6 +108,11 @@ to ensure that only one call is made at a time.  If it cannot acquire the lock
 within a timeout (default 60sec) then an OCISDKError exception is raised.
 The set_sdk_call_timeout(timeout) method can be used to change the default
 timeout.  A timeout value of 0 means wait forever.
+The timeout can be change in configuration
+create a config file in /etc/oci-utils.conf.d that says:
+    [ocid]
+    sdk_lock_timeout = <number>
+
 
 The OCISession object allows you to list or find various OCI artifacts.
 Unless otherwise noted, these methods have an optional "refresh" argument,

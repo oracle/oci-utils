@@ -46,7 +46,7 @@ class OCISession(object):
     """
 
     def __init__(self, config_file='~/.oci/config', config_profile='DEFAULT',
-                 auth_method=None, debug=False):
+                 auth_method=None):
         """
         OCISession initialisation.
 
@@ -58,9 +58,7 @@ class OCISession(object):
             The oci profile.
         auth_method : str
             The authentication method, [None | DIRECT | PROXY | AUTO | IP].
-        debug : bool
-            The debug flag
-            # --GT-- not used, left in to avoid class initialisation failure.
+
 
         Raises
         ------
@@ -78,7 +76,7 @@ class OCISession(object):
         self._compartments = None
         self._instances = None
         # max time spent waiting for the sdk thread lock
-        self._sdk_lock_timeout = int(60)
+        self._sdk_lock_timeout = int(OCIUtilsConfiguration.get('ocid', 'sdk_lock_timeout'))
         self._vcns = None
         self._subnets = None
         self._volumes = None
@@ -88,32 +86,32 @@ class OCISession(object):
         self._block_storage_client = None
         self._object_storage_client = None
 
+        self._metadata = None
         try:
             self._metadata = oci_utils.metadata.InstanceMetadata(
                 get_public_ip=False).get(silent=True).get()
-        except Exception:
-            self._metadata = None
+        except Exception as e:
+            _logger.debug('Cannot get instance metadata: %s' % str(e))
 
         self.oci_config = {}
         self.signer = None
-        self.auth_method = auth_method
-        self.auth_status = ""
-        try:
-            # see if auth_method was set in oci-utils.conf
-            self.auth_method = OCIUtilsConfiguration.get('auth', 'auth_method')
-        except Exception:
-            if self.auth_method is None:
-                self.auth_method = AUTO
+        self.auth_method = NONE
+
         if not self._metadata:
             # code is running outside OCI, must have direct auth:
-            self.auth_method = self._get_auth_method(auth_method=DIRECT)
+            _logger.debug('code is running outside OCI, must have direct auth')
+            try:
+                self._direct_authenticate()
+                self.auth_method = DIRECT
+            except Exception as e:
+                raise OCISDKError('Failed to authenticate with the Oracle Cloud '
+                                  'Infrastructure service: %s' % str(e))
         else:
-            self.auth_method = self._get_auth_method(self.auth_method)
+            # get auth method from oci-utils conf. default is auto (to find one)
+            self.auth_method = self._get_auth_method()
+
         if self.auth_method == NONE:
-            if self.auth_status:
-                raise OCISDKError(self.auth_status)
-            raise OCISDKError('Failed to authenticate with the Oracle Cloud '
-                              'Infrastructure service')
+            raise OCISDKError('Failed to authenticate with the Oracle Cloud Infrastructure service')
 
         self.tenancy_ocid = None
         if 'tenancy' in self.oci_config:
@@ -238,7 +236,7 @@ class OCISession(object):
 
         return result
 
-    def _get_auth_method(self, auth_method=None):
+    def _get_auth_method(self):
         """
         Determine how (or if) we can authenticate. If auth_method is
         provided, and is not AUTO then test if the given auth_method works.
@@ -256,47 +254,35 @@ class OCISession(object):
         the authentication method which passed or NONE.
             [NONE | DIRECT | PROXY | AUTO | IP]
         """
-        if auth_method is not None:
-            # testing a specific auth method
-            if auth_method == DIRECT:
-                if self._direct_authenticate():
-                    return DIRECT
-                else:
-                    return NONE
-            elif auth_method == PROXY:
-                if self._proxy_authenticate():
-                    return PROXY
-                else:
-                    return NONE
-            elif auth_method == IP:
-                if self._ip_authenticate():
-                    return IP
-                else:
-                    return NONE
 
-        # Try the direct method first
-        try:
-            if self._direct_authenticate():
-                return DIRECT
-        except Exception:
-            # ignore any errors and try a different method
-            pass
+        auth_method = OCIUtilsConfiguration.get('auth', 'auth_method')
 
-        # If we are root, we can try proxy call through the oci_sdk_user user
-        if os.geteuid() == 0:
+        _logger.debug('auth method retrieved from conf: %s' % auth_method)
+
+        # order matters
+        _auth_mechanisms = {
+            DIRECT: self._direct_authenticate,
+            PROXY: self._proxy_authenticate,
+            IP: self._ip_authenticate}
+
+        if auth_method in _auth_mechanisms.keys():
+            # user specified something, respect that choice
             try:
-                if self._proxy_authenticate():
-                    return PROXY
-            except Exception:
-                # ignore any errors and try a different method
-                pass
+                _logger.debug('trying %s auth' % auth_method)
+                _auth_mechanisms[auth_method]()
+                return auth_method
+            except Exception as e:
+                _logger.debug(' %s auth has failed: %s' % (auth_method, str(e)))
+                return NONE
 
-        # finally, try instance principals
-        try:
-            if self._ip_authenticate():
-                return IP
-        except Exception:
-            pass
+        _logger.debug('nothing specified trying to find an auth method')
+        for method in _auth_mechanisms.keys():
+            try:
+                _logger.debug('trying %s auth' % method)
+                _auth_mechanisms[method]()
+                return method
+            except Exception as e:
+                _logger.debug(' %s auth has failed: %s' % (method, str(e)))
 
         # no options left
         return NONE
@@ -308,29 +294,24 @@ class OCISession(object):
 
         Returns
         -------
-        bool
-            True if proxy authentication passes, False otherwise.
+        None
+
+        Raises
+        ------
+        Exception
+            The authentication using direct mode is noit possible
         """
+        if os.geteuid() != 0:
+            raise Exception("Must be root to use Proxy authentication")
+
         sdk_user = OCIUtilsConfiguration.get('auth', 'oci_sdk_user')
         try:
             proxy = OCIAuthProxy(sdk_user)
             self.oci_config = proxy.get_config()
+            self._identity_client = self.sdk_call(oci_sdk.identity.IdentityClient, self.oci_config)
         except Exception as e:
-            self.auth_status += "Authentication as user %s failed: %s\n" \
-                                % (sdk_user, e)
-            _logger.debug('Proxy auth failed: %s' % e)
-            return False
-        try:
-            self._identity_client = self.sdk_call(
-                oci_sdk.identity.IdentityClient,
-                self.oci_config)
-        except Exception as e:
-            self.auth_status += "Cannot create identity client as user %s\n" \
-                                % sdk_user
-            _logger.debug('ID client with proxy auth failed: %s' % e)
-            return False
-        self.auth_status += "Authentication as user %s succeeded\n" % sdk_user
-        return True
+            _logger.debug("Proxy authentication failed: %s" % str(e))
+            raise Exception("Proxy authentication failed: %s" % str(e))
 
     def _direct_authenticate(self):
         """
@@ -338,86 +319,40 @@ class OCISession(object):
 
         Returns
         -------
-        bool
-            True for success, False for failure.
+        None
 
         Raises
         ------
-        OCISDKError
-            The authentication appears to work but API calls fail
-            (indicates misconfiguration).
+        Exception
+            The authentication using direct mode is noit possible
         """
-        try:
-            self.oci_config = self._read_oci_config(fname=self.config_file,
-                                                    profile=self.config_profile)
-        except Exception as e:
-            self.auth_status += "Config file authentication failed: %s\n" % e
-            _logger.debug('Cannot read oci config file: %s' % e)
-            return False
 
         try:
-            self._identity_client = self.sdk_call(
-                oci_sdk.identity.IdentityClient,
-                self.oci_config)
-            self.auth_status += "Config file (direct) authentication " \
-                                "succeeded\n"
-            return True
+            self.oci_config = self._read_oci_config(fname=self.config_file, profile=self.config_profile)
+            self._identity_client = self.sdk_call(oci_sdk.identity.IdentityClient, self.oci_config)
         except Exception as e:
-            self.auth_status += "Cannot create identity client: %s\n" % e
-            _logger.debug('Direct auth failed: %s' % e)
-            return False
-
-        # test that it works
-        #
-        # --GT-- unreachable code till end.
-        # if not self._metadata:
-        #     # not in an instance, return without test.
-        #     return true
-
-        # try:
-        #     inst_id = self._metadata['instance']['id']
-        #     cc = self.get_compute_client()
-        #     inst = self.sdk_call(cc.get_instance, instance_id=inst_id)
-        # except oci_sdk.exceptions.ServiceError as e:
-        #     self.auth_status += "Cannot make OCI API calls: %s\n" % e
-        #     raise OCISDKError('Cannot make OCI API calls: %s' % e.message)
-
-        # self.auth_status += "Config file (direct) authentication succeeded\n"
-        # return True
+            _logger.debug("Direct authentication failed: %s" % str(e))
+            raise Exception("Direct authentication failed: %s" % str(e))
 
     def _ip_authenticate(self):
         """
-        Authenticate with the OCI SDK.
+        Authenticate with the OCI SDK using instance principal .
 
         Returns
         -------
-        bool
-            True if the authentication succeeds, False otherwise.
+        None
+
         Raises
         ------
-        OCISDKError
+        Exception
             If IP authentication fails.
         """
-        self.signer = \
-            oci_sdk.auth.signers.InstancePrincipalsSecurityTokenSigner()
-        self._identity_client = self.sdk_call(
-            oci_sdk.identity.IdentityClient,
-            config={}, signer=self.signer)
-        inst = None
         try:
-            inst = self.this_instance()
+            self.signer = oci_sdk.auth.signers.InstancePrincipalsSecurityTokenSigner()
+            self._identity_client = self.sdk_call(oci_sdk.identity.IdentityClient, config={}, signer=self.signer)
         except Exception as e:
-            self.auth_status += "Instance Principals authentication: %s\n" % e
-            _logger.debug('IP auth failed: %s' % e)
-            # reset compute client set by this_instance()
-            self._compute_client = None
-            return False
-        if inst is not None:
-            self.auth_status += "Instance Principals (IP) authentication " \
-                                "succeeded\n"
-            return True
-
-        return False
+            _logger.debug('Instance Principals authentication failed: %s' % str(e))
+            raise Exception('Instance Principals authentication failed: %s' % str(e))
 
     def all_compartments(self, refresh=False):
         """
