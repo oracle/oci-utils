@@ -620,19 +620,19 @@ class VNICUtils(object):
                     # surely macvlan/vlans involved (BM case)
                     #  the macvlan interface give us the addr and the actual link
                     #  the vlan interface give us the vlan name
-                    _macvlan_i = [_i for _i in _candidates if _i['LINKTYPE'] in ('macvlan', 'macvtap')][0]
-                    _vlan_i= [_i for _i in _candidates if _i['LINKTYPE'] == 'vlan'][0]
-                    interface.update(_macvlan_i)
-                    interface['VLAN']= _vlan_i['IFACE']
-                    interface['IFACE']= _macvlan_i['LINK']
-                    if _vlan_i.has('ADDR'):
-                        _state= '-'
-                    if _vlan_i.has('SECONDARY_ADDRS'):
-                        interface['SECONDARY_ADDRS']= _vlan_i['SECONDARY_ADDRS']
-
-                interface['CONFSTATE']= _state
+                    _macvlan_is = [_i for _i in _candidates if _i['LINKTYPE'] in ('macvlan', 'macvtap')]
+                    _vlan_is = [_i for _i in _candidates if _i['LINKTYPE'] == 'vlan']
+                    if len(_macvlan_is) > 0 and len(_vlan_is) > 0:
+                        interface.update(_macvlan_is[0])
+                        interface['VLAN'] = _vlan_is[0]['IFACE']
+                        interface['IFACE'] = _macvlan_is[0]['LINK']
+                        if _vlan_is[0].has('ADDR'):
+                            _state = '-'
+                        if _vlan_is[0].has('SECONDARY_ADDRS'):
+                            interface['SECONDARY_ADDRS'] = _vlan_is[0]['SECONDARY_ADDRS']
+                interface['CONFSTATE'] = _state
                 # clean up system list
-                _all_from_system= [_i for _i in _all_from_system if _i['MAC'] != interface['MAC']]
+                _all_from_system = [_i for _i in _all_from_system if _i['MAC'] != interface['MAC']]
             except ValueError:
                 pass
             finally:
@@ -640,16 +640,16 @@ class VNICUtils(object):
 
         # now collect the one left omr systeme
         for interface in _all_from_system:
-            interface['CONFSTATE']= 'DELETE'
+            interface['CONFSTATE'] = 'DELETE'
             interfaces.append(interface)
 
         # final round for the excluded
         for interface in interfaces:
             if self._is_intf_excluded(interface):
-                interface['CONFSTATE']= 'EXCL'
+                interface['CONFSTATE'] = 'EXCL'
             if interface['is_vf'] and interface['CONFSTATE'] == 'DELETE':
                 # revert this as '-' , as DELETE state means nothing for VFs
-                interface['CONFSTATE']= '-'
+                interface['CONFSTATE'] = '-'
 
         return interfaces
 
@@ -677,7 +677,7 @@ def _auto_deconfig_intf_routing(intf_infos):
     """
     # for namespaces the subnet and default routes will be auto deleted with the namespace
     if not intf_infos.has('NS'):
-        _route_table_name= _compute_routing_table_name(intf_infos)
+        _route_table_name = _compute_routing_table_name(intf_infos)
         # TODO: rename method to remove_ip_rules
         NetworkHelpers.remove_ip_addr_rules(_route_table_name)
         NetworkHelpers.delete_route_table(_route_table_name)
@@ -699,31 +699,31 @@ def _auto_config_intf_routing(net_namespace_info, intf_infos):
         Exception. if configuration failed
     """
 
-    _intf_to_use= intf_infos['IFACE']
+    _intf_to_use = intf_infos['IFACE']
     if InstanceMetadata()['instance']['shape'].startswith('BM') and intf_infos['VLTAG'] != "0":
         # in that case we operate on the VLAN tagged intf no
-        _intf_to_use= '%sv%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
+        _intf_to_use = '%sv%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
 
     if net_namespace_info:
         _logger.debug("default route add")
-        ret, out= NetworkHelpers.add_static_ip_route(
+        ret, out = NetworkHelpers.add_static_ip_route(
             'default', 'via', intf_infos['VIRTRT'], namespace=net_namespace_info['name'])
         if ret != 0:
             raise Exception("cannot add namespace %s default gateway %s: %s" %
                             (net_namespace_info['name'], intf_infos['VIRTRT'], out))
         _logger.debug("added namespace %s default gateway %s" % (net_namespace_info['name'], intf_infos['VIRTRT']))
         if net_namespace_info['start_sshd']:
-            ret= sudo_utils.call(['/usr/sbin/ip', 'netns', 'exec', net_namespace_info['name'], '/usr/sbin/sshd'])
+            ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'exec', net_namespace_info['name'], '/usr/sbin/sshd'])
             if ret != 0:
                 raise Exception("cannot start ssh daemon")
             _logger.debug('sshd daemon started')
     else:
-        _route_table_name= _compute_routing_table_name(intf_infos)
+        _route_table_name = _compute_routing_table_name(intf_infos)
 
         NetworkHelpers.add_route_table(_route_table_name)
 
         _logger.debug("default route add")
-        ret, out= NetworkHelpers.add_static_ip_route(
+        ret, out = NetworkHelpers.add_static_ip_route(
             'default', 'via', intf_infos['VIRTRT'], 'dev', _intf_to_use, 'table', _route_table_name)
         if ret != 0:
             raise Exception("cannot add default route via %s on %s to table %s" %
@@ -732,7 +732,7 @@ def _auto_config_intf_routing(net_namespace_info, intf_infos):
                       (intf_infos['VIRTRT'], _intf_to_use, _route_table_name))
 
         # create source-based rule to use table
-        ret, out= NetworkHelpers.add_static_ip_rule('from', intf_infos['ADDR'], 'lookup', _route_table_name)
+        ret, out = NetworkHelpers.add_static_ip_rule('from', intf_infos['ADDR'], 'lookup', _route_table_name)
         if ret != 0:
             raise Exception("cannot add rule from %s use table %s" % (intf_infos['ADDR'], _route_table_name))
 
@@ -757,11 +757,11 @@ def _auto_config_secondary_intf(net_namespace_info, intf_infos):
         Exception. if configuration failed
     """
 
-    _route_table_name= _compute_routing_table_name(intf_infos)
+    _route_table_name = _compute_routing_table_name(intf_infos)
 
-    _sec_addrs= []
+    _sec_addrs = []
     if intf_infos.has('SECONDARY_ADDRS'):
-        _sec_addrs= [ip['address'] for ip in intf_infos['SECONDARY_ADDRS']]
+        _sec_addrs = [ip['address'] for ip in intf_infos['SECONDARY_ADDRS']]
 
     for secondary_ip in intf_infos['SECONDARY_IPS']:
         if secondary_ip in _sec_addrs:
@@ -776,7 +776,7 @@ def _auto_config_secondary_intf(net_namespace_info, intf_infos):
 
         NetworkHelpers.add_route_table(_route_table_name)
 
-        ret, _= NetworkHelpers.add_static_ip_rule('from', secondary_ip, 'lookup', _route_table_name)
+        ret, _ = NetworkHelpers.add_static_ip_rule('from', secondary_ip, 'lookup', _route_table_name)
         if ret != 0:
             raise Exception("cannot add rule from %s use table %s" % (secondary_ip, _route_table_name))
         _logger.debug("added rule for routing from %s lookup %s with default via %s" %
@@ -802,7 +802,7 @@ def _auto_config_intf(net_namespace_info, intf_infos):
     # if interface is not up bring it up
     if intf_infos['STATE'] != 'up':
         _logger.debug('bringing intf [%s] up ' % intf_infos['IFACE'])
-        ret= sudo_utils.call(['/usr/sbin/ip', 'link', 'set', 'dev', intf_infos['IFACE'], 'up'])
+        ret = sudo_utils.call(['/usr/sbin/ip', 'link', 'set', 'dev', intf_infos['IFACE'], 'up'])
         if ret != 0:
             raise Exception('Cannot bring inerface up')
 
