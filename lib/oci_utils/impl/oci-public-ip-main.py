@@ -133,6 +133,8 @@ def main():
             stun_log.debug(
                 "Error getting information of current instance: %s" % str(e))
 
+    _all_p_ips = []
+
     if _instance is None:
         if args.instance_id is not None:
             # user specified a remote instance, there is no fallback to stun
@@ -143,9 +145,9 @@ def main():
             # can we really end up here ?
             stun_log.debug(
                 "current Instance not found")
-
-    _all_p_ips = _instance.all_public_ips()
-    stun_log.debug('%s ips retreived from sdk information' % len(_all_p_ips))
+    else:
+        _all_p_ips = _instance.all_public_ips()
+        stun_log.debug('%s ips retreived from sdk information' % len(_all_p_ips))
 
     if len(_all_p_ips) == 0:
         # fall back to pystun
