@@ -1,3 +1,19 @@
+Version 0.11.3.3
+- Remove python2 support
+- LINUX-7986 - fix crash while printing network interfaces on BM shapes with oci-network-config command
+- LINUX-7918 - fix regression on -n option of oci-kvm command
+- LINUX-7918 - fix free vnic search for oci-kvm command on BM shapes
+- LINUX-8011 - interpreter crashes displaying iSCSI information
+- LINUX-7672 - fix for python3 byte handling issue.
+- support for LVM root filesystem in oci-growfs
+- multi vnic support for KVM guests
+- removal of libexec/secondary_vnic_all_configure.sh, replaced by python implementation
+- oci-kvm, added sanity around parameters passes as part of extra-args option
+- add oci-image-migrate code
+- move to by-uuid device name for libvirt storage pool build
+- LINUX-8008 -  AttributeError: 'OCIVolume' object has no attribute 'HUMAN'
+- LINUX-6752 - missing python OCI-SDk dependency
+
 Version 0.10.2
 - Update to use Python 3 on OL8
 
@@ -9,7 +25,7 @@ Version 0.9.1
 - Added support for Oracle Linux 8 Beta 1
 
 Version 0.9.0
-- LINUX-498 - Enhance oci-metadata  for keys to only return key value 
+- LINUX-498 - Enhance oci-metadata  for keys to only return key value
               Added suport --value-only
 - LINUX-560 - Cleanup utility not preserving permissions/ownerships (fixed)
               same as bug-29260959.
@@ -53,14 +69,14 @@ Version 0.7:
 - fixed bugs in oci-iscsi-config:
   1. bug-28493320: mis-list sdaa.. as partition of sda. It should be a seperate volume.
   2. bug 28615235 - different behavior for max_volumes setting for 32 or less than 32
-  3. bug-28513898 - should not create a volume if it failed to attach                
-  4. privilege adjustment for create and destroy(root+oci), attach and detach(root) 
-  5. Bug 27835953 - objects can't be shown due to pagination issue.              
-  6. Bug 28612818 - A detached volume can't be reattached to the instance saying max limit reached 
+  3. bug-28513898 - should not create a volume if it failed to attach
+  4. privilege adjustment for create and destroy(root+oci), attach and detach(root)
+  5. Bug 27835953 - objects can't be shown due to pagination issue.
+  6. Bug 28612818 - A detached volume can't be reattached to the instance saying max limit reached
 - fixed bug oci-network-config
-  1. bug-28498139 - secondary ips on secondary VNICs not reachable issue.        
-  2. Bug 28080064 - oci-network-config -s can't list all secondary private ip    
-  3. Bug 28188853 - oci-network-config report error message when detach vnic     
+  1. bug-28498139 - secondary ips on secondary VNICs not reachable issue.
+  2. Bug 28080064 - oci-network-config -s can't list all secondary private ip
+  3. Bug 28188853 - oci-network-config report error message when detach vnic
 - expanded 'OCI' to 'Oracle Cloud Infrastructure' in man pages, specfiles (OLOCITOOLS-8)
 
 Version 0.6:
