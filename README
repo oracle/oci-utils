@@ -1,1 +1,17 @@
-Oracle Cloud Infrastructure utilities
+OCI Utilities
+
+Instances created using Oracle-Provided Images based on Oracle Linux include a pre-installed set of utilities that are designed
+to make it easier to work with Oracle Linux images.
+These utilities consist of a service component and related command line tools that can help with managing
+block volumes (attach, remove, and automatic discovery), secondary VNIC configuration, discovering the public IP address of an instance,
+and retrieving instance metadata.
+
+The following table summarizes the components that are included in the OCI utilities.
+
+ocid: The service component of oci-utils. This normally runs as a daemon started via systemd. This service scans for changes in the iSCSI and VNIC device configurations and caches the OCI metadata and public IP address of the instance.
+oci-growfs: Expands the root filesystem of the instance to its configured size.
+oci-iscsi-config: Used to display and configure iSCSI devices attached to a compute instance. If no command line options are specified, lists devices that need attention.
+oci-metadata: Displays metadata for the compute instance. If no command line options are specified, lists all available metadata. Metadata includes the instance OCID, display name, compartment, shape, region, availability domain, creation date, state, image, and any custom metadata that you provide, such as an SSH public key.
+oci-network-config: Lists or configures virtual network interface cards (VNICs) attached to the Compute instance. When a secondary VNIC is provisioned in the cloud, it must be explicitly configured on the instance using this script or similar commands.
+oci-network-inspector: Displays a detailed report for a given compartment or network.
+oci-public-ip: Displays the public IP address of the current system in either human-readable or JSON format.
