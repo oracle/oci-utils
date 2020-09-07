@@ -32,16 +32,34 @@ declare -i vfMTU=${MTU:-${defaultMTU}}
 declare -i maxWait=${MAX_WAIT:-${defaultMaxWait}}
 ((maxWait < 5)) && maxWait=${defaultmaxWait}
 
+echo "Default MTU for interfaces:  ${vfMTU}"
+echo "Default max virtual function count for interfaces:  ${numVFs}"
+
 netSysPath=/sys/class/net
 for nic in ${netSysPath}/*
 do
   numVFDevPath=${nic}/device/sriov_numvfs
   if test -f "${numVFDevPath}"
   then
-    [[ "$(head -1 "${nic}/carrier" 2>/dev/null)" == "1" ]] || continue
+    nic_name=$(basename ${nic})
+    is_up=`/bin/cat ${nic}/carrier 2>/dev/null`
+    if [ $? -ne 0 ] || [ "is_up" == 0 ]
+    then
+      # we have failed to open or content is '0', this means down
+      echo "Bringing ${nic_name} link up"
+      /sbin/ip link set ${nic_name} up
+      if [ $? -ne 0 ]
+      then
+        echo "ERROR: Failed to bring up ${nic_name}" >&2
+        exit 1
+      fi
+    fi
+    echo "setting ${numVFs} as number of VFs for ${nic}"
     echo "${numVFs}" >${numVFDevPath}
-    bridge link set dev $(basename ${nic}) hwmode vepa
+    echo "setting hwmode node to vepa for ${nic}"
+    /sbin/bridge link set dev ${nic_name} hwmode vepa
     vfNum=0
+    echo "Waiting for VFs to appear"
     while ((vfNum < numVFs))
     do
       vfNetDir="${nic}/device/virtfn${vfNum}/net/"
@@ -56,12 +74,13 @@ do
         exit 1
       fi
       vfName="$(ls -1 ${vfNetDir} | head -1)"
-      [[ -n "${vfName}" ]] && ip link set dev ${vfName} mtu ${vfMTU}
+      echo "Setting default MTU on VF ${vfName}"
+      [[ -n "${vfName}" ]] && /sbin/ip link set dev ${vfName} mtu ${vfMTU}
       ((vfNum++))
     done
   fi
 done
 
-
-/usr/bin/python3  /usr/libexec/oci-kvm-upgrade
+echo "Calling /usr/libexec/oci-kvm-upgrade"
+/usr/bin/python3 /usr/libexec/oci-kvm-upgrade
 
