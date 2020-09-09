@@ -259,14 +259,14 @@ cleanup()
     else
         CLEAN_HOST_SSH_KEYS=NO
     fi
-    for user in $(egrep '/bin/bash|/bin/sh' /etc/passwd|awk -F: '{print $6}' )
+    for user_home in $(awk -F: '$7 != "/sbin/nologin" {print $6}' /etc/passwd)
     do
-        [ ! -d $user/.ssh ] && continue 
-        echo -e "Deleting SSH keys for $user ..."
-        confirm $CLEAN_USER_SSH_KEYS  
+        [ ! -d $user_home/.ssh ] && continue
+        echo -e "Deleting SSH keys for $user_home ..."
+        confirm $CLEAN_USER_SSH_KEYS
         if [ $? -eq 0 ]; then
           CLEAN_USER_SSH_KEYS=YES
-          backup_and_delete "$user/.ssh/*"
+          backup_and_delete "$user_home/.ssh/*"
       else
           CLEAN_USER_SSH_KEYS=NO
       fi
