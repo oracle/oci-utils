@@ -57,7 +57,7 @@ class VNICUtils(object):
                                   cache_fname=VNICUtils.__vnic_info_file)
             try:
                 os.remove(VNICUtils.__net_exclude_file)
-            except Exception e:
+            except Exception as e:
                 _logger.debug('Cannot remove file [%]: %s' % (VNICUtils.__net_exclude_file, str(e)))
 
         # can we make API calls?

@@ -227,8 +227,8 @@ def display_current_devices(oci_sess, session, disks):
     if oci_sess is not None and oci_sdk_error is None:
         try:
             oci_vols = oci_sess.this_instance().all_volumes()
-        except Exception, e:
-            _logger.debug('Cannot get all volumes of this instance : %s'%str(e))
+        except Exception as e:
+            _logger.debug('Cannot get all volumes of this instance : %s' % str(e))
     if session:
         for iqn in list(session.keys()):
             oci_vol = None
