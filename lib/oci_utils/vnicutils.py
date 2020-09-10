@@ -64,7 +64,7 @@ class VNICUtils(object):
         oci_sess = None
         try:
             oci_sess = OCISession()
-        except Exception, e:
+        except Exception as e:
             _logger.debug('Cannot get OCI session: %s' % str(e))
 
         if oci_sess is not None:
