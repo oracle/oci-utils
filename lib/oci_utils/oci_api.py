@@ -763,6 +763,9 @@ class OCISession(object):
         OCIInstance
             The intance we are running on,or None if we cannot find
             information for it.
+        Raises
+        ------
+        OCISDKError : fetching instance has failed
         """
 
         if self._metadata is None:
@@ -866,6 +869,9 @@ class OCISession(object):
         -------
         OCIInstance
             The OCI instance or None if it is not found.
+        Raises
+        ------
+        OCISDKError : fetching instance has failed
         """
         if not refresh and self._instances:
             # return from cache

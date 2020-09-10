@@ -57,15 +57,16 @@ class VNICUtils(object):
                                   cache_fname=VNICUtils.__vnic_info_file)
             try:
                 os.remove(VNICUtils.__net_exclude_file)
-            except Exception:
-                pass
+            except Exception e:
+                _logger.debug('Cannot remove file [%]: %s' % (VNICUtils.__net_exclude_file, str(e)))
 
         # can we make API calls?
         oci_sess = None
         try:
             oci_sess = OCISession()
-        except Exception:
-            pass
+        except Exception, e:
+            _logger.debug('Cannot get OCI session: %s' % str(e))
+
         if oci_sess is not None:
             p_ips = oci_sess.this_instance().all_private_ips(refresh=True)
             sec_priv_ip = \
@@ -634,7 +635,7 @@ class VNICUtils(object):
                 # clean up system list
                 _all_from_system = [_i for _i in _all_from_system if _i['MAC'] != interface['MAC']]
             except ValueError:
-                pass
+                _logger.debug('error while parsing [%s]: %s' % (str(interface), str(e)))
             finally:
                 interfaces.append(interface)
 
