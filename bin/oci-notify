@@ -28,11 +28,13 @@ log_file=/var/log/oci-notify.log
 
 usage() {
     cat >&2 << EOF
-Usage: ${0##*/} [OPTION]...
- -t Message title
- -f File that contains message body
- -c Notification topic OCID
- -h This message
+Usage:
+${0##*/} -c <Notification topic OCID>
+  Configuration.
+${0##*/} -t <Message title> -f <File containing the message body>
+  Send a message.
+${0##*/} -h
+  This help text.
 EOF
     exit 1
 }

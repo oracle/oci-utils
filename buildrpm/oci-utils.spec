@@ -176,6 +176,9 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Mon Sep 14 2020 Guido Tijskens <guido.tijskens@oracle.com> --0.11.3-4
+- LINUX-7035 - add oci-notify.
+
 * Tue Aug 4 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.3
 - LINUX-7672 - fix for python3 byte handling issue.
 
