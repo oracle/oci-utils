@@ -16,4 +16,4 @@ The following table summarizes the components that are included in the OCI utili
 - oci-network-config: Lists or configures virtual network interface cards (VNICs) attached to the Compute instance. 
 - oci-network-inspector: Displays a detailed report for a given compartment or network.
 - oci-public-ip: Displays the public IP address of the current system in either human-readable or JSON format.
-
+- oci-notify: Sends a message to an OCI notification service.
