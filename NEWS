@@ -1,3 +1,6 @@
+Version 0.11.4
+- LINUX-7035 - introduce oci-notify tool to send notification to OCI notification service
+
 Version 0.11.3.3
 - Remove python2 support
 - LINUX-7986 - fix crash while printing network interfaces on BM shapes with oci-network-config command
