@@ -175,6 +175,9 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Mon Sep 14 2020 Guido Tijskens <guido.tijskens@oracle.com> --0.11.3-4
+- LINUX-7035 - add oci-notify.
+
 * Wed Sep 9 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.3.6
 - LINUX-8607 - ssh keys not cleanup for some users
 - LINUX-8426 - On BM shape when link is down, VF are missin
