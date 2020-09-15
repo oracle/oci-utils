@@ -472,8 +472,8 @@ def main():
         vnic_utils = VNICUtils()
         vnic_info = vnic_utils.get_vnic_info()[1]
     except Exception as e:
-        __logger.warning("OCI SDK Error: %s" % str(e))
-        __logger.exception('OCI SDK Error')
+        __logger.warning("Cannot get vNIC information: %s" % str(e))
+        __logger.debug('OCI SDK Error', exc_info=True)
         return 1
 
     shape = None
@@ -482,7 +482,7 @@ def main():
             shape = do_detach_vnic(args, vnic_utils)
             time.sleep(10)
         except Exception as e:
-            __logger.error(str(e))
+            __logger.error('Cannot detach vNIC: %s' % str(e))
             return 1
 
     if args.ns:

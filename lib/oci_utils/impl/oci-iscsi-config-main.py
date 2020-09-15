@@ -225,8 +225,10 @@ def display_current_devices(oci_sess, session, disks):
     print("Currently attached iSCSI devices:")
     oci_vols = []
     if oci_sess is not None and oci_sdk_error is None:
-        oci_vols = oci_sess.this_instance().all_volumes()
-
+        try:
+            oci_vols = oci_sess.this_instance().all_volumes()
+        except Exception as e:
+            _logger.debug('Cannot get all volumes of this instance : %s' % str(e))
     if session:
         for iqn in list(session.keys()):
             oci_vol = None
@@ -879,6 +881,7 @@ def main():
             oci_sess = oci_utils.oci_api.OCISession()
             USE_OCI_SDK = True
         except Exception as e:
+            _logger.debug('Cannot get OCI session: %s' % str(e))
             oci_sdk_error = str(e)
             USE_OCI_SDK = False
             if args.debug:
