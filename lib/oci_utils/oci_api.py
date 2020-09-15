@@ -326,7 +326,7 @@ class OCISession(object):
         Raises
         ------
         Exception
-            The authentication using direct mode is noit possible
+            The authentication using direct mode is not possible
         """
 
         try:

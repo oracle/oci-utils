@@ -108,7 +108,7 @@ to ensure that only one call is made at a time.  If it cannot acquire the lock
 within a timeout (default 60sec) then an OCISDKError exception is raised.
 The set_sdk_call_timeout(timeout) method can be used to change the default
 timeout.  A timeout value of 0 means wait forever.
-The timeout can be change in configuration
+The timeout can be changed in configuration
 create a config file in /etc/oci-utils.conf.d that says:
     [ocid]
     sdk_lock_timeout = <number>
