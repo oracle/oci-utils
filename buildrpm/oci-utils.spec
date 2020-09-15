@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.11.3
+Version: 0.11.4
 Release: 3%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -175,12 +175,12 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
-* Mon Sep 14 2020 Guido Tijskens <guido.tijskens@oracle.com> --0.11.3-4
-- LINUX-7035 - add oci-notify.
+* Tue Sep 15 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.4
+- LINUX-7035 - introduce oci-notify tool to send notification to OCI notification service
 
 * Wed Sep 9 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.3.6
 - LINUX-8607 - ssh keys not cleanup for some users
-- LINUX-8426 - On BM shape when link is down, VF are missin
+- LINUX-8426 - On BM shape when link is down, VF are missing
 
 * Tue Aug 25 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.3.3
 - LINUX-7986 - fix crash while printing network interfaces on BM shapes with oci-network-config command
