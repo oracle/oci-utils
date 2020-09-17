@@ -75,9 +75,9 @@ oci-network-config \- configure network devices on Oracle Cloud Infrastructure c
 
 The
 .B oci-network-config
-utility shows the current 
-Virtual interface Cards provisioned in the 
-Oracle Cloud Infrastructure 
+utility shows the current
+Virtual interface Cards provisioned in the
+Oracle Cloud Infrastructure
 and configured on this instance. When a secondary VNIC is provisioned in Oracle Cloud Infrastructure it must be explicitly configured on the instance using this script or similar commands.
 
 The first version of this command displays the currently provisioned VNICs and the current IP configuration for this instance. VNICs that are not yet configured are marked with '$ADD' and IP configurations that no longer have an associated VNIC are marked with '$DELETE'.
@@ -90,16 +90,14 @@ Bare Metal secondary VNICs are configured using VLANs (where there is no corresp
 
 The third version, -d (or --deconfigure), deletes all IP configuration for provisioned secondary VNICs as long as there is no -e option. If one or more optional -e options are present only the given secondary IP addresses are deconfigured and the remaining configuration is left as is.
 
-The fourth version requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
-The Oracle Cloud Infrastructure Python SDK is available in the python-oci-sdk package.  This version
-allows creating a new VNIC for the instance, detaching a VNIC from the instance,
+The fourth version allows creating a new VNIC for the instance, detaching a VNIC from the instance,
 or adding/removing private IP addresses to/from an existing VNIC.
 
 To install the Oracle Cloud Infrastructure Python SDK, use
 .PP
 .nf
 .RS
-yum install python-oci-sdk python-oci-cli
+yum install python36-oci-sdk python-oci-cli
 .RE
 .fi
 .PP
