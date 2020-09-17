@@ -15,18 +15,6 @@ To use oci_api import oci_utils.oci_api:
 import oci_utils.oci_api
 ```
 
-You can do this even if the code is not running on an OCI instance and
-even if the OCI Python SDK is not installed.  To verify if the SDK is
-installed, use oci_utils.oci_api.HAVE_OCI_SDK:
-
-```python
-import sys
-import oci_utils.oci_api
-
-if not oci_utils.oci_api.HAVE_OCI_SDK:
-    sys.stderr.write("Please install and configure the OCI Python SDK\n")
-```
-
 Creating an OCISession() object will fail if the SDK isn't properly
 configured or authentication failed.  In this case an OCISDKError
 exception is thrown:

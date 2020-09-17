@@ -213,15 +213,15 @@ def public_ip_func(context, func_logger):
     dict
         Dictionary containiong the external IP address.
     """
-    if oci_utils.oci_api.HAVE_OCI_SDK:
-        try:
-            sess = oci_utils.oci_api.OCISession()
-            instance = sess.this_instance()
-            if instance is None:
-                raise OCISDKError('Cannot get instance')
-            return {'publicIp': instance.get_public_ip()}
-        except OCISDKError as e:
-            func_logger.exception('failed to retrieve public ip information')
+
+    try:
+        sess = oci_utils.oci_api.OCISession()
+        instance = sess.this_instance()
+        if instance is None:
+            raise OCISDKError('Cannot get instance')
+        return {'publicIp': instance.get_public_ip()}
+    except OCISDKError as e:
+        func_logger.exception('failed to retrieve public ip information: %s' % str(e))
 
     # fallback
     external_ip = get_ip_info()[1]
@@ -246,11 +246,10 @@ def iscsi_func(context, func_logger):
     """
     if 'oci_sess' not in context:
         oci_sess = None
-        if oci_utils.oci_api.HAVE_OCI_SDK:
-            try:
-                oci_sess = oci_utils.oci_api.OCISession()
-            except Exception:
-                pass
+        try:
+            oci_sess = oci_utils.oci_api.OCISession()
+        except Exception as e:
+            func_logger.debug('Failed to get a session: %s' % str(e))
         max_volumes = 8
         if 'max_volumes' in context:
             max_volumes = int(context['max_volumes'])
@@ -533,11 +532,10 @@ def vnic_func(context, func_logger):
         func_logger.debug("context['vnic_utils'] is None : first iteration")
         # first iteration
         oci_sess = None
-        if oci_utils.oci_api.HAVE_OCI_SDK:
-            try:
-                oci_sess = oci_utils.oci_api.OCISession()
-            except Exception:
-                func_logger.debug("error getting session")
+        try:
+            oci_sess = oci_utils.oci_api.OCISession()
+        except Exception as e:
+            func_logger.debug("error getting session: %s" % str(e))
         context['oci_sess'] = oci_sess
         context['vnic_utils'] = vnicutils.VNICUtils()
         context['vnic_info_ts'], context['vnic_info'] = \

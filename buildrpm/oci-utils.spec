@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.11.4
-Release: 3%{?dist}
+Version: 0.11.5
+Release: 5%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -26,6 +26,7 @@ Requires: cloud-utils-growpart
 Requires: util-linux
 # for iscsiadm
 Requires: iscsi-initiator-utils
+Requires: python36-oci-sdk
 #
 %if 0%{?rhel} == 7
 Requires: python36-netaddr
@@ -175,6 +176,9 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Wed Sep 16 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.5
+- LINUX-6752 - add dependency on OCI python sdk
+
 * Tue Sep 15 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.4
 - LINUX-7035 - introduce oci-notify tool to send notification to OCI notification service
 

@@ -18,12 +18,7 @@ from .. import _MAX_VOLUMES_LIMIT, OCI_ATTACHMENT_STATE, \
     OCI_RESOURCE_STATE, OCI_INSTANCE_STATE, OCI_VOLUME_SIZE_FMT
 from ..exceptions import OCISDKError
 
-try:
-    import oci as oci_sdk
-except ImportError:
-    # if SDK not there none of resources is instanciated;
-    # i.e we never end up here
-    pass
+import oci as oci_sdk
 
 
 class OCICompartment(OCIAPIAbstractResource):
@@ -2206,7 +2201,8 @@ class OCIVolume(OCIAPIAbstractResource):
                 The size of the volume.
         """
         # for compatibility raseon we check against key as string
-        assert format_str in [OCI_VOLUME_SIZE_FMT.HUMAN.name, OCI_VOLUME_SIZE_FMT.GB.name,OCI_VOLUME_SIZE_FMT.MB.name], 'wrong format'
+        assert format_str in [OCI_VOLUME_SIZE_FMT.HUMAN.name,
+                              OCI_VOLUME_SIZE_FMT.GB.name, OCI_VOLUME_SIZE_FMT.MB.name], 'wrong format'
 
         if (format_str is None) or (format_str == OCI_VOLUME_SIZE_FMT.GB.name):
             return self._data.size_in_gbs

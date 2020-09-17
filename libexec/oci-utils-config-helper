@@ -47,10 +47,6 @@ def main():
         int
             0
     """
-    if not oci_utils.oci_api.HAVE_OCI_SDK:
-        response('ERROR', data="OCI Python SDK not installed")
-        return 1
-
     try:
         session = oci_utils.oci_api.OCISession(
             auth_method=oci_utils.oci_api.DIRECT)
