@@ -9,6 +9,7 @@
 
 import json
 import logging
+import os
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -585,6 +586,10 @@ class InstanceMetadata(object):
         metadata = {}
         result = True
 
+        # disable proxy for _METADATA_ENDPOINT
+        save_no_proxy = os.environ.get('no_proxy', '')
+        os.environ['no_proxy'] = _METADATA_ENDPOINT + ',%s' % save_no_proxy
+
         # read the instance metadata
         lock_thread()
         try:
@@ -595,7 +600,7 @@ class InstanceMetadata(object):
             metadata['instance'] = instance_metadata
         except IOError as e:
             self._errors.append(
-                "Error connecting to metadata server: %s\n" % e[0])
+                "Error connecting to metadata server: %s\n" % str(e))
             result = False
         finally:
             release_thread()
@@ -610,10 +615,14 @@ class InstanceMetadata(object):
             metadata['vnics'] = vnic_metadata
         except IOError as e:
             self._errors.append(
-                "Error connecting to metadata server: %s\n" % e[0])
+                "Error connecting to metadata server: %s\n" % str(e))
             result = False
         finally:
             release_thread()
+
+        # restore no_proxy
+        if not save_no_proxy:
+            os.environ['no_proxy'] = save_no_proxy
 
         if metadata:
             self._metadata = OCIMetadata(metadata)
