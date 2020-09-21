@@ -11,7 +11,7 @@ import logging
 import os
 import re
 from time import sleep
-
+import oci as oci_sdk
 import oci_utils
 from oci_utils import metadata
 from . import _configuration as OCIUtilsConfiguration
@@ -20,12 +20,6 @@ from .exceptions import OCISDKError
 from .impl import lock_thread, release_thread
 from .impl.auth_helper import OCIAuthProxy
 from .impl.oci_resources import (OCICompartment, OCIInstance, OCIVolume, OCISubnet)
-
-HAVE_OCI_SDK = True
-try:
-    import oci as oci_sdk
-except ImportError:
-    HAVE_OCI_SDK = False
 
 # authentication methods
 DIRECT = 'direct'
@@ -63,13 +57,8 @@ class OCISession(object):
         Raises
         ------
         OCISDKError
-            If there is no OCI SDK,
             if fails to authenticate.
         """
-
-        global HAVE_OCI_SDK
-        if not HAVE_OCI_SDK:
-            raise OCISDKError('Package python36-oci-sdk not installed')
 
         self.config_file = config_file
         self.config_profile = config_profile

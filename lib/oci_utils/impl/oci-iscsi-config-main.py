@@ -876,16 +876,15 @@ def main():
 
     _user_euid = os.geteuid()
 
-    if oci_utils.oci_api.HAVE_OCI_SDK:
-        try:
-            oci_sess = oci_utils.oci_api.OCISession()
-            USE_OCI_SDK = True
-        except Exception as e:
-            _logger.debug('Cannot get OCI session: %s' % str(e))
-            oci_sdk_error = str(e)
-            USE_OCI_SDK = False
-            if args.debug:
-                raise
+    try:
+        oci_sess = oci_utils.oci_api.OCISession()
+        USE_OCI_SDK = True
+    except Exception as e:
+        _logger.debug('Cannot get OCI session: %s' % str(e))
+        oci_sdk_error = str(e)
+        USE_OCI_SDK = False
+        if args.debug:
+            raise
 
     if not os.path.isfile("/var/run/ocid.pid"):
         _logger.error("Warning:\n"

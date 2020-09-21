@@ -122,18 +122,18 @@ def get_oci_api_session(opt_name=None):
             The session or None if cannot get one
     """
     sess = None
-    if oci_utils.oci_api.HAVE_OCI_SDK:
-        try:
-            sess = oci_utils.oci_api.OCISession()
-        except Exception as e:
-            sdk_error = str(e)
-            if opt_name is not None:
-                __logger.error("To use the %s option, you need to "
-                               "install and configure the OCI Python SDK "
-                               "(python36-oci-sdk)\n" % opt_name)
-                __logger.error(sdk_error)
-            else:
-                __logger.error("Failed to access OCI services: %s" % sdk_error)
+
+    try:
+        sess = oci_utils.oci_api.OCISession()
+    except Exception as e:
+        sdk_error = str(e)
+        if opt_name is not None:
+            __logger.error("To use the %s option, you need to "
+                           "install and configure the OCI Python SDK "
+                           "(python36-oci-sdk)\n" % opt_name)
+            __logger.error(sdk_error)
+        else:
+            __logger.error("Failed to access OCI services: %s" % sdk_error)
 
     return sess
 
@@ -208,8 +208,8 @@ def do_show_network_config(vnic_utils):
     -------
         No return value.
     """
-    if oci_utils.oci_api.HAVE_OCI_SDK:
-        api_show_network_config()
+
+    api_show_network_config()
 
     __logger.info("Operating System level network configuration")
 
