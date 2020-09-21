@@ -284,7 +284,7 @@ send_message() {
     size=$(stat -c %s "$file")
     #
     # split file in 64KB chunks if necessary.
-    if [ "$size" -gt 65536 ]; then
+    if [[ $size -gt 65536 ]]; then
         split -C 64K -d -a 1 "$file" "${file}."
         files=$(find "$file".*)
         count=$(echo "$files" | wc -l)
@@ -367,12 +367,12 @@ fi
 if ! [ -z "${title+x}" ]; then
     log_debug "notification message: ${title}"
     # If file does not exist, exit.
-    if [ ! -f "$file" ]; then
-        log_error "$file doesn't exist." >&2
-        exit 1
-    else
-        log_debug "$file exists"
-    fi
+    # if [ ! -f "$file" ]; then
+    #     log_error "$file doesn't exist." >&2
+    #     exit 1
+    # else
+    #     log_debug "$file exists"
+    # fi
     # If oci config doesn't exist, i.e. notification service is not configured, exit.
     if [ ! -f "$oci_config_file" ]; then
         #

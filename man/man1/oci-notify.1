@@ -8,7 +8,7 @@
 .TH OCI-NOTIFY 1 "AUGUST 2020" Linux "User Manuals"
 .SH NAME
 oci-notify - Send a message and data to a Oracle Cloud Infrastructure
-notification server.
+notification service.
 .SH SYNOPSIS
 .B oci-notify -c
 .I OCID_TOPIC
@@ -60,9 +60,8 @@ must be run with root privileges, either as user root or using
 
 .SH OPTIONS
 .IP "oci-notify -c <topic>"
-configures a notification server topic by creating or updating the
-.B
-oci.conf
+sets the notification service topic by creating or updating the
+.B oci.conf
 file. The
 .B topic
 is the
@@ -87,6 +86,10 @@ is the full or relative path of the file to send.
 
 .SH DIAGNOSTICS
 Return an exit status of 0 for success or a positive value if an error occurred.
+
+.SH EXAMPLES
+.IP "oci-notify -t 'memory information' -f /proc/meminfo"
+.IP "df -h > /tmp/diskdata; du -sh /* >> /tmp/diskdata; oci-notify -t 'disk usage information' -f /tmp/diskdata"
 
 .SH "SEE ALSO"
 .BR ocid (8)
