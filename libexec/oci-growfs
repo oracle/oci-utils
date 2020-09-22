@@ -5,8 +5,9 @@
 # Copyright (c) 2018, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 
-FORCE=false
-F_VALUE=
+ASSUME_YES=0
+ASSUME_NO=0
+
 # Print usage message
 usage()
 {
@@ -16,8 +17,8 @@ Usage: $0 [OPTION]
 Expand the root filesystem to its configured size.
 
 Option:
-  -y                           Answer to "y" to all questions.
-  -n                           Answer to "n" to all questions.
+  -y                           Assume "yes" for all questions.
+  -n                           Assume "n" to all questions (used for preview).
   -h                           Print this message.
 
 EOF
@@ -27,25 +28,30 @@ EOF
 # Prompt for action confirmation
 confirm()
 {
-    [ $# -eq 1 ] && input=$1 || input=
-
-    if [[ $FORCE = true ]]; then
-        [[ "$input" =~ ^[nN] ]] && return 1 || return 0
-    fi
+    [ ${ASSUME_YES} -eq 1 ] && return 0
+    [ ${ASSUME_NO} -eq 1 ] && return 1
 
     while true
     do
-        [ -z "$input" ] &&  read -r -p "Confirm? [y/n]: " input
-        case $input in
+        # force use of a tty, if we are inside a 'read loop' already the prompt is never display and we loop forever
+        read -p "Confirm? [y/n]" input < /dev/tty
+        case ${input} in
             [yY][eE][sS]|[yY])
                 return 0;;
-
             [nN][oO]|[nN])
                 return 1;;
-            *)
-                input=
         esac
     done
+}
+
+part_growfs_preview(){
+    if [ $# -ne 2 ]; then
+        echo "Invalid disk or partition."
+        exit 1
+    fi
+
+    growpart $1 $2 --dry-run
+    return $?
 }
 
 part_growfs_func(){
@@ -54,7 +60,11 @@ part_growfs_func(){
         exit 1
     fi
 
-    growpart $1 $2 --dry-run && confirm ${F_VALUE} && growpart $1 $2 && xfs_growfs /
+    growpart $1 $2
+    if [ $? -eq 0 ]
+    then
+        xfs_growfs /
+    fi
     return $?
 }
 
@@ -66,15 +76,11 @@ fi
 while [ "$#" -gt 0 ]; do
     case "$1" in
     -n|-N)
-        FORCE=true
-        F_VALUE=n
-        echo "No to all questions..."
+        ASSUME_NO=1
         break
         ;;
     -y|-Y)
-        FORCE=true
-        F_VALUE=y
-        echo "Yes to all questions..."
+        ASSUME_YES=1
         break
         ;;
     -h)
@@ -97,8 +103,15 @@ _storage=`/usr/bin/findmnt --canonicalize --noheadings --output SOURCE /`
 do
     case "${_type}" in
         part)
-            part_growfs_func /dev/${_sto//[0-9]/} ${_sto//[^0-9]/}
-            exit $?
+            part_growfs_preview /dev/${_sto//[0-9]/} ${_sto//[^0-9]/} || exit 1
+            confirm
+            if [ $? -eq 0 ]
+            then
+                part_growfs_func /dev/${_sto//[0-9]/} ${_sto//[^0-9]/}
+                exit $?
+            else
+                exit 0
+            fi
             ;;
         lvm)
             # 1. find LV and VG of the device
@@ -115,9 +128,16 @@ do
                 # device is suffixed with extne number like /dev/sda3(0) , just keep disk information parts
                 _device=${_device//([0-9]*)/}
                 # 3.1 extend the partittion
-                echo "calling part_growfs_func ${_device//[0-9]/} ${_device//[^0-9]/}"
-                part_growfs_func ${_device//[0-9]/} ${_device//[^0-9]/}
-                [ $? != 0 ] && echo "Cannot extend physical volume disk partition." && exit 1
+                part_growfs_preview ${_device//[0-9]/} ${_device//[^0-9]/} || exit 1
+                confirm
+                if [ $? -eq 0 ]
+                then
+                    echo "calling part_growfs_func ${_device//[0-9]/} ${_device//[^0-9]/}"
+                    part_growfs_func ${_device//[0-9]/} ${_device//[^0-9]/}
+                    [ $? != 0 ] && echo "Cannot extend physical volume disk partition." && exit 1
+                else
+                    exit 0
+                fi
                 # 3.1 extend the PV
                 echo "calling /usr/sbin/pvresize ${_pv}"
                 /usr/sbin/pvresize ${_pv}
