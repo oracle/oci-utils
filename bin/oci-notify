@@ -25,6 +25,8 @@ oci_cli_config_file=$config_dir/oci_cli.conf
 MAXTITLELEN=128
 # log
 log_file=/var/log/oci-notify.log
+# temp message 
+tmpmsg=/tmp/mesg.oci
 
 usage() {
     cat >&2 << EOF
@@ -281,6 +283,10 @@ send_message() {
     #
     OCI_INSTANCE_PRINCIPAL_AUTH="--auth instance_principal"
     OCI_CLI_PROFILE_CONFIG="--config-file $oci_cli_config_file"
+    if [[ $file =~ ^(https?|ftp|file):// ]]; then
+        curl -sfm 25 "$file" 2>/dev/null > "$tmpmsg"
+        file=$tmpmsg
+    fi
     size=$(stat -c %s "$file")
     #
     # split file in 64KB chunks if necessary.
