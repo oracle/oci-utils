@@ -575,13 +575,13 @@ def create(**kargs):
                 _logger.debug('interface [%s]' % _i)
                 _logger.debug('  [%s]' % str(interfaces[_i]))
 
-        if vnics[0]['privateIp'] in kargs['network']:
-            print_error('primary vNIC IP must not be selected')
-            return 1
-
         if _is_bm_shape:
             # sanity : verify primary vnic is not specified
             # TODO: put that at upper level
+            if vnics[0]['privateIp'] in kargs['network']:
+                # on BM shape vNIC IP are given
+                print_error('primary vNIC IP must not be selected')
+            return 1
 
             args.append('--hvm')
             free_vnic_ip_addrs = []
@@ -618,6 +618,11 @@ def create(**kargs):
                             'model=e1000'.format(vf_dev, vnic['vlanTag'], vnic['macAddr']))
         else:
             # VM shape case : vnic are used directly (no VF)
+
+            # sanity : verify primary vnic is not specified
+            # TODO: put that at upper level
+            primary_mac = vnics[0]['macAddr'].upper()
+
             if kargs['network']:
                 for vn_name in kargs['network']:
                     args.append('--network')
@@ -627,27 +632,34 @@ def create(**kargs):
                         if intf_name == vn_name:
                             _mac_to_use = intf_info['mac'].upper()
                     if _mac_to_use is None:
-                        _logger.debug('warning: cannot find MAC address for %s' % vn_name)
-                        args.append('type=direct,model=virtio,source_mode=passthrough,source=%s' % vn_name)
-                    else:
-                        args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' %
-                                    (vn_name, _mac_to_use))
+                        print_error('Cannot find MAC address for %s' % vn_name)
+                        return 1
+                    if _mac_to_use == primary_mac:
+                        print_error('primary vNIC must not be selected')
+                        return 1
+                    args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' %
+                                (vn_name, _mac_to_use))
             else:
+                _logger.debug('no vnic specified, find one')
                 # have to find one free interface. i.e not already used by a guest
                 # and not the primary one. the VNICs returned by metadata service is sorted list
                 # i.e the first one is the primary VNICs
                 domains_nics = _get_intf_used_by_guest()
+                _logger.debug('NICs used by domains [%s]' % domains_nics)
                 intf_to_use = None
                 _mac_to_use = None
                 for intf_name, intf_info in interfaces.items():
                     # skip non physical intf
                     if not intf_info['physical']:
+                        _logger.debug('skipping physical [%s]' % intf_info)
                         continue
                     # if used by a guest, skip it
                     if intf_name in [list(m.values())[0] for m in list(domains_nics.values())]:
+                        _logger.debug('skipping used by guest [%s]' % intf_name)
                         continue
                     # if primary one (primary VNIC), skip it
                     if vnics[0]['macAddr'].upper() == intf_info['mac'].upper():
+                        _logger.debug('skipping primary [%s]' % intf_info)
                         continue
                     # we've found one
                     intf_to_use = intf_name
