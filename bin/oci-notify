@@ -25,6 +25,8 @@ oci_cli_config_file=$config_dir/oci_cli.conf
 MAXTITLELEN=128
 # log
 log_file=/var/log/oci-notify.log
+# temp message 
+tmpmsg=/tmp/mesg.oci
 
 usage() {
     cat >&2 << EOF
@@ -281,10 +283,14 @@ send_message() {
     #
     OCI_INSTANCE_PRINCIPAL_AUTH="--auth instance_principal"
     OCI_CLI_PROFILE_CONFIG="--config-file $oci_cli_config_file"
+    if [[ $file =~ ^(https?|ftp|file):// ]]; then
+        curl -sfm 25 "$file" 2>/dev/null > "$tmpmsg"
+        file=$tmpmsg
+    fi
     size=$(stat -c %s "$file")
     #
     # split file in 64KB chunks if necessary.
-    if [ "$size" -gt 65536 ]; then
+    if [[ $size -gt 65536 ]]; then
         split -C 64K -d -a 1 "$file" "${file}."
         files=$(find "$file".*)
         count=$(echo "$files" | wc -l)
@@ -367,12 +373,12 @@ fi
 if ! [ -z "${title+x}" ]; then
     log_debug "notification message: ${title}"
     # If file does not exist, exit.
-    if [ ! -f "$file" ]; then
-        log_error "$file doesn't exist." >&2
-        exit 1
-    else
-        log_debug "$file exists"
-    fi
+    # if [ ! -f "$file" ]; then
+    #     log_error "$file doesn't exist." >&2
+    #     exit 1
+    # else
+    #     log_debug "$file exists"
+    # fi
     # If oci config doesn't exist, i.e. notification service is not configured, exit.
     if [ ! -f "$oci_config_file" ]; then
         #

@@ -9,9 +9,9 @@
 .SH NAME
 oci-network-inspector \- display Oracle Cloud Infrastructure networking information.
 .SH SYNOPSIS
-.B oci-network-inspector [--help] [-C 
+.B oci-network-inspector [--help] [-C
 .I COMPARTMENT_OCID
-.B | --compartment 
+.B | --compartment
 .I COMPARTMENT_OCID
 .B ] [-N
 .I VCN_OCID
@@ -23,9 +23,9 @@ The
 .B oci-network-inspector
 utility is used to display networking information for a given VCN or compartment, or for the configured tenancy in the Oracle Cloud Infrastructure.  By default, all VCNs in all compartments accessible by the user will be displayed.
 
-It lists detailed information including security list, IP addresses and associated VNICs and instances in all of the subnets of a given VCN, compartment or the tenancy. 
+It lists detailed information including security list, IP addresses and associated VNICs and instances in all of the subnets of a given VCN, compartment or the tenancy.
 
-It works on any system that has python-oci-sdk installed and configured to authenticate with an Oracle Cloud Infrastructure API server.
+It works on any system that has python36-oci-sdk installed and configured to authenticate with an Oracle Cloud Infrastructure API server.
 .SH OPTIONS
 .IP "-C COMPARTMENT_OCID, --compartment COMPARTMENT_OCID"
 Specify the compartment you wish to inspect.

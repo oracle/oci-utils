@@ -59,15 +59,10 @@ which is then able to display all information without root privileges.
 It also attaches/detaches devices automatically if they do not require
 manual interaction.
 
-Additional features of
 .B oci-iscsi-config
-are available when the Oracle Cloud Infrastructure Python SDK is installed and configured.  The
-Oracle Cloud Infrastructure Python SDK is available in the python-oci-sdk package.  When available,
-.B oci-iscsi-config
-displays additional information about the iSCSI devices and can display all
+uses the OCI python SDK to display additional information about the iSCSI devices and can display all
 available Oracle Cloud Infrastructure storage volumes, not just the ones already assigned to the
-instance.  The second version of the command line requires the Oracle Cloud Infrastructure Python
-SDK.  This invocation can be used to create a new Oracle Cloud Infrastructure storage volume and
+instance.  The second version of the command can be used to create a new Oracle Cloud Infrastructure storage volume and
 assign it to the instance without the use of the Web-based Oracle Cloud Infrastructure Console,
 or to destroy a volume that is not attached to any instances.
 
@@ -75,7 +70,7 @@ To install the Oracle Cloud Infrastructure Python SDK, use
 .PP
 .nf
 .RS
-yum install python-oci-sdk python-oci-cli
+yum install python36-oci-sdk python-oci-cli
 .RE
 .fi
 .PP
