@@ -137,7 +137,7 @@ def _find_vlan(mac, domain_interfaces):
     return None
 
 
-def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
+def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac, vfs_blacklist=()):
     """
     Find an unused virtual function on the proper physical nic.  Attempt to
     re-use a virtual function if it is already assigned the appropriate mac
@@ -151,16 +151,23 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
         The list of domain interfaces.
     desired_mac : str
         The MAC address.
-
+    vfs_blacklist : list of tuple
+        list of VFs not allowed to be used as list of ('pci_id', 'vf_num')
     Returns
     -------
         tuple
             The virtual function if found, None,None otherwise.
     """
+    _logger.debug('find_unassigned_vf_by_phys called for (phys=%s,domain_interfaces=%s,desired_mac=%s,blacklist=%s)' %
+                  (phys, domain_interfaces, desired_mac, vfs_blacklist))
     configured = sysconfig.read_network_config()
+    _logger.debug('configured interfaces are : %s' % configured)
     ifaces = get_interfaces()
+    _logger.debug('all interfaces are : %s' % ifaces)
     virt_fns = ifaces[phys].get('virtfns', {})
+    _logger.debug('virt_fns for given phys  : %s' % virt_fns)
     vfs = {virt_fns[v]['mac']: (virt_fns[v]['pci_id'], v) for v in virt_fns}
+    _logger.debug('vfs for given phys  : %s' % vfs)
 
     # First, remove entries where the mac address is configured via sysconfig
     for c in configured:
@@ -172,9 +179,11 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
             # Configured interfaces with zero as a mac address are almost
             # certainly loopback interfaces of some variety.  Not suitable
             # for a VM to use.
+            _logger.debug('discard [%s] because mac == "00:00:00:00:00:00"' % str(c))
             continue
         vf = vfs.get(mac)
         if vf:
+            _logger.debug('configured - discard vfs[%s] = %s' % (mac, vfs[mac]))
             del vfs[mac]
 
     # Next, remove entries where the mac address is already in use manually
@@ -182,7 +191,16 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
         for mac in i:
             vf = vfs.get(mac)
             if vf:
+                _logger.debug('mac found for domain %s domain_interfaces - discard vfs[%s] = %s' % (d, mac, vfs[mac]))
                 del vfs[mac]
+    _to_be_deleted = []
+    for mac in vfs.keys():
+        if vfs[mac] in vfs_blacklist:
+            _logger.debug('VFs found in black list - discard vfs[%s] = %s' % (mac, vfs[mac]))
+            _to_be_deleted.append(mac)
+
+    for _m in _to_be_deleted:
+        del vfs[_m]
 
     if len(vfs) == 0:
         return None, None
@@ -191,7 +209,7 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac):
     prev = vfs.get(desired_mac)
     if prev:
         return prev
-
+    _logger.debug('post treatment, vfs = [%s], returning first one' % str(vfs.values()))
     return list(vfs.values())[0]
 
 
@@ -280,7 +298,7 @@ def find_free_vnics(vnics, interfaces):
     return set(ret)
 
 
-def test_vnic_and_assign_vf(ip_addr, free_vnics):
+def test_vnic_and_assign_vf(ip_addr, free_vnics_ips, backlisted_vfs=()):
     """
     Based on the IP address of an OCI VNIC, ensure that the VNIC is not
     already assigned to a virtual machine. If that VNIC is available, find a
@@ -291,16 +309,19 @@ def test_vnic_and_assign_vf(ip_addr, free_vnics):
     ----------
         ip_addr : str
             The ip address.
-        free_vnics: list()
-            The list of virtual network interfaces.
-
+        free_vnics_ips: list()
+            The list of free vnic IPs
+        backlisted_vfs: list of tuple
+           list of ('pci id','vf num'). VF which should be filtered out during selection
     Returns
     -------
         tuple
             The virtual network interface, the pci id, the virtual function
             id on success, False,False,False otherwise.
     """
+    _logger.debug('test_vnic_and_assign_vf called with (%s,%s,%s)' % (ip_addr, free_vnics_ips, backlisted_vfs))
     vnics = InstanceMetadata()['vnics']
+    _logger.debug('vnics found in metadata: %s' % vnics)
     domains = virt_utils.get_domains_name()
     domain_interfaces = {d: virt_utils.get_interfaces_from_domain(
         virt_utils.get_domain_xml(d)) for d in domains}
@@ -309,21 +330,26 @@ def test_vnic_and_assign_vf(ip_addr, free_vnics):
     vnic = find_vnic_by_ip(ip_addr, vnics)
     if vnic is None:
         print_error("{} is not the IP address of a VNIC.", ip_addr)
-        _print_available_vnics(free_vnics)
+        _print_available_vnics(free_vnics_ips)
         return False, False, False
+
+    _logger.debug('vnic found from IP : %s' % vnic)
 
     # Next check that the ip address is not already assigned to a vm
     vnic_mac = vnic['macAddr'].lower()
+    _logger.debug('vnic found mac is %s' % vnic_mac)
     dom = _find_vlan(vnic_mac, domain_interfaces)
     if dom:
         print_error("{} is in use by \"{}\".", ip_addr, dom)
-        _print_available_vnics(free_vnics)
+        _print_available_vnics(free_vnics_ips)
         return False, False, False
 
     phys_nic = get_phys_by_index(vnic, vnics, get_interfaces())
+    _logger.debug('physical intf found by index  : %s' % phys_nic)
 
     vf_pci_id, vf_num = find_unassigned_vf_by_phys(phys_nic, domain_interfaces,
-                                                   vnic_mac)
+                                                   vnic_mac, backlisted_vfs)
+    _logger.debug('VF PCI id found [%s] VF number [%s]' % (vf_pci_id, vf_num))
     if vf_pci_id is None:
         # This should never happen.  There are always at least as many virtual
         # Functions as there are potential creatable vnics
@@ -355,6 +381,10 @@ def create_networking(vf_device, vlan, mac, ip=None, prefix=None):
     -------
         The return value from starting the networking interface.
     """
+
+    _logger.debug('create_networking called vf_device=%s,vlan=%s,mac=%s,ip=%s,prefix=%s' %
+                  (vf_device, vlan, mac, ip, prefix))
+
     if vlan is not None:
         vf_cfg = sysconfig.make_vf(vf_device, mac)
         if ip and prefix:
@@ -499,6 +529,8 @@ def create(**kargs):
     _instance_shape = InstanceMetadata()['instance']['shape']
     _is_bm_shape = _instance_shape.startswith('BM')
 
+    _logger.debug('instance shape is [%s]' % _instance_shape)
+
     if not virt_check.validate_kvm_env(_is_bm_shape):
         print_error("Server does not have supported environment "
                     "for guest creation")
@@ -507,6 +539,8 @@ def create(**kargs):
     if not virt_check.validate_domain_name(kargs['name']):
         print_error("Domain name \"{}\" is already in use.".format(kargs['name']))
         return 1
+
+    _logger.debug('domain name to use [%s]' % kargs['name'])
 
     if kargs['root_disk']:
         _root_disk = virt_check.validate_block_device(kargs['root_disk'])
@@ -521,33 +555,60 @@ def create(**kargs):
             '--cpu', 'host',
             '--disk', _disk_virt_install_args]
 
+    if _logger.isEnabledFor(logging.DEBUG):
+        _logger.debug('virt-install command [%s]' % ' '.join(args))
+
     if kargs['virtual_network']:
         for vn_name in kargs['virtual_network']:
             args.append('--network')
             args.append('network=%s,model=e1000' % vn_name)
     else:
         vnics = InstanceMetadata()['vnics']
+        if _logger.isEnabledFor(logging.DEBUG):
+            _logger.debug('vnics found')
+            for _v in vnics:
+                _logger.debug('  [%s]' % str(_v))
+
         interfaces = get_interfaces()
+        if _logger.isEnabledFor(logging.DEBUG):
+            for _i in interfaces.keys():
+                _logger.debug('interface [%s]' % _i)
+                _logger.debug('  [%s]' % str(interfaces[_i]))
 
         if _is_bm_shape:
+            # sanity : verify primary vnic is not specified
+            # TODO: put that at upper level
+            if vnics[0]['privateIp'] in kargs['network']:
+                # on BM shape vNIC IP are given
+                print_error('primary vNIC IP must not be selected')
+            return 1
+
             args.append('--hvm')
             free_vnic_ip_addrs = []
             free_vnics = find_free_vnics(vnics, interfaces)
+            _logger.debug('free vnics ips : %s' % str(free_vnics))
             if not kargs['network']:
                 try:
                     free_vnic_ip_addrs.append(free_vnics.pop())
+                    _logger.debug('no network option specified, taking the first one: %s' % free_vnic_ip_addrs)
                 except KeyError:
                     _print_available_vnics(free_vnics)
                     return 1
             else:
+                _logger.debug('network option specified:  %s' % kargs['network'])
                 free_vnic_ip_addrs = kargs['network']
 
+            _blacklisted_vfs = []
             for free_vnic_ip_addr in free_vnic_ip_addrs:
-                vnic, vf, vf_num = test_vnic_and_assign_vf(free_vnic_ip_addr, free_vnics)
+                _logger.debug('checking vnic [%s] and find VF' % free_vnic_ip_addr)
+                vnic, vf, vf_num = test_vnic_and_assign_vf(free_vnic_ip_addr, free_vnics, _blacklisted_vfs)
                 if not vnic:
                     return 1
+                # be sure thi won't be used at next iteration
+                _blacklisted_vfs.append((vf, vf_num))
 
                 vf_dev = get_interface_by_pci_id(vf, interfaces)
+                _logger.debug('VF dev found %s' % vf_dev)
                 if not create_networking(vf_dev, vnic['vlanTag'], vnic['macAddr']):
                     destroy_networking(vf_dev, vnic['vlanTag'])
                     return 1
@@ -557,6 +618,11 @@ def create(**kargs):
                             'model=e1000'.format(vf_dev, vnic['vlanTag'], vnic['macAddr']))
         else:
             # VM shape case : vnic are used directly (no VF)
+
+            # sanity : verify primary vnic is not specified
+            # TODO: put that at upper level
+            primary_mac = vnics[0]['macAddr'].upper()
+
             if kargs['network']:
                 for vn_name in kargs['network']:
                     args.append('--network')
@@ -566,27 +632,34 @@ def create(**kargs):
                         if intf_name == vn_name:
                             _mac_to_use = intf_info['mac'].upper()
                     if _mac_to_use is None:
-                        _logger.debug('warning: cannot find MAC address for %s' % vn_name)
-                        args.append('type=direct,model=virtio,source_mode=passthrough,source=%s' % vn_name)
-                    else:
-                        args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' %
-                                    (vn_name, _mac_to_use))
+                        print_error('Cannot find MAC address for %s' % vn_name)
+                        return 1
+                    if _mac_to_use == primary_mac:
+                        print_error('primary vNIC must not be selected')
+                        return 1
+                    args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' %
+                                (vn_name, _mac_to_use))
             else:
+                _logger.debug('no vnic specified, find one')
                 # have to find one free interface. i.e not already used by a guest
                 # and not the primary one. the VNICs returned by metadata service is sorted list
                 # i.e the first one is the primary VNICs
                 domains_nics = _get_intf_used_by_guest()
+                _logger.debug('NICs used by domains [%s]' % domains_nics)
                 intf_to_use = None
                 _mac_to_use = None
                 for intf_name, intf_info in interfaces.items():
                     # skip non physical intf
                     if not intf_info['physical']:
+                        _logger.debug('skipping physical [%s]' % intf_info)
                         continue
                     # if used by a guest, skip it
                     if intf_name in [list(m.values())[0] for m in list(domains_nics.values())]:
+                        _logger.debug('skipping used by guest [%s]' % intf_name)
                         continue
                     # if primary one (primary VNIC), skip it
                     if vnics[0]['macAddr'].upper() == intf_info['mac'].upper():
+                        _logger.debug('skipping primary [%s]' % intf_info)
                         continue
                     # we've found one
                     intf_to_use = intf_name
@@ -608,7 +681,8 @@ def create(**kargs):
         print("Autoconsole has been disabled. To view the console, issue "
               "'virsh console {}'".format(kargs['name']))
 
-    _logger.debug('create: executing [%s]' % ' '.join(args))
+    if _logger.isEnabledFor(logging.DEBUG):
+        _logger.debug('create: executing [%s]' % ' '.join(args))
 
     dev_null = open('/dev/null', 'w')
     virt_install = subprocess.Popen(args, stdout=dev_null)
