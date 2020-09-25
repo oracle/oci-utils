@@ -125,6 +125,10 @@ def get_oci_api_session(opt_name=None):
 
     try:
         sess = oci_utils.oci_api.OCISession()
+        # it seems that having a client is not enough, we may not be able to query anything on it
+        # workaround :
+        # try a dummy call to be sure that we can use this session
+        sess.this_instance()
     except Exception as e:
         sdk_error = str(e)
         if opt_name is not None:
@@ -134,7 +138,7 @@ def get_oci_api_session(opt_name=None):
             __logger.error(sdk_error)
         else:
             __logger.error("Failed to access OCI services: %s" % sdk_error)
-
+        return None
     return sess
 
 
