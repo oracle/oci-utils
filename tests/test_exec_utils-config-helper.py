@@ -13,7 +13,6 @@ class TestExecConfigHelper(OciTestCase):
     """ oci-utils-config-helper tests.
     """
 
-    OCI_UTILS_CONFIG_HELPER = '/usr/libexec/oci-utils-config-helper'
 
     def setUp(self):
         """
@@ -29,9 +28,9 @@ class TestExecConfigHelper(OciTestCase):
             If the OCI_UTILS_CONFIG_HELPER does not exist.
         """
         super(TestExecConfigHelper, self).setUp()
-        if not os.path.exists(TestExecConfigHelper.OCI_UTILS_CONFIG_HELPER):
-            raise unittest.SkipTest(
-                "%s not present" % TestExecConfigHelper.OCI_UTILS_CONFIG_HELPER)
+        self.oci_config_helper = self.properties.get_property('oci-utils-config-helper')
+        if not os.path.exists(self.oci_config_helper):
+            raise unittest.SkipTest("%s not present" % self.oci_config_helper)
 
     def test_display_help(self):
         """
@@ -42,7 +41,7 @@ class TestExecConfigHelper(OciTestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output(
-                [sys.executable, TestExecConfigHelper.OCI_UTILS_CONFIG_HELPER, '--help'])
-        except Exception as e:
-            self.fail('Execution has failed: %s' % str(e))
+            _ = subprocess.check_output([self.oci_config_helper])
+        except subprocess.CalledProcessError as e:
+            if e.returncode != 1:
+                self.fail('Execution has failed: %s' % str(e))

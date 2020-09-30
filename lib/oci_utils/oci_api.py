@@ -342,21 +342,16 @@ class OCISession():
             _logger.debug('Instance Principals authentication failed: %s' % str(e))
             raise Exception('Instance Principals authentication failed') from e
 
-    def all_compartments(self, refresh=False):
+    def all_compartments(self):
         """
         Return a list of OCICompartment objects.
-
-        Parameters
-        ----------
-        refresh : bool
-            The refresh flag.
 
         Returns
         -------
         list
             List of compartements.
         """
-        if self._compartments is not None and not refresh:
+        if self._compartments is not None:
             return self._compartments
 
         self._compartments = []
@@ -375,7 +370,7 @@ class OCISession():
                 OCICompartment(session=self, compartment_data=c_data))
         return self._compartments
 
-    def find_compartments(self, display_name, refresh=False):
+    def find_compartments(self, display_name):
         """
         Return a list of OCICompartment-s with a matching display_name regexp.
 
@@ -383,8 +378,6 @@ class OCISession():
         ----------
         display_name : str
              A regular expression.
-        refresh : bool
-            The refresh flag.
 
         Returns
         -------
@@ -393,7 +386,7 @@ class OCISession():
         """
         dn_re = re.compile(display_name)
         compartments = []
-        for comp in self.all_compartments(refresh=refresh):
+        for comp in self.all_compartments():
             res = dn_re.search(comp.get_display_name())
             if res is not None:
                 compartments.append(comp)
@@ -421,25 +414,21 @@ class OCISession():
                 vcns.append(vcn)
         return vcns
 
-    def all_subnets(self, refresh=False):
+    def all_subnets(self):
         """
         Return a list of OCISubnet objects.
 
-        Parameters
-        ----------
-        refresh : bool
-            The refresh flag.
 
         Returns
         -------
         list
             A list of subnets.
         """
-        if self._subnets is not None and not refresh:
+        if self._subnets is not None:
             return self._subnets
 
         subnets = []
-        for compartment in self.all_compartments(refresh=refresh):
+        for compartment in self.all_compartments():
             comp_subnets = compartment.all_subnets()
             if comp_subnets is not None:
                 subnets += comp_subnets
@@ -528,23 +517,19 @@ class OCISession():
                         config=self.oci_config)
         return self._object_storage_client
 
-    def all_instances(self, refresh=False):
+    def all_instances(self):
         """Get all compartements intances across all compartments.
-        Parameters
-        ----------
-        refresh : bool
-            Flag, refresh the compartments and instances information if set.
 
         Returns
         -------
         list
             List of OCIInstance object, can be empty
         """
-        if self._instances is not None and not refresh:
+        if self._instances is not None:
             return self._instances
 
         instances = []
-        for compartment in self.all_compartments(refresh=refresh):
+        for compartment in self.all_compartments():
             comp_instances = compartment.all_instances()
             if comp_instances is not None:
                 instances += comp_instances
@@ -599,7 +584,7 @@ class OCISession():
 
         return OCIInstance(self, result).get_metadata()
 
-    def find_instances(self, display_name, refresh=False):
+    def find_instances(self, display_name):
         """
         Return a list of OCI instances with a matching display_name regexp.
 
@@ -607,9 +592,6 @@ class OCISession():
         ----------
         display_name : str
             A regular expression.
-        refresh : bool
-            The refresh flag.
-
         Returns
         -------
         list
@@ -617,7 +599,7 @@ class OCISession():
         """
         dn_re = re.compile(display_name)
         instances = []
-        for instance in self.all_instances(refresh=refresh):
+        for instance in self.all_instances():
             res = dn_re.search(instance.get_display_name())
             if res is not None:
                 instances.append(instance)

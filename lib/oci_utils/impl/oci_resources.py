@@ -94,22 +94,17 @@ class OCICompartment(OCIAPIAbstractResource):
         """
         return self._data.name
 
-    def all_instances(self, refresh=False):
+    def all_instances(self):
         """
         Get all instance of this compartment.
 
-        Parameters
-        ----------
-        refresh: bool
-            Do we refresh compartment information first ? (the default is
-            False).
 
         Returns
         -------
             list
                 list of instances as list of OCIInstance objects, can be empty.
         """
-        if self._instances is not None and not refresh:
+        if self._instances is not None:
             return self._instances
         if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] \
                 != OCI_COMPARTEMENT_STATE.ACTIVE:
@@ -138,21 +133,17 @@ class OCICompartment(OCIAPIAbstractResource):
         self._instances = instances
         return instances
 
-    def all_subnets(self, refresh=False):
+    def all_subnets(self):
         """
         Get all subnet of this compartment.
 
-        Parameters
-        ----------
-        refresh: bool
-            Do we refresh compartment information first ? (the default is False)
 
         Returns
         -------
             list
                 List of subnets as list of OCISubnet objects, can be empty.
         """
-        if self._subnets is not None and not refresh:
+        if self._subnets is not None:
             return self._subnets
         if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] \
                 != OCI_COMPARTEMENT_STATE.ACTIVE:
@@ -160,28 +151,24 @@ class OCICompartment(OCIAPIAbstractResource):
             return []
 
         subnets = []
-        for vcn in self.all_vcns(refresh=refresh):
+        for vcn in self.all_vcns():
             vcn_subnets = vcn.all_subnets()
             if vcn_subnets is not None:
                 subnets += vcn_subnets
         self._subnets = subnets
         return subnets
 
-    def all_vnics(self, refresh=False):
+    def all_vnics(self):
         """
         Get all VNICs of this compartment.
 
-        Parameters
-        ----------
-        refresh: bool
-            Refresh compartment information first if set.
 
         Returns
         -------
             list
                 List of VNICs as list of OCIVNIC objects, can be empty.
         """
-        if self._vnics is not None and not refresh:
+        if self._vnics is not None:
             return self._vnics
         if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] \
                 != OCI_COMPARTEMENT_STATE.ACTIVE:
@@ -189,28 +176,24 @@ class OCICompartment(OCIAPIAbstractResource):
             return []
 
         vnics = []
-        for instance in self.all_instances(refresh=refresh):
-            inst_vnics = instance.all_vnics(refresh=refresh)
+        for instance in self.all_instances():
+            inst_vnics = instance.all_vnics()
             if inst_vnics:
                 vnics += inst_vnics
         self._vnics = vnics
         return vnics
 
-    def all_vcns(self, refresh=False):
+    def all_vcns(self):
         """
         Get all VCNs of this compartment.
 
-        Parameters
-        ----------
-        refresh: bool
-            Refresh compartment information first if set.
 
         Returns
         -------
             list
                 List of VCNs as list of OCIVCN objects, can be empty.
         """
-        if self._vcns is not None and not refresh:
+        if self._vcns is not None:
             return self._vcns
         if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] \
                 != OCI_COMPARTEMENT_STATE.ACTIVE:
@@ -238,13 +221,11 @@ class OCICompartment(OCIAPIAbstractResource):
         self._vcns = vcns
         return vcns
 
-    def all_volumes(self, refresh=False, availability_domain=None):
+    def all_volumes(self, availability_domain=None):
         """Get all volumes of this compartment
 
         Parameters
         ----------
-        refresh: bool
-            Refresh compartment information first if set.
         availability_domain: str
             The domain name.
 
@@ -254,8 +235,7 @@ class OCICompartment(OCIAPIAbstractResource):
                 List of volume as list of OCIVolume objects, can be empty.
         """
         if self._volumes is not None \
-                and availability_domain is None \
-                and not refresh:
+                and availability_domain is None:
             return self._volumes
         if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] \
                 != OCI_COMPARTEMENT_STATE.ACTIVE:
@@ -487,21 +467,17 @@ class OCIInstance(OCIAPIAbstractResource):
                 ips.append(ip)
         return ips
 
-    def all_vnics(self, refresh=False):
+    def all_vnics(self):
         """
         Get all virtual network interfaces associated with this instance.
 
-        Parameters
-        ----------
-        refresh: bool
-             Refresh the cache if set.
 
         Returns
         -------
             list
                 the list of all vnics OCIVNIC's.
         """
-        if self._vnics is not None and not refresh:
+        if self._vnics is not None:
             return self._vnics
 
         vnics = []
@@ -552,71 +528,57 @@ class OCIInstance(OCIAPIAbstractResource):
                 return priv_ip
         return None
 
-    def all_private_ips(self, refresh=False):
+    def all_private_ips(self):
         """
         Return a list of secondary private IPs assigned to this instance.
-
-        Parameters
-        ----------
-        refresh: bool
-            Refresh teh cache if set.
 
         Returns
         -------
             list
                 The list of private IP addresses associated with the instance.
         """
-        if self._secondary_private_ips is not None and not refresh:
+        if self._secondary_private_ips is not None:
             return self._secondary_private_ips
 
         private_ips = []
-        for vnic in self.all_vnics(refresh=refresh):
-            pips = vnic.all_private_ips(refresh=refresh)
+        for vnic in self.all_vnics():
+            pips = vnic.all_private_ips()
             private_ips += pips
 
         self._secondary_private_ips = private_ips
         return private_ips
 
-    def all_subnets(self, refresh=False):
+    def all_subnets(self):
         """
         Get all subnets associated with the instance.
 
-        Parameters
-        ----------
-        refresh: bool
-            Refresh the cash if set.
 
         Returns
         -------
             set
                 All the subnets.
         """
-        if self._subnets is not None and not refresh:
+        if self._subnets is not None:
             return self._subnets
 
         subnets = set()
-        for vnic in self.all_vnics(refresh=refresh):
+        for vnic in self.all_vnics():
             # discard vnic with no subnet
             if vnic.get_subnet() is not None:
                 subnets.add(vnic.get_subnet())
         self._subnets = list(subnets)
         return self._subnets
 
-    def all_volumes(self, refresh=False):
+    def all_volumes(self):
         """
         Get all the volumes associates with this instance.
-
-        Parameters
-        ----------
-        refresh: bool
-            Refresh the cache if set.
 
         Returns
         -------
             list
                 List of volumes OCIVolume's.
         """
-        if self._volumes is not None and not refresh:
+        if self._volumes is not None:
             return self._volumes
 
         bsc = self._oci_session.get_block_storage_client()
@@ -709,8 +671,7 @@ class OCIInstance(OCIAPIAbstractResource):
                     vol_att = self._oci_session.sdk_call(
                         cc.get_volume_attachment,
                         vol_att.data.id)
-            return self._oci_session.get_volume(vol_att.data.volume_id,
-                                                refresh=True)
+            return self._oci_session.get_volume(vol_att.data.volume_id)
         except oci_sdk.exceptions.ServiceError as e:
             OCIInstance._logger.debug('Failed to attach volume', exc_info=True)
             raise OCISDKError('Failed to attach volume') from e
@@ -813,7 +774,7 @@ class OCIInstance(OCIAPIAbstractResource):
                     sleep(2)
                     v_att = self._oci_session.sdk_call(cc.get_vnic_attachment,
                                                        resp.data.id)
-            return self._oci_session.get_vnic(v_att.data.vnic_id, refresh=True)
+            return self._oci_session.get_vnic(v_att.data.vnic_id)
         except oci_sdk.exceptions.ServiceError as e:
             OCIInstance._logger.debug('Failed to attach new VNIC', exc_info=True)
             raise OCISDKError('Failed to attach new VNIC') from e
@@ -869,7 +830,7 @@ class OCIInstance(OCIAPIAbstractResource):
             return None
         return vol
 
-    def get_metadata(self, get_public_ip=False, refresh=False):
+    def get_metadata(self, get_public_ip=False):
         """
         Get the metadata.
 
@@ -877,22 +838,20 @@ class OCIInstance(OCIAPIAbstractResource):
         ----------
         get_public_ip: bool
             Collect the public ip if set.
-        refresh: bool
-            Refresh the cache if set.
 
         Returns
         -------
             OCIMetadata
                 The metadata.
         """
-        if self._metadata is not None and not refresh:
+        if self._metadata is not None:
             return self._metadata
 
         meta = {}
         meta['instance'] = self.__dict__()
 
         # get vnics
-        vnics = self.all_vnics(refresh=refresh)
+        vnics = self.all_vnics()
         vnics_l = []
         for vnic in vnics:
             vnic_i = vnic.__dict__()
@@ -985,21 +944,16 @@ class OCIVCN(OCIAPIAbstractResource):
         """
         self.compartment_name = name
 
-    def all_subnets(self, refresh=False):
+    def all_subnets(self):
         """
         Get all the subnets.
-
-        Parameters
-        ----------
-        refresh: bool
-            Refresh the cache if set.
 
         Returns
         -------
             list
                 The list of all the subnets.
         """
-        if self.subnets is not None and not refresh:
+        if self.subnets is not None:
             return self.subnets
 
         nc = self._oci_session.get_network_client()
@@ -1022,21 +976,16 @@ class OCIVCN(OCIAPIAbstractResource):
         self.subnets = subnets
         return subnets
 
-    def all_security_lists(self, refresh=False):
+    def all_security_lists(self):
         """
         Get all security lists.
-
-        Parameters
-        ----------
-        refresh: bool
-            Refresh the cache if set.
 
         Returns
         -------
             dict
                 The security list.
         """
-        if self.security_lists is not None and not refresh:
+        if self.security_lists is not None:
             return self.security_lists
 
         nc = self._oci_session.get_network_client()
@@ -1305,9 +1254,6 @@ class OCIVNIC(OCIAPIAbstractResource):
         ----------
         ip_address: str
             The IP address to look for.
-        refresh: bool
-            Flag, refresh the cache if set.
-            # --GT-- not used, kept in place to avoid method call break.
 
         Returns
         -------
@@ -1322,11 +1268,6 @@ class OCIVNIC(OCIAPIAbstractResource):
     def all_private_ips(self):
         """
         Get all secondary private IPs assigned to this VNIC.
-
-        Parameters
-        ----------
-        refresh: bool
-            Flag, refresh the cache if set.
 
         Returns
         -------
@@ -1881,21 +1822,17 @@ class OCISubnet(OCIAPIAbstractResource):
         """
         return self._data.subnet_domain_name
 
-    def all_vnics(self, refresh=False):
+    def all_vnics(self):
         """
         Get a list of all OCIVNIC objects that are in this subnet.
 
-        Parameters
-        ----------
-        refresh: bool
-            Refresh cache if set.
 
         Returns
         -------
             list
                 List of all virtual network interfaces OCIVNIC's.
         """
-        if self._vnics is not None and len(self._vnics) > 0 and not refresh:
+        if self._vnics is not None and len(self._vnics) > 0:
             return self._vnics
         compartment = self._oci_session.get_compartment(
             ocid=self._data.compartment_id)
@@ -1903,7 +1840,7 @@ class OCISubnet(OCIAPIAbstractResource):
             OCISubnet._logger.warning('all_vnics() cannot get compartment')
             return []
         vnics = []
-        for vnic in compartment.all_vnics(refresh=refresh):
+        for vnic in compartment.all_vnics():
             if vnic.get_subnet().get_ocid() == self.get_ocid():
                 vnics.append(vnic)
 
@@ -1950,21 +1887,16 @@ class OCISubnet(OCIAPIAbstractResource):
 
         return (ipint & cidrmask) == cidripint
 
-    def all_private_ips(self, refresh=False):
+    def all_private_ips(self):
         """
         Get a list of secondary private IPs in this Subnet.
-
-        Parameters
-        ----------
-        refresh: bool
-            Refresh cache if set.
 
         Returns
         -------
             list
                 List of all private IP's OCIPrivateIP.
         """
-        if self._secondary_private_ips is not None and not refresh:
+        if self._secondary_private_ips is not None:
             return self._secondary_private_ips
 
         nc = self._oci_session.get_network_client()
@@ -1987,21 +1919,17 @@ class OCISubnet(OCIAPIAbstractResource):
         self._secondary_private_ips = all_privips
         return all_privips
 
-    def all_private_ips_with_primary(self, refresh=False):
+    def all_private_ips_with_primary(self):
         """
         Get the list of secondary private IPs in this Subnet.
 
-        Parameters
-        ----------
-        refresh: bool
-            Refresh cache if set.
 
         Returns
         -------
             list
                 List of secondary private IP's OCIPrivateIP.
         """
-        if self._secondary_private_ips is not None and not refresh:
+        if self._secondary_private_ips is not None:
             return self._secondary_private_ips
 
         nc = self._oci_session.get_network_client()
@@ -2349,8 +2277,7 @@ class OCIVolume(OCIAPIAbstractResource):
                     vol_att = self._oci_session.sdk_call(
                         cc.get_volume_attachment,
                         vol_att.data.id)
-            return self._oci_session.get_volume(vol_att.data.volume_id,
-                                                refresh=True)
+            return self._oci_session.get_volume(vol_att.data.volume_id)
         except oci_sdk.exceptions.ServiceError as e:
             OCIVolume._logger.debug(
                 'Failed to attach volume', exc_info=True)

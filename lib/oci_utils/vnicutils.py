@@ -38,6 +38,8 @@ class VNICUtils():
         except IOError as e:
             _logger.warning('Cannot get metadata: %s', str(e))
 
+        self.get_vnic_info()
+
     @staticmethod
     def __new_vnic_info():
         """
@@ -73,7 +75,7 @@ class VNICUtils():
             _logger.debug('Cannot get OCI session: %s' % str(e))
 
         if oci_sess is not None:
-            p_ips = oci_sess.this_instance().all_private_ips(refresh=True)
+            p_ips = oci_sess.this_instance().all_private_ips()
             sec_priv_ip = \
                 [[ip.get_address(), ip.get_vnic().get_ocid()] for ip in p_ips]
             vnic_info['sec_priv_ip'] = sec_priv_ip
