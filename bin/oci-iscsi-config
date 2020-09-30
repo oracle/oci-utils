@@ -11,6 +11,49 @@
 _PY3=/usr/bin/python3
 s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
 
+declare -A IQNS
+declare COMMAND
+declare cmd_line=""
 
-exec ${_PY3}  ${s_dir}/oci-iscsi-config-main.py $@
 
+# former implementation of oci-iscsi-config was mixing options and sub-commands.
+# oci-iscsi-config-main.py now expect proper command line like '<sub-command> <options>'
+# translate the command line accordingly (as expected by new implemetation)
+PARSED_ARGUMENTS=$(getopt -a  --quiet -o sC:iAd:a:c: --long show,compartment:,interactive,all,detach:,attach:,create-volume:,destroy-volume:,volume-name:,username:,password:,help -- "$@")
+eval set -- "$PARSED_ARGUMENTS"
+while :
+do
+    case "$1" in
+        -s | --show)          cmd_line="${cmd_line} --show"                         ; shift   ;;
+        -C | --compartment)   cmd_line="${cmd_line} --compartment=$2"               ; shift 2 ;;
+        -i | --interactive)   cmd_line="${cmd_line} --interactive"                  ; shift   ;;
+        -A | --all)           cmd_line="${cmd_line} --all"                          ; shift   ;;
+        -d | --detach)        COMMAND="detach"   ; IQNS[${COMMAND}]+="$2,"          ; shift 2 ;;
+        -a | --attach)        COMMAND="attach"   ; IQNS[${COMMAND}]+="$2,"          ; shift 2 ;;
+        -c | --create-volume) COMMAND="create"   ; cmd_line="${cmd_line} --size=$2" ; shift 2 ;;
+        --destroy-volume)     COMMAND="destroy"  ; IQNS[${COMMAND}]+="$2,"          ; shift 2 ;;
+        --volume-name)        cmd_line="${cmd_line} --volume-name=$2"               ; shift 2 ;;
+        --username)           cmd_line="${cmd_line} --username=$2"                  ; shift 2 ;;
+        --password)           cmd_line="${cmd_line} --password=$2"                  ; shift 2 ;;
+        --help)               COMMAND="usage"                                       ; break   ;;
+        # end of parsing , everything getopt did not understood is after that , we do not care in our case
+        --) shift; break ;;
+        *)                    COMMAND="usage"                                       ; break   ;;
+    esac
+done
+
+if [ -z "${COMMAND}" ]
+then
+    COMMAND="show"
+    cmd_line=""
+fi
+
+if [ ${IQNS[${COMMAND}]+_} ] &&  [ -n ${IQNS[${COMMAND}]} ]
+then
+    cmd_line="${cmd_line} --iqns="
+    for i in "${IQNS[${COMMAND}]}"; do cmd_line="${cmd_line}$i,"; done
+fi
+
+
+
+exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $COMMAND ${cmd_line}
