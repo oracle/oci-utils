@@ -18,7 +18,7 @@ from .impl import sudo_utils
 _logger = logging.getLogger('oci-utils.vnicutils')
 
 
-class VNICUtils(object):
+class VNICUtils():
     """Class for managing VNICs
     """
     # file with saved vnic information
@@ -32,6 +32,11 @@ class VNICUtils(object):
         """
         self.vnic_info = None
         self.vnic_info_ts = 0
+        self._metadata = None
+        try:
+            self._metadata = InstanceMetadata().refresh()
+        except IOError as e:
+            _logger.warning('Cannot get metadata: %s', str(e))
 
     @staticmethod
     def __new_vnic_info():
@@ -58,7 +63,7 @@ class VNICUtils(object):
             try:
                 os.remove(VNICUtils.__net_exclude_file)
             except Exception as e:
-                _logger.debug('Cannot remove file [%]: %s' % (VNICUtils.__net_exclude_file, str(e)))
+                _logger.debug('Cannot remove file [%s]: %s' , VNICUtils.__net_exclude_file, str(e))
 
         # can we make API calls?
         oci_sess = None
@@ -121,8 +126,7 @@ class VNICUtils(object):
         if vnic_info_ts is not None:
             self.vnic_info_ts = vnic_info_ts
         else:
-            _logger.warn("Failed to save VNIC info to %s" %
-                         VNICUtils.__vnic_info_file)
+            _logger.warning("Failed to save VNIC info to %s" , VNICUtils.__vnic_info_file)
         return vnic_info_ts
 
     def set_namespace(self, ns):
@@ -298,7 +302,7 @@ class VNICUtils(object):
             if save:
                 self.save_vnic_info()
 
-    def auto_config(self, sec_ip, quiet, show):
+    def auto_config(self, sec_ip):
         """
         Auto configure VNICs. Run the secondary vnic script in automatic
         configuration mode (-c).
@@ -307,10 +311,6 @@ class VNICUtils(object):
         ----------
         sec_ip: list of tuple (<ip adress>,<vnic ocid>)
             secondary IPs to ad to vnics. can be None or empty
-        quiet: bool
-            Do we run the underlying script silently?
-        show: bool
-            Do network config should be part of the output?
 
         Returns
         -------
@@ -365,24 +365,27 @@ class VNICUtils(object):
                 _all_to_be_modified.append(_intf)
 
         # 2 configure the one which need it
-        ns_i = None
-        if 'ns' in self.vnic_info:
-            # if requested to use namespace, compute namespace name pattern
-            ns_i = {}
-            if self.vnic_info['ns']:
-                ns_i['name'] = self.vnic_info['ns']
-            else:
-                ns_i['name'] = 'ons%s' % _intf['IFACE']
-
-            ns_i['start_sshd'] = 'sshd' in self.vnic_info
-
         for _intf in _all_to_be_configured:
+            ns_i=None
+            if 'ns' in self.vnic_info:
+                # if requested to use namespace, compute namespace name pattern
+                ns_i = {}
+                if self.vnic_info['ns']:
+                    ns_i['name'] = self.vnic_info['ns']
+                else:
+                    ns_i['name'] = 'ons%s' % _intf['IFACE']
+
+                ns_i['start_sshd'] = 'sshd' in self.vnic_info
             try:
                 # for BMs, IFACE can be empty ('-'), we local physical NIC
                 # thank to NIC index
                 # make a copy of it to change the IFACE
                 _intf_to_use = _intf_dict(_intf)
-                if InstanceMetadata()['instance']['shape'].startswith('BM') and _intf['IFACE'] == '-':
+
+                if self._metadata is None:
+                    raise ValueError('no metadata information')
+
+                if self._metadata['instance']['shape'].startswith('BM') and _intf['IFACE'] == '-':
                     _intf_to_use['IFACE'] = _by_nic_index[_intf['NIC_I']]
                     _intf_to_use['STATE'] = "up"
 
@@ -392,7 +395,7 @@ class VNICUtils(object):
                 NetworkHelpers.remove_mac_from_nm(_intf['MAC'])
 
                 # setup routes
-                _auto_config_intf_routing(ns_i, _intf_to_use)
+                self._auto_config_intf_routing(ns_i, _intf_to_use)
 
             except Exception as e:
                 # best effort , just issue warning
@@ -401,15 +404,26 @@ class VNICUtils(object):
         # 3 deconfigure the one which need it
         for _intf in _all_to_be_deconfigured:
             try:
-                _auto_deconfig_intf_routing(_intf)
+                self._auto_deconfig_intf_routing(_intf)
                 _auto_deconfig_intf(_intf)
             except Exception as e:
                 # best effort , just issue warning
                 _logger.warning('Cannot deconfigure %s: %s' % (_intf, str(e)))
 
         # 4 add secondaries IP address
+
         for _intf in _all_to_be_modified:
-            _auto_config_secondary_intf(ns_i, _intf)
+            ns_i=None
+            if 'ns' in self.vnic_info:
+                # if requested to use namespace, compute namespace name pattern
+                ns_i = {}
+                if self.vnic_info['ns']:
+                    ns_i['name'] = self.vnic_info['ns']
+                else:
+                    ns_i['name'] = 'ons%s' % _intf['IFACE']
+
+                ns_i['start_sshd'] = 'sshd' in self.vnic_info
+            self._auto_config_secondary_intf(ns_i, _intf)
 
         return (0, '')
 
@@ -434,7 +448,7 @@ class VNICUtils(object):
         _logger.debug("Removing IP addr [%s] from [%s]" % (address, intf_infos))
         NetworkInterfaceSetupHelper(intf_infos).remove_secondary_address(address)
 
-    def auto_deconfig(self, sec_ip, quiet, show):
+    def auto_deconfig(self, sec_ip):
         """
         De-configure VNICs. Run the secondary vnic script in automatic
         de-configuration mode (-d).
@@ -443,11 +457,6 @@ class VNICUtils(object):
         ----------
         sec_ip: list of tuple (<ip adress>,<vnic ocid>)
             secondary IPs to ad to vnics. can be None or empty
-        quiet: bool
-            Do we run the underlying script silently?
-        show: bool
-            Do network config should be part of the output?
-
         Returns
         -------
         tuple
@@ -460,7 +469,9 @@ class VNICUtils(object):
         #  vnic OCID give us the mac address then select the right interface which has the ip
         if sec_ip:
             _translated = []
-            _all_vnic_md = InstanceMetadata()['vnics']
+            if self._metadata is None:
+                return (1,'no metadata available')
+            _all_vnic_md = self._metadata['vnics']
             # 1. locate the MAC: translate ip/vnic to ip/mac
             for (ip, vnic) in sec_ip:
                 _found = False
@@ -497,7 +508,7 @@ class VNICUtils(object):
                 # Is this intf excluded ?
                 if self._is_intf_excluded(intf):
                     continue
-                _auto_deconfig_intf_routing(intf)
+                self._auto_deconfig_intf_routing(intf)
                 _auto_deconfig_intf(intf)
 
         return (0, '')
@@ -585,23 +596,26 @@ class VNICUtils(object):
 
         _all_from_metadata = []
         _first_loop = True
-        for md_vnic in InstanceMetadata()['vnics']:
-            _intf = _intf_dict()
-            if _first_loop:
-                # primary always come first
-                _intf['IS_PRIMARY'] = True
-                _first_loop = False
-            _intf['MAC'] = md_vnic['macAddr'].upper()
-            _intf['ADDR'] = md_vnic['privateIp']
-            _intf['SPREFIX'] = md_vnic['subnetCidrBlock'].split('/')[0]
-            _intf['SBITS'] = md_vnic['subnetCidrBlock'].split('/')[1]
-            _intf['VIRTRT'] = md_vnic['virtualRouterIp']
-            _intf['VLTAG'] = md_vnic['vlanTag']
-            _intf['VNIC'] = md_vnic['vnicId']
-            if 'nicIndex' in md_vnic:
-                # VMs do not have such attr
-                _intf['NIC_I'] = md_vnic['nicIndex']
-            _all_from_metadata.append(_intf)
+        if self._metadata is None:
+            _logger.warning('no metadata available')
+        else:
+            for md_vnic in self._metadata['vnics']:
+                _intf = _intf_dict()
+                if _first_loop:
+                    # primary always come first
+                    _intf['IS_PRIMARY'] = True
+                    _first_loop = False
+                _intf['MAC'] = md_vnic['macAddr'].upper()
+                _intf['ADDR'] = md_vnic['privateIp']
+                _intf['SPREFIX'] = md_vnic['subnetCidrBlock'].split('/')[0]
+                _intf['SBITS'] = md_vnic['subnetCidrBlock'].split('/')[1]
+                _intf['VIRTRT'] = md_vnic['virtualRouterIp']
+                _intf['VLTAG'] = md_vnic['vlanTag']
+                _intf['VNIC'] = md_vnic['vnicId']
+                if 'nicIndex' in md_vnic:
+                    # VMs do not have such attr
+                    _intf['NIC_I'] = md_vnic['nicIndex']
+                _all_from_metadata.append(_intf)
 
         # now we correlate informations
         # precedence is given to metadata
@@ -634,8 +648,8 @@ class VNICUtils(object):
                 interface['CONFSTATE'] = _state
                 # clean up system list
                 _all_from_system = [_i for _i in _all_from_system if _i['MAC'] != interface['MAC']]
-            except ValueError:
-                _logger.debug('error while parsing [%s]: %s' % (str(interface), str(e)))
+            except ValueError as e:
+                _logger.debug('error while parsing [%s]: %s' , str(interface), str(e))
             finally:
                 interfaces.append(interface)
 
@@ -655,133 +669,133 @@ class VNICUtils(object):
         return interfaces
 
 
-def _compute_routing_table_name(interface_info):
-    """
-    Compute the routing table name for a givne interface
-    return the name as str
-    """
-    if InstanceMetadata()['instance']['shape'].startswith('BM'):
-        return 'ort%svl%s' % (interface_info['NIC_I'], interface_info['VLTAG'])
-    else:
+    def _compute_routing_table_name(self, interface_info):
+        """
+        Compute the routing table name for a givne interface
+        return the name as str
+        """
+        if self._metadata is None:
+            raise ValueError('no metadata avaialable')
+        if self._metadata['instance']['shape'].startswith('BM'):
+            return 'ort%svl%s' % (interface_info['NIC_I'], interface_info['VLTAG'])
         return 'ort%s' % interface_info['IND']
 
 
-def _auto_deconfig_intf_routing(intf_infos):
-    """
-    Deconfigure interface routing
-    parameter:
-     intf_info: interface info as dict
-        keys: see VNICITils.get_network_config
+    def _auto_deconfig_intf_routing(self, intf_infos):
+        """
+        Deconfigure interface routing
+        parameter:
+        intf_info: interface info as dict
+            keys: see VNICITils.get_network_config
 
-    Raise:
-        Exception. if configuration failed
-    """
-    # for namespaces the subnet and default routes will be auto deleted with the namespace
-    if not intf_infos.has('NS'):
-        _route_table_name = _compute_routing_table_name(intf_infos)
-        # TODO: rename method to remove_ip_rules
-        NetworkHelpers.remove_ip_addr_rules(_route_table_name)
-        NetworkHelpers.delete_route_table(_route_table_name)
+        Raise:
+            Exception. if configuration failed
+        """
+        # for namespaces the subnet and default routes will be auto deleted with the namespace
+        if not intf_infos.has('NS'):
+            _route_table_name = self._compute_routing_table_name(intf_infos)
+            # TODO: rename method to remove_ip_rules
+            NetworkHelpers.remove_ip_addr_rules(_route_table_name)
+            NetworkHelpers.delete_route_table(_route_table_name)
 
 
-def _auto_config_intf_routing(net_namespace_info, intf_infos):
-    """
-    Configure interface routing
-    parameter:
-     net_namespace_info:
-        information about namespace (or None if no namespace use)
-        keys:
-           name : namespace name
-           start_sshd: if True start sshd within the namespace
-     intf_info: interface info as dict
-        keys: see VNICITils.get_network_config
+    def _auto_config_intf_routing(self, net_namespace_info, intf_infos):
+        """
+        Configure interface routing
+        parameter:
+        net_namespace_info:
+            information about namespace (or None if no namespace use)
+            keys:
+            name : namespace name
+            start_sshd: if True start sshd within the namespace
+        intf_info: interface info as dict
+            keys: see VNICITils.get_network_config
 
-    Raise:
-        Exception. if configuration failed
-    """
+        Raise:
+            Exception. if configuration failed
+        """
 
-    _intf_to_use = intf_infos['IFACE']
-    if InstanceMetadata()['instance']['shape'].startswith('BM') and intf_infos['VLTAG'] != "0":
-        # in that case we operate on the VLAN tagged intf no
-        _intf_to_use = '%sv%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
+        _intf_to_use = intf_infos['IFACE']
+        if self._metadata['instance']['shape'].startswith('BM') and intf_infos['VLTAG'] != "0":
+            # in that case we operate on the VLAN tagged intf no
+            _intf_to_use = '%sv%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
 
-    if net_namespace_info:
-        _logger.debug("default route add")
-        ret, out = NetworkHelpers.add_static_ip_route(
-            'default', 'via', intf_infos['VIRTRT'], namespace=net_namespace_info['name'])
-        if ret != 0:
-            raise Exception("cannot add namespace %s default gateway %s: %s" %
-                            (net_namespace_info['name'], intf_infos['VIRTRT'], out))
-        _logger.debug("added namespace %s default gateway %s" % (net_namespace_info['name'], intf_infos['VIRTRT']))
-        if net_namespace_info['start_sshd']:
-            ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'exec', net_namespace_info['name'], '/usr/sbin/sshd'])
+        if net_namespace_info:
+            _logger.debug("default route add")
+            ret, out = NetworkHelpers.add_static_ip_route(
+                'default', 'via', intf_infos['VIRTRT'], namespace=net_namespace_info['name'])
             if ret != 0:
-                raise Exception("cannot start ssh daemon")
-            _logger.debug('sshd daemon started')
-    else:
-        _route_table_name = _compute_routing_table_name(intf_infos)
+                raise Exception("cannot add namespace %s default gateway %s: %s" %
+                                (net_namespace_info['name'], intf_infos['VIRTRT'], out))
+            _logger.debug("added namespace %s default gateway %s" % (net_namespace_info['name'], intf_infos['VIRTRT']))
+            if net_namespace_info['start_sshd']:
+                ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'exec', net_namespace_info['name'], '/usr/sbin/sshd'])
+                if ret != 0:
+                    raise Exception("cannot start ssh daemon")
+                _logger.debug('sshd daemon started')
+        else:
+            _route_table_name = self._compute_routing_table_name(intf_infos)
 
-        NetworkHelpers.add_route_table(_route_table_name)
+            NetworkHelpers.add_route_table(_route_table_name)
 
-        _logger.debug("default route add")
-        ret, out = NetworkHelpers.add_static_ip_route(
-            'default', 'via', intf_infos['VIRTRT'], 'dev', _intf_to_use, 'table', _route_table_name)
-        if ret != 0:
-            raise Exception("cannot add default route via %s on %s to table %s" %
-                            (intf_infos['VIRTRT'], _intf_to_use, _route_table_name))
-        _logger.debug("added default route via %s dev %s table %s" %
-                      (intf_infos['VIRTRT'], _intf_to_use, _route_table_name))
+            _logger.debug("default route add")
+            ret, out = NetworkHelpers.add_static_ip_route(
+                'default', 'via', intf_infos['VIRTRT'], 'dev', _intf_to_use, 'table', _route_table_name)
+            if ret != 0:
+                raise Exception("cannot add default route via %s on %s to table %s" %
+                                (intf_infos['VIRTRT'], _intf_to_use, _route_table_name))
+            _logger.debug("added default route via %s dev %s table %s" %
+                        (intf_infos['VIRTRT'], _intf_to_use, _route_table_name))
 
-        # create source-based rule to use table
-        ret, out = NetworkHelpers.add_static_ip_rule('from', intf_infos['ADDR'], 'lookup', _route_table_name)
-        if ret != 0:
-            raise Exception("cannot add rule from %s use table %s" % (intf_infos['ADDR'], _route_table_name))
+            # create source-based rule to use table
+            ret, out = NetworkHelpers.add_static_ip_rule('from', intf_infos['ADDR'], 'lookup', _route_table_name)
+            if ret != 0:
+                raise Exception("cannot add rule from %s use table %s" % (intf_infos['ADDR'], _route_table_name))
 
-        _logger.debug("added rule for routing from %s lookup %s with default via %s" %
-                      (intf_infos['ADDR'], _route_table_name, intf_infos['VIRTRT']))
+            _logger.debug("added rule for routing from %s lookup %s with default via %s" %
+                        (intf_infos['ADDR'], _route_table_name, intf_infos['VIRTRT']))
 
 
-def _auto_config_secondary_intf(net_namespace_info, intf_infos):
-    """
-    Configures interface secodnary IPs
+    def _auto_config_secondary_intf(self, net_namespace_info, intf_infos):
+        """
+        Configures interface secodnary IPs
 
-    parameter:
-     net_namespace_info:
-        information about namespace (or None if no namespace use)
-        keys:
-           name : namespace name
-           start_sshd: if True start sshd within the namespace
-     intf_info: interface info as dict
-        keys: see VNICITils.get_network_config
+        parameter:
+        net_namespace_info:
+            information about namespace (or None if no namespace use)
+            keys:
+            name : namespace name
+            start_sshd: if True start sshd within the namespace
+        intf_info: interface info as dict
+            keys: see VNICITils.get_network_config
 
-    Raise:
-        Exception. if configuration failed
-    """
+        Raise:
+            Exception. if configuration failed
+        """
 
-    _route_table_name = _compute_routing_table_name(intf_infos)
+        _route_table_name = self._compute_routing_table_name(intf_infos)
 
-    _sec_addrs = []
-    if intf_infos.has('SECONDARY_ADDRS'):
-        _sec_addrs = [ip['address'] for ip in intf_infos['SECONDARY_ADDRS']]
+        _sec_addrs = []
+        if intf_infos.has('SECONDARY_ADDRS'):
+            _sec_addrs = [ip['address'] for ip in intf_infos['SECONDARY_ADDRS']]
 
-    for secondary_ip in intf_infos['SECONDARY_IPS']:
-        if secondary_ip in _sec_addrs:
-            _logger.debug("secondary IP address %s already plumbed on the interface (or VLAN) %s" %
-                          (secondary_ip, intf_infos['IFACE']))
-            continue
+        for secondary_ip in intf_infos['SECONDARY_IPS']:
+            if secondary_ip in _sec_addrs:
+                _logger.debug("secondary IP address %s already plumbed on the interface (or VLAN) %s" , secondary_ip, intf_infos['IFACE'])
+                continue
 
-        _logger.debug("adding secondary IP address %s to interface (or VLAN) %s" %
-                      (secondary_ip, intf_infos['IFACE']))
+            _logger.debug("adding secondary IP address %s to interface (or VLAN) %s" %
+                        (secondary_ip, intf_infos['IFACE']))
 
-        NetworkInterfaceSetupHelper(intf_infos).add_secondary_address(secondary_ip)
+            NetworkInterfaceSetupHelper(intf_infos).add_secondary_address(secondary_ip)
 
-        NetworkHelpers.add_route_table(_route_table_name)
+            NetworkHelpers.add_route_table(_route_table_name)
 
-        ret, _ = NetworkHelpers.add_static_ip_rule('from', secondary_ip, 'lookup', _route_table_name)
-        if ret != 0:
-            raise Exception("cannot add rule from %s use table %s" % (secondary_ip, _route_table_name))
-        _logger.debug("added rule for routing from %s lookup %s with default via %s" %
-                      (secondary_ip, _route_table_name, intf_infos['VIRTRT']))
+            ret, _ = NetworkHelpers.add_static_ip_rule('from', secondary_ip, 'lookup', _route_table_name)
+            if ret != 0:
+                raise Exception("cannot add rule from %s use table %s" % (secondary_ip, _route_table_name))
+            _logger.debug("added rule for routing from %s lookup %s with default via %s" %
+                        (secondary_ip, _route_table_name, intf_infos['VIRTRT']))
 
 
 def _auto_config_intf(net_namespace_info, intf_infos):
@@ -789,12 +803,12 @@ def _auto_config_intf(net_namespace_info, intf_infos):
     Configures interface
 
     parameter:
-     net_namespace_info:
+    net_namespace_info:
         information about namespace (or None if no namespace use)
         keys:
-           name : namespace name
-           start_sshd: if True start sshd within the namespace
-     intf_info: interface info as dict
+        name : namespace name
+        start_sshd: if True start sshd within the namespace
+    intf_info: interface info as dict
         keys: see VNICITils.get_network_config
 
     Raise:
@@ -814,7 +828,6 @@ def _auto_config_intf(net_namespace_info, intf_infos):
         NetworkInterfaceSetupHelper(intf_infos, net_namespace_info['name']).setup()
     else:
         NetworkInterfaceSetupHelper(intf_infos).setup()
-
 
 def _auto_deconfig_intf(intf_infos):
     """

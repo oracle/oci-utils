@@ -13,10 +13,7 @@ import logging
 import os
 import sys
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import json
 
 import oci_utils
 from oci_utils.oci_api import OCISession
@@ -174,9 +171,9 @@ def pretty_print_section(metadata, indent):
         No return value.
     """
     # first display the keys that are in the oci_metadata_display_order list
-    if type(metadata) is not dict:
+    if isinstance(metadata, dict):
         for element in list(metadata):
-            if type(element) is dict:
+            if isinstance(element, dict):
                 pretty_print_section(element, indent + "  ")
             else:
                 # if type(element) is str:
@@ -190,7 +187,7 @@ def pretty_print_section(metadata, indent):
             display_key = oci_metadata_detail[key]
         value = metadata[key]
 
-        if type(metadata[key]) is dict:
+        if isinstance(metadata[key],dict):
             print("%s%s:" % (indent, display_key))
             pretty_print_section(value, indent + "  ")
             continue
@@ -219,7 +216,7 @@ def pretty_print_section(metadata, indent):
 
         value = metadata[key]
 
-        if type(metadata[key]) is dict:
+        if isinstance(metadata[key],dict):
             print("%s%s:" % (indent, display_key))
             pretty_print_section(value, indent + "  ")
             continue
@@ -392,17 +389,16 @@ def verify_setkeys(set_keys):
     for k in keys:
         if k in OCIInstance.settable_field_type:
             v = set_keys[k]
-            if v is None or type(v) is OCIInstance.settable_field_type[k]:
+            if isinstance(v,OCIInstance.settable_field_type[k]):
                 continue
-            else:
-                _logger.error(" Key %s expects value of %s, not %s." % (
-                    k, human_readable_type[OCIInstance.settable_field_type[k]],
-                    human_readable_type[type(v)]))
-                return False
-        elif k.lower() in OCIInstance.lower_settable_fields:
+            _logger.error(" Key %s expects value of %s, not %s." % (
+                k, human_readable_type[OCIInstance.settable_field_type[k]],
+                human_readable_type[type(v)]))
+            return False
+        if k.lower() in OCIInstance.lower_settable_fields:
             v = set_keys.pop(k)
             k = OCIInstance.lower_settable_fields.get(k.lower())
-            if v is None or type(v) is OCIInstance.settable_field_type[k]:
+            if isinstance(v,OCIInstance.settable_field_type[k]):
                 set_keys[k] = v
             else:
                 _logger.error(" Key %s expects value of %s, not %s." % (
@@ -410,15 +406,15 @@ def verify_setkeys(set_keys):
                     human_readable_type[type(v)]))
                 return False
 
-        elif k.lower() in lower_metadata_fields or k.lower() in \
+        if k.lower() in lower_metadata_fields or k.lower() in \
                 oci_utils.metadata._attribute_map:
             _logger.error(" Key(%s) is one of the reserved names." % k)
             return False
+
+        if "extendedMetadata" in list(set_keys.keys()):
+            extended_metadata = set_keys["extendedMetadata"]
         else:
-            if "extendedMetadata" in list(set_keys.keys()):
-                extended_metadata = set_keys["extendedMetadata"]
-            else:
-                extended_metadata = {}
+            extended_metadata = {}
 
             extended_metadata[k] = set_keys[k]
             set_keys['extendedMetadata'] = extended_metadata
@@ -441,33 +437,33 @@ def get_values(key, metadata):
         dict
             The data for the provided ky on success, None otherwise.
     """
-    if type(metadata) is list:
+    if isinstance(metadata, list):
         if key.isdigit():
-            return metadata[int(k)]
+            return metadata[int(key)]
         values = []
 
         for i in range(len(metadata)):
             v = get_values(key, metadata[i])
-            if type(v) is list:
+            if isinstance(v, list):
                 values.extend(v)
             elif v is not None:
                 values.append(v)
         return values
-    if type(metadata) is not dict:
+    if isinstance(metadata,dict):
         return None
     if key in metadata:
         return metadata[key]
-    else:
-        values = []
-        for k in metadata:
-            if key == k.lower():
-                return metadata[k]
-            v = get_values(key, metadata[k])
-            if type(v) is list:
-                values.extend(v)
-            elif v is not None:
-                values.append(v)
-        return values
+
+    values = []
+    for k in metadata:
+        if key == k.lower():
+            return metadata[k]
+        v = get_values(key, metadata[k])
+        if isinstance(v, list):
+            values.extend(v)
+        elif v is not None:
+            values.append(v)
+    return values
 
 
 def get_trimed_key_values(keys, metadata):
@@ -499,13 +495,13 @@ def get_trimed_key_values(keys, metadata):
             # path key
             newkey_list = []
             _get_path_keys(metadata, ks[1:], newkey_list)
-            for key in newkey_list:
-                v = _get_by_path(metadata, key)
+            for _key in newkey_list:
+                v = _get_by_path(metadata, _key)
                 if v:
                     exportKeys[ke].append(v)
             continue
         v = get_values(ke,  metadata)
-        if type(v) is list:
+        if isinstance(v,list):
             exportKeys[ke].extend(v)
         elif v is not None:
             exportKeys[ke].append(v)
@@ -527,9 +523,9 @@ def remove_list_for_single_item_list(dic):
     dic: the changed dictionary
     """
     for k, v in dic.items():
-        if type(v) is list:
+        if isinstance(v,list):
             if len(v) == 0:
-                dict[k] = None
+                dic[k] = None
             elif len(v) == 1:
                 dic[k] = v[0]
 
@@ -548,7 +544,7 @@ def print_trimed_key_values(keys, metadata):
 
     kValues = get_trimed_key_values(keys, metadata)
     for k, v in kValues.items():
-        if type(v) is list:
+        if isinstance(v,list):
             for item in v:
                 print(k + ": " + str(item))
         else:
@@ -568,8 +564,8 @@ def print_value_only(keys, metadata):
     """
 
     kValues = get_trimed_key_values(keys, metadata)
-    for k, v in kValues.items():
-        if type(v) is list:
+    for _, v in kValues.items():
+        if isinstance(v,list):
             for item in v:
                 print(str(item))
         else:
@@ -596,7 +592,7 @@ def export_keys(keys, metadata):
     for k, v in kValues.items():
         x = 'export '
         x += k + '=\"'
-        if type(v) is list:
+        if isinstance(v,list):
             end = ""
             for item in v:
                 x += end + str(item)
@@ -620,19 +616,18 @@ def convert_key_values_to_string(this_dict):
     -------
         The string representation.
     """
-    """Recursively converts dictionary keys to strings."""
-    if type(this_dict) is str:
+    #Recursively converts dictionary keys to strings.
+    if isinstance(this_dict,str):
         return str(this_dict)
-    elif isinstance(this_dict, collections.Mapping):
+    if isinstance(this_dict, collections.Mapping):
         nd = {}
         for k, v in this_dict.items():
             nd[str(k)] = convert_key_values_to_string(v)
         return nd
-    elif isinstance(this_dict, collections.Iterable):
+    if isinstance(this_dict, collections.Iterable):
         return type(this_dict)(
             convert_key_values_to_string(x) for x in this_dict)
-    else:
-        return this_dict
+    return this_dict
 
 
 def main():
@@ -689,7 +684,7 @@ def main():
                 meta = OCISession().get_instance(
                     instance_id=inst_id).get_metadata()
             else:
-                meta = InstanceMetadata()
+                meta = InstanceMetadata().refresh()
             metadata = meta.filter(args.keys)
         except Exception as e:
             _logger.error("%s" % str(e))
@@ -719,9 +714,9 @@ def main():
     if args.json:
         print(json.dumps(metadata, default=dumper, indent=2))
         return 0
-    else:
-        pretty_print(metadata)
-        return 0
+
+    pretty_print(metadata)
+    return 0
 
 
 if __name__ == "__main__":

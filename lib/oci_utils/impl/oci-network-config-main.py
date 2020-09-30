@@ -266,8 +266,8 @@ def do_detach_vnic(detach_options, vnic_utils):
                 vnic_utils.delete_all_private_ips(vnic.get_ocid())
                 vnic.detach()
                 break
-            else:
-                raise Exception("The primary VNIC cannot be detached.")
+            raise Exception("The primary VNIC cannot be detached.")
+
     return sess.this_shape()
 
 
@@ -298,16 +298,13 @@ def do_create_vnic(create_options):
         if create_options.subnet.startswith('ocid1.subnet.'):
             subnet = sess.get_subnet(create_options.subnet)
             if subnet is None:
-                raise Exception(
-                    "Subnet not found: %s\n" % create_options.subnet)
-            else:
-                subnet_id = subnet.get_ocid()
+                raise Exception("Subnet not found: %s" % create_options.subnet)
+            subnet_id = subnet.get_ocid()
         else:
             subnets = sess.find_subnets(create_options.subnet)
             if len(subnets) == 0:
-                raise Exception(
-                    "No subnet matching %s found\n" % create_options.subnet)
-            elif len(subnets) > 1:
+                raise Exception("No subnet matching %s found" % create_options.subnet)
+            if len(subnets) > 1:
                 __logger.error("More than one subnet matching %s found:\n"
                                % create_options.subnet)
                 for sn in subnets:
@@ -322,15 +319,14 @@ def do_create_vnic(create_options):
             nic_index=create_options.nic_index,
             display_name=create_options.vnic_name)
     except OCISDKError as e:
-        raise Exception('Failed to create VNIC: %s' % e)
+        raise Exception('Failed to create VNIC') from e
 
     public_ip = vnic.get_public_ip()
     if public_ip is not None:
         __logger.info(
-            'creating VNIC: %s (public IP %s)' % (vnic.get_private_ip(),
-                                                  public_ip))
+            'creating VNIC: %s (public IP %s)' , vnic.get_private_ip(), public_ip)
     else:
-        __logger.info('creating VNIC: %s' % vnic.get_private_ip())
+        __logger.info('creating VNIC: %s' , vnic.get_private_ip())
 
 
 def do_add_private_ip(vnic_utils, add_options):
@@ -365,8 +361,6 @@ def do_add_private_ip(vnic_utils, add_options):
             vnic = sess.get_vnic(add_options.vnic)
             if vnic is None:
                 raise Exception("VNIC not found: %s" % add_options.vnic)
-            else:
-                pass
         else:
             raise Exception("Invalid VNIC OCID: %s" % add_options.vnic)
 
@@ -384,7 +378,7 @@ def do_add_private_ip(vnic_utils, add_options):
     try:
         priv_ip = vnic.add_private_ip(private_ip=add_options.private_ip)
     except OCISDKError as e:
-        raise Exception('Failed to provision private IP: %s' % e)
+        raise Exception('Failed to provision private IP') from e
 
     __logger.info(
         'provisioning secondary private IP: %s' % priv_ip.get_address())
@@ -536,14 +530,11 @@ def main():
                 ", ".join(excludes))
 
     if args.auto or args.create_vnic or args.add_private_ip:
-        (ret, out) = vnic_utils.auto_config(quiet=args.quiet, show=args.show,
-                                            sec_ip=args.sec_ip)
+        (ret, out) = vnic_utils.auto_config(args.sec_ip)
     elif args.detach_vnic and shape and shape.startswith("BM"):
-        (ret, out) = vnic_utils.auto_config(quiet=args.quiet, show=args.show,
-                                            sec_ip=args.sec_ip)
+        (ret, out) = vnic_utils.auto_config(args.sec_ip)
     elif args.deconfigure:
-        (ret, out) = vnic_utils.auto_deconfig(quiet=args.quiet, show=args.show,
-                                              sec_ip=args.sec_ip)
+        (ret, out) = vnic_utils.auto_deconfig(args.sec_ip)
 
     if ret:
         __logger.error("Failed to execute the VNIC configuration script.")

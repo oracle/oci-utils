@@ -22,6 +22,7 @@ class OCISDKError(Exception):
             Value/error message.
         """
         assert (value is not None), 'No exception message given'
+        Exception.__init__(self, value)
         self.value = value
 
     def __str__(self):

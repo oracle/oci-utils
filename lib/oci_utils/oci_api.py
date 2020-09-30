@@ -13,7 +13,6 @@ import re
 from time import sleep
 import oci as oci_sdk
 import oci_utils
-from oci_utils import metadata
 from . import _configuration as OCIUtilsConfiguration
 from . import OCI_RESOURCE_STATE
 from .exceptions import OCISDKError
@@ -34,13 +33,12 @@ _logger = logging.getLogger('oci-utils.oci_api')
 __all__ = ['OCISession']
 
 
-class OCISession(object):
+class OCISession():
     """
     High level OCI Cloud API operations
     """
 
-    def __init__(self, config_file='~/.oci/config', config_profile='DEFAULT',
-                 auth_method=None):
+    def __init__(self, config_file='~/.oci/config', config_profile='DEFAULT'):
         """
         OCISession initialisation.
 
@@ -50,8 +48,6 @@ class OCISession(object):
             The oci configuration file.
         config_profile : str
             The oci profile.
-        auth_method : str
-            The authentication method, [None | DIRECT | PROXY | AUTO | IP].
 
 
         Raises
@@ -77,10 +73,9 @@ class OCISession(object):
 
         self._metadata = None
         try:
-            self._metadata = oci_utils.metadata.InstanceMetadata(
-                get_public_ip=False).get(silent=True).get()
+            self._metadata = oci_utils.metadata.InstanceMetadata().refresh().get().get()
         except Exception as e:
-            _logger.debug('Cannot get instance metadata: %s' % str(e))
+            _logger.debug('Cannot get instance metadata: %s' , str(e))
 
         self.oci_config = {}
         self.signer = None
@@ -94,7 +89,7 @@ class OCISession(object):
                 self.auth_method = DIRECT
             except Exception as e:
                 raise OCISDKError('Failed to authenticate with the Oracle Cloud '
-                                  'Infrastructure service: %s' % str(e))
+                                  'Infrastructure service') from e
         else:
             # get auth method from oci-utils conf. default is auto (to find one)
             self.auth_method = self._get_auth_method()
@@ -143,15 +138,19 @@ class OCISession(object):
                 oci_config = oci_sdk.config.from_file(full_fname, profile)
                 return oci_config
             except oci_sdk.exceptions.ConfigFileNotFound as e:
-                raise OCISDKError("Unable to read OCI config file: %s" % e)
+                raise OCISDKError("Unable to read OCI config file") from e
         else:
             raise OCISDKError("Config file %s not found" % full_fname)
 
     def this_shape(self):
-        try:
-            return self._metadata['instance']['shape']
-        except Exception:
-            return None
+        """
+        Returns the current shape.
+        Returns:
+        --------
+          shape as with content of metadata as string
+        """
+        return self._metadata['instance']['shape']
+
 
     def set_sdk_call_timeout(self, timeout):
         """
@@ -266,11 +265,11 @@ class OCISession(object):
                 return NONE
 
         _logger.debug('nothing specified trying to find an auth method')
-        for method in _auth_mechanisms.keys():
+        for method in _auth_mechanisms:
             try:
-                _logger.debug('trying %s auth' % method)
+                _logger.debug('trying %s auth' , method)
                 _auth_mechanisms[method]()
-                _logger.debug('%s auth ok' % method)
+                _logger.debug('%s auth ok' , method)
                 return method
             except Exception as e:
                 _logger.debug(' %s auth has failed: %s' % (method, str(e)))
@@ -302,7 +301,7 @@ class OCISession(object):
             self._identity_client = self.sdk_call(oci_sdk.identity.IdentityClient, self.oci_config)
         except Exception as e:
             _logger.debug("Proxy authentication failed: %s" % str(e))
-            raise Exception("Proxy authentication failed: %s" % str(e))
+            raise Exception("Proxy authentication failed") from e
 
     def _direct_authenticate(self):
         """
@@ -323,7 +322,7 @@ class OCISession(object):
             self._identity_client = self.sdk_call(oci_sdk.identity.IdentityClient, self.oci_config)
         except Exception as e:
             _logger.debug("Direct authentication failed: %s" % str(e))
-            raise Exception("Direct authentication failed: %s" % str(e))
+            raise Exception("Direct authentication failed") from e
 
     def _ip_authenticate(self):
         """
@@ -343,7 +342,7 @@ class OCISession(object):
             self._identity_client = self.sdk_call(oci_sdk.identity.IdentityClient, config={}, signer=self.signer)
         except Exception as e:
             _logger.debug('Instance Principals authentication failed: %s' % str(e))
-            raise Exception('Instance Principals authentication failed: %s' % str(e))
+            raise Exception('Instance Principals authentication failed') from e
 
     def all_compartments(self, refresh=False):
         """
@@ -402,7 +401,7 @@ class OCISession(object):
                 compartments.append(comp)
         return compartments
 
-    def find_vcns(self, display_name, refresh=False):
+    def find_vcns(self, display_name):
         """
         Return a list of OCIVCN-s with a matching display_name regexp.
 
@@ -410,8 +409,6 @@ class OCISession(object):
         ----------
         display_name : str
              A regular expression.
-        refresh : bool
-            The refresh flag.
 
         Returns
         -------
@@ -420,7 +417,7 @@ class OCISession(object):
         """
         dn_re = re.compile(display_name)
         vcns = []
-        for vcn in self.all_vcns(refresh=refresh):
+        for vcn in self.all_vcns():
             res = dn_re.search(vcn.get_display_name())
             if res is not None:
                 vcns.append(vcn)
@@ -599,7 +596,7 @@ class OCISession(object):
                 cc.update_instance, instance_id=instance_id,
                 update_instance_details=details,).data
         except Exception as e:
-            _logger.error('Failed to set metadata: %s. ' % e.message)
+            _logger.error('Failed to set metadata: %s. ' , str(e))
             return None
 
         return OCIInstance(self, result).get_metadata()
@@ -628,8 +625,7 @@ class OCISession(object):
                 instances.append(instance)
         return instances
 
-    def find_volumes(self, display_name=None,
-                     iqn=None, refresh=False):
+    def find_volumes(self, display_name=None, iqn=None):
         """
         Return a list of OCIVolume-s with a matching display_name regexp
         and/or IQN.
@@ -640,8 +636,6 @@ class OCISession(object):
             A regular expression.
         iqn : str
             An iSCSI qualified name.
-        refresh : bool
-            The refresh flag.
 
         Returns
         -------
@@ -654,7 +648,7 @@ class OCISession(object):
         if display_name is not None:
             dn_re = re.compile(display_name)
         volumes = []
-        for volume in self.all_volumes(refresh=refresh):
+        for volume in self.all_volumes():
             if dn_re is not None:
                 # check if display_name matches
                 res = dn_re.search(volume.get_display_name())
@@ -669,7 +663,7 @@ class OCISession(object):
             volumes.append(volume)
         return volumes
 
-    def find_subnets(self, display_name, refresh=False):
+    def find_subnets(self, display_name):
         """
         Return a list of OCISubnet-s with matching the display_name regexp
 
@@ -677,8 +671,6 @@ class OCISession(object):
         ----------
         display_name : str
             A regular expression.
-        refresh : bool
-            The refresh flag.
 
         Returns
         -------
@@ -687,66 +679,55 @@ class OCISession(object):
         """
         dn_re = re.compile(display_name)
         subnets = []
-        for subnet in self.all_subnets(refresh=refresh):
+        for subnet in self.all_subnets():
             res = dn_re.search(subnet.get_display_name())
             if res is not None:
                 subnets.append(subnet)
         return subnets
 
-    def all_vcns(self, refresh=False):
+    def all_vcns(self):
         """Get all VCNs intances across all compartments
-        Parameters
-        ----------
-        refresh : bool
-            Flag, refresh compartments and VNCs information if set.
 
         Returns
         -------
         list
             list of OCIVCN object, can be empty
         """
-        if self._vcns is not None and not refresh:
+        if self._vcns is not None:
             return self._vcns
 
         self._vcns = []
-        for compartment in self.all_compartments(refresh=refresh):
+        for compartment in self.all_compartments():
             self._vcns.extend(compartment.all_vcns())
 
         return self._vcns
 
-    def all_volumes(self, refresh=False):
+    def all_volumes(self):
         """
         Get all volume intances across all compartments
 
-        Parameters
-        ----------
-        refresh : bool
-            Flag, refresh compartments and volumes information if set
 
         Returns
         -------
         list
             list of OCIVolume object, can be empty
         """
-        if self._volumes is not None and not refresh:
+        if self._volumes is not None:
             return self._volumes
 
         volumes = []
-        for compartment in self.all_compartments(refresh=refresh):
+        for compartment in self.all_compartments():
             comp_volumes = compartment.all_volumes()
             if comp_volumes is not None:
                 volumes += comp_volumes
         self._volumes = volumes
         return volumes
 
-    def this_instance(self, refresh=False):
+    def this_instance(self):
         """
         Get the current instance
 
-        Parameters
-        ----------
-        refresh : bool, optional
-            Flag, refresh  information if set.
+
         Returns
         -------
         OCIInstance
@@ -766,24 +747,18 @@ class OCISession(object):
             _logger.error('Cannot find my instance ID: %s' % e)
             return None
 
-        return self.get_instance(instance_id=my_instance_id,
-                                 refresh=refresh)
+        return self.get_instance(instance_id=my_instance_id)
 
-    def this_compartment(self, refresh=False):
+    def this_compartment(self):
         """
         Get the current compartment
 
-        Parameters
-        ----------
-        refresh : bool
-        #   --GT-- not used
-            Flag, refresh  information if set.
 
         Returns
         -------
         OCICompartment
             A OCICompartment instance or None if no compartement
-            information is found or refresh has failed.
+            information is found.
         """
 
         if self._metadata is None:
@@ -843,7 +818,7 @@ class OCISession(object):
             _logger.warning('no region information in metadata')
             return None
 
-    def get_instance(self, instance_id, refresh=False):
+    def get_instance(self, instance_id):
         """
         Get instance by ID
 
@@ -851,8 +826,6 @@ class OCISession(object):
         ----------
         instance_id : str
             The ID of the wanted instance.
-        refresh : bool, optional
-            Flag, refresh information if set.
 
         Returns
         -------
@@ -862,7 +835,7 @@ class OCISession(object):
         ------
         OCISDKError : fetching instance has failed
         """
-        if not refresh and self._instances:
+        if self._instances:
             # return from cache
             for i in self._instances:
                 if i.get_ocid() == instance_id:
@@ -873,12 +846,11 @@ class OCISession(object):
                                           instance_id=instance_id).data
             return OCIInstance(self, instance_data)
         except Exception as e:
-            _logger.debug('Failed to fetch instance: %s. \n'
-                          'Check your connection and settings.' % e)
-            raise OCISDKError('Failed to fetch instance %s' % instance_id)
-        # return None
+            _logger.debug('Failed to fetch instance: %s. Check your connection and settings.', e)
+            raise OCISDKError('Failed to fetch instance [%s]' % instance_id) from e
 
-    def get_subnet(self, subnet_id, refresh=False):
+
+    def get_subnet(self, subnet_id):
         """
         Get the subnet.
 
@@ -886,8 +858,6 @@ class OCISession(object):
         ----------
         subnet_id: str
             The subnet id.
-        refresh : bool
-            Flag, refresh the information if set.
 
         Returns
         -------
@@ -904,7 +874,7 @@ class OCISession(object):
 
         return None
 
-    def get_volume(self, volume_id, refresh=False):
+    def get_volume(self, volume_id):
         """
         Get an OCIVolume object representing the volume with the given OCID.
 
@@ -912,14 +882,13 @@ class OCISession(object):
         ----------
         volume_id : str
             The volume id.
-        refresh : bool
-            Flag, refresh the information if set.
+
         Returns
         -------
         dict
             The volume object or None if not found.
         """
-        if self._volumes is not None and not refresh:
+        if self._volumes is not None:
             for vol in self._volumes:
                 if vol.get_ocid() == volume_id:
                     return vol
@@ -943,7 +912,7 @@ class OCISession(object):
                                        compartment_id=vol_data.compartment_id,
                                        volume_id=vol_data.id).data
         except Exception:
-            # can't find any attachments for this volume
+            _logger.debug('cannot find any attachments for this volume', exc_info=True)
             return OCIVolume(self, volume_data=vol_data)
 
         # find the latest attachment entry for this volume
@@ -972,7 +941,7 @@ class OCISession(object):
             _logger.error('error getting compartment: %s' % e)
             return None
 
-    def get_vcn(self, vcn_id, refresh=False):
+    def get_vcn(self, vcn_id):
         """
         Get VCN by ID.
 
@@ -980,25 +949,23 @@ class OCISession(object):
         ----------
         vcn_id : str
             The ID of the wanted vcn.
-        refresh : bool
-            Flag, refresh the information if set.
 
         Returns
         -------
         OCIVCN
             The OCI VCN  or None if it is not found.
         """
-        if not refresh and self._vcns:
+        if self._vcns:
             # return from cache
             for i in self._vcns:
                 if i.get_ocid() == vcn_id:
                     return i
-        for c in self.all_vcns(refresh=refresh):
+        for c in self.all_vcns():
             if c.get_ocid() == vcn_id:
                 return c
         return None
 
-    def get_vnic(self, vnic_id, refresh=False):
+    def get_vnic(self, vnic_id):
         """
         Get VNIC by ID.
 
@@ -1006,8 +973,6 @@ class OCISession(object):
         ----------
         vnic_id : str
             The ID of the wanted vnic.
-        refresh : bool
-            Flag, refresh the information if set.
 
         Returns
         -------
@@ -1015,8 +980,8 @@ class OCISession(object):
             The OCI VNIC  or None if it is not found.
         """
         # FIXME: use list_vnic_attachments and get_vnic directly
-        for c in self.all_compartments(refresh=refresh):
-            for v in c.all_vnics(refresh=refresh):
+        for c in self.all_compartments():
+            for v in c.all_vnics():
                 if v.get_ocid() == vnic_id:
                     return v
         return None
@@ -1067,4 +1032,4 @@ class OCISession(object):
                                              volume_id=vol_data.data.id)
             return OCIVolume(self, vol_data.data)
         except oci_sdk.exceptions.ServiceError as e:
-            raise OCISDKError('Failed to create volume: %s' % e.message)
+            raise OCISDKError('Failed to create volume') from e
