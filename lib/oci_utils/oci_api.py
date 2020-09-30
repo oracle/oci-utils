@@ -38,7 +38,8 @@ class OCISession():
     High level OCI Cloud API operations
     """
 
-    def __init__(self, config_file='~/.oci/config', config_profile='DEFAULT'):
+    def __init__(self, config_file='~/.oci/config', config_profile='DEFAULT',
+            authentication_method=None):
         """
         OCISession initialisation.
 
@@ -48,13 +49,16 @@ class OCISession():
             The oci configuration file.
         config_profile : str
             The oci profile.
-
+        authentication_method : str
+            The authentication method, [None | DIRECT | PROXY | AUTO | IP].
 
         Raises
         ------
         OCISDKError
             if fails to authenticate.
         """
+
+        assert authentication_method in (NONE,DIRECT,PROXY,AUTO,IP), 'Invalid auth method'
 
         self.config_file = config_file
         self.config_profile = config_profile
@@ -81,18 +85,9 @@ class OCISession():
         self.signer = None
         self.auth_method = NONE
 
-        if not self._metadata:
-            # code is running outside OCI, must have direct auth:
-            _logger.debug('code is running outside OCI, must have direct auth')
-            try:
-                self._direct_authenticate()
-                self.auth_method = DIRECT
-            except Exception as e:
-                raise OCISDKError('Failed to authenticate with the Oracle Cloud '
-                                  'Infrastructure service') from e
-        else:
-            # get auth method from oci-utils conf. default is auto (to find one)
-            self.auth_method = self._get_auth_method()
+
+        # get auth method from oci-utils conf. default is auto (to find one)
+        self.auth_method = self._get_auth_method(authentication_method)
 
         if self.auth_method == NONE:
             raise OCISDKError('Failed to authenticate with the Oracle Cloud Infrastructure service')
@@ -224,7 +219,7 @@ class OCISession():
 
         return result
 
-    def _get_auth_method(self):
+    def _get_auth_method(self, authentication_method=None):
         """
         Determine how (or if) we can authenticate. If auth_method is
         provided, and is not AUTO then test if the given auth_method works.
@@ -233,8 +228,8 @@ class OCISession():
 
         Parameters
         ----------
-        auth_method : [NONE | DIRECT | PROXY | AUTO | IP]
-            The authentication method to be tested.
+        authentication_method : [NONE | DIRECT | PROXY | AUTO | IP]
+            if specified, the authentication method to be tested.
 
         Returns
         -------
@@ -243,7 +238,10 @@ class OCISession():
             [NONE | DIRECT | PROXY | AUTO | IP]
         """
 
-        auth_method = OCIUtilsConfiguration.get('auth', 'auth_method')
+        if authentication_method is None:
+            auth_method = OCIUtilsConfiguration.get('auth', 'auth_method')
+        else:
+            auth_method = authentication_method
 
         _logger.debug('auth method retrieved from conf: %s' % auth_method)
 
