@@ -58,7 +58,7 @@ class OCISession():
             if fails to authenticate.
         """
 
-        assert authentication_method in (NONE,DIRECT,PROXY,AUTO,IP), 'Invalid auth method'
+        assert authentication_method in (None, NONE,DIRECT,PROXY,AUTO,IP), 'Invalid auth method'
 
         self.config_file = config_file
         self.config_profile = config_profile
