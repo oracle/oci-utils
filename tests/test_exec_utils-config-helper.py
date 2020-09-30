@@ -41,7 +41,7 @@ class TestExecConfigHelper(OciTestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([self.oci_config_helper])
+            _ = subprocess.check_output([sys.executable, self.oci_config_helper])
         except subprocess.CalledProcessError as e:
             if e.returncode != 1:
                 self.fail('Execution has failed: %s' % str(e))
