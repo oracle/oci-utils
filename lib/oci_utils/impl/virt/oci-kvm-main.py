@@ -11,11 +11,11 @@ page for more information.
 
 import argparse
 import sys
-import os
-import os.path
+
+import xml.dom.minidom
 import libvirt
 import oci_utils.kvm.virt
-import xml.dom.minidom
+
 
 _create = 'create'
 _destroy = 'destroy'
@@ -159,7 +159,7 @@ def create_vm(args):
             if n_name not in _all_net_names:
                 _all_net_names.add(n_name)
             else:
-                print('duplicate virtual network name [%s], ignore it', vn_n)
+                print('duplicate virtual network name [%s], ignore it', n_name)
 
     if '--network' in args.virt:
         sys.stderr.write(

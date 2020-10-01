@@ -5,23 +5,24 @@
 # at http://oss.oracle.com/licenses/upl.
 
 import os.path
+import logging
 from . import sudo_utils
 
-import logging
+
 
 from ..impl import SYSTEMCTL_CMD
 
 _logger = logging.getLogger('oci-utils.init-script')
 
 
-class InitScriptBase(object):
+class InitScriptBase():
     """
     base class for sysV init helpers
     """
     _BASE_DIR = '/etc/init.d'
 
 
-class ServiceManager(object):
+class ServiceManager():
     def __init__(self, name):
         """
         Instanciate a new manger for named service
@@ -101,7 +102,7 @@ class InitScriptManager(InitScriptBase, ServiceManager):
         return sudo_utils.delete_file(self.path)
 
 
-class ServiceGenerator(object):
+class ServiceGenerator():
     """
     base class for service generators
     """

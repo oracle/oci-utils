@@ -17,15 +17,11 @@ import os
 import subprocess
 import sys
 import threading
-import time
-from datetime import datetime, timedelta
+import select
 
 import daemon
 import daemon.pidfile
 import sdnotify
-import signal
-import select
-import fcntl
 import oci_utils
 import oci_utils.iscsiadm
 import oci_utils.metadata
@@ -153,6 +149,10 @@ class OcidThread(threading.Thread):
         return self.thread_name
 
     def request_stop(self):
+        """
+        trigger a stop phase of the daemon
+        set the event triggering the stop
+        """
         self.thr_logger.debug('been requested to stop')
         self.active = False
         self.blocking_evt.set()
@@ -424,7 +424,7 @@ def iscsi_func(context, func_logger):
                                      "offline: %s" % iqn)
                     new_offline_vols[iqn] = 1
                     continue
-                elif context['offline_vols'][iqn] < detach_retry:
+                if context['offline_vols'][iqn] < detach_retry:
                     new_offline_vols[iqn] = context['offline_vols'][iqn] + 1
                     func_logger.info("iSCSI volume still offline (%d): %s"
                                      % (new_offline_vols[iqn], iqn))
@@ -500,7 +500,7 @@ def get_metadata_vnics():
     list
         List of vnic's.
     """
-    return oci_utils.metadata.InstanceMetadata(get_public_ip=False)['vnics']
+    return oci_utils.metadata.InstanceMetadata().refresh()['vnics']
 
 
 def vnic_func(context, func_logger):
@@ -541,7 +541,7 @@ def vnic_func(context, func_logger):
         context['vnic_info_ts'], context['vnic_info'] = \
             context['vnic_utils'].get_vnic_info()
         context['vnics'] = get_metadata_vnics()
-        (ret, out) = context['vnic_utils'].auto_config([], False, False)
+        (ret, out) = context['vnic_utils'].auto_config([])
         if ret != 0:
             func_logger.warning("Failed to configure network interfaces")
         if out is not None and out != "":
@@ -598,7 +598,7 @@ def vnic_func(context, func_logger):
 
     if update_needed:
         func_logger.info("updating network interfaces")
-        (ret, out) = context['vnic_utils'].auto_config([], False, False)
+        (ret, out) = context['vnic_utils'].auto_config([])
         if ret != 0:
             func_logger.warning("Failed to configure network interfaces")
         if out is not None and out != "":
@@ -648,7 +648,7 @@ def start_thread(name, repeat):
         auto_resize = OCIUtilsConfiguration.get('iscsi', 'auto_resize')
         if auto_resize in true_list:
             try:
-                output = subprocess.check_output(
+                _ = subprocess.check_output(
                     ['/usr/libexec/oci-growfs', '-y'], stderr=subprocess.STDOUT)
             except Exception:
                 pass
@@ -839,8 +839,8 @@ def main():
         os.unlink('/var/run/ocid.fifo')
         return 0
 
-    except Exception as e:
-        __ocid_logger.exception('internal error')
+    except Exception:
+        __ocid_logger.exception('internal error:')
 
 
 if __name__ == "__main__":

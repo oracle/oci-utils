@@ -411,8 +411,8 @@ def make_vf(name, mac, ip=None, prefix=None):
                  'NETMASK': network_prefix_to_mask(prefix)
                  }
                 )
-    else:
-        return ('vm-{}'.format(name),
+
+    return ('vm-{}'.format(name),
                 {'DEVICE': name,
                  'MACADDR': mac,
                  'NM_CONTROLLED': 'no',
@@ -469,8 +469,7 @@ def make_vlan_with_ip(parent, vlan, mac, ip, prefix):
                  'NETMASK': network_prefix_to_mask(prefix)
                  }
                 )
-    else:
-        return ('vm-{}'.format(name),
+    return ('vm-{}'.format(name),
                 {'DEVICE': name,
                  'MACADDR': mac,
                  'PHYSDEV': parent,

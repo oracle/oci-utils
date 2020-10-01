@@ -14,12 +14,12 @@ import signal
 import logging
 from socket import inet_ntoa
 from struct import pack
-from . import sudo_utils
 import re
-from netaddr import IPNetwork
 import json
-
 from io import StringIO
+from netaddr import IPNetwork
+from . import sudo_utils
+
 
 __all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route_table',
            'network_prefix_to_mask',
@@ -291,7 +291,7 @@ def get_interfaces():
         if virt_fns is None:
             continue
 
-        for k, v in virt_fns.items():
+        for _, v in virt_fns.items():
             try:
                 v['mac'] = ret[pci_id_to_iface[v['pci_id']]]['mac']
             except Exception:
@@ -375,8 +375,8 @@ def add_route_table(table_name):
         _logger.debug('cannot write new content to  file [%s]' '/etc/iproute2/rt_tables')
         sudo_utils.copy_file('/etc/iproute2/rt_tables.bck', '/etc/iproute2/rt_tables')
         return False
-    else:
-        sudo_utils.delete_file('/etc/iproute2/rt_tables.bck')
+
+    sudo_utils.delete_file('/etc/iproute2/rt_tables.bck')
 
     return True
 
@@ -412,8 +412,7 @@ def delete_route_table(table_name):
         _logger.debug('cannot write new content to  file [%s]' '/etc/iproute2/rt_tables')
         sudo_utils.copy_file('/etc/iproute2/rt_tables.bck', '/etc/iproute2/rt_tables')
         return False
-    else:
-        sudo_utils.delete_file('/etc/iproute2/rt_tables.bck')
+    sudo_utils.delete_file('/etc/iproute2/rt_tables.bck')
 
     return True
 
@@ -511,8 +510,8 @@ def remove_mac_from_nm(mac):
     _cf = os.path.join(_NM_CONF_DIR, _compute_nm_conf_filename(mac))
     if sudo_utils.create_file(_cf) != 0:
         raise Exception('Cannot create file %s' % _cf)
-    else:
-        _logger.debug('%s created' % _cf)
+
+    _logger.debug('%s created' % _cf)
 
     nm_conf = StringIO()
     nm_conf.write('[keyfile]\n')

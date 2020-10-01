@@ -12,10 +12,6 @@ import argparse
 import logging
 import sys
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
 from oci_utils import oci_api
 # import oci_utils.oci_api
 from oci_utils.exceptions import OCISDKError

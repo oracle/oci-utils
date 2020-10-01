@@ -75,15 +75,15 @@ class OsSpecificOps(object):
             str: apt output on success, raises an exception otherwise.
         """
         cmd = ['/usr/bin/apt'] + cmd
-        _logger.debug('apt command: %s' % cmd)
+        _logger.debug('apt command: %s' , cmd)
         try:
-            _logger.debug('command: %s' % cmd)
+            _logger.debug('command: %s' , cmd)
             output = system_tools.run_popen_cmd(cmd).decode('utf-8')
-            _logger.debug('apt command output: %s' % str(output))
+            _logger.debug('apt command output: %s' , str(output))
             return output
         except Exception as e:
-            _logger.warning('   Failed to execute apt: %s' % str(e))
-            raise OciMigrateException('\nFailed to execute apt: %s' % str(e))
+            _logger.warning('   Failed to execute apt: %s' , str(e))
+            raise OciMigrateException('Failed to execute apt: %s' % str(e))
 
     @is_an_os_specific_method
     def a10_remove_cloud_init(self):
@@ -102,40 +102,40 @@ class OsSpecificOps(object):
             if os.path.exists(dpkg_cfg_path):
                 with open(dpkg_cfg_path + '/90_dpkg.cfg', 'w') as f:
                     f.write('datasource_list: [None]\n')
-                _logger.debug('%s (re)written.' % dpkg_cfg_path)
+                _logger.debug('%s (re)written.' , dpkg_cfg_path)
             else:
-                _logger.debug('%s does not exist.' % dpkg_cfg_path)
+                _logger.debug('%s does not exist.' , dpkg_cfg_path)
             #
             # remove cloud-init package
             purge_output = self.exec_apt(['purge', 'cloud-init', '-y'])
-            _logger.debug('cloud-init purged: %s' % purge_output)
+            _logger.debug('cloud-init purged: %s' , purge_output)
             #
             # remove /etc/cloud
             cloud_cfg_path = '/etc/cloud'
             backup_cloud_path = system_tools.exec_rename(cloud_cfg_path)
             if bool(backup_cloud_path):
-                _logger.debug('%s renamed to %s' % (cloud_cfg_path,
-                                                    backup_cloud_path))
+                _logger.debug('%s renamed to %s' , cloud_cfg_path,
+                                                    backup_cloud_path)
             #
             # remove /var/lib/cloud
             var_lib_cloud_path = '/var/lib/cloud'
             backup_var_lib_cloud_path = system_tools.exec_rename(var_lib_cloud_path)
             if bool(backup_var_lib_cloud_path):
-                _logger.debug('%s renamed to %s' % (var_lib_cloud_path,
-                                                    backup_var_lib_cloud_path))
+                _logger.debug('%s renamed to %s' ,var_lib_cloud_path,
+                                                    backup_var_lib_cloud_path)
             #
             # remove logs
             cloud_init_log = '/var/log/cloud-init.log'
             backup_cloud_init_log = system_tools.exec_rename(cloud_init_log)
             if bool(cloud_init_log):
-                _logger.debug('%s renamed to %s' % (cloud_init_log,
-                                                    backup_cloud_init_log))
+                _logger.debug('%s renamed to %s' , cloud_init_log,
+                                                    backup_cloud_init_log)
             #
             pause_msg(msg='cloud-init removed', pause_flag='_OCI_CHROOT')
             return True
         except Exception as e:
             _logger.warning('Failed to purge cloud-init completely which '
-                            'might cause issues at instance creation: %s' % str(e))
+                            'might cause issues at instance creation: %s' , str(e))
             return False
 
     @is_an_os_specific_method
@@ -159,10 +159,10 @@ class OsSpecificOps(object):
             _logger.debug('Collection list of packages.')
             try:
                 pkg_list = get_config_data('ubuntu_os_packages_to_install')
-                _logger.debug('Package list: %s' % pkg_list)
+                _logger.debug('Package list: %s' , pkg_list)
                 return pkg_list
             except Exception as e:
-                _logger.warning('Failed to find a list of packages: %s' % str(e))
+                _logger.warning('Failed to find a list of packages: %s' , str(e))
                 return False
 
         _logger.debug('Installing extra packages.')
@@ -183,13 +183,13 @@ class OsSpecificOps(object):
                 pkg_present = False
                 deblist = self.exec_apt(['list', pkg])
                 for lline in deblist.splitlines():
-                    _logger.debug('%s' % lline)
+                    _logger.debug('%s' , lline)
                     if pkg in lline:
-                        _logger.debug('The deb package %s is available.' % pkg)
+                        _logger.debug('The deb package %s is available.' , pkg)
                         pkg_present = True
                         break
                 if not pkg_present:
-                    _logger.debug('The deb package %s is missing.' % pkg)
+                    _logger.debug('The deb package %s is missing.' ,pkg)
                     migrate_data.migrate_preparation = False
                     migrate_data.migrate_non_upload_reason +=\
                         '\n  The deb package %s is missing from ' \
@@ -197,8 +197,7 @@ class OsSpecificOps(object):
                     return False
                 else:
                     installoutput = self.exec_apt(['install', '-y', pkg])
-                    _logger.debug('Successfully installed %s:\n%s'
-                                  % (pkg, installoutput))
+                    _logger.debug('Successfully installed %s:\n%s',pkg, installoutput)
                 pause_msg(msg='Installed %s here, or not.' % pkg,
                           pause_flag='_OCI_CHROOT')
 
@@ -209,7 +208,7 @@ class OsSpecificOps(object):
 
         except Exception as e:
             _logger.critical('   Failed to install one or more packages '
-                             'of %s:\n%s' % (packages, str(e)))
+                             'of %s:\n%s' , packages, str(e))
             migrate_tools.error_msg('Failed to install one or more packages '
                                     'of %s:\n%s' % (packages, str(e)))
             migrate_data.migrate_non_upload_reason += \
@@ -236,8 +235,7 @@ class OsSpecificOps(object):
             # get the script name
             reinitialise_cloud_init_script = \
                 get_config_data('reinitialise_cloud_init_script')
-            _logger.debug('Got reinitialise_cloud_init_script name: %s'
-                          % reinitialise_cloud_init_script)
+            _logger.debug('Got reinitialise_cloud_init_script name: %s', reinitialise_cloud_init_script)
             #
             # write the reinitialise script code
             with open(reinitialise_cloud_init_script, 'w') as fi:
@@ -246,8 +244,7 @@ class OsSpecificOps(object):
                               get_config_data('reinitialise_cloud_init'))
             os.chmod(reinitialise_cloud_init_script, stat.S_IRWXU)
         except Exception as e:
-            _logger.warning('Failed to collect the reinitialise_cloud_init_script'
-                            'path: %s' % str(e))
+            _logger.warning('Failed to collect the reinitialise_cloud_init_script path: %s' , str(e))
             return False
         return True
 
@@ -265,19 +262,19 @@ class OsSpecificOps(object):
         cmd = ['systemctl', 'list-unit-files']
         enabled = False
         try:
-            _logger.debug('command: %s' % cmd)
+            _logger.debug('command: %s' , cmd)
             output = system_tools.run_popen_cmd(cmd).decode('utf-8').splitlines()
             for service in output:
                 svc = service.split() if len(service) > 1 else ['a', 'b']
                 if 'cloud-init' in svc[0]:
-                    _logger.debug('Found service cloud-init: %s' % svc)
+                    _logger.debug('Found service cloud-init: %s' , svc)
                     if svc[-1] == 'enabled':
                         _logger.debug('Service cloud-init is enabled.')
                         enabled = True
                         break
             return enabled
         except Exception as e:
-            _logger.warning('   Failed to execute apt: %s' % str(e))
+            _logger.warning('   Failed to execute apt: %s' , str(e))
             raise OciMigrateException('\nFailed to execute apt: %s' % str(e))
 
 

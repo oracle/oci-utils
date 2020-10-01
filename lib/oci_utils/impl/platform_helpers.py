@@ -26,9 +26,9 @@ def get_phys_device():
     """
     try:
         # TODO : it seesm that it is private_ip now
-        private_ip = InstanceMetadata()['vnics'][0]['privateIp']
+        private_ip = InstanceMetadata().refresh()['vnics'][0]['privateIp']
     except Exception as e:
-        _logger.debug('error checking metadata: %s' % str(e))
+        _logger.debug('error checking metadata: %s' , str(e))
         return None
     phys_dev = None
     output = sudo_utils.call_output([IP_CMD, '-o', '-4', 'addr', 'show'])
