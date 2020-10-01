@@ -171,7 +171,7 @@ def pretty_print_section(metadata, indent):
         No return value.
     """
     # first display the keys that are in the oci_metadata_display_order list
-    if isinstance(metadata, dict):
+    if not isinstance(metadata, dict):
         for element in list(metadata):
             if isinstance(element, dict):
                 pretty_print_section(element, indent + "  ")
