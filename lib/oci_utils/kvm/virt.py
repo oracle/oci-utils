@@ -581,7 +581,7 @@ def create(**kargs):
             if vnics[0]['privateIp'] in kargs['network']:
                 # on BM shape vNIC IP are given
                 print_error('primary vNIC IP must not be selected')
-            return 1
+                return 1
 
             args.append('--hvm')
             free_vnic_ip_addrs = []
