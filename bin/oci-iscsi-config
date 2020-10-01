@@ -12,6 +12,8 @@ _PY3=/usr/bin/python3
 s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
 
 declare -A IQNS
+declare -A OCIDS
+declare -A COMPS
 declare COMMAND
 declare cmd_line=""
 
@@ -25,13 +27,13 @@ while :
 do
     case "$1" in
         -s | --show)          cmd_line="${cmd_line} --show"                         ; shift   ;;
-        -C | --compartment)   cmd_line="${cmd_line} --compartment=$2"               ; shift 2 ;;
+        -C | --compartment)   COMMAND="show"     ; COMPS[${COMMAND}]+="$2,"         ; shift 2 ;;
         -i | --interactive)   cmd_line="${cmd_line} --interactive"                  ; shift   ;;
         -A | --all)           cmd_line="${cmd_line} --all"                          ; shift   ;;
         -d | --detach)        COMMAND="detach"   ; IQNS[${COMMAND}]+="$2,"          ; shift 2 ;;
         -a | --attach)        COMMAND="attach"   ; IQNS[${COMMAND}]+="$2,"          ; shift 2 ;;
         -c | --create-volume) COMMAND="create"   ; cmd_line="${cmd_line} --size=$2" ; shift 2 ;;
-        --destroy-volume)     COMMAND="destroy"  ; IQNS[${COMMAND}]+="$2,"          ; shift 2 ;;
+        --destroy-volume)     COMMAND="destroy"  ; OCIDS[${COMMAND}]+="$2,"         ; shift 2 ;;
         --volume-name)        cmd_line="${cmd_line} --volume-name=$2"               ; shift 2 ;;
         --username)           cmd_line="${cmd_line} --username=$2"                  ; shift 2 ;;
         --password)           cmd_line="${cmd_line} --password=$2"                  ; shift 2 ;;
@@ -53,7 +55,15 @@ then
     cmd_line="${cmd_line} --iqns="
     for i in "${IQNS[${COMMAND}]}"; do cmd_line="${cmd_line}$i,"; done
 fi
-
-
+if [ ${OCIDS[${COMMAND}]+_} ] &&  [ -n ${OCIDS[${COMMAND}]} ]
+then
+    cmd_line="${cmd_line} --ocids="
+    for i in "${OCIDS[${COMMAND}]}"; do cmd_line="${cmd_line}$i,"; done
+fi
+if [ ${COMPS[${COMMAND}]+_} ] &&  [ -n ${COMPS[${COMMAND}]} ]
+then
+    cmd_line="${cmd_line} --compartements="
+    for i in "${COMPS[${COMMAND}]}"; do cmd_line="${cmd_line}$i,"; done
+fi
 
 exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $COMMAND ${cmd_line}
