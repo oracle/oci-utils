@@ -10,18 +10,13 @@
 import subprocess
 import time
 import logging
-import libvirt
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element
 from xml.etree.ElementTree import SubElement
 import tempfile
 import os
-import io
+import libvirt
 from netaddr import IPNetwork
-
-from string import Template
-
-from . import nic
 from ..impl import IP_CMD, SUDO_CMD, PARTED_CMD, MK_XFS_CMD, print_choices, print_error, VIRSH_CMD, LSBLK_CMD
 from ..impl import sudo_utils
 from ..impl.network_helpers import get_interfaces
@@ -29,11 +24,10 @@ from ..impl.network_helpers import add_route_table
 from ..impl.network_helpers import delete_route_table
 from ..impl.network_helpers import remove_static_ip_routes
 from ..impl.network_helpers import remove_static_ip_rules
-from ..impl.network_helpers import add_firewall_rule, remove_firewall_rule
+from ..impl.network_helpers import remove_firewall_rule
 from ..impl.virt import sysconfig, virt_check, virt_utils
 from ..metadata import InstanceMetadata
 
-from ..impl.init_script_templates import _kvm_network_script_tmpl
 from ..impl.init_script_helpers import SystemdServiceGenerator
 from ..impl.init_script_helpers import SystemdServiceManager
 
@@ -320,7 +314,7 @@ def test_vnic_and_assign_vf(ip_addr, free_vnics_ips, backlisted_vfs=()):
             id on success, False,False,False otherwise.
     """
     _logger.debug('test_vnic_and_assign_vf called with (%s,%s,%s)' % (ip_addr, free_vnics_ips, backlisted_vfs))
-    vnics = InstanceMetadata()['vnics']
+    vnics = InstanceMetadata().refresh()['vnics']
     _logger.debug('vnics found in metadata: %s' % vnics)
     domains = virt_utils.get_domains_name()
     domain_interfaces = {d: virt_utils.get_interfaces_from_domain(
@@ -396,14 +390,14 @@ def create_networking(vf_device, vlan, mac, ip=None, prefix=None):
                }
         sysconfig.write_network_config(cfg)
         return sysconfig.interfaces_up([vf_cfg[0], vlan_cfg[0]])
+
+    if ip and prefix:
+        vf_cfg = sysconfig.make_vf(vf_device, mac, ip, prefix)
     else:
-        if ip and prefix:
-            vf_cfg = sysconfig.make_vf(vf_device, mac, ip, prefix)
-        else:
-            vf_cfg = sysconfig.make_vf(vf_device, mac)
-        cfg = {vf_cfg[0]: vf_cfg[1]}
-        sysconfig.write_network_config(cfg)
-        return sysconfig.interfaces_up([vf_cfg[0]])
+        vf_cfg = sysconfig.make_vf(vf_device, mac)
+    cfg = {vf_cfg[0]: vf_cfg[1]}
+    sysconfig.write_network_config(cfg)
+    return sysconfig.interfaces_up([vf_cfg[0]])
 
 
 def destroy_networking(vf_device, vlan=None):
@@ -461,7 +455,7 @@ def destroy_domain_vlan(domain):
     -------
         No return value.
     """
-    ifaces, all_ifaces = virt_utils.get_domain_interfaces(domain)
+    _, all_ifaces = virt_utils.get_domain_interfaces(domain)
 
     to_del = []
     conf = sysconfig.read_network_config()
@@ -526,7 +520,13 @@ def create(**kargs):
             0 on success, 1 otherwise.
     """
 
-    _instance_shape = InstanceMetadata()['instance']['shape']
+    try:
+        _metadata = InstanceMetadata().refresh()
+    except IOError as e:
+        print_error("Cannot fetch instance metadata: %s" % str(e))
+        return 1
+
+    _instance_shape = _metadata['instance']['shape']
     _is_bm_shape = _instance_shape.startswith('BM')
 
     _logger.debug('instance shape is [%s]' % _instance_shape)
@@ -563,7 +563,7 @@ def create(**kargs):
             args.append('--network')
             args.append('network=%s,model=e1000' % vn_name)
     else:
-        vnics = InstanceMetadata()['vnics']
+        vnics = _metadata['vnics']
         if _logger.isEnabledFor(logging.DEBUG):
             _logger.debug('vnics found')
             for _v in vnics:
@@ -571,7 +571,7 @@ def create(**kargs):
 
         interfaces = get_interfaces()
         if _logger.isEnabledFor(logging.DEBUG):
-            for _i in interfaces.keys():
+            for _i in interfaces:
                 _logger.debug('interface [%s]' % _i)
                 _logger.debug('  [%s]' % str(interfaces[_i]))
 
@@ -581,7 +581,7 @@ def create(**kargs):
             if vnics[0]['privateIp'] in kargs['network']:
                 # on BM shape vNIC IP are given
                 print_error('primary vNIC IP must not be selected')
-            return 1
+                return 1
 
             args.append('--hvm')
             free_vnic_ip_addrs = []
@@ -728,7 +728,7 @@ def destroy(name, delete_disks):
     except libvirt.libvirtError as e:
         domains = virt_utils.get_domains_name()
         print_error("Domain {} does not exist.", name)
-        if len(domains):
+        if len(domains) > 0:
             print_choices("Domains:", domains)
         else:
             print_error("No domains are defined.")
@@ -928,8 +928,13 @@ def create_virtual_network(**kargs):
     -------
         0 on success , 1 otherwise
     """
+    try:
+        _metadata = InstanceMetadata().refresh()
+    except IOError as e:
+        print_error("Cannot fetch instance metadata: %s" % str(e))
+        return 1
 
-    _instance_shape = InstanceMetadata()['instance']['shape']
+    _instance_shape = _metadata['instance']['shape']
     _is_bm_shape = _instance_shape.startswith('BM')
 
     # get the given IP used to find vNIC to use
@@ -938,7 +943,7 @@ def create_virtual_network(**kargs):
     _logger.debug('in create_virtual_network, given IP : %s ' % _vnic_ip_to_use)
 
     # get all vNIC of the current system
-    _all_vnics = InstanceMetadata()['vnics']
+    _all_vnics = _metadata['vnics']
 
     # get all current system network interfaces
     _all_system_interfaces = get_interfaces()

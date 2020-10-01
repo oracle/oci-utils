@@ -251,9 +251,9 @@ def attach(ipaddr, port, iqn, username=None, password=None, auto_startup=True):
                                      '-v', 'automatic'],
                                     stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            logging.warn('failed to set automatic startup set for '
+            logging.warning('failed to set automatic startup set for '
                          'iscsi volume %s' % iqn)
-            logging.warn('iscsiadm output: %s' % e.output)
+            logging.warning('iscsiadm output: %s' % e.output)
             return e.returncode
 
     if username is not None and password is not None:

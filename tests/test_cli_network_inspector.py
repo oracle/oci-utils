@@ -55,5 +55,6 @@ class TestCliOciNetworkInspector(OciTestCase):
         try:
             _ = subprocess.check_output([
                 self.oci_net_inspector])
-        except Exception as e:
-            self.fail('Execution has failed: %s' % str(e))
+        except subprocess.CalledProcessError as e:
+            if e.returncode != 1:
+                self.fail('Execution has failed: %s' % str(e))

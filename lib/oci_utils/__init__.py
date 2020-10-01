@@ -22,7 +22,6 @@ _METADATA_ENDPOINT = '169.254.169.254'
 _MAX_VOLUMES_LIMIT = 32
 _configuration = read_configuration()
 
-
 class OCI_ATTACHMENT_STATE(enum.Enum):
     """ Attachment state defintions.
     """
