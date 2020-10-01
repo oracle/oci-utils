@@ -38,4 +38,4 @@ class TestVnicUtils(OciTestCase):
         vu = oci_utils.vnicutils.VNICUtils()
 
         for nc in vu.get_network_config():
-           print nc
+           print (nc)

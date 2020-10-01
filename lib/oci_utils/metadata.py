@@ -13,11 +13,8 @@ import os
 import urllib.request
 import urllib.error
 import urllib.parse
-from datetime import timedelta
 
-from . import cache
 from oci_utils import _METADATA_ENDPOINT
-from oci_utils.impl import lock_thread, release_thread
 
 _logger = logging.getLogger('oci-utils.oci-metadata')
 
@@ -43,14 +40,14 @@ def _get_by_path(dic, keys):
 
     d = dic
     for key in keys[:-1]:
-        if type(key) is int or key in d:
+        if isinstance(key, int) or key in d:
             d = d[key]
         else:
             return None
-    if keys[-1] in d or (type(d) is list and keys[-1] < len(d)):
+    if keys[-1] in d or (isinstance(d, list) and keys[-1] < len(d)):
         return d[keys[-1]]
-    else:
-        return None
+
+    return None
 
 
 def _set_by_path(dic, keys, value, create_missing=True):
@@ -78,10 +75,8 @@ def _set_by_path(dic, keys, value, create_missing=True):
     n_key = len(keys) - 1
     while i < n_key:
         k = keys[i]
-        if type(k) is int:
-            assert type(
-                d) is list, \
-                "Internal Error: %s is Expected as a list for %s.\n " % (d, k)
+        if isinstance(k, int):
+            assert isinstance(d, list) , "Internal Error: %s is Expected as a list for %s." % (d, k)
 
             while len(d) <= k:
                 d.insert(k, {})
@@ -90,8 +85,8 @@ def _set_by_path(dic, keys, value, create_missing=True):
             d = d[k]
         elif create_missing:
             next_key = keys[i + 1]
-            if type(next_key) is int:
-                if type(d) is list:
+            if isinstance(next_key, int):
+                if isinstance(d, list):
                     d.insert(k, [])
                 else:
                     d[k] = []
@@ -102,7 +97,7 @@ def _set_by_path(dic, keys, value, create_missing=True):
             return dic
         i += 1
 
-    if type(d) is list and keys[-1] >= len(d):
+    if isinstance(d, list) and keys[-1] >= len(d):
         d.insert(keys[-1], value)
     else:
         d[keys[-1]] = value
@@ -174,7 +169,7 @@ def _get_path_keys(metadata, key_path, newkey_list):
         newkey_list.append([])
 
     key = key_path[0]
-    if key.isdigit() and type(metadata) is list:
+    if key.isdigit() and isinstance(metadata, list):
         nkey = int(key)
         assert nkey < len(metadata), \
             "key(%s) in %s is out of range.\n" % (nkey, key_path)
@@ -182,8 +177,8 @@ def _get_path_keys(metadata, key_path, newkey_list):
         for nk in newkey_list:
             nk.append(nkey)
         metadata = metadata[nkey]
-    elif key == "*" or key == "":
-        if type(metadata) is list:
+    elif key in ('*', ''):
+        if isinstance(metadata, list):
             orig = []
             orig += newkey_list
             for nk in orig:
@@ -235,10 +230,11 @@ class OCIMetadata(dict):
         convert : bool
             The conversion flag.
         """
-        assert type(metadata) is dict, "metadata must be a dict"
+        assert isinstance(metadata, dict), "metadata must be a dict"
+        dict.__init__(self, metadata)
         if convert:
             self._metadata = self._name_convert_camel_case(metadata)
-            self._post_process(self._metadata)
+            self._post_process()
         else:
             self._metadata = metadata
 
@@ -255,12 +251,12 @@ class OCIMetadata(dict):
             list or dictionary
                 Updated list or dictionary.
         """
-        if type(meta) is list:
+        if isinstance(meta, list):
             new_meta = []
             for m in meta:
                 new_meta.append(self._name_convert_underscore(m))
 
-        elif type(meta) is dict:
+        elif isinstance(meta, dict):
             new_meta = {}
             for (key, value) in meta.items():
                 nkey = key.lower()
@@ -274,39 +270,30 @@ class OCIMetadata(dict):
 
         return new_meta
 
-    def _post_process(self, metadata):
+    def _post_process(self):
         """
         Due to the different attribute names from the instance metadata
         service and from the SDK, we need to convert the names from the SDK
         to the names from the instance metadata service.
 
-        Parameters
-        ----------
-        metadata: dict
-           The metadata.
-
-        Returns
-        -------
-            dict
-                The converted metadata.
         """
         # merge extendedMetadata into metadata
-        if 'instance' in metadata and metadata['instance'] is not None:
-            if 'metadata' in metadata['instance']:
-                if 'extendedMetadata' in metadata['instance']:
-                    v = metadata['instance'].pop('extendedMetadata')
-                    metadata['instance']['metadata'].update(v)
+        if 'instance' in self._metadata and self._metadata['instance'] is not None:
+            if 'metadata' in self._metadata['instance']:
+                if 'extendedMetadata' in self._metadata['instance']:
+                    v = self._metadata['instance'].pop('extendedMetadata')
+                    self._metadata['instance']['metadata'].update(v)
             else:
-                if 'extendedMetadata' in metadata['instance']:
-                    v = metadata.pop('extendedMetadata')
-                    metadata['metadata'] = v
+                if 'extendedMetadata' in self._metadata['instance']:
+                    v = self._metadata.pop('extendedMetadata')
+                    self._metadata['metadata'] = v
 
         # change vnic's id to vnicId
-        if 'vnics' in metadata:
-            for i in range(len(metadata['vnics'])):
-                v = metadata['vnics'][i].pop('id')
-                metadata['vnics'][i]['vnicId'] = v
-        return metadata
+        if 'vnics' in self._metadata:
+            for i in range(len(self._metadata['vnics'])):
+                v = self._metadata['vnics'][i].pop('id')
+                self._metadata['vnics'][i]['vnicId'] = v
+
 
     def _name_convert_camel_case(self, meta):
         """
@@ -321,12 +308,12 @@ class OCIMetadata(dict):
         -------
             The converted metadata.
         """
-        if type(meta) is list:
+        if isinstance(meta, list):
             new_meta = []
             for m in meta:
                 new_meta.append(self._name_convert_camel_case(m))
 
-        elif type(meta) is dict:
+        elif isinstance(meta, dict):
             new_meta = {}
             for (key, value) in meta.items():
                 try:
@@ -404,7 +391,7 @@ class OCIMetadata(dict):
         -------
             The filtered metadata.
         """
-        if type(metadata) is list:
+        if isinstance(metadata, list):
             new_metadata = []
             for m in metadata:
                 filtered_list = self._filter(m, keys)
@@ -413,7 +400,7 @@ class OCIMetadata(dict):
             if not new_metadata:
                 return None
             return new_metadata
-        elif type(metadata) is dict:
+        if isinstance(metadata, dict):
             new_metadata = {}
             for k in list(metadata.keys()):
                 if k in keys:
@@ -427,14 +414,13 @@ class OCIMetadata(dict):
             if new_metadata == {}:
                 return None
             return new_metadata
-        elif type(metadata) is tuple:
+        if isinstance(metadata, tuple):
             filtered_tuple = [filter_results(x, keys) for x in metadata]
             for a in filtered_tuple:
                 if a is not None:
                     return tuple(filtered_tuple)
             return None
-        else:
-            return None
+        return None
 
     def filter(self, keys):
         """
@@ -506,9 +492,11 @@ class OCIMetadata(dict):
         return self._metadata[item]
 
 
-class InstanceMetadata(object):
+class InstanceMetadata():
     """
     Class for querying OCI instance metadata.
+    This class used the REST endpoint to fetch metadata
+    Until refresh is called, metadata are not fetched
 
     Attributes
     ----------
@@ -516,18 +504,6 @@ class InstanceMetadata(object):
             All metadata.
         _oci_metadata_api_url: str
             The metadata service URL.
-        _metadata_update_time : datetime
-            The time of last metadata update.
-        _md_user_cache : str
-            The filename for the metadata user cache.
-        _md_global_cache : str
-            The filename for the global metadata cache.
-        _md_cache_timeout : timedelta
-            Timeout for collecting the metadata and writing to the file.
-        _pub_ip_cache : str
-            The filename for the public IP cache.
-        _pub_ip_timeout : timedelta
-            Timeout for collecting the public IP cache and writing to the file.
     """
     # all metadata
     _metadata = None
@@ -535,63 +511,39 @@ class InstanceMetadata(object):
     # metadata service URL
     _oci_metadata_api_url = 'http://%s/opc/v2/' % _METADATA_ENDPOINT
 
-    # error log
-    _errors = []
-
-    # time of last metadata update
-    _metadata_update_time = None
-
-    # cache files
-    _md_cache_timeout = timedelta(minutes=2)
-    _pub_ip_cache = cache.get_cache_file_path("public_ip-cache")
-    _pub_ip_timeout = timedelta(minutes=10)
-    _logger = logging.getLogger('oci-utils.metadata')
-
-    def __init__(self, instance_id=None, get_public_ip=False,
-                 oci_metadata=None, debugflag=False):
+    def __init__(self, oci_metadata=None):
         """
         The initialisation of the metadata class.
 
             Parameters
             ----------
-            instance_id : OCID
-                The OCI instance id.
-            get_public_ip : bool
-                Flag, collect the public IP addresses if set.
             oci_metadata : dict
                 The metadata dictionary; if not specified, pull the metadata.
         """
         if oci_metadata is None:
             self.refresh()
         else:
-            assert type(oci_metadata) is \
-                OCIMetadata, "input should be an OCIMetadata object"
+            assert isinstance(oci_metadata, OCIMetadata) , "input should be an OCIMetadata object"
             self._metadata = oci_metadata
 
-    def refresh(self, get_public_ip=False):
+    def refresh(self):
         """
         Fetch all instance metadata from all sources.
-
-        Parameters
-        ----------
-        get_public_ip : bool
-            The flag to collect the public ip address of the instance.
-
-        Returns
+        returns
         -------
-            boolean
-                True for success, False for failure.
+           this instance
+        raise
+        -----
+        IOError
+            error during communication with metadata endpoint
         """
-        #_logger.debug('refreshing metada')
         metadata = {}
-        result = True
 
         # disable proxy for _METADATA_ENDPOINT
         save_no_proxy = os.environ.get('no_proxy', '')
         os.environ['no_proxy'] = _METADATA_ENDPOINT + ',%s' % save_no_proxy
 
         # read the instance metadata
-        lock_thread()
         try:
             _request = urllib.request.Request(self._oci_metadata_api_url + 'instance/',
                                               headers={'Authorization': 'Bearer Oracle'})
@@ -599,14 +551,11 @@ class InstanceMetadata(object):
             instance_metadata = json.loads(api_conn.read().decode('utf-8'))
             metadata['instance'] = instance_metadata
         except IOError as e:
-            self._errors.append(
-                "Error connecting to metadata server: %s\n" % str(e))
-            result = False
-        finally:
-            release_thread()
+            raise IOError("Error connecting to metadata server") from e
+
+
 
         # get the VNIC info
-        lock_thread()
         try:
             _request = urllib.request.Request(self._oci_metadata_api_url + 'vnics/',
                                               headers={'Authorization': 'Bearer Oracle'})
@@ -614,11 +563,7 @@ class InstanceMetadata(object):
             vnic_metadata = json.loads(api_conn.read().decode('utf-8'))
             metadata['vnics'] = vnic_metadata
         except IOError as e:
-            self._errors.append(
-                "Error connecting to metadata server: %s\n" % str(e))
-            result = False
-        finally:
-            release_thread()
+            raise IOError("Error connecting to metadata server") from e
 
         # restore no_proxy
         if not save_no_proxy:
@@ -627,8 +572,8 @@ class InstanceMetadata(object):
         if metadata:
             self._metadata = OCIMetadata(metadata)
 
-        #_logger.debug('metadata after refresh [%s]' % str(self._metadata))
-        return result
+        return self
+
 
     def filter(self, keys):
         """
@@ -649,7 +594,7 @@ class InstanceMetadata(object):
                                            "input, config, and connection."
         return self._metadata.filter(keys)
 
-    def get(self, silent=False):
+    def get(self):
         """
         Get the metadata
 
@@ -659,10 +604,8 @@ class InstanceMetadata(object):
             The metadata or None if they are not loaded and refesh is off.
         """
 
-        if self._metadata is None and not silent:
-            if not self.refresh():
-                for e in self._errors:
-                    _logger.error(e)
+        if self._metadata is None:
+            raise ValueError('must call \'refresh\' method first')
 
         return self._metadata
 
@@ -689,8 +632,7 @@ class InstanceMetadata(object):
         """
         if self._metadata is None:
             return "None"
-        else:
-            return self._metadata.__str__()
+        return self._metadata.__str__()
 
     def __getitem__(self, item):
         """

@@ -5,7 +5,6 @@
 #
 
 import io
-import logging
 import os
 import os.path
 import sys
@@ -127,8 +126,7 @@ def lock_thread(timeout=30):
                 break
             if max_time < datetime.now():
                 raise OCISDKError("Timed out waiting for API thread lock")
-            else:
-                sleep(0.1)
+            sleep(0.1)
     else:
         # blocking
         _oci_utils_thread_lock.acquire(True)
@@ -269,7 +267,7 @@ def setup_logging(forceDebug=False):
                     '/var/tmp/oci-utils.log', mode='a', maxBytes=1024 * 1024, backupCount=3)
                 handler.setFormatter(formatter)
                 handler.setLevel(logging.NOTSET)
-            except Exception as ignored:
+            except Exception as _:
                 # keep it silent
                 pass
 

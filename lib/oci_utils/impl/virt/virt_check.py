@@ -206,12 +206,11 @@ def validate_block_device(dev_orig):
                 # Found  a real path.
                 if e.errno == 22:
                     break
-                else:
-                    print_error(
+                print_error(
                         "Unexpected error occured while resolving {}.  Error "
                         "reading {}: {}",
                         dev_orig, dev, e)
-                    return False
+                return False
 
             # Prevent infinite loops
             if dev in visited:
@@ -240,11 +239,11 @@ def validate_block_device(dev_orig):
         print_error("{} is not a valid device", dev_orig)
         _print_available_block_devices(unused_devices)
         return False
-    elif virt_utils.block_device_has_mounts(devices[dev_name]):
+    if virt_utils.block_device_has_mounts(devices[dev_name]):
         print_error("{} is in use by the host system", dev_orig)
         _print_available_block_devices(unused_devices)
         return False
-    elif not devices[dev_name].get('size'):
+    if not devices[dev_name].get('size'):
         print_error("{} is not a disk", dev_orig)
         _print_available_block_devices(unused_devices)
         return False

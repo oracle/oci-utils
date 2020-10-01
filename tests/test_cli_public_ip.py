@@ -78,5 +78,7 @@ class TestCliOciPublicIp(OciTestCase):
         """
         try:
             _ = subprocess.check_output([self.oci_public_ip, '--all', '--json'])
-        except Exception as e:
-            self.fail('Execution has failed: %s' % str(e))
+        except subprocess.CalledProcessError as e:
+            if e.returncode != 1:
+                # when we cannot find the public IP , exit code is 1.
+                self.fail('Execution has failed: %s' % str(e))

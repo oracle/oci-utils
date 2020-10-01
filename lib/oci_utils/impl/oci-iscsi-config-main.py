@@ -127,13 +127,7 @@ def get_instance_ocid():
         str
             The instance id or '<instance OCID>' if not found.
     """
-    md = InstanceMetadata().filter('instance')
-    if 'instance' in md and 'id' in md['instance']:
-        return md['instance']['id']
-    else:
-        # TODO : What the purpose of this ?
-        #        How user supposed to handle this ?
-        return '<instance OCID>'
+    return InstanceMetadata().refresh()['instance']['id']
 
 
 # TODO : how defval can be optional ?
@@ -586,12 +580,11 @@ def do_attach_ocid(sess, ocid):
             print("Volume %s already attached to this instance." %
                   ocid)
             return True
-        else:
-            _logger.error("Volume %s\nis currently attached to "
-                          "instance %s (%s)\n"
-                          % (ocid, vol.get_instance().get_display_name(),
-                             vol.get_instance().get_public_ip()))
-            return False
+        _logger.error("Volume %s\nis currently attached to "
+                        "instance %s (%s)\n"
+                        % (ocid, vol.get_instance().get_display_name(),
+                            vol.get_instance().get_public_ip()))
+        return False
     print("Attaching OCI Volume to this instance.")
     vol = vol.attach_to(instance_id=sess.this_instance().get_ocid(), wait=True)
 
@@ -601,9 +594,8 @@ def do_attach_ocid(sess, ocid):
             _logger.error("Run oci-iscsi-config with root privileges "
                           "to attach this device.\n")
             return False
-        else:
-            # ocid will attach it automatically
-            return True
+        # ocid will attach it automatically
+        return True
 
     # attach using iscsiadm commands
     print("Attaching iSCSI device")
@@ -657,7 +649,7 @@ def api_detach(sess, iqn):
     return False
 
 
-def do_umount(mountpoint, warn=True):
+def do_umount(mountpoint):
     """
     Unmount the given mountpoint.
 
@@ -714,19 +706,19 @@ def unmount_device(session, iqn, disks):
     if 'partitions' not in disks[device]:
         if disks[device]['mountpoint'] != '':
             # volume has not partitions and is currently mounted
-            if not do_umount(disks[device]['mountpoint'], warn=retval):
+            if not do_umount(disks[device]['mountpoint']):
                 retval = False
     else:
         partitions = disks[device]['partitions']
         for part in list(partitions.keys()):
             if partitions[part]['mountpoint'] != '':
                 # the partition is mounted
-                if not do_umount(partitions[part]['mountpoint'], warn=retval):
+                if not do_umount(partitions[part]['mountpoint']):
                     retval = False
     return retval
 
 
-def do_create_volume(sess, size, display_name, use_chap=False):
+def do_create_volume(sess, size, display_name):
     """
     Create a new OCI volume and attach it to this instance.
 
@@ -928,7 +920,6 @@ def main():
                 "This instance reached the max_volumes(%s)\n" % max_volumes)
             return 1
 
-        # FIXME: use_chap
         retval = do_create_volume(oci_sess, size=args.create_volume,
                                   display_name=args.volume_name)
     elif args.destroy_volume:
@@ -1022,7 +1013,7 @@ def main():
                 if not do_attach_ocid(oci_sess, iqn):
                     retval = 1
                 continue
-            elif not iqn.startswith("iqn."):
+            if not iqn.startswith("iqn."):
                 _logger.error("Invalid IQN %s \n" % iqn)
                 retval = 1
                 continue

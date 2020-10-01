@@ -6,10 +6,11 @@
 
 __all__ = ['NetworkInterfaceSetupHelper', '_intf_dict']
 
+import logging
 from . import sudo_utils
 from ..metadata import InstanceMetadata
 from . import network_helpers as NetworkHelpers
-import logging
+
 
 _logger = logging.getLogger('oci-utils.network_interface')
 
@@ -43,9 +44,9 @@ class _intf_dict(dict):
 
     @staticmethod
     def _to_str(value):
-        if type(value) == bytes:
+        if isinstance(value, bytes):
             return value.decode()
-        if type(value) != str:
+        if not isinstance(value, str):
             return str(value)
         return value
 
@@ -54,7 +55,7 @@ class _intf_dict(dict):
         everything stored as str
         """
 
-        if type(value) == list:
+        if isinstance(value,list):
             super().__setitem__(key, [_intf_dict._to_str(_v) for _v in value])
         else:
             super().__setitem__(key, _intf_dict._to_str(value))
@@ -83,7 +84,13 @@ class NetworkInterfaceSetupHelper:
             Exception in case of error
         """
         # for BM case , create virtual interface if needed
-        _is_bm_shape = InstanceMetadata()['instance']['shape'].startswith('BM')
+
+        try:
+            _metadata = InstanceMetadata().refresh()
+        except IOError as e:
+            raise Exception('cannot get instance metadata') from e
+        _is_bm_shape = _metadata['instance']['shape'].startswith('BM')
+
         _macvlan_name = None
         _vlan_name = ''
         if _is_bm_shape and self.info['VLTAG'] != "0":

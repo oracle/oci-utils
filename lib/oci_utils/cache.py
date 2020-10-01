@@ -49,8 +49,7 @@ def get_timestamp(fname):
 
     if os.path.exists(fname):
         return os.path.getmtime(fname)
-    else:
-        return 0
+    return 0
 
 
 def get_newer(fname1, fname2):
@@ -73,19 +72,16 @@ def get_newer(fname1, fname2):
     if fname1 is None or not os.path.exists(fname1):
         if fname2 is None or not os.path.exists(fname2):
             return None
-        else:
-            return fname2
+        return fname2
     if fname2 is None or not os.path.exists(fname2):
         if fname1 is None or not os.path.exists(fname1):
             return None
-        else:
-            return fname1
+        return fname1
 
     # both files exist
     if get_timestamp(fname1) > get_timestamp(fname2):
         return fname1
-    else:
-        return fname2
+    return fname2
 
 
 def load_cache(global_file, user_file=None, max_age=None):

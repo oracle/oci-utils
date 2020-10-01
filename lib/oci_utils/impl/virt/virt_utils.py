@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 
 import oci_utils.metadata
 from . import block_device_has_mounts
-from .. import IP_CMD, VIRSH_CMD
+from .. import VIRSH_CMD
 from .. import sudo_utils
 from ..network_helpers import get_interfaces
 
@@ -76,7 +76,7 @@ def get_domain_interfaces(domain):
     """
     domain_ifaces = get_interfaces_from_domain(
         get_domain_xml(domain))
-    vnics = oci_utils.metadata.InstanceMetadata()['vnics']
+    vnics = oci_utils.metadata.InstanceMetadata().refresh()['vnics']
     nics = get_interfaces()
 
     directly_assigned = []
@@ -193,7 +193,7 @@ def get_unused_block_devices(devices, domain_disks):
     used_devices = {}
     unused_devices = []
 
-    for domain, disks in domain_disks.items():
+    for _, disks in domain_disks.items():
         for disk in disks:
             try:
                 lnk = os.readlink(disk)

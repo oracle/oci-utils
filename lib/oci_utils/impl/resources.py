@@ -7,7 +7,7 @@
 import logging
 
 
-class OCIAPIAbstractResource(object):
+class OCIAPIAbstractResource():
     """ Ancestor class for most OCI objects
     """
     _ignore_dict_items = ["swagger_types", "attribute_map"]
