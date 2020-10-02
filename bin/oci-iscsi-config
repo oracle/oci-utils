@@ -21,6 +21,14 @@ declare cmd_line=""
 # former implementation of oci-iscsi-config was mixing options and sub-commands.
 # oci-iscsi-config-main.py now expect proper command line like '<sub-command> <options>'
 # translate the command line accordingly (as expected by new implemetation)
+# if first token do not start by '-' we consider that command line is following the new format
+
+if [ ${1:0:1} != '-' ]
+then
+   # execute as is
+   exec ${_PY3} -mpdb ${s_dir}/oci-iscsi-config-main.py $@
+fi
+
 PARSED_ARGUMENTS=$(getopt -a  --quiet -o sC:iAd:a:c: --long show,compartment:,interactive,all,detach:,attach:,create-volume:,destroy-volume:,volume-name:,username:,password:,help -- "$@")
 eval set -- "$PARSED_ARGUMENTS"
 while :
@@ -37,7 +45,16 @@ do
         --volume-name)        cmd_line="${cmd_line} --volume-name=$2"               ; shift 2 ;;
         --username)           cmd_line="${cmd_line} --username=$2"                  ; shift 2 ;;
         --password)           cmd_line="${cmd_line} --password=$2"                  ; shift 2 ;;
-        --help)               COMMAND="usage"                                       ; break   ;;
+        --help)
+                              if [ -z ${COMMAND} ]
+                              then
+                                COMMAND="usage"
+                              else
+                                # not displaying the overall usage but command specific one.
+                                md_line="${cmd_line} --help"
+                              fi
+                              break
+                              ;;
         # end of parsing , everything getopt did not understood is after that , we do not care in our case
         --) shift; break ;;
         *)                    COMMAND="usage"                                       ; break   ;;

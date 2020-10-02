@@ -45,23 +45,21 @@ def get_args_parser():
                                                  'instance.')
     subparser = parser.add_subparsers(dest='command')
     show_parser = subparser.add_parser('show',description='Show block volumes and iSCSI information')
-    create_parser = subparser.add_parser('create',description='Creates a block volume')
-    attach_parser = subparser.add_parser('attach',description='Attach a block volume')
-    detach_parser = subparser.add_parser('detach',description='Detach a block volume')
-    destroy_parser = subparser.add_parser('destroy',description='Destroy a block volume')
-
     show_parser.add_argument('-C','--compartments', metavar='COMP',
                         type=lambda s: [ocid.strip() for ocid in s.split(',')  if ocid],
                         help='Display iSCSI devices in the given comparment(s)'
                              ' or all compartments if COMP is "all".')
     show_parser.add_argument('-A', '--all', action='store_true',
                         help='Display all iSCSI devices. By default only devices that are not attached to an instance are listed.')
-    create_parser.add_argument('-s','--size',type=int, help='Size of the block volume to create in GB')
+
+    create_parser = subparser.add_parser('create',description='Creates a block volume')
+    create_parser.add_argument('-S','--size',type=int, required=True, help='Size of the block volume to create in GB')
     create_parser.add_argument('-v','--volume-name',help='Name of the block volume to create')
     create_parser.add_argument('-s', '--show', action='store_true', help='Display the iSCSI configuration after the creation')
 
+    attach_parser = subparser.add_parser('attach',description='Attach a block volume')
     attach_parser.add_argument('-i', '--interactive', action='store_true', help='Run in interactive mode')
-    attach_parser.add_argument('-I','--iqns',type=lambda s: [iqn.strip() for iqn in s.split(',')  if iqn],
+    attach_parser.add_argument('-I','--iqns',required=True, type=lambda s: [iqn.strip() for iqn in s.split(',')  if iqn],
                                  help='IQN(s) of the iSCSI devices to be attach')
     attach_parser.add_argument('-u', '--username', metavar='USER', action='store',
                                help='Use USER as the user name when attaching a device that requires CHAP authentication')
@@ -69,12 +67,15 @@ def get_args_parser():
                                help='Use PASSWD as the password when attaching a device that requires CHAP authentication')
     attach_parser.add_argument('-s', '--show', action='store_true', help='Display the iSCSI configuration after the attach operation')
 
+    detach_parser = subparser.add_parser('detach',description='Detach a block volume')
     detach_parser.add_argument('-i', '--interactive', action='store_true', help='Run in interactive mode')
-    detach_parser.add_argument('-I','--iqns',type=lambda s: [iqn.strip() for iqn in s.split(',')  if iqn],
+    detach_parser.add_argument('-I','--iqns',required=True, type=lambda s: [iqn.strip() for iqn in s.split(',')  if iqn],
                                  help='IQN(s) of the iSCSI devices to be dettached')
-    attach_parser.add_argument('-s', '--show', action='store_true', help='Display the iSCSI configuration after the detach operation')
+    detach_parser.add_argument('-s', '--show', action='store_true', help='Display the iSCSI configuration after the detach operation')
 
-    destroy_parser.add_argument('-O','--ocids',type=lambda s: [ocid.strip() for ocid in s.split(',')  if ocid],
+
+    destroy_parser = subparser.add_parser('destroy',description='Destroy a block volume')
+    destroy_parser.add_argument('-O','--ocids',required=True, type=lambda s: [ocid.strip() for ocid in s.split(',')  if ocid],
                                  help='OCID(s) of volumes to be destroyed')
     destroy_parser.add_argument('-s', '--show', action='store_true', help='Display the iSCSI configuration after the destruction')
 
@@ -816,7 +817,7 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    if _user_euid != 0 and not args.show:
+    if _user_euid != 0 and not args.command == 'show':
         _logger.error("You must run this program with root privileges")
         return 1
 
