@@ -866,10 +866,10 @@ def main():
     if args.command == 'sync':
         # we still have volume not attached, process them.
         retval = 0
+        _did_something = False
         if detached_volume_iqns:
             print()
             print("Detached devices:")
-            _did_something = False
             for iqn in detached_volume_iqns:
                 display_detached_iscsi_device(iqn, targets)
                 if args.interactive:
@@ -881,11 +881,8 @@ def main():
                         except Exception as e:
                             _logger.error('[%s] attachement failed: %s' , iqn, str(e))
                             retval = 1
-            if _did_something:
-                ocid_refresh()
 
         if attach_failed:
-            _did_something = False
             _logger.info("Devices that could not be attached automatically:")
             for iqn in list(attach_failed.keys()):
                 display_detached_iscsi_device(iqn, targets, attach_failed)
