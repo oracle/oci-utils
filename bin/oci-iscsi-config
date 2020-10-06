@@ -23,7 +23,7 @@ declare cmd_line=""
 # translate the command line accordingly (as expected by new implemetation)
 # if first token do not start by '-' we consider that command line is following the new format
 
-if [ ${1:0:1} != '-' ]
+if [ "${1:0:1}" != '-' ]
 then
    # execute as is
    exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $@

@@ -906,12 +906,12 @@ def main():
                     if not  ask_yes_no("Failed to unmount volume, Continue detaching anyway?"):
                         continue
             try:
-                _logger.debug('Detaching [%s]',ocid)
-                do_detach_volume(oci_sess, iscsiadm_session, ocid)
-                _logger.info("Volume [%s] is detached",ocid)
+                _logger.debug('Detaching [%s]',iqn)
+                do_detach_volume(oci_sess, iscsiadm_session, iqn)
+                _logger.info("Volume [%s] is detached",iqn)
                 detached_volume_iqns.append(iqn)
             except Exception as e:
-                _logger.error('volume [%s] detach has failed: %s', ocid,str(e))
+                _logger.error('volume [%s] detach has failed: %s', iqn,str(e))
                 retval = 1
         if args.show:
             display_current_devices(oci_sess, iscsiadm_session, system_disks)
