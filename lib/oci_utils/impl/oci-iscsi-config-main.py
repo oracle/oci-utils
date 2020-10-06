@@ -698,12 +698,6 @@ def do_create_volume(sess, size, display_name):
     _logger.info("Volume %s created" , vol.get_display_name())
 
     # attach using iscsiadm commands
-    state = vol.get_attachment_state()
-    if OCI_ATTACHMENT_STATE[state] in (
-            OCI_ATTACHMENT_STATE.ATTACHED, OCI_ATTACHMENT_STATE.ATTACHING):
-        _logger.info("Volume %s is %s" , vol.get_display_name(), state)
-        return
-
     _logger.info("Attaching iSCSI device")
     retval = iscsiadm.attach(ipaddr=vol.get_portal_ip(),
                              port=vol.get_portal_port(),

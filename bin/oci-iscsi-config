@@ -34,7 +34,15 @@ eval set -- "$PARSED_ARGUMENTS"
 while :
 do
     case "$1" in
-        -s | --show)          cmd_line="${cmd_line} --show"                         ; shift   ;;
+        -s | --show)          if [ -z ${COMMAND} ]
+                              then
+                                COMMAND="show"
+                              else
+                                # not displaying the overall usage but command specific one.
+                                md_line="${cmd_line} --show"
+                              fi
+                              shift
+                              ;;
         -C | --compartment)   COMMAND="show"     ; COMPS[${COMMAND}]+="$2,"         ; shift 2 ;;
         -i | --interactive)   cmd_line="${cmd_line} --interactive"                  ; shift   ;;
         -A | --all)           cmd_line="${cmd_line} --all"                          ; shift   ;;
