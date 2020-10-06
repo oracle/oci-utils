@@ -84,7 +84,7 @@ def get_args_parser():
                         type=lambda s: [ocid.strip() for ocid in s.split(',')  if ocid],
                         help='Display iSCSI devices in the given comparment(s)'
                              ' or all compartments if COMP is "all".')
-    show_parser.add_argument('-A', '--all', action='store_true',
+    show_parser.add_argument('-A', '--all', action='store_true', default=False,
                         help='Display all iSCSI devices. By default only devices that are not attached to an instance are listed.')
 
     create_parser = subparser.add_parser('create',description='Creates a block volume')
@@ -458,7 +458,7 @@ def do_destroy_volume(sess, ocid):
 
 
 
-def api_display_available_block_volumes(sess, compartments,show_all):
+def api_display_available_block_volumes(sess, compartments=(),show_all=False):
     """
     Display the available devices.
 
@@ -476,7 +476,7 @@ def api_display_available_block_volumes(sess, compartments,show_all):
     """
 
     vols = []
-    if compartments:
+    if compartments and len(compartments) > 0:
         for cspec in compartments:
             if cspec == 'all':
                 vols = sess.all_volumes()
@@ -792,6 +792,10 @@ def main():
 
     parser = get_args_parser()
     args = parser.parse_args()
+    if args.command is None:
+        # default to 'show' command
+        args.command = "show"
+
 
     if args.command == 'usage':
         parser.print_help()
@@ -808,7 +812,10 @@ def main():
 
     if args.command == 'show':
         display_current_devices(oci_sess, iscsiadm_session, system_disks)
-        api_display_available_block_volumes(oci_sess, args.compartments, args.all)
+        if args.compartments:
+            api_display_available_block_volumes(oci_sess, args.compartments, args.all)
+        else:
+            api_display_available_block_volumes(oci_sess, None, args.all)
         return 0
 
     # starting from here, nothing works if we are not root
@@ -858,7 +865,7 @@ def main():
             do_create_volume(oci_sess, size=args.size, display_name=args.volume_name)
             if args.show:
                 display_current_devices(oci_sess, iscsiadm_session, system_disks)
-                api_display_available_block_volumes(oci_sess, args.compartments, args.all)
+                api_display_available_block_volumes(oci_sess)
             return 0
         except Exception as e:
             _logger.error('volume creation has failed: %s', str(e))
@@ -885,7 +892,7 @@ def main():
 
         if args.show:
             display_current_devices(oci_sess, iscsiadm_session, system_disks)
-            api_display_available_block_volumes(oci_sess, args.compartments, args.all)
+            api_display_available_block_volumes(oci_sess)
         return retval
 
     if args.command == 'detach':
@@ -915,7 +922,7 @@ def main():
                 retval = 1
         if args.show:
             display_current_devices(oci_sess, iscsiadm_session, system_disks)
-            api_display_available_block_volumes(oci_sess, args.compartments, args.all)
+            api_display_available_block_volumes(oci_sess)
 
         _logger.info("Updating detached volume cache file: %s" % detached_volume_iqns)
         write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
@@ -980,7 +987,7 @@ def main():
 
         if args.show:
             display_current_devices(oci_sess, iscsiadm_session, system_disks)
-            api_display_available_block_volumes(oci_sess, args.compartments, args.all)
+            api_display_available_block_volumes(oci_sess)
 
         _logger.info("Updating detached volume cache file: %s" % detached_volume_iqns)
         write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
