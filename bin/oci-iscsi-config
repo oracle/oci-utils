@@ -26,7 +26,7 @@ declare cmd_line=""
 if [ ${1:0:1} != '-' ]
 then
    # execute as is
-   exec ${_PY3} -mpdb ${s_dir}/oci-iscsi-config-main.py $@
+   exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $@
 fi
 
 PARSED_ARGUMENTS=$(getopt -a  --quiet -o sC:iAd:a:c: --long show,compartment:,interactive,all,detach:,attach:,create-volume:,destroy-volume:,volume-name:,username:,password:,help -- "$@")

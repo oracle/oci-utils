@@ -7,9 +7,11 @@
 """ System configuration.
 """
 import os
-
+import logging
 from .. import sudo_utils
 from ..network_helpers import network_prefix_to_mask
+
+_logger = logging.getLogger('oci-utils.sysconfig')
 
 __sysconfig = '/etc/sysconfig'
 __netscripts = __sysconfig + '/network-scripts'
@@ -278,7 +280,8 @@ def interfaces_up(ifaces):
             True on success, False otherwise.
     """
     for i in ifaces:
-        if sudo_utils.call(['/usr/sbin/ifup', i]):
+        if sudo_utils.call(['/usr/sbin/ifup', i],True):
+            _logger.debug('Cannot bring up the interface')
             return False
 
     return True
