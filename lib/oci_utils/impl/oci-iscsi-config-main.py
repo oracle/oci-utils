@@ -64,6 +64,16 @@ def detachable_iqn_list_validator(value):
             raise ValueError('Cannot detach boot volume IQN %s' % iqn)
     return _iqns
 
+def volume_oci_list_validator(value):
+    """
+    validate than value passed is a list of volume ocid
+    """
+    _ocids =  [ocid.strip() for ocid in value.split(',')  if ocid]
+    for ocid in _ocids:
+        if not ocid.startswith('ocid1.volume.oc'):
+            raise ValueError('Invalid volume OCID %s' % ocid)
+    return _ocids
+
 def get_args_parser():
     """
     Parse the command line arguments and return an object representing the
@@ -111,8 +121,9 @@ def get_args_parser():
 
 
     destroy_parser = subparser.add_parser('destroy',description='Destroy a block volume')
-    destroy_parser.add_argument('-O','--ocids',required=True, type=lambda s: [ocid.strip() for ocid in s.split(',')  if ocid],
+    destroy_parser.add_argument('-O','--ocids',required=True, type=volume_oci_list_validator,
                                  help='OCID(s) of volumes to be destroyed')
+    destroy_parser.add_argument('-i', '--interactive', action='store_true', help='Run in interactive mode')
     destroy_parser.add_argument('-s', '--show', action='store_true', help='Display the iSCSI configuration after the destruction')
 
     return parser
