@@ -63,7 +63,7 @@ done
 
 if [ -z "${COMMAND}" ]
 then
-    COMMAND="show"
+    COMMAND="sync"
     cmd_line=""
 fi
 

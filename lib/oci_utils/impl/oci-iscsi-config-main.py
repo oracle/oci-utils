@@ -794,7 +794,7 @@ def main():
     args = parser.parse_args()
     if args.command is None:
         # default to 'show' command
-        args.command = "show"
+        args.command = "sync"
 
 
     if args.command == 'usage':
@@ -855,6 +855,68 @@ def main():
     detached_volume_iqns = load_cache(__ignore_file)[1]
     if detached_volume_iqns is None:
         detached_volume_iqns = []
+
+    if args.command == 'sync':
+        # we still have volume not attached, process them.
+        retval = 0
+        if detached_volume_iqns:
+            print()
+            print("Detached devices:")
+            _did_something = False
+            for iqn in detached_volume_iqns:
+                display_detached_iscsi_device(iqn, targets)
+                if args.interactive:
+                    ans = ask_yes_no("Would you like to attach this device?")
+                    if ans:
+                        try:
+                            _do_iscsiadm_attach(oci_sess, iqn, targets)
+                            _did_something = True
+                        except Exception as e:
+                            _logger.error('[%s] attachement failed: %s' , iqn, str(e))
+                            retval = 1
+            if _did_something:
+                ocid_refresh()
+
+        if attach_failed:
+            do_refresh = False
+            _logger.info("Devices that could not be attached automatically:")
+            for iqn in list(attach_failed.keys()):
+                display_detached_iscsi_device(iqn, targets, attach_failed)
+                _attach_user_name = None
+                _attach_user_passwd = None
+                _give_it_a_try = False
+                if args.interactive:
+                    if attach_failed[iqn] != 24:
+                        # not authentication error
+                        if ask_yes_no("Would you like to retry attaching this device?"):
+                            _give_it_a_try=True
+                    else:
+                        # authentication error
+                        if ask_yes_no("Would you like to configure this device?"):
+                            _give_it_a_try=True
+                            if oci_sess is not None:
+                                oci_vols = oci_sess.find_volumes(iqn=iqn)
+                                if len(oci_vols) != 1:
+                                    _logger.error('volume [%s] not found',iqn)
+                                    _give_it_a_try=False
+                                _attach_user_name = oci_vols[0].get_user()
+                                _attach_user_passwd = oci_vols[0].get_password()
+                            else:
+                                (_attach_user_name, _attach_user_passwd) = get_chap_secret(iqn)
+                                if _attach_user_name is None:
+                                    _logger.error('Cannot retreive chap credentials')
+                                    _give_it_a_try=False
+                    if _give_it_a_try:
+                        try:
+                            _do_iscsiadm_attach(iqn, targets, _attach_user_name, _attach_user_passwd)
+                            do_refresh = True
+                        except Exception as e:
+                            _logger.error("Failed to configure device automatically: %s", str(e))
+                            retval = 1
+
+        if do_refresh:
+            ocid_refresh()
+        return retval
 
     if args.command == 'create':
         if len(system_disks) > max_volumes:
@@ -996,62 +1058,6 @@ def main():
 
         return retval
 
-    # we still have volume not attached, process them.
-    if detached_volume_iqns:
-        print()
-        print("Detached devices:")
-        _did_something = False
-        for iqn in detached_volume_iqns:
-            display_detached_iscsi_device(iqn, targets)
-            if args.interactive:
-                ans = ask_yes_no("Would you like to attach this device?")
-                if ans:
-                    try:
-                        _do_iscsiadm_attach(oci_sess, iqn, targets)
-                        _did_something = True
-                    except Exception as e:
-                        _logger.error('[%s] attachement failed: %s' , iqn, str(e))
-        if _did_something:
-            ocid_refresh()
-
-    if attach_failed:
-        do_refresh = False
-        _logger.info("Devices that could not be attached automatically:")
-        for iqn in list(attach_failed.keys()):
-            display_detached_iscsi_device(iqn, targets, attach_failed)
-            _attach_user_name = None
-            _attach_user_passwd = None
-            _give_it_a_try = False
-            if args.interactive:
-                if attach_failed[iqn] != 24:
-                    # not authentication error
-                    if ask_yes_no("Would you like to retry attaching this device?"):
-                        _give_it_a_try=True
-                else:
-                    # authentication error
-                    if ask_yes_no("Would you like to configure this device?"):
-                        _give_it_a_try=True
-                        if oci_sess is not None:
-                            oci_vols = oci_sess.find_volumes(iqn=iqn)
-                            if len(oci_vols) != 1:
-                                _logger.error('volume [%s] not found',iqn)
-                                _give_it_a_try=False
-                            _attach_user_name = oci_vols[0].get_user()
-                            _attach_user_passwd = oci_vols[0].get_password()
-                        else:
-                            (_attach_user_name, _attach_user_passwd) = get_chap_secret(iqn)
-                            if _attach_user_name is None:
-                                _logger.error('Cannot retreive chap credentials')
-                                _give_it_a_try=False
-                if _give_it_a_try:
-                    try:
-                        _do_iscsiadm_attach(iqn, targets, _attach_user_name, _attach_user_passwd)
-                        do_refresh = True
-                    except Exception as e:
-                        _logger.error("Failed to configure device automatically: %s", str(e))
-
-    if do_refresh:
-        ocid_refresh()
 
 
     if not args.show and not attach_failed and not detached_volume_iqns:
