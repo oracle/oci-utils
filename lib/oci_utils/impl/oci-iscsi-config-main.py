@@ -78,6 +78,7 @@ def get_args_parser():
                                                  'on an OCI '
                                                  'instance.')
     subparser = parser.add_subparsers(dest='command')
+    subparser.add_parser('sync',description='try to attach available block devices')
     subparser.add_parser('usage',description='Displays usage')
     show_parser = subparser.add_parser('show',description='Show block volumes and iSCSI information')
     show_parser.add_argument('-C','--compartments', metavar='COMP',
@@ -818,11 +819,6 @@ def main():
             api_display_available_block_volumes(oci_sess, None, args.all)
         return 0
 
-    # starting from here, nothing works if we are not root
-    _user_euid = os.geteuid()
-    if _user_euid != 0:
-        _logger.error("You must run this program with root privileges")
-        return 1
 
     if not os.path.isfile("/var/run/ocid.pid"):
         _logger.error("Warning:\n"
@@ -856,6 +852,17 @@ def main():
     if detached_volume_iqns is None:
         detached_volume_iqns = []
 
+    if args.command == 'sync' and not detached_volume_iqns and not attach_failed:
+        # nothing to do, stop here
+        print("All known devices are attached.")
+        print("Use the -s or --show option for details.")
+
+    # starting from here, nothing works if we are not root
+    _user_euid = os.geteuid()
+    if _user_euid != 0:
+        _logger.error("You must run this program with root privileges")
+        return 1
+
     if args.command == 'sync':
         # we still have volume not attached, process them.
         retval = 0
@@ -878,7 +885,7 @@ def main():
                 ocid_refresh()
 
         if attach_failed:
-            do_refresh = False
+            _did_something = False
             _logger.info("Devices that could not be attached automatically:")
             for iqn in list(attach_failed.keys()):
                 display_detached_iscsi_device(iqn, targets, attach_failed)
@@ -909,14 +916,15 @@ def main():
                     if _give_it_a_try:
                         try:
                             _do_iscsiadm_attach(iqn, targets, _attach_user_name, _attach_user_passwd)
-                            do_refresh = True
+                            _did_something = True
                         except Exception as e:
                             _logger.error("Failed to configure device automatically: %s", str(e))
                             retval = 1
 
-        if do_refresh:
+        if _did_something:
             ocid_refresh()
         return retval
+
 
     if args.command == 'create':
         if len(system_disks) > max_volumes:
