@@ -43,16 +43,16 @@ def volume_size_validator(value):
         raise ValueError("Volume size must be at least 50GBs")
     return _i_value
 
-def iqn_list_validator(value):
+def attachable_iqn_list_validator(value):
     """
     validate than value passed is a list of iqn
     """
     _iqns =  [iqn.strip() for iqn in value.split(',')  if iqn]
     for iqn in _iqns:
-        if not iqn.startswith("iqn."):
+        if not iqn.startswith("iqn.") and not iqn.startwith('ocid1.volume.oc'):
             raise ValueError('Invalid IQN %s' % iqn)
     return _iqns
-def boot_iqn_list_validator(value):
+def detachable_iqn_list_validator(value):
     """
     validate than value passed is a list of iqn and do nto contain boot volume
     """
@@ -95,7 +95,7 @@ def get_args_parser():
 
     attach_parser = subparser.add_parser('attach',description='Attach a block volume')
     attach_parser.add_argument('-i', '--interactive', action='store_true', help='Run in interactive mode')
-    attach_parser.add_argument('-I','--iqns',required=True, type=iqn_list_validator,
+    attach_parser.add_argument('-I','--iqns',required=True, type=attachable_iqn_list_validator,
                                  help='IQN(s) of the iSCSI devices to be attach')
     attach_parser.add_argument('-u', '--username', metavar='USER', action='store',
                                help='Use USER as the user name when attaching a device that requires CHAP authentication')
@@ -105,7 +105,7 @@ def get_args_parser():
 
     detach_parser = subparser.add_parser('detach',description='Detach a block volume')
     detach_parser.add_argument('-i', '--interactive', action='store_true', help='Run in interactive mode')
-    detach_parser.add_argument('-I','--iqns',required=True, type=boot_iqn_list_validator,
+    detach_parser.add_argument('-I','--iqns',required=True, type=detachable_iqn_list_validator,
                                  help='IQN(s) of the iSCSI devices to be dettached')
     detach_parser.add_argument('-s', '--show', action='store_true', help='Display the iSCSI configuration after the detach operation')
 
@@ -402,7 +402,7 @@ def do_detach_volume(oci_session , iscsiadm_session , iqn):
         raise Exception("Volume with IQN [%s] not found" % iqn)
 
     try:
-        _logger.info("Detaching volume")
+        _logger.info("Detaching volume %s (%s)" ,_volume.get_display_name(), _volume.get_iqn())
         _volume.detach()
     except OCISDKError as e:
         _logger.debug("Failed to disconnect volume", exc_info=True)
@@ -974,7 +974,7 @@ def main():
                     if not  ask_yes_no("Failed to unmount volume, Continue detaching anyway?"):
                         continue
             try:
-                _logger.debug('Detaching [%s]',iqn)
+                _logger.debug('Detaching [%s:%s]',get_display_name,iqn)
                 do_detach_volume(oci_sess, iscsiadm_session, iqn)
                 _logger.info("Volume [%s] is detached",iqn)
                 detached_volume_iqns.append(iqn)
