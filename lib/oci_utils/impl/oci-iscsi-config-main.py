@@ -1037,11 +1037,6 @@ def main():
                     (_attachment_username,_attachment_password) =  get_chap_secret(iqn)
                     _save_chap_cred = True
 
-            if iqn not in detached_volume_iqns:
-                _logger.error("Target IQN %s not found" , iqn)
-                retval = 1
-                continue
-
             _logger.debug('attaching [%s] to iSCSI session',iqn)
             try:
                 _do_iscsiadm_attach(iqn, targets,user=_attachment_username, passwd=_attachment_password)
@@ -1060,11 +1055,11 @@ def main():
         if args.show:
             display_current_devices(oci_sess, iscsiadm_session, system_disks)
             api_display_available_block_volumes(oci_sess)
-
-        _logger.info("Updating detached volume cache file: %s" % detached_volume_iqns)
-        write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
-        _logger.debug('trigger ocid refresh')
-        ocid_refresh()
+        if retval == 0:
+            _logger.info("Updating detached volume cache file: %s" % detached_volume_iqns)
+            write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
+            _logger.debug('trigger ocid refresh')
+            ocid_refresh()
 
         return retval
 
