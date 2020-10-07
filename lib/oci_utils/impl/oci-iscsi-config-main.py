@@ -1010,22 +1010,24 @@ def main():
         retval = 0
 
         for iqn in args.iqns:
+            _iqn_to_use = iqn
             _save_chap_cred=False
             if iqn in iscsiadm_session:
                 _logger.info("Target %s is already attached." % iqn)
                 continue
 
-            if iqn.startswith('ocid1.volume.oc'):
-                _logger.debug('given IQN [%s] is an ocid, attaching it',iqn)
+            if _iqn_to_use.startswith('ocid1.volume.oc'):
+                _logger.debug('given IQN [%s] is an ocid, attaching it',_iqn_to_use)
                 bs_volume = None
                 try:
-                    bs_volume = _do_attach_oci_block_volume(oci_sess, iqn)
-                    _logger.info("Volume [%s] is attached",iqn)
+                    bs_volume = _do_attach_oci_block_volume(oci_sess, _iqn_to_use)
+                    _logger.info("Volume [%s] is attached",_iqn_to_use)
                     # user/pass coming from volume itself
                     _attachment_username = bs_volume.get_user()
                     _attachment_password = bs_volume.get_password()
+                    _iqn_to_use = bs_volume.get_iqn()
                 except Exception as e:
-                    _logger.error('Failed to attach volume [%s]: %s', iqn,str(e))
+                    _logger.error('Failed to attach volume [%s]: %s', _iqn_to_use,str(e))
                     retval = 1
                     continue
             else:
@@ -1037,24 +1039,25 @@ def main():
                     (_attachment_username,_attachment_password) =  get_chap_secret(iqn)
                     _save_chap_cred = True
 
-            _logger.debug('attaching [%s] to iSCSI session',iqn)
+            _logger.debug('attaching [%s] to iSCSI session',_iqn_to_use)
             try:
-                _do_iscsiadm_attach(iqn, targets,user=_attachment_username, passwd=_attachment_password)
+                _do_iscsiadm_attach(_iqn_to_use, targets,user=_attachment_username, passwd=_attachment_password)
                 _logger.debug('attach ok')
-                detached_volume_iqns.remove(iqn)
+                detached_volume_iqns.remove(_iqn_to_use)
             except Exception as e:
-                _logger.error("Failed to attach target %s: %s" % (iqn,str(e)))
+                _logger.error("Failed to attach target %s: %s" % (_iqn_to_use, str(e)))
                 _save_chap_cred = False
                 retval = 1
                 continue
 
             if _save_chap_cred:
                 _logger.debug('attachment OK: saving chap creds')
-                save_chap_secret(iqn, _attachment_username, _attachment_password)
+                save_chap_secret(_iqn_to_use, _attachment_username, _attachment_password)
 
         if args.show:
             display_current_devices(oci_sess, iscsiadm_session, system_disks)
             api_display_available_block_volumes(oci_sess)
+
         if retval == 0:
             _logger.info("Updating detached volume cache file: %s" % detached_volume_iqns)
             write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
