@@ -1021,12 +1021,13 @@ def main():
                 try:
                     bs_volume = _do_attach_oci_block_volume(oci_sess, iqn)
                     _logger.info("Volume [%s] is attached",iqn)
+                    # user/pass coming from volume itself
+                    _attachment_username = bs_volume.get_user()
+                    _attachment_password = bs_volume.get_password()
                 except Exception as e:
                     _logger.error('Failed to attach volume [%s]: %s', iqn,str(e))
                     retval = 1
-                # user/pass coming from volume itself
-                _attachment_username = bs_volume.get_user()
-                _attachment_password = bs_volume.get_password()
+                    continue
             else:
                 if args.username is not None and  args.password is not None:
                     _attachment_username = args.username
@@ -1050,6 +1051,7 @@ def main():
                 _logger.error("Failed to attach target %s: %s" % (iqn,str(e)))
                 _save_chap_cred = False
                 retval = 1
+                continue
 
             if _save_chap_cred:
                 _logger.debug('attachment OK: saving chap creds')
