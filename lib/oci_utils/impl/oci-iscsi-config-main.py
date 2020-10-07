@@ -571,11 +571,9 @@ def _do_attach_oci_block_volume(sess, ocid):
     if vol.is_attached():
         if vol.get_instance().get_ocid() == sess.this_instance().get_ocid():
             # attached to this instance already
-            _msg = "Volume %s already attached to this instance"  % ocid
+            _msg = "Volume %s already attached to this instance" % ocid
         else:
-            _msg = " Volume %s already attached to instance %s (%s)" %
-                        (ocid, vol.get_instance().get_display_name(),
-                        vol.get_instance().get_public_ip())
+            _msg = "Volume %s already attached to instance %s (%s)" % (ocid, vol.get_instance().get_display_name(), vol.get_instance().get_public_ip())
         raise Exception(_msg)
     else:
         _logger.info("Attaching OCI Volume to this instance.")
