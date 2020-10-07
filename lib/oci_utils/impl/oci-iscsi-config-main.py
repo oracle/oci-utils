@@ -345,7 +345,7 @@ def display_detached_iscsi_device(iqn, targets, attach_failed=()):
                 print("               State:    Detached")
 
 
-def _do_iscsiadm_attach(iqn, targets, user=None, passwd=None):
+def _do_iscsiadm_attach(iqn, targets,user=None, passwd=None,iscsi_portal_ip=None):
     """
     Attach an iSCSI device.
 
@@ -359,7 +359,8 @@ def _do_iscsiadm_attach(iqn, targets, user=None, passwd=None):
         The iscsiadm username.
     passwd: str
         The iscsiadm user password.
-
+    iscsi_portal_ip: str
+        portal IP
     Returns
     -------
         None
@@ -367,24 +368,27 @@ def _do_iscsiadm_attach(iqn, targets, user=None, passwd=None):
     -----
     Exception in case of error
     """
+    if not iscsi_portal_ip:
+        portal_ip = None
+        if targets is None:
+            raise Exception ("ocid must be running to determine the portal IP address for this device")
 
-    portal_ip = None
-    if targets is None:
-        raise Exception ("ocid must be running to determine the portal IP address for this device")
-
-    for ipaddr in list(targets.keys()):
-        if iqn in targets[ipaddr]:
-            portal_ip = ipaddr
-    if portal_ip is None:
-        # this shouldn't really happen, but just in case
-        raise Exception("Can't find portal IP address")
+        for ipaddr in list(targets.keys()):
+            if iqn in targets[ipaddr]:
+                portal_ip = ipaddr
+        if portal_ip is None:
+            # this shouldn't really happen, but just in case
+            raise Exception("Can't find portal IP address")
+    else:
+        portal_ip = iscsi_portal_ip
 
     retval = iscsiadm.attach(portal_ip, 3260, iqn,
                              user, passwd,
                              auto_startup=True)
 
     _logger.info("Result: %s" % iscsiadm.error_message_from_code(retval))
-
+    if retval !=0:
+        raise Exception('iSCSI attachment failed: %s' % iscsiadm.error_message_from_code(retval))
 
 def do_detach_volume(oci_session , iscsiadm_session , iqn):
     """
@@ -1041,7 +1045,7 @@ def main():
 
             _logger.debug('attaching [%s] to iSCSI session',_iqn_to_use)
             try:
-                _do_iscsiadm_attach(_iqn_to_use, targets,user=_attachment_username, passwd=_attachment_password)
+                _do_iscsiadm_attach(_iqn_to_use, targets,user=_attachment_username, passwd=_attachment_password,iscsi_portal_ip=bs_volume.get_portal_ip())
                 _logger.debug('attach ok')
                 detached_volume_iqns.remove(_iqn_to_use)
             except Exception as e:
