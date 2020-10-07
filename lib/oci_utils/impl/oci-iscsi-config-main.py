@@ -1047,7 +1047,8 @@ def main():
             try:
                 _do_iscsiadm_attach(_iqn_to_use, targets,user=_attachment_username, passwd=_attachment_password,iscsi_portal_ip=bs_volume.get_portal_ip())
                 _logger.debug('attach ok')
-                detached_volume_iqns.remove(_iqn_to_use)
+                if _iqn_to_use in detached_volume_iqns:
+                    detached_volume_iqns.remove(_iqn_to_use)
             except Exception as e:
                 _logger.error("Failed to attach target %s: %s" % (_iqn_to_use, str(e)))
                 _save_chap_cred = False
