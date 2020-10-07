@@ -87,7 +87,7 @@ then
 fi
 if [ ${COMPS[${COMMAND}]+_} ] &&  [ -n ${COMPS[${COMMAND}]} ]
 then
-    cmd_line="${cmd_line} --compartements="
+    cmd_line="${cmd_line} --compartments="
     for i in "${COMPS[${COMMAND}]}"; do cmd_line="${cmd_line}$i,"; done
 fi
 

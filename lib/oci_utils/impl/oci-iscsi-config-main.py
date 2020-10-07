@@ -49,7 +49,7 @@ def attachable_iqn_list_validator(value):
     """
     _iqns =  [iqn.strip() for iqn in value.split(',')  if iqn]
     for iqn in _iqns:
-        if not iqn.startswith("iqn.") and not iqn.startwith('ocid1.volume.oc'):
+        if not iqn.startswith("iqn.") and not iqn.startswith('ocid1.volume.oc'):
             raise ValueError('Invalid IQN %s' % iqn)
     return _iqns
 def detachable_iqn_list_validator(value):
@@ -114,7 +114,6 @@ def get_args_parser():
     attach_parser.add_argument('-s', '--show', action='store_true', help='Display the iSCSI configuration after the attach operation')
 
     detach_parser = subparser.add_parser('detach',description='Detach a block volume')
-    detach_parser.add_argument('-i', '--interactive', action='store_true', help='Run in interactive mode')
     detach_parser.add_argument('-I','--iqns',required=True, type=detachable_iqn_list_validator,
                                  help='IQN(s) of the iSCSI devices to be dettached')
     detach_parser.add_argument('-s', '--show', action='store_true', help='Display the iSCSI configuration after the detach operation')
@@ -572,11 +571,12 @@ def _do_attach_oci_block_volume(sess, ocid):
     if vol.is_attached():
         if vol.get_instance().get_ocid() == sess.this_instance().get_ocid():
             # attached to this instance already
-            _logger.info("Volume %s already attached to this instance" ,ocid)
+            _msg = "Volume %s already attached to this instance"  % ocid
         else:
-            raise Exception("Volume %s already attached to instance %s (%s)"
-                        % (ocid, vol.get_instance().get_display_name(),
-                            vol.get_instance().get_public_ip()))
+            _msg = " Volume %s already attached to instance %s (%s)" %
+                        (ocid, vol.get_instance().get_display_name(),
+                        vol.get_instance().get_public_ip())
+        raise Exception(_msg)
     else:
         _logger.info("Attaching OCI Volume to this instance.")
         vol = vol.attach_to(instance_id=sess.this_instance().get_ocid(), wait=True)
@@ -985,7 +985,7 @@ def main():
                     if not  ask_yes_no("Failed to unmount volume, Continue detaching anyway?"):
                         continue
             try:
-                _logger.debug('Detaching [%s:%s]',get_display_name,iqn)
+                _logger.debug('Detaching [%s]',iqn)
                 do_detach_volume(oci_sess, iscsiadm_session, iqn)
                 _logger.info("Volume [%s] is detached",iqn)
                 detached_volume_iqns.append(iqn)
@@ -1022,7 +1022,7 @@ def main():
                 bs_volume = None
                 try:
                     bs_volume = _do_attach_oci_block_volume(oci_sess, iqn)
-                    _logger.info("Volume [%s] is attache",iqn)
+                    _logger.info("Volume [%s] is attached",iqn)
                 except Exception as e:
                     _logger.error('Failed to attach volume [%s]: %s', iqn,str(e))
                     retval = 1
