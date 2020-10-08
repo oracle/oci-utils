@@ -29,7 +29,7 @@ then
    exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $@
 fi
 
-PARSED_ARGUMENTS=$(getopt -a  --quiet -o sC:iAd:a:c: --long show,compartment:,interactive,all,detach:,attach:,create-volume:,destroy-volume:,volume-name:,username:,password:,help -- "$@")
+PARSED_ARGUMENTS=$(getopt -a  --quiet -o sC:iAd:a:c:yf --long show,compartment:,interactive,all,detach:,attach:,create-volume:,destroy-volume:,volume-name:,username:,password:,help,yes,vol-attach,force -- "$@")
 eval set -- "$PARSED_ARGUMENTS"
 while :
 do
@@ -46,6 +46,9 @@ do
         -C | --compartment)   COMMAND="show"     ; COMPS[${COMMAND}]+="$2,"         ; shift 2 ;;
         -i | --interactive)   cmd_line="${cmd_line} --interactive"                  ; shift   ;;
         -A | --all)           cmd_line="${cmd_line} --all"                          ; shift   ;;
+        -f | --force          cmd_line="${cmd_line} --force"                        ; shift   ;;
+        -y | --yes            cmd_line="${cmd_line} --yes"                          ; shift   ;;
+        --vol-attach          cmd_line="${cmd_line} --vol-attach"                   ; shift   ;;
         -d | --detach)        COMMAND="detach"   ; IQNS[${COMMAND}]+="$2,"          ; shift 2 ;;
         -a | --attach)        COMMAND="attach"   ; IQNS[${COMMAND}]+="$2,"          ; shift 2 ;;
         -c | --create-volume) COMMAND="create"   ; cmd_line="${cmd_line} --size=$2" ; shift 2 ;;
