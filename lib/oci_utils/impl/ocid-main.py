@@ -307,7 +307,7 @@ def iscsi_func(context, func_logger):
         if instance is None:
             func_logger.debug('Cannot get current instance')
         else:
-            volumes = instance.all_volumes(refresh=True)
+            volumes = instance.all_volumes()
             for v in volumes:
                 vol = {'iqn': v.get_iqn(),
                        'ipaddr': v.get_portal_ip(),
@@ -576,7 +576,7 @@ def vnic_func(context, func_logger):
     if context['oci_sess'] is not None:
         func_logger.debug("look for new or removed secondary private IP addresses")
         p_ips = context['oci_sess'].this_instance(). \
-            all_private_ips(refresh=True)
+            all_private_ips()
         sec_priv_ip = \
             [[ip.get_address(), ip.get_vnic_ocid()] for ip in p_ips]
         for ip in sec_priv_ip:

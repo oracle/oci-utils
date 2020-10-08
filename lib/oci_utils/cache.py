@@ -12,10 +12,11 @@ import json
 import os
 import sys
 from datetime import datetime
-
+import logging
 
 _GLOBAL_CACHE_DIR = "/var/cache/oci-utils"
 
+_logger = logging.getLogger("oci-utils.cache")
 
 def get_cache_file_path(filename):
     """
@@ -102,6 +103,8 @@ def load_cache(global_file, user_file=None, max_age=None):
         tuple
             (timestamp, file_contents)
     """
+    _logger.debug('loading cache %s' % global_file)
+
     cache_fname = get_newer(global_file, user_file)
     if cache_fname is None:
         return 0, None

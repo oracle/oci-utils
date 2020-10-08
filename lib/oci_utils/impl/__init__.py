@@ -39,25 +39,6 @@ SYSTEMCTL_CMD = '/bin/systemctl'
 LSBLK_CMD = '/bin/lsblk'
 
 
-def print_error(msg, *args):
-    """
-    Write a message to the standard error.
-
-    Parameters
-    ----------
-    msg: str
-        The message.
-    args: list
-        The format string.
-
-    Returns
-    -------
-        No return value.
-    """
-    sys.stderr.write(msg.format(*args))
-    sys.stderr.write('\n')
-
-
 def print_choices(header, choices, sep="\n  "):
     """
     Display a list of options.
@@ -75,7 +56,8 @@ def print_choices(header, choices, sep="\n  "):
     -------
         No return value.
     """
-    print_error("{}{}{}", header, sep, sep.join(choices))
+    sys.stderr.write("{}{}{}", header, sep, sep.join(choices))
+    sys.stderr.write('\n')
 
 
 _oci_utils_thread_lock = threading.Lock()

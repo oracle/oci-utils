@@ -652,8 +652,7 @@ class OCIInstance(OCIAPIAbstractResource):
             OCIVolume
                 The attached volume.
         """
-        if self.max_volumes_reached():
-            raise OCISDKError('This instance reached its max_volumes.')
+
 
         av_det = oci_sdk.core.models.AttachIScsiVolumeDetails(
             type="iscsi",
@@ -779,22 +778,6 @@ class OCIInstance(OCIAPIAbstractResource):
             OCIInstance._logger.debug('Failed to attach new VNIC', exc_info=True)
             raise OCISDKError('Failed to attach new VNIC') from e
 
-    def max_volumes_reached(self):
-        """
-        Test if the maximum number of volumes is reached.
-
-        Returns
-        -------
-            bool
-                True if maximum is reached, False otherwise.
-        """
-        max_volumes = oci_utils_configuration.getint('iscsi', 'max_volumes')
-        if max_volumes > _MAX_VOLUMES_LIMIT:
-            max_volumes = _MAX_VOLUMES_LIMIT
-        if len(self.all_volumes()) >= max_volumes:
-            return True
-        return False
-
     def create_volume(self, size, display_name=None):
         """
         Create a new OCI Storage Volume and attach it to this instance.
@@ -811,8 +794,6 @@ class OCIInstance(OCIAPIAbstractResource):
             OCIVolume
                 The volume.
         """
-        if self.max_volumes_reached():
-            raise OCISDKError('This instance reached its max_volumes.')
 
         vol = self._oci_session.create_volume(
             compartment_id=self._data.compartment_id,
