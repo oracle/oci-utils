@@ -46,9 +46,9 @@ do
         -C | --compartment)   COMMAND="show"     ; COMPS[${COMMAND}]+="$2,"         ; shift 2 ;;
         -i | --interactive)   cmd_line="${cmd_line} --interactive"                  ; shift   ;;
         -A | --all)           cmd_line="${cmd_line} --all"                          ; shift   ;;
-        -f | --force          cmd_line="${cmd_line} --force"                        ; shift   ;;
-        -y | --yes            cmd_line="${cmd_line} --yes"                          ; shift   ;;
-        --vol-attach          cmd_line="${cmd_line} --vol-attach"                   ; shift   ;;
+        -f | --force)         cmd_line="${cmd_line} --force"                        ; shift   ;;
+        -y | --yes)           cmd_line="${cmd_line} --yes"                          ; shift   ;;
+        --vol-attach)         cmd_line="${cmd_line} --vol-attach"                   ; shift   ;;
         -d | --detach)        COMMAND="detach"   ; IQNS[${COMMAND}]+="$2,"          ; shift 2 ;;
         -a | --attach)        COMMAND="attach"   ; IQNS[${COMMAND}]+="$2,"          ; shift 2 ;;
         -c | --create-volume) COMMAND="create"   ; cmd_line="${cmd_line} --size=$2" ; shift 2 ;;
