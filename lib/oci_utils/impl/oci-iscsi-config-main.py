@@ -37,10 +37,10 @@ def volume_size_validator(value):
     try:
         _i_value = int(value)
     except ValueError as e :
-        raise ValueError("block volume size must be a int") from e
+        raise argparse.ArgumentTypeError("block volume size must be a int") from e
 
     if _i_value < 50:
-        raise ValueError("Volume size must be at least 50GBs")
+        raise argparse.ArgumentTypeError("Volume size must be at least 50GBs")
     return _i_value
 
 def attachable_iqn_list_validator(value):
@@ -50,7 +50,7 @@ def attachable_iqn_list_validator(value):
     _iqns =  [iqn.strip() for iqn in value.split(',')  if iqn]
     for iqn in _iqns:
         if not iqn.startswith("iqn.") and not iqn.startswith('ocid1.volume.oc'):
-            raise ValueError('Invalid IQN %s' % iqn)
+            raise argparse.ArgumentTypeError('Invalid IQN %s' % iqn)
     return _iqns
 def detachable_iqn_list_validator(value):
     """
@@ -59,9 +59,9 @@ def detachable_iqn_list_validator(value):
     _iqns =  [iqn.strip() for iqn in value.split(',')  if iqn]
     for iqn in _iqns:
         if not iqn.startswith("iqn."):
-            raise ValueError('Invalid IQN %s' % iqn)
+            raise argparse.ArgumentTypeError('Invalid IQN %s' % iqn)
         if 'boot:uefi' in iqn:
-            raise ValueError('Cannot detach boot volume IQN %s' % iqn)
+            raise argparse.ArgumentTypeError('Cannot detach boot volume IQN %s' % iqn)
     return _iqns
 
 def volume_oci_list_validator(value):
@@ -71,7 +71,7 @@ def volume_oci_list_validator(value):
     _ocids =  [ocid.strip() for ocid in value.split(',')  if ocid]
     for ocid in _ocids:
         if not ocid.startswith('ocid1.volume.oc'):
-            raise ValueError('Invalid volume OCID %s' % ocid)
+            raise argparse.ArgumentTypeError('Invalid volume OCID %s' % ocid)
     return _ocids
 
 def get_args_parser():
@@ -476,6 +476,7 @@ def do_destroy_volume(sess, ocid):
         raise Exception ("Cannot destroy an attached volume")
 
     try:
+        _logger.debug('destroying volume %s:%s',vol.get_display_name(),vol.get_ocid())
         vol.destroy()
     except Exception as e:
         _logger.debug("Failed to destroy volume %s", ocid,exc_info=True)
