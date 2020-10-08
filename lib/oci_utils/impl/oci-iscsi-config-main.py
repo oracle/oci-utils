@@ -108,7 +108,7 @@ def get_args_parser():
     create_parser.add_argument('-S','--size',type=volume_size_validator, required=True, help='Size of the block volume to create in GB')
     create_parser.add_argument('-v','--volume-name',help='Name of the block volume to create')
     create_parser.add_argument('-s', '--show', action='store_true', help='Display the iSCSI configuration after the creation')
-    create_parser.add_argument('--vol-attach', action='store_true', help='Once created, should the volume be attached ?')
+    create_parser.add_argument('--attach-volume', action='store_true', help='Once created, should the volume be attached ?')
 
     attach_parser = subparser.add_parser('attach',description='Attach a block volume to this instance and make it available to the system')
     # kept for compatibility reason. keep it hidden
@@ -219,7 +219,7 @@ def ocid_refresh(wait=False):
     try:
         output = subprocess.check_output(_cmd, stderr=subprocess.STDOUT)
         if _logger.isEnabledFor(logging.DEBUG):
-            _logger.debug(str(output))
+            _logger.debug('ocid run output: %s' % str(output))
         return True
     except subprocess.CalledProcessError as e :
         _logger.debug('launch of ocid failed : %s',str(e))
@@ -847,14 +847,6 @@ def main():
             api_display_available_block_volumes(oci_sess, None, args.all)
         return 0
 
-
-    if not os.path.isfile("/var/run/ocid.pid"):
-        _logger.error("Warning:\n"
-                      "For full functionality of this utility the ocid "
-                      "service must be running\n"
-                      "The administrator can start it using this command:\n"
-                      "    sudo systemctl start ocid.service\n")
-
     max_volumes = OCIUtilsConfiguration.getint('iscsi', 'max_volumes')
     if max_volumes > oci_utils._MAX_VOLUMES_LIMIT:
         _logger.error(
@@ -960,7 +952,7 @@ def main():
                 "This instance reached the max_volumes(%s)" % max_volumes)
             return 1
         try:
-            do_create_volume(oci_sess, size=args.size, display_name=args.volume_name, attach_it=args.attach)
+            do_create_volume(oci_sess, size=args.size, display_name=args.volume_name, attach_it=args.attach_volume)
         except Exception as e:
             _logger.error('volume creation has failed: %s', str(e))
             return 1
