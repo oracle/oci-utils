@@ -94,4 +94,10 @@ then
     for i in "${COMPS[${COMMAND}]}"; do cmd_line="${cmd_line}$i,"; done
 fi
 
+# apply defaults to have the same behavior as before
+if [ ${COMMAND} == "create"]
+then
+  cmd_line="${cmd_line} --vol-attach"
+fi
+
 exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $COMMAND ${cmd_line}

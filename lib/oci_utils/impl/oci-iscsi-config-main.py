@@ -91,7 +91,7 @@ def get_args_parser():
 
     sync_parser = subparser.add_parser('sync',description='try to attach available block devices')
     sync_parser.add_argument('-a','--apply', action='store_true', help='Perform sync  operations')
-    sync_parser.add_argument('-y','--yes', help='assume yes')
+    sync_parser.add_argument('-y','--yes', action='store_true', help='assume yes')
     # kept for compatibility reason. keep it hidden
     sync_parser.add_argument('-i', '--interactive', action='store_true', help=argparse.SUPPRESS)
 
