@@ -25,10 +25,7 @@ from oci_utils.migrate import read_yn
 from oci_utils.migrate import system_tools
 from oci_utils.migrate import terminal_dimension
 from oci_utils.migrate.exception import OciMigrateException
-from oci_utils.migrate.migrate_tools import get_config_data as get_config_data
-
-if sys.version_info.major < 3:
-    exit_with_msg('Python version 3 is a requirement to run this utility.')
+from oci_utils.migrate.migrate_tools import get_config_data
 
 _logger = logging.getLogger('oci-utils.import_ci')
 
@@ -107,11 +104,18 @@ def parse_args():
 
 
 def main():
+    """
+    Import image from object storage into custom images repository.
+
+    Returns
+    -------
+        int: 0 on success, raises exception on failure.
+    """
     #
     # set locale
     lc_all_to_set = get_config_data('lc_all')
     os.environ['LC_ALL'] = "%s" % lc_all_to_set
-    _logger.debug('Locale set to %s' % lc_all_to_set)
+    _logger.debug('Locale set to %s', lc_all_to_set)
     #
     # command line
     cmdline_args = parse_args()
@@ -138,7 +142,7 @@ def main():
         #
         # compartment data for tenancy
         tenancy = oci_config['tenancy']
-        _logger.debug('Tenancy: %s' % tenancy)
+        _logger.debug('Tenancy: %s', tenancy)
         compartment_dict = oci_cli_tools.get_tenancy_data(tenancy)
         #
         # object storage namespace
@@ -155,18 +159,16 @@ def main():
         #
         # object present in object storage
         if oci_cli_tools.object_exists(object_storage_data, object_name):
-            _logger.debug('Object %s present in object_storage %s'
-                          % (object_name, bucket))
+            _logger.debug('Object %s present in object_storage %s', object_name, bucket)
         else:
             raise OciMigrateException('Object %s does not exist in the  object '
                                       'storage %s.' % (object_name, bucket))
         #
-        # display namee present
+        # display name present
         if oci_cli_tools.display_name_exists(display_name, compartment_id):
             raise OciMigrateException('Image with name %s already exists.'
                                       % display_name)
-        else:
-            _logger.debug('%s does not exist' % display_name)
+        _logger.debug('%s does not exist', display_name)
     except Exception as e:
         exit_with_msg('Error while importing %s data: %s' % (object_name, str(e)))
     #
@@ -190,21 +192,19 @@ def main():
     #
     # Follow up the import.
     finished = False
-    _, nbcols = terminal_dimension()
-    importwait = ProgressBar(nbcols, 0.2,
-                             progress_chars=['importing %s' % display_name])
-    importwait.start()
+    _, nb_columns = terminal_dimension()
+    import_progress = ProgressBar(nb_columns, 0.2, progress_chars=['importing %s' % display_name])
+    import_progress.start()
     try:
         while not finished:
             if oci_cli_tools.get_lifecycle_state(display_name, compartment_id) \
                     == 'AVAILABLE':
                 finished = True
     except Exception as e:
-        _logger.error('Failed to follow up on the import of %s, giving up: %s'
-                      % (display_name, str(e)))
+        _logger.error('Failed to follow up on the import of %s, giving up: %s', display_name, str(e))
 
-    if system_tools.is_thread_running(importwait):
-        importwait.stop()
+    if system_tools.is_thread_running(import_progress):
+        import_progress.stop()
     console_msg(msg='Done')
     return 0
 

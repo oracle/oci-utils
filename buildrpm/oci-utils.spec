@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.11.6
+Version: 0.11.7
 Release: 6%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -176,6 +176,9 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Fri Oct 9 2020 Guido Tijskens <guido.tijskens@oracle.com> --0.11.6-1
+- oci-image-migrate code cleanup
+
 * Thu Sep 24 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.6
 - LINUX-7035 - oci-utils: move base functionality from al-config to oci-utils
 - LINUX-8976 - multi-vnic on bare metal shapes suffer from connection issues

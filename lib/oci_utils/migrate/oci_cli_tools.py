@@ -31,18 +31,15 @@ def bucket_exists(bucket_name):
         dict: The bucket on success, raise an exception otherwise
     """
     cmd = ['oci', 'os', 'object', 'list', '--all', '--bucket-name', bucket_name]
-    _logger.debug('__ Running %s.' % cmd)
+    _logger.debug('__ Running %s.', cmd)
     pause_msg(cmd)
     try:
-        bucketresult = json.loads(system_tools.run_popen_cmd(cmd))
-        _logger.debug('Result: \n%s' % bucketresult)
-        return bucketresult
+        bucket_result = json.loads(system_tools.run_popen_cmd(cmd)['output'])
+        _logger.debug('Result: \n%s', bucket_result)
+        return bucket_result
     except Exception as e:
-        _logger.debug('Bucket %s does not exists or the authorisation is '
-                      'missing: %s.' % (bucket_name, str(e)))
-        raise OciMigrateException('Bucket %s does not exists or the '
-                                  'authorisation is missing: %s.'
-                                  % (bucket_name, str(e)))
+        _logger.debug('Bucket %s does not exists or the authorisation is missing: %s.', bucket_name, str(e))
+        raise OciMigrateException('Bucket %s does not exists or the authorisation is missing:' % bucket_name) from e
 
 
 def display_name_exists(display_name, compartment_id):
@@ -60,20 +57,17 @@ def display_name_exists(display_name, compartment_id):
     -------
         bool: True on success, False otherwise.
     """
-    _logger.debug('__ Verify if %s exists in compartment %s'
-                  % (display_name, compartment_id))
+    _logger.debug('__ Verify if %s exists in compartment %s', display_name, compartment_id)
     cmd = ['oci', 'compute', 'image', 'list', '--compartment-id',
            '%s' % compartment_id, '--display-name',
            '%s' % display_name]
-    object_status = system_tools.run_popen_cmd(cmd)
+    object_status = system_tools.run_popen_cmd(cmd)['output'].decode('utf-8')
     if object_status is None:
-        _logger.debug('Object %s is not present in %s'
-                      % (display_name, compartment_id))
+        _logger.debug('Object %s is not present in %s', display_name, compartment_id)
         return False
-    else:
-        _logger.debug('Object %s is present in %s'
-                      % (display_name, compartment_id))
-        return True
+
+    _logger.debug('Object %s is present in %s', display_name, compartment_id)
+    return True
 
 
 def find_compartment_id(compartment, compartment_dict):
@@ -92,8 +86,8 @@ def find_compartment_id(compartment, compartment_dict):
         str: the ocid of the compartment on success, raises an exception
              on failure.
     """
-    _logger.debug('__ Looking for the ocid of compartment %s' % compartment)
-    for k, v in list(compartment_dict.items()):
+    _logger.debug('__ Looking for the ocid of compartment %s', compartment)
+    for _, v in list(compartment_dict.items()):
         for x in v:
             if x['name'] == compartment:
                 compartment_data = x
@@ -118,19 +112,20 @@ def get_lifecycle_state(display_name, compartment_id):
     -------
         str: the lifecycle state.
     """
-    _logger.debug('__ Retrieving the lifecycle state of %s' % display_name)
-    cmd = ['oci', 'compute', 'image', 'list', '--compartment-id',
-           '%s' % compartment_id, '--display-name', '%s' % display_name]
+    _logger.debug('__ Retrieving the lifecycle state of %s', display_name)
+    cmd = ['oci', 'compute', 'image', 'list',
+           '--compartment-id', '%s' % compartment_id,
+           '--display-name', '%s' % display_name]
     try:
-        object_list = json.loads(system_tools.run_popen_cmd(cmd))
+        object_list = json.loads(system_tools.run_popen_cmd(cmd))['output']
         for object_x in object_list['data']:
             if object_x['display-name'] == display_name:
                 return object_x['lifecycle-state']
-            else:
-                _logger.debug('object %s not found.' % display_name)
+
+            _logger.debug('object %s not found.',  display_name)
+            return None
     except Exception as e:
-        raise OciMigrateException('Failed to collect the compute image '
-                                  'list: %s' % str(e))
+        raise OciMigrateException('Failed to collect the compute image list:') from e
 
 
 def get_os_namespace():
@@ -144,11 +139,10 @@ def get_os_namespace():
     _logger.debug('__ Collect the object storage namespace name.')
     cmd = ['oci', 'os', 'ns', 'get']
     try:
-        ns_dict = json.loads(system_tools.run_popen_cmd(cmd))
+        ns_dict = json.loads(system_tools.run_popen_cmd(cmd)['output'])
         return ns_dict['data']
     except Exception as e:
-        raise OciMigrateException('Failed to collect object storage namespace'
-                                  ' name: %s' % str(e))
+        raise OciMigrateException('Failed to collect object storage namespace name:') from e
 
 
 def get_tenancy_data(tenancy):
@@ -165,18 +159,16 @@ def get_tenancy_data(tenancy):
         dict: a dictionary with the data of all compartments in this tenancy.
         raises an exception on failure.
     """
-    _logger.debug('__ Collecting compartment data for tenancy %s' % tenancy)
+    _logger.debug('__ Collecting compartment data for tenancy %s', tenancy)
     cmd = ['oci', 'iam', 'compartment', 'list', '-c', '%s' % tenancy, '--all']
-    _logger.debug('Running %s' % cmd)
+    _logger.debug('Running %s', cmd)
     try:
-        return json.loads(system_tools.run_popen_cmd(cmd))
+        return json.loads(system_tools.run_popen_cmd(cmd)['output'])
     except Exception as e:
-        raise OciMigrateException('Failed to collect compartment data for '
-                                  'tenancy %s: %s' % (tenancy, str(e)))
+        raise OciMigrateException('Failed to collect compartment data for tenancy %s:' % tenancy) from e
 
 
-def import_image(image_name, display_name, compartment_id, os_namespace,
-                 os_name, launch_mode):
+def import_image(image_name, display_name, compartment_id, os_namespace, os_name, launch_mode):
     """
     Import an os image from object storage in the custom images repository
     from the OCI.
@@ -206,14 +198,13 @@ def import_image(image_name, display_name, compartment_id, os_namespace,
            '%s' % os_name, '--compartment-id', '%s' % compartment_id,
            '--name', '%s' % image_name, '--namespace', '%s' % os_namespace,
            '--launch-mode', launch_mode, '--display-name', '%s' % display_name]
-    _logger.debug('__ Running %s' % cmd)
+    _logger.debug('__ Running %s', cmd)
     try:
-        _ = system_tools.run_popen_cmd(cmd)
-        _logger.debug('Successfully started import of %s' % image_name)
+        _ = system_tools.run_popen_cmd(cmd)['output']
+        _logger.debug('Successfully started import of %s', image_name)
         return True
     except Exception as e:
-        raise OciMigrateException('Failed to start import of %s: %s'
-                                  % (image_name, str(e)))
+        raise OciMigrateException('Failed to start import of %s:' % image_name) from e
 
 
 def object_exists(bucket, object_name):
@@ -232,19 +223,18 @@ def object_exists(bucket, object_name):
     -------
         bool: True on success, False otherwise.
     """
-    _logger.debug('__ Testing if %s already exists in %s.'
-                  % (object_name, bucket))
+    _logger.debug('__ Testing if %s already exists in %s.', object_name, bucket)
     bucket_data = bucket
     _logger.debug('Result: \n%s', bucket_data)
     if 'data' in bucket_data:
         for res in bucket_data['data']:
             if str(res['name']) == object_name:
-                _logger.debug('%s found' % object_name)
+                _logger.debug('%s found', object_name)
                 return True
-            else:
-                _logger.debug('%s not found' % object_name)
+
+            _logger.debug('%s not found', object_name)
     else:
-        _logger.debug('Bucket %s is empty.' % bucket)
+        _logger.debug('Bucket %s is empty.', bucket)
     return False
 
 
@@ -266,17 +256,15 @@ def upload_image(imgname, bucket_name, ociname):
     -------
         bool: True on success, raises an exception otherwise.
     """
-    cmd = ['oci', 'os', 'object', 'put', '--bucket-name',
-           bucket_name, '--file', imgname, '--name', ociname]
-    _logger.debug('__ Running %s' % cmd)
+    cmd = ['oci', 'os', 'object', 'put', '--bucket-name', bucket_name, '--file', imgname, '--name', ociname]
+    _logger.debug('__ Running %s', cmd)
     pause_msg(cmd)
     try:
-        uploadresult = system_tools.run_popen_cmd(cmd).decode('utf-8')
-        _logger.debug('Successfully uploaded %s to %s as %s: %s.'
-                      % (imgname, bucket_name, ociname, uploadresult))
+        upload_result = system_tools.run_popen_cmd(cmd)['output'].decode('utf-8')
+        _logger.debug('Successfully uploaded %s to %s as %s: %s.', imgname, bucket_name, ociname, upload_result)
+        return True
     except Exception as e:
-        _logger.critical('   Failed to upload %s to object storage %s as %s: %s.'
-                         % (imgname, bucket_name, ociname, str(e)))
-        raise OciMigrateException('Failed to upload %s to object storage %s '
-                                  'as %s: %s.'
-                                  % (imgname, bucket_name, ociname, str(e)))
+        _logger.critical('   Failed to upload %s to object storage %s as %s: %s.',
+                         imgname, bucket_name, ociname, str(e))
+        raise OciMigrateException('Failed to upload %s to object storage %s as %s:'
+                                  % (imgname, bucket_name, ociname)) from e

@@ -38,4 +38,3 @@ class OciMigrateException(Exception):
             The error message.
         """
         return str(self._message)
-
