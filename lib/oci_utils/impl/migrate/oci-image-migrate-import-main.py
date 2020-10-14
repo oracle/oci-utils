@@ -27,7 +27,7 @@ from oci_utils.migrate import terminal_dimension
 from oci_utils.migrate.exception import OciMigrateException
 from oci_utils.migrate.migrate_tools import get_config_data
 
-_logger = logging.getLogger('oci-utils.import_ci')
+_logger = logging.getLogger('oci-utils.oci-image-import')
 
 
 def parse_args():

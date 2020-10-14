@@ -644,8 +644,7 @@ class DeviceData():
         # /var, /var/log, /van/log/auto,.....
         mountlist = []
         for k, v in list(self.image_info['partitions'].items()):
-            _logger.debug('remount?? %s', k)
-            _logger.debug('remount?? %s', v)
+            _logger.debug('remount?? %s on %s', v, k)
             if 'ID_FS_TYPE' not in v:
                 _logger.debug('%s is not in use', k)
             else:
@@ -1254,7 +1253,7 @@ class DeviceData():
                     break
                 _logger.debug('os-release not found in %s', mnt)
         except Exception as e:
-            _logger.error('   Failed to collect os data: %s', str(e), exc_info=True)
+            _logger.error('   Failed to collect os data: %s', str(e))
         _logger.debug('os data: %s', osdict)
         return osdict
 

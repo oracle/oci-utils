@@ -19,7 +19,7 @@ import yaml
 
 from ..migrate import migrate_data
 
-_logger = logging.getLogger('__name__')
+_logger = logging.getLogger('oci_utils.migrate')
 
 
 def _getch():
@@ -209,10 +209,10 @@ def result_msg(msg, flags='a', result=False):
         with open(migrate_data.result_filename, flags) as f:
             f.write('  %s: %s\n' % (datetime.now().strftime('%H:%M:%S'), msg))
     except IOError as e:
-        errornb, strerror = e.args
+        error_nb, strerror = e.args
         #
         # trap permission denied errors if running as non root.
-        if errornb != 13:
+        if error_nb != 13:
             _logger.error('   Failed to write to %s: %s', migrate_data.result_filename, strerror)
     except Exception as e:
         _logger.error('   Failed to write to %s: %s', migrate_data.result_filename, str(e))
@@ -231,10 +231,11 @@ def terminal_dimension():
     try:
         terminal_size = os.get_terminal_size()
         return terminal_size.lines, terminal_size.columns
-    except Exception:
+    except Exception as e:
         #
         # fail to get terminal dimension, because not connected to terminal?
         # returning dummy
+        _logger.debug('Failed to determine terminal dimensions: %s; falling back to 80x80', str(e))
         return 80, 80
 
 
@@ -257,29 +258,22 @@ class OciMigrateConfParam():
         """
         self._yc = yamlconf
         self._tg = tag
-        self.confdata = dict()
+        self._config_data = dict()
 
     def __enter__(self):
         """
         OciMigrateConfParam entry.
         """
         with open(self._yc, 'r') as f:
-            self.confdata = yaml.load(f, Loader=yaml.SafeLoader)
+            self._config_data = yaml.load(f, Loader=yaml.SafeLoader)
         return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        OciMigrateConfParam cleanup and exit.
-        """
-        # placeholder
-        pass
 
     def get_values(self):
         """
         Retrieve the configuration data, one entry if key is not '*', complete
         data otherwise.
         """
-        return self.confdata if self._tg == '*' else self.confdata[self._tg]
+        return self._config_data if self._tg == '*' else self._config_data[self._tg]
 
 
 class ProgressBar(threading.Thread):

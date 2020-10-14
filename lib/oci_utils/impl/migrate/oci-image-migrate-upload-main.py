@@ -25,7 +25,7 @@ from oci_utils.migrate import terminal_dimension
 from oci_utils.migrate.exception import OciMigrateException
 from oci_utils.migrate.migrate_tools import get_config_data
 
-_logger = logging.getLogger('oci-utils.import_up')
+_logger = logging.getLogger('oci-utils.oci-image-upload')
 
 
 def parse_args():
@@ -128,10 +128,6 @@ def main():
     #
     # collect data
     try:
-        #
-        # The oci configuration.
-        # oci_config = migrate_tools.get_oci_config()
-        # _logger.debug('Found oci config file')
         #
         # The object storage exist and data.
         object_storage_data = oci_cli_tools.bucket_exists(bucket_name)
