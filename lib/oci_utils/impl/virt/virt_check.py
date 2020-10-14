@@ -19,7 +19,6 @@ from oci_utils import lsblk
 from . import virt_utils
 from .. import BRIDGE_CMD
 from .. import print_choices
-from .. import print_error
 from .. import sudo_utils
 from ..platform_helpers import (get_block_devices, get_phys_device)
 
@@ -188,7 +187,7 @@ def validate_block_device(dev_orig):
     try:
         os.stat(dev)
     except Exception:
-        print_error("{} does not exist.".format(dev))
+        _logger.error("{} does not exist.".format(dev))
         _print_available_block_devices(unused_devices)
         return False
 
@@ -206,7 +205,7 @@ def validate_block_device(dev_orig):
                 # Found  a real path.
                 if e.errno == 22:
                     break
-                print_error(
+                _logger.error(
                         "Unexpected error occured while resolving {}.  Error "
                         "reading {}: {}",
                         dev_orig, dev, e)
@@ -214,7 +213,7 @@ def validate_block_device(dev_orig):
 
             # Prevent infinite loops
             if dev in visited:
-                print_error("Infinite loop encountered trying to resolve {}.",
+                _logger.error("Infinite loop encountered trying to resolve {}.",
                             dev_orig)
                 print_choices("Path:", visited + [dev])
                 return False
@@ -226,7 +225,7 @@ def validate_block_device(dev_orig):
         try:
             dev = dev_map[dev]
         except Exception:
-            print_error("{} does not point to a block device.", dev_orig)
+            _logger.error("{} does not point to a block device.", dev_orig)
             _print_available_block_devices(unused_devices)
             return False
 
@@ -236,21 +235,21 @@ def validate_block_device(dev_orig):
     dev_path = os.readlink(dev)
     dev_name = dev_path[dev_path.rfind('/') + 1:]
     if dev_name not in devices:
-        print_error("{} is not a valid device", dev_orig)
+        _logger.error("{} is not a valid device", dev_orig)
         _print_available_block_devices(unused_devices)
         return False
     if virt_utils.block_device_has_mounts(devices[dev_name]):
-        print_error("{} is in use by the host system", dev_orig)
+        _logger.error("{} is in use by the host system", dev_orig)
         _print_available_block_devices(unused_devices)
         return False
     if not devices[dev_name].get('size'):
-        print_error("{} is not a disk", dev_orig)
+        _logger.error("{} is not a disk", dev_orig)
         _print_available_block_devices(unused_devices)
         return False
 
     for domain, disks in domain_disks.items():
         if dev in disks:
-            print_error("{} is in use by \"{}\"", dev_orig, domain)
+            _logger.error("{} is in use by \"{}\"", dev_orig, domain)
             _print_available_block_devices(unused_devices)
             return False
 
@@ -270,7 +269,7 @@ def _print_available_block_devices(devices):
         No return value.
     """
     if not devices or len(devices) == 0:
-        print_error(
+        _logger.error(
             "All block devices are currently in use.  Please attach a new "
             "block device via the OCI console.")
     else:
