@@ -10,30 +10,24 @@
 import subprocess
 import time
 import logging
-import libvirt
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element
 from xml.etree.ElementTree import SubElement
 import tempfile
 import os
-import io
+import libvirt
 from netaddr import IPNetwork
-
-from string import Template
-
-from . import nic
-from ..impl import IP_CMD, SUDO_CMD, PARTED_CMD, MK_XFS_CMD, print_choices, print_error, VIRSH_CMD, LSBLK_CMD
+from ..impl import IP_CMD, SUDO_CMD, PARTED_CMD, MK_XFS_CMD, print_choices, VIRSH_CMD, LSBLK_CMD
 from ..impl import sudo_utils
 from ..impl.network_helpers import get_interfaces
 from ..impl.network_helpers import add_route_table
 from ..impl.network_helpers import delete_route_table
 from ..impl.network_helpers import remove_static_ip_routes
 from ..impl.network_helpers import remove_static_ip_rules
-from ..impl.network_helpers import add_firewall_rule, remove_firewall_rule
+from ..impl.network_helpers import remove_firewall_rule
 from ..impl.virt import sysconfig, virt_check, virt_utils
 from ..metadata import InstanceMetadata
 
-from ..impl.init_script_templates import _kvm_network_script_tmpl
 from ..impl.init_script_helpers import SystemdServiceGenerator
 from ..impl.init_script_helpers import SystemdServiceManager
 
@@ -55,7 +49,7 @@ def _print_available_vnics(vnics):
         No return value.
     """
     if not vnics or len(vnics) == 0:
-        print_error("All OCI VNICs are currently in use. "
+        _logger.error("All OCI VNICs are currently in use. "
                     "Please create a new VNIC via the OCI console.")
     else:
         print_choices("Available VNICs:", vnics)
@@ -320,7 +314,7 @@ def test_vnic_and_assign_vf(ip_addr, free_vnics_ips, backlisted_vfs=()):
             id on success, False,False,False otherwise.
     """
     _logger.debug('test_vnic_and_assign_vf called with (%s,%s,%s)' % (ip_addr, free_vnics_ips, backlisted_vfs))
-    vnics = InstanceMetadata()['vnics']
+    vnics = InstanceMetadata().refresh()['vnics']
     _logger.debug('vnics found in metadata: %s' % vnics)
     domains = virt_utils.get_domains_name()
     domain_interfaces = {d: virt_utils.get_interfaces_from_domain(
@@ -329,7 +323,7 @@ def test_vnic_and_assign_vf(ip_addr, free_vnics_ips, backlisted_vfs=()):
     # First see if the given ip address belongs to a vnic
     vnic = find_vnic_by_ip(ip_addr, vnics)
     if vnic is None:
-        print_error("{} is not the IP address of a VNIC.", ip_addr)
+        _logger.error("{} is not the IP address of a VNIC.", ip_addr)
         _print_available_vnics(free_vnics_ips)
         return False, False, False
 
@@ -340,7 +334,7 @@ def test_vnic_and_assign_vf(ip_addr, free_vnics_ips, backlisted_vfs=()):
     _logger.debug('vnic found mac is %s' % vnic_mac)
     dom = _find_vlan(vnic_mac, domain_interfaces)
     if dom:
-        print_error("{} is in use by \"{}\".", ip_addr, dom)
+        _logger.error("{} is in use by \"{}\".", ip_addr, dom)
         _print_available_vnics(free_vnics_ips)
         return False, False, False
 
@@ -353,7 +347,7 @@ def test_vnic_and_assign_vf(ip_addr, free_vnics_ips, backlisted_vfs=()):
     if vf_pci_id is None:
         # This should never happen.  There are always at least as many virtual
         # Functions as there are potential creatable vnics
-        print_error(
+        _logger.error(
             "Could not find an unassigned virtual function on {}. Try using a "
             "VNIC on an alternate physical interface.", phys_nic)
         return False, False, False
@@ -396,14 +390,14 @@ def create_networking(vf_device, vlan, mac, ip=None, prefix=None):
                }
         sysconfig.write_network_config(cfg)
         return sysconfig.interfaces_up([vf_cfg[0], vlan_cfg[0]])
+
+    if ip and prefix:
+        vf_cfg = sysconfig.make_vf(vf_device, mac, ip, prefix)
     else:
-        if ip and prefix:
-            vf_cfg = sysconfig.make_vf(vf_device, mac, ip, prefix)
-        else:
-            vf_cfg = sysconfig.make_vf(vf_device, mac)
-        cfg = {vf_cfg[0]: vf_cfg[1]}
-        sysconfig.write_network_config(cfg)
-        return sysconfig.interfaces_up([vf_cfg[0]])
+        vf_cfg = sysconfig.make_vf(vf_device, mac)
+    cfg = {vf_cfg[0]: vf_cfg[1]}
+    sysconfig.write_network_config(cfg)
+    return sysconfig.interfaces_up([vf_cfg[0]])
 
 
 def destroy_networking(vf_device, vlan=None):
@@ -461,7 +455,7 @@ def destroy_domain_vlan(domain):
     -------
         No return value.
     """
-    ifaces, all_ifaces = virt_utils.get_domain_interfaces(domain)
+    _, all_ifaces = virt_utils.get_domain_interfaces(domain)
 
     to_del = []
     conf = sysconfig.read_network_config()
@@ -526,18 +520,24 @@ def create(**kargs):
             0 on success, 1 otherwise.
     """
 
-    _instance_shape = InstanceMetadata()['instance']['shape']
+    try:
+        _metadata = InstanceMetadata().refresh()
+    except IOError as e:
+        _logger.error("Cannot fetch instance metadata: %s" % str(e))
+        return 1
+
+    _instance_shape = _metadata['instance']['shape']
     _is_bm_shape = _instance_shape.startswith('BM')
 
     _logger.debug('instance shape is [%s]' % _instance_shape)
 
     if not virt_check.validate_kvm_env(_is_bm_shape):
-        print_error("Server does not have supported environment "
+        _logger.error("Server does not have supported environment "
                     "for guest creation")
         return 1
 
     if not virt_check.validate_domain_name(kargs['name']):
-        print_error("Domain name \"{}\" is already in use.".format(kargs['name']))
+        _logger.error("Domain name \"{}\" is already in use.".format(kargs['name']))
         return 1
 
     _logger.debug('domain name to use [%s]' % kargs['name'])
@@ -563,7 +563,7 @@ def create(**kargs):
             args.append('--network')
             args.append('network=%s,model=e1000' % vn_name)
     else:
-        vnics = InstanceMetadata()['vnics']
+        vnics = _metadata['vnics']
         if _logger.isEnabledFor(logging.DEBUG):
             _logger.debug('vnics found')
             for _v in vnics:
@@ -571,7 +571,7 @@ def create(**kargs):
 
         interfaces = get_interfaces()
         if _logger.isEnabledFor(logging.DEBUG):
-            for _i in interfaces.keys():
+            for _i in interfaces:
                 _logger.debug('interface [%s]' % _i)
                 _logger.debug('  [%s]' % str(interfaces[_i]))
 
@@ -580,7 +580,7 @@ def create(**kargs):
             # TODO: put that at upper level
             if vnics[0]['privateIp'] in kargs['network']:
                 # on BM shape vNIC IP are given
-                print_error('primary vNIC IP must not be selected')
+                _logger.error('primary vNIC IP must not be selected')
                 return 1
 
             args.append('--hvm')
@@ -610,6 +610,7 @@ def create(**kargs):
                 vf_dev = get_interface_by_pci_id(vf, interfaces)
                 _logger.debug('VF dev found %s' % vf_dev)
                 if not create_networking(vf_dev, vnic['vlanTag'], vnic['macAddr']):
+                    _logger.debug('networking creation has failed')
                     destroy_networking(vf_dev, vnic['vlanTag'])
                     return 1
 
@@ -632,10 +633,10 @@ def create(**kargs):
                         if intf_name == vn_name:
                             _mac_to_use = intf_info['mac'].upper()
                     if _mac_to_use is None:
-                        print_error('Cannot find MAC address for %s' % vn_name)
+                        _logger.error('Cannot find MAC address for %s' % vn_name)
                         return 1
                     if _mac_to_use == primary_mac:
-                        print_error('primary vNIC must not be selected')
+                        _logger.error('primary vNIC must not be selected')
                         return 1
                     args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' %
                                 (vn_name, _mac_to_use))
@@ -667,7 +668,7 @@ def create(**kargs):
                     break
 
                 if not intf_to_use:
-                    print_error('no free VNIC available')
+                    _logger.error('no free VNIC available')
                     return 1
 
                 args.append('--network')
@@ -720,24 +721,24 @@ def destroy(name, delete_disks):
 
     libvirtConn = libvirt.open(None)
     if libvirtConn is None:
-        print_error('Failed to open connection to qemu:///system')
+        _logger.error('Failed to open connection to qemu:///system')
         return 1
     dom = None
     try:
         dom = libvirtConn.lookupByName(name)
     except libvirt.libvirtError as e:
         domains = virt_utils.get_domains_name()
-        print_error("Domain {} does not exist.", name)
-        if len(domains):
+        _logger.error("Domain {} does not exist.", name)
+        if len(domains) > 0:
             print_choices("Domains:", domains)
         else:
-            print_error("No domains are defined.")
+            _logger.error("No domains are defined.")
         libvirtConn.close()
         return 1
 
     # from here , domain exists
     if dom.isActive():
-        print_error(
+        _logger.error(
             "Domain {} is running.  Only domains that are not running can be "
             "destroyed.",
             name)
@@ -765,7 +766,7 @@ def destroy(name, delete_disks):
                 _logger.debug('destroy: use of virtual network [%s] detected' % vnet)
                 _use_virtual_network = True
     except libvirt.libvirtError as e:
-        print_error('Failed to get domain information: %s' % e.get_error_message())
+        _logger.error('Failed to get domain information: %s' % e.get_error_message())
         libvirtConn.close()
         return 1
 
@@ -824,12 +825,12 @@ def create_netfs_pool(netfs_server, resource_path, name):
 
     conn = libvirt.open(None)
     if conn is None:
-        print_error('Failed to open connection to qemu:///system')
+        _logger.error('Failed to open connection to qemu:///system')
         return 1
 
     pool = conn.storagePoolDefineXML(ElementTree.tostring(poolXML), 0)
     if pool is None:
-        print_error('Failed to create StoragePool object.')
+        _logger.error('Failed to create StoragePool object.')
         return 1
     try:
         pool.setAutostart(1)
@@ -837,7 +838,7 @@ def create_netfs_pool(netfs_server, resource_path, name):
         pool.create()
     except libvirt.libvirtError as e:
         pool.undefine()
-        print_error('Failed to setup the pool: %s' % e.get_error_message())
+        _logger.error('Failed to setup the pool: %s' % e.get_error_message())
         return 1
     finally:
         conn.close()
@@ -863,17 +864,17 @@ def create_fs_pool(disk, name):
 
     # first cleanup the block device
     if sudo_utils.call([PARTED_CMD, '--script', disk, 'mklabel', 'gpt']):
-        print_error('Failed to label the block volume')
+        _logger.error('Failed to label the block volume')
         return 1
 
     if sudo_utils.call([PARTED_CMD, '--align', 'optimal', '--script', disk, 'mkpart', 'primary', 'xfs', '1MiB', '100%']):
-        print_error('Failed to make primary partition on the block volume')
+        _logger.error('Failed to make primary partition on the block volume')
         return 1
 
     _new_part = "%s1" % disk
 
     if sudo_utils.call([MK_XFS_CMD, '-f', '-q', _new_part]):
-        print_error('Failed to make xfs filesystem on new prtition')
+        _logger.error('Failed to make xfs filesystem on new prtition')
         return 1
 
     # grab the uuid of the device
@@ -881,23 +882,23 @@ def create_fs_pool(disk, name):
     _uuid = _uuid.decode().strip()
 
     if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-define-as', '--name=%s' % name, '--type=fs', '--source-dev=/dev/disk/by-uuid/%s' % _uuid, '--target=/oci-%s' % name]):
-        print_error('Failed to define pool')
+        _logger.error('Failed to define pool')
         return 1
 
     if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-build', name]):
-        print_error('Failed to build pool')
+        _logger.error('Failed to build pool')
         sudo_utils.call([VIRSH_CMD, 'pool-undefine', name])
         return 1
 
     if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-start', name]):
         sudo_utils.call([VIRSH_CMD, 'pool-undefine', name])
-        print_error('Failed to build pool')
+        _logger.error('Failed to build pool')
         return 1
 
     if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-autostart', name]):
         sudo_utils.call([VIRSH_CMD, 'pool-destroy', name])
         sudo_utils.call([VIRSH_CMD, 'pool-undefine', name])
-        print_error('Failed to build pool')
+        _logger.error('Failed to build pool')
         return 1
 
     return 0
@@ -928,8 +929,13 @@ def create_virtual_network(**kargs):
     -------
         0 on success , 1 otherwise
     """
+    try:
+        _metadata = InstanceMetadata().refresh()
+    except IOError as e:
+        _logger.error("Cannot fetch instance metadata: %s" % str(e))
+        return 1
 
-    _instance_shape = InstanceMetadata()['instance']['shape']
+    _instance_shape = _metadata['instance']['shape']
     _is_bm_shape = _instance_shape.startswith('BM')
 
     # get the given IP used to find vNIC to use
@@ -938,7 +944,7 @@ def create_virtual_network(**kargs):
     _logger.debug('in create_virtual_network, given IP : %s ' % _vnic_ip_to_use)
 
     # get all vNIC of the current system
-    _all_vnics = InstanceMetadata()['vnics']
+    _all_vnics = _metadata['vnics']
 
     # get all current system network interfaces
     _all_system_interfaces = get_interfaces()
@@ -962,7 +968,7 @@ def create_virtual_network(**kargs):
                                  vnic['macAddr'],
                                  vnic['privateIp'],
                                  int(vnic['subnetCidrBlock'].split('/')[1])):
-            print_error('cannot create networking')
+            _logger.error('cannot create networking')
             destroy_networking(vf_dev, vnic['vlanTag'])
             return 1
     else:
@@ -974,13 +980,13 @@ def create_virtual_network(**kargs):
                 vnic = v
                 break
         if vnic is None:
-            print_error('vNIC with address [%s] not found' % _vnic_ip_to_use)
+            _logger.error('vNIC with address [%s] not found' % _vnic_ip_to_use)
             return None
         for intf_name, attrs in _all_system_interfaces.items():
             if attrs['mac'].upper() == vnic['macAddr'].upper() and attrs['physical']:
                 vf_dev = intf_name
         if vf_dev is None:
-            print_error('cannot find network interface matching vNIC with ip [%s]' % _vnic_ip_to_use)
+            _logger.error('cannot find network interface matching vNIC with ip [%s]' % _vnic_ip_to_use)
             return 1
 
         _logger.debug(' device for nework %s' % vf_dev)
@@ -990,7 +996,7 @@ def create_virtual_network(**kargs):
                                  vnic['macAddr'],
                                  vnic['privateIp'],
                                  int(vnic['subnetCidrBlock'].split('/')[1])):
-            print_error('cannot create networking')
+            _logger.error('cannot create networking')
             destroy_networking(vf_dev)
             return 1
 
@@ -1039,7 +1045,7 @@ def create_virtual_network(**kargs):
     ElementTree.ElementTree(netXML).write(tf.name)
 
     if sudo_utils.call([VIRSH_CMD, '--quiet', 'net-define', tf.name]):
-        print_error('Failed to define the network')
+        _logger.error('Failed to define the network')
         os.remove(tf.name)
         delete_route_table(vf_dev)
         destroy_networking(vf_dev, vnic['vlanTag'])
@@ -1052,14 +1058,14 @@ def create_virtual_network(**kargs):
     try:
         kvm_sysd_svc.generate()
     except Exception as e:
-        print_error('Failed to generate the init script : %s' % str(e))
+        _logger.error('Failed to generate the init script : %s' % str(e))
         delete_route_table(vf_dev)
         destroy_networking(vf_dev, vnic['vlanTag'])
         return 1
     try:
         SystemdServiceManager('kvm_net_%s' % kargs['network_name']).start()
     except Exception as e:
-        print_error('Failed to start the network init script')
+        _logger.error('Failed to start the network init script')
         delete_route_table(vf_dev)
         destroy_networking(vf_dev, vnic['vlanTag'])
         return 1
@@ -1083,13 +1089,13 @@ def delete_virtual_network(**kargs):
     """
     libvirtConn = libvirt.open(None)
     if libvirtConn is None:
-        print_error('Cannot find network named [%s]' % kargs['network_name'])
+        _logger.error('Cannot find network named [%s]' % kargs['network_name'])
         return 1
     net = None
     try:
         net = libvirtConn.networkLookupByName(kargs['network_name'])
     except libvirt.libvirtError:
-        print_error('Cannot find network named [%s]' % kargs['network_name'])
+        _logger.error('Cannot find network named [%s]' % kargs['network_name'])
         return 1
 
     root = ElementTree.fromstring(net.XMLDesc())
@@ -1099,12 +1105,12 @@ def delete_virtual_network(**kargs):
         for _i in _f.findall('interface'):
             _interface_elem = _i
     if _interface_elem is None:
-        print_error('Cannot find any interface in network XML description')
+        _logger.error('Cannot find any interface in network XML description')
         return 1
 
     device_name = _interface_elem.get('dev')
     if device_name is None:
-        print_error('Cannot find device information in interface node')
+        _logger.error('Cannot find device information in interface node')
         return 1
 
     bridge_name = root.findall('bridge')[0].get('name')

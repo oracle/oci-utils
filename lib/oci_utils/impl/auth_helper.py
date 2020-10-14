@@ -16,7 +16,7 @@ from ..exceptions import OCISDKError
 _HELPER_SCRIPT = '/usr/libexec/oci-utils-config-helper'
 
 
-class OCIAuthProxy(object):
+class OCIAuthProxy():
     """
     Read the OCI config and authenticate with OCI services as another user
     """
@@ -67,7 +67,7 @@ class OCIAuthProxy(object):
                                            universal_newlines=True)
             self.is_open = True
         except Exception as e:
-            raise OCISDKError('Failed to start auth helper script: %s' % e)
+            raise OCISDKError('Failed to start auth helper script') from e
 
     def _receive(self):
         """
@@ -94,7 +94,7 @@ class OCIAuthProxy(object):
             try:
                 resp = json.loads(line.strip())
             except ValueError as e:
-                raise OCISDKError('%s is not valid JSON' % line.strip())
+                raise OCISDKError('%s is not valid JSON' % line.strip()) from e
             if resp['status'] == 'ERROR':
                 raise OCISDKError('API Proxy error: %s' % resp['data'])
         return resp

@@ -12,10 +12,11 @@ import json
 import os
 import sys
 from datetime import datetime
-
+import logging
 
 _GLOBAL_CACHE_DIR = "/var/cache/oci-utils"
 
+_logger = logging.getLogger("oci-utils.cache")
 
 def get_cache_file_path(filename):
     """
@@ -49,8 +50,7 @@ def get_timestamp(fname):
 
     if os.path.exists(fname):
         return os.path.getmtime(fname)
-    else:
-        return 0
+    return 0
 
 
 def get_newer(fname1, fname2):
@@ -73,19 +73,16 @@ def get_newer(fname1, fname2):
     if fname1 is None or not os.path.exists(fname1):
         if fname2 is None or not os.path.exists(fname2):
             return None
-        else:
-            return fname2
+        return fname2
     if fname2 is None or not os.path.exists(fname2):
         if fname1 is None or not os.path.exists(fname1):
             return None
-        else:
-            return fname1
+        return fname1
 
     # both files exist
     if get_timestamp(fname1) > get_timestamp(fname2):
         return fname1
-    else:
-        return fname2
+    return fname2
 
 
 def load_cache(global_file, user_file=None, max_age=None):
@@ -106,6 +103,8 @@ def load_cache(global_file, user_file=None, max_age=None):
         tuple
             (timestamp, file_contents)
     """
+    _logger.debug('loading cache %s' % global_file)
+
     cache_fname = get_newer(global_file, user_file)
     if cache_fname is None:
         return 0, None

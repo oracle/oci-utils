@@ -7,7 +7,7 @@
 import logging
 
 
-class OCIAPIAbstractResource(object):
+class OCIAPIAbstractResource():
     """ Ancestor class for most OCI objects
     """
     _ignore_dict_items = ["swagger_types", "attribute_map"]
@@ -104,7 +104,7 @@ class OCIAPIAbstractResource(object):
         """
         return self._data.display_name
 
-    def get_availability_domain(self):
+    def get_availability_domain_name(self):
         """
         Get the availability domain.
 
@@ -114,6 +114,16 @@ class OCIAPIAbstractResource(object):
                 The domain name.
         """
         return self._data.availability_domain
+    def get_compartment_id(self):
+        """
+        Get the compartment id
+
+        Returns
+        -------
+            str
+                The compartment id
+        """
+        return self._data.compartment_id
 
     def get_compartment(self):
         """

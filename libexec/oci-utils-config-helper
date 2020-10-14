@@ -49,7 +49,7 @@ def main():
     """
     try:
         session = oci_utils.oci_api.OCISession(
-            auth_method=oci_utils.oci_api.DIRECT)
+            authentication_method=oci_utils.oci_api.DIRECT)
     except oci_utils.oci_api.OCISDKError as e:
         response('ERROR', data=str(e))
         return 1

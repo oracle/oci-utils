@@ -28,7 +28,7 @@ class TestOCISession(OciTestCase):
     def setUpSession(self):
         if self._session is None:
             self._session = oci_utils.oci_api.OCISession(
-                auth_method=oci_utils.oci_api.DIRECT)
+                authentication_method=oci_utils.oci_api.IP)
         return self._session
 
     @skipItAsUnresolved()
@@ -42,7 +42,7 @@ class TestOCISession(OciTestCase):
         -------
             No return value.
         """
-        s = oci_utils.oci_api.OCISession(auth_method=oci_utils.oci_api.DIRECT)
+        s = oci_utils.oci_api.OCISession(authentication_method=oci_utils.oci_api.DIRECT)
         self.assertIsNotNone(s, 'fail to get session using DIRECT mode')
         self.assertEqual(s.auth_method, oci_utils.oci_api.DIRECT,
                          'auth mode of returned session is not DIRECT')
@@ -65,7 +65,7 @@ class TestOCISession(OciTestCase):
         -------
             No return value.
         """
-        s = oci_utils.oci_api.OCISession(auth_method=oci_utils.oci_api.IP)
+        s = oci_utils.oci_api.OCISession(authentication_method=oci_utils.oci_api.IP)
         self.assertIsNotNone(s, 'fail to get session using IP mode')
         self.assertEqual(s.auth_method, oci_utils.oci_api.IP,
                          'auth mode of returned session is not IP')
@@ -89,7 +89,7 @@ class TestOCISession(OciTestCase):
         -------
             No return value.
         """
-        s = oci_utils.oci_api.OCISession(auth_method=oci_utils.oci_api.PROXY)
+        s = oci_utils.oci_api.OCISession(authentication_method=oci_utils.oci_api.PROXY)
         self.assertIsNotNone(s, 'fail to get session using PROXY mode')
         self.assertEqual(s.auth_method, oci_utils.oci_api.PROXY,
                          'auth mode of returned session is not PROXY [%s]' % str(s.auth_method))
@@ -114,7 +114,7 @@ class TestOCISession(OciTestCase):
         with self.assertRaisesRegex(OCISDKError, 'Failed to authenticate'):
             s = oci_utils.oci_api.OCISession(
                 config_file='/dev/null',
-                auth_method=oci_utils.oci_api.DIRECT)
+                authentication_method=oci_utils.oci_api.DIRECT)
 
         # any form of auth
         s = oci_utils.oci_api.OCISession()

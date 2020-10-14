@@ -13,13 +13,11 @@ import argparse
 import logging
 import sys
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import json
 from oci_utils.packages.stun import get_ip_info, STUN_SERVERS
 from oci_utils import oci_api
-from oci_utils.exceptions import OCISDKError
+
+
 
 stun_log = logging.getLogger("oci-utils.oci-public-ip")
 
@@ -47,11 +45,11 @@ def parse_args():
                         help='list all of the public IP addresses for the '
                              'instance.')
     parser.add_argument('-s', '--sourceip', action='store', default="0.0.0.0",
-                        help='Specify the source IP address to use'),
+                        help='Specify the source IP address to use')
     group.add_argument('-S', '--stun-server', action='store',
-                       help='Specify the STUN server to use'),
+                       help='Specify the STUN server to use')
     parser.add_argument('-L', '--list-servers', action='store_true',
-                        help='Print a list of known STUN servers and exit'),
+                        help='Print a list of known STUN servers and exit')
     group.add_argument('--instance-id', metavar='OCID', action='store',
                        help='Display the public IP address of the given '
                        'instance instead of the current one.  Requires '
@@ -112,7 +110,7 @@ def main():
         # print the list of known STUN servers and exit
         for server in STUN_SERVERS:
             print(server)
-        return(0)
+        return 0
 
     _instance = None
     try:
@@ -127,11 +125,9 @@ def main():
             # we treat this as an error now
             stun_log.error(
                 "Error getting information of instance [%s]: %s" % (args.instance_id, str(e)))
-            return(1)
-        else:
-            # in that case, just issue a debug info
-            stun_log.debug(
-                "Error getting information of current instance: %s" % str(e))
+            return 1
+        # in that case, just issue a debug info
+        stun_log.debug("Error getting information of current instance: %s", str(e))
 
     _all_p_ips = []
 
@@ -140,11 +136,9 @@ def main():
             # user specified a remote instance, there is no fallback to stun
             stun_log.error(
                 "Instance not found: %s" % args.instance_id)
-            return(1)
-        else:
-            # can we really end up here ?
-            stun_log.debug(
-                "current Instance not found")
+            return 1
+        # can we really end up here ?
+        stun_log.debug("current Instance not found")
     else:
         _all_p_ips = _instance.all_public_ips()
         stun_log.debug('%s ips retreived from sdk information' % len(_all_p_ips))
@@ -162,9 +156,8 @@ def main():
         # none of the methods give us information
         stun_log.info("No public IP address found.\n")
         return 1
-    else:
-        _display_ip_list(_all_p_ips, args.all, args.json, args.get)
-        return 0
+    _display_ip_list(_all_p_ips, args.all, args.json, args.get)
+    return 0
 
 
 if __name__ == "__main__":

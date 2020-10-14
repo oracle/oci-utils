@@ -9,7 +9,7 @@
 
 import logging
 import subprocess
-import os
+
 from . import (SUDO_CMD, CAT_CMD, RM_CMD, SH_CMD, CP_CMD, TOUCH_CMD, CHMOD_CMD, MKDIR_CMD)
 
 __all__ = ['call', 'call_output', 'call_popen_output', 'delete_file', 'copy_file', 'write_to_file']
@@ -60,7 +60,7 @@ def call(cmd, log_output=True):
     try:
         if _logger.isEnabledFor(logging.DEBUG):
             _logger.debug('Executing [%s]' % ' '.join(_c))
-        cp = subprocess.run(_c, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        cp = subprocess.run(_c, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
         if cp.returncode != 0 and log_output:
             _logger.debug("execution failed: ec=%s, output=[%s], stderr=[%s] " % (cp.returncode, cp.stdout, cp.stderr))
         return cp.returncode
@@ -95,8 +95,9 @@ def call_output(cmd, log_output=True):
         return 404
     except subprocess.CalledProcessError as e:
         if log_output:
-            _logger.debug("Error execeuting {}: {}\n{}\n"
-                          .format(_c, e.returncode, e.output))
+            if _logger.isEnabledFor(logging.DEBUG):
+                # pylint: disable=logging-not-lazy,logging-format-interpolation
+                _logger.debug("Error execeuting {}: {}\n{}\n".format(_c, e.returncode, e.output))
         return None
 
 
@@ -129,8 +130,9 @@ def call_popen_output(cmd, log_output=True):
         return 404
     except subprocess.CalledProcessError as e:
         if log_output:
-            _logger.debug("Error executing {}: {}\n{}\n"
-                          .format(_c, e.returncode, e.output))
+            if _logger.isEnabledFor(logging.DEBUG):
+                # pylint: disable=logging-not-lazy,logging-format-interpolation
+                _logger.debug("Error executing {}: {}\n{}\n".format(_c, e.returncode, e.output))
         return None
 
 

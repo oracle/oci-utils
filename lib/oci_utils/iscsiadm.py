@@ -20,39 +20,6 @@ _iscsi_logger = logging.getLogger('oci-utils.iscsi')
 
 ISCSIADM_CACHE = get_cache_file_path("iscsiadm-cache")
 
-# error codes and messages taken from the iscsiadm manual page
-_ERROR_CODES = {
-    0: 'command executed successfully',
-    1: 'generic error code',
-    2: 'session could not be found',
-    3: 'could not allocate resource for operation',
-    4: 'connect problem caused operation to fail',
-    5: 'generic iSCSI login failure',
-    6: 'error accessing/managing iSCSI DB',
-    7: 'invalid argument',
-    8: 'connection timer exired  while  trying to connect',
-    9: 'generic internal iscsid/kernel failure',
-    10: 'iSCSI logout failed',
-    11: 'iSCSI PDU timedout',
-    12: 'iSCSI transport module not loaded in kernel or iscsid',
-    13: 'did not have proper OS permissions to  access iscsid '
-        'or execute iscsiadm command',
-    14: 'transport module did not support operation',
-    15: 'session is logged in',
-    16: 'invalid IPC MGMT request',
-    17: 'iSNS service is not supported',
-    18: 'a read/write to iscsid failed',
-    19: 'fatal iSCSI login error',
-    20: 'could not connect to iscsid',
-    21: 'no records/targets/sessions/portals found to execute operation on',
-    22: 'could not lookup object in sysfs',
-    23: 'could not lookup host',
-    24: 'login failed due to authorization failure',
-    25: 'iSNS query failure',
-    26: 'iSNS registration/deregistration failed',
-    403: 'attempt to detach the boot volume',
-    404: 'could not execute /usr/bin/iscsiadm', }
-
 
 def error_message_from_code(errorcode):
     """
@@ -67,9 +34,44 @@ def error_message_from_code(errorcode):
     -------
         The error message.
     """
-    global _ERROR_CODES
-    if errorcode in _ERROR_CODES:
-        return _ERROR_CODES[errorcode]
+    assert isinstance(errorcode ,int), 'invalid error code type'
+
+    if not hasattr(error_message_from_code, "ERROR_CODES"):
+        error_message_from_code.ERROR_CODES = {
+                    0: 'command executed successfully',
+                    1: 'generic error code',
+                    2: 'session could not be found',
+                    3: 'could not allocate resource for operation',
+                    4: 'connect problem caused operation to fail',
+                    5: 'generic iSCSI login failure',
+                    6: 'error accessing/managing iSCSI DB',
+                    7: 'invalid argument',
+                    8: 'connection timer exired  while  trying to connect',
+                    9: 'generic internal iscsid/kernel failure',
+                    10: 'iSCSI logout failed',
+                    11: 'iSCSI PDU timedout',
+                    12: 'iSCSI transport module not loaded in kernel or iscsid',
+                    13: 'did not have proper OS permissions to  access iscsid '
+                        'or execute iscsiadm command',
+                    14: 'transport module did not support operation',
+                    15: 'session is logged in',
+                    16: 'invalid IPC MGMT request',
+                    17: 'iSNS service is not supported',
+                    18: 'a read/write to iscsid failed',
+                    19: 'fatal iSCSI login error',
+                    20: 'could not connect to iscsid',
+                    21: 'no records/targets/sessions/portals found to execute operation on',
+                    22: 'could not lookup object in sysfs',
+                    23: 'could not lookup host',
+                    24: 'login failed due to authorization failure',
+                    25: 'iSNS query failure',
+                    26: 'iSNS registration/deregistration failed',
+                    403: 'attempt to detach the boot volume',
+                    404: 'could not execute /usr/bin/iscsiadm'
+        }
+
+    if errorcode in error_message_from_code.ERROR_CODES:
+        return error_message_from_code.ERROR_CODES[errorcode]
 
     return "Unknown error (%s)" % errorcode
 
@@ -251,9 +253,9 @@ def attach(ipaddr, port, iqn, username=None, password=None, auto_startup=True):
                                      '-v', 'automatic'],
                                     stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            logging.warn('failed to set automatic startup set for '
+            logging.warning('failed to set automatic startup set for '
                          'iscsi volume %s' % iqn)
-            logging.warn('iscsiadm output: %s' % e.output)
+            logging.warning('iscsiadm output: %s' % e.output)
             return e.returncode
 
     if username is not None and password is not None:
