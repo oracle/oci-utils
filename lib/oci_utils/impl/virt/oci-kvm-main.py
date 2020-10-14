@@ -171,10 +171,22 @@ def create_vm(args):
     # some options do not create the guest but display information
     # this is wrongly interpreted as a succcess by underlying layers and we
     # may setup things by mistake
+    _safe_install_extra = []
     _virt_install_extra = []
     for _a in args.virt:
         if _a not in ('--print-xml',  '--version', '-h', '--help'):
-            _virt_install_extra.append(_a)
+            _safe_install_extra.append(_a)
+
+    # locate everything after the --extra-args argument (if any) to compute this
+    # back as a string not as list
+    try:
+        # locate '--extra-args'
+        index = _safe_install_extra.index('--extra-args')
+        _virt_install_extra.extend(_safe_install_extra[:index+1])
+        _virt_install_extra.append("%s" % ' '.join(_safe_install_extra[index+1:]))
+    except ValueError:
+        # '--extra-args was no found
+        _virt_install_extra = _safe_install_extra
 
     return oci_utils.kvm.virt.create(name=args.domain,
                                      root_disk=args.disk,

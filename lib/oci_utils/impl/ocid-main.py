@@ -248,7 +248,11 @@ def iscsi_func(context, func_logger):
         oci_sess = None
         try:
             oci_sess = oci_utils.oci_api.OCISession()
+            # check that this session is actually usable 
+            _ = oci_sess.this.instance()
         except Exception as e:
+            # be sure nobody use it
+            oci_sess = None
             func_logger.debug('Failed to get a session: %s' % str(e))
         max_volumes = 8
         if 'max_volumes' in context:
