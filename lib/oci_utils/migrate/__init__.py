@@ -3,7 +3,10 @@
 # Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
-
+"""
+Initialisation of the migrate package.
+"""
+import logging
 import os
 import sys
 import termios
@@ -13,6 +16,10 @@ import tty
 from datetime import datetime
 
 import yaml
+
+from ..migrate import migrate_data
+
+_logger = logging.getLogger('oci_utils.migrate')
 
 
 def _getch():
@@ -79,10 +86,31 @@ def read_yn(prompt, yn=True, waitenter=False, suppose_yes=False):
         yn = _getch()
 
     sys.stdout.write('\n')
-    if yn.upper() == 'Y':
-        return True
+    return bool(yn.upper() == 'Y')
+
+
+def error_msg(msg=None):
+    """
+    GT debug message
+
+    Parameters
+    ----------
+    msg: str
+        Eventual message.
+
+    Returns
+    -------
+        No return value
+    """
+    _logger.error('   %s', msg)
+    if msg is not None:
+        msg = '  *** ERROR *** %s' % msg
     else:
-        return False
+        msg = '  *** ERROR *** Unidentified error.'
+    sys.stderr.write('%s' % msg)
+    sys.stderr.flush()
+    result_msg(msg=msg)
+    time.sleep(1)
 
 
 def exit_with_msg(msg, exit_code=1):
@@ -101,7 +129,7 @@ def exit_with_msg(msg, exit_code=1):
         No return value.
     """
     sys.stderr.write('\n  %s\n' % msg)
-    exit(exit_code)
+    sys.exit(exit_code)
 
 
 def pause_msg(msg=None, pause_flag='_OCI_PAUSE'):
@@ -147,7 +175,7 @@ def bytes_to_hex(bs):
 
     Parameters
     ----------
-    bs: str
+    bs: bytes
        byte string
 
     Returns
@@ -155,6 +183,41 @@ def bytes_to_hex(bs):
         str: hex string
     """
     return ''.join('%02x' % i for i in bs)
+
+
+def result_msg(msg, flags='a', result=False):
+    """
+    Write information to the log file, the result file and the console if the
+    result flag is set.
+
+    Parameters
+    ----------
+    msg: str
+        The message.
+    flags: str
+        The flags for the open file command.
+    result: bool
+        Flag, write to console if True.
+
+    Returns
+    -------
+        No return value.
+    """
+    msg = '  Just mentioning I am here.' if msg is None else msg
+    _logger.debug('%s', msg)
+    try:
+        with open(migrate_data.result_filename, flags) as f:
+            f.write('  %s: %s\n' % (datetime.now().strftime('%H:%M:%S'), msg))
+    except IOError as e:
+        error_nb, strerror = e.args
+        #
+        # trap permission denied errors if running as non root.
+        if error_nb != 13:
+            _logger.error('   Failed to write to %s: %s', migrate_data.result_filename, strerror)
+    except Exception as e:
+        _logger.error('   Failed to write to %s: %s', migrate_data.result_filename, str(e))
+    if result:
+        sys.stdout.write('  %s\n' % msg)
 
 
 def terminal_dimension():
@@ -166,18 +229,17 @@ def terminal_dimension():
         tuple: (nb rows, nb colums)
     """
     try:
-        # rowstr, colstr = os.popen('stty size', 'r').read().split()
-        # return int(rowstr), int(colstr)
         terminal_size = os.get_terminal_size()
         return terminal_size.lines, terminal_size.columns
     except Exception as e:
         #
         # fail to get terminal dimension, because not connected to terminal?
         # returning dummy
+        _logger.debug('Failed to determine terminal dimensions: %s; falling back to 80x80', str(e))
         return 80, 80
 
 
-class OciMigrateConfParam(object):
+class OciMigrateConfParam():
     """
     Retrieve oci-image-migrate configuration data from the
     oci-image-migrate configuration file, in yaml format.
@@ -196,27 +258,22 @@ class OciMigrateConfParam(object):
         """
         self._yc = yamlconf
         self._tg = tag
+        self._config_data = dict()
 
     def __enter__(self):
         """
         OciMigrateConfParam entry.
         """
         with open(self._yc, 'r') as f:
-            self.confdata = yaml.load(f, Loader=yaml.SafeLoader)
+            self._config_data = yaml.load(f, Loader=yaml.SafeLoader)
         return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        OciMigrateConfParam cleanup and exit.
-        """
-        pass
 
     def get_values(self):
         """
         Retrieve the configuration data, one entry if key is not '*', complete
         data otherwise.
         """
-        return self.confdata if self._tg == '*' else self.confdata[self._tg]
+        return self._config_data if self._tg == '*' else self._config_data[self._tg]
 
 
 class ProgressBar(threading.Thread):
@@ -347,4 +404,3 @@ class ProgressBar(threading.Thread):
         """
         self._stopthread.set()
         threading.Thread.join(self, timeout)
-

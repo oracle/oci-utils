@@ -11,7 +11,7 @@ import logging
 import os
 import struct
 
-from oci_utils.migrate import migrate_tools
+from oci_utils.migrate import result_msg
 from oci_utils.migrate.exception import OciMigrateException
 from oci_utils.migrate.imgdevice import DeviceData
 
@@ -46,6 +46,7 @@ class TemplateTypeHead(DeviceData):
         templatehead_dict: dict
             The SomeType file header as a dictionary.
     """
+    #
     # templatetype header definition:
     uint32_t = 'I'  # 32bit unsigned int
     uint64_t = 'Q'  # 64bit unsigned long
@@ -53,7 +54,7 @@ class TemplateTypeHead(DeviceData):
                          [uint32_t, '%d', 'version'],
 
                          ]
-
+    #
     # struct format string
     templatetypehead_fmt = '>' + ''.join(f[0] for f in header2_structure)
     head_size = struct.calcsize(templatetypehead_fmt)
@@ -67,41 +68,36 @@ class TemplateTypeHead(DeviceData):
         filename: str
             Full path of the template_type image file.
         """
-        super(TemplateTypeHead, self).__init__(filename)
-        _logger.debug('templatetype header size: %d bytes' % self.head_size)
+        super().__init__(filename)
+        _logger.debug('templatetype header size: %d bytes', self.head_size)
 
         try:
             with open(self._fn, 'rb') as f:
                 head_bin = f.read(self.head_size)
-                _logger.debug('%s header successfully read' % self._fn)
+                _logger.debug('%s header successfully read', self._fn)
         except Exception as e:
-            _logger.critical('   Failed to read header of %s: %s'
-                             % (self._fn, str(e)))
-            raise OciMigrateException('Failed to read the header of %s: %s'
-                                      % (self._fn, str(e)))
+            _logger.critical('   Failed to read header of %s: %s', self._fn, str(e))
+            raise OciMigrateException('Failed to read the header of %s' % self._fn) from e
 
         templatetypeheader = struct.unpack(TemplateTypeHead.templatetypehead_fmt, head_bin)
 
         self.stat = os.stat(self._fn)
         self.img_tag = os.path.splitext(os.path.split(self._fn)[1])[0]
-        self.templatehead_dict = dict((name[2], templatetypeheader[i])
-                                  for i, name
-                                  in enumerate(TemplateTypeHead.header2_structure))
+        self.templatehead_dict = \
+            dict((name[2], templatetypeheader[i]) for i, name in enumerate(TemplateTypeHead.header2_structure))
         self.img_header = dict()
         self.img_header['head'] = self.templatehead_dict
-        migrate_tools.result_msg(msg='Got image %s header' % filename,
-                                 result=False)
+        result_msg(msg='Got image %s header' % filename, result=False)
         #
         # mount the image using the nbd
         try:
-            self.devicename = self.mount_img()
-            _logger.debug('Image data %s' % self.devicename)
-            migrate_tools.result_msg(msg='Mounted %s' % self.devicename,
-                                     result=False)
+            self.device_name = self.mount_img()
+            _logger.debug('Image data %s', self.device_name)
+            result_msg(msg='Mounted %s' % self.device_name, result=False)
             deviceinfo = self.handle_image()
         except Exception as e:
-            _logger.critical('   Error %s' % str(e))
-            raise OciMigrateException(str(e))
+            _logger.critical('   Error %s', str(e))
+            raise OciMigrateException('Failed') from e
 
     def show_header(self):
         """

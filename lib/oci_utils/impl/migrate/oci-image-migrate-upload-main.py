@@ -18,22 +18,20 @@ from oci_utils.migrate import ProgressBar
 from oci_utils.migrate import console_msg
 from oci_utils.migrate import exit_with_msg
 from oci_utils.migrate import migrate_data
-from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import oci_cli_tools
 from oci_utils.migrate import read_yn
 from oci_utils.migrate import system_tools
 from oci_utils.migrate import terminal_dimension
 from oci_utils.migrate.exception import OciMigrateException
-from oci_utils.migrate.migrate_tools import get_config_data as get_config_data
+from oci_utils.migrate.migrate_tools import get_config_data
 
-_logger = logging.getLogger('oci-utils.import_up')
+_logger = logging.getLogger('oci-utils.oci-image-upload')
 
 
 def parse_args():
     """
     Parse the command line arguments and return an object representing the
-    command
-    line as returned by the argparse's parse-args().
+    command line as returned by the argparse's parse-args().
     arguments:
     -i|--image-name <image name>; mandatory.
     -b|--bucket-name <bucket name>; mandatory.
@@ -84,11 +82,18 @@ def parse_args():
 
 
 def main():
+    """
+    Upload an image from on-premise to an object storage in the Oracle Cloud Infrastructure.
+
+    Returns
+    -------
+        int: 0 on success, raises exception on failure.
+    """
     #
     # set locale
     lc_all_to_set = get_config_data('lc_all')
     os.environ['LC_ALL'] = "%s" % lc_all_to_set
-    _logger.debug('Locale set to %s' % lc_all_to_set)
+    _logger.debug('Locale set to %s', lc_all_to_set)
     #
     # command line
     cmdline_args = parse_args()
@@ -96,9 +101,7 @@ def main():
     # input image
     if cmdline_args.input_image:
         image_path = cmdline_args.input_image.name
-        console_msg(msg='\n  Uploading %s at %s\n'
-                        % (os.path.basename(' '.join(sys.argv)),
-                           time.ctime()))
+        console_msg(msg='\n  Uploading %s at %s\n' % (os.path.basename(' '.join(sys.argv)), time.ctime()))
     else:
         raise OciMigrateException('Missing argument: input image path.')
     #
@@ -126,10 +129,6 @@ def main():
     # collect data
     try:
         #
-        # The oci configuration.
-        oci_config = migrate_tools.get_oci_config()
-        _logger.debug('Found oci config file')
-        #
         # The object storage exist and data.
         object_storage_data = oci_cli_tools.bucket_exists(bucket_name)
         console_msg(msg='Object storage %s present.' % bucket_name)
@@ -138,9 +137,7 @@ def main():
         if oci_cli_tools.object_exists(object_storage_data, output_name):
             raise OciMigrateException('Object %s already exists object '
                                       'storage %s.' % (output_name, bucket_name))
-        else:
-            _logger.debug('Object %s does not yet exists in object storage %s'
-                          % (output_name, bucket_name))
+        _logger.debug('Object %s does not yet exists in object storage %s', output_name, bucket_name)
     except Exception as e:
         exit_with_msg('Unable to upload %s to %s: %s'
                       % (image_path, bucket_name, str(e)))
@@ -153,34 +150,26 @@ def main():
         exit_with_msg('\n  Exiting.')
     #
     # Uploading the image to the Oracle Cloud Infrastructure.
-    _, nbcols = terminal_dimension()
+    _, nb_columns = terminal_dimension()
     try:
-        upload_progress = ProgressBar(nbcols, 0.2,
+        upload_progress = ProgressBar(nb_columns, 0.2,
                                       progress_chars=['uploading %s' % output_name])
         #
         # Verify if object already exists.
         if oci_cli_tools.object_exists(object_storage_data, output_name):
-            raise OciMigrateException('Object %s already exists object '
-                                      'storage %s.' % (output_name, bucket_name))
-        else:
-            _logger.debug('Object %s does not yet exists in object storage %s'
-                          % (output_name, bucket_name))
+            raise OciMigrateException('Object %s already exists object storage %s.' % (output_name, bucket_name))
+        _logger.debug('Object %s does not yet exists in object storage %s', output_name, bucket_name)
         #
         # Upload the image.
-        console_msg(msg='\n  Uploading %s, this might take a while....'
-                        % image_path)
+        console_msg(msg='\n  Uploading %s, this might take a while....' % image_path)
         upload_progress.start()
-        upload_result = oci_cli_tools.upload_image(image_path,
-                                                   bucket_name,
-                                                   output_name)
-        _logger.debug('Upload result: %s' % upload_result)
+        upload_result = oci_cli_tools.upload_image(image_path, bucket_name, output_name)
+        _logger.debug('Upload result: %s', upload_result)
         console_msg(msg='  Finished....\n')
         upload_progress.stop()
     except Exception as e:
-        _logger.error('  Error while uploading %s to %s: %s.'
-                      % (image_path, bucket_name, str(e)))
-        exit_with_msg('*** ERROR *** Error while uploading %s to %s: %s.'
-                      % (image_path, bucket_name, str(e)))
+        _logger.error('  Error while uploading %s to %s: %s.', image_path, bucket_name, str(e))
+        exit_with_msg('*** ERROR *** Error while uploading %s to %s: %s.' % (image_path, bucket_name, str(e)))
     finally:
         # if progress thread was started, needs to be terminated.
         if system_tools.is_thread_running(upload_progress):

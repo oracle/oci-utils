@@ -13,11 +13,11 @@ import re
 import struct
 
 from oci_utils.migrate import migrate_data
-from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import read_yn
+from oci_utils.migrate import result_msg
 from oci_utils.migrate.exception import OciMigrateException
 from oci_utils.migrate.imgdevice import DeviceData
-from oci_utils.migrate.migrate_data import gigabyte as gigabyte
+from oci_utils.migrate.migrate_data import gigabyte
 
 """
 typedef uint64 SectorType;
@@ -122,18 +122,16 @@ class VmdkHead(DeviceData):
         filename: str
             Full path of the vmdk image file.
         """
-        super(VmdkHead, self).__init__(filename)
-        _logger.debug('VMDK header size: %d bytes' % self.head_size)
+        super().__init__(filename)
+        _logger.debug('VMDK header size: %d bytes', self.head_size)
 
         try:
             with open(self._fn, 'rb') as f:
                 head_bin = f.read(self.head_size)
-                _logger.debug('%s header successfully read' % self._fn)
+                _logger.debug('%s header successfully read', self._fn)
         except Exception as e:
-            _logger.critical(
-                '   Failed to read header of %s: %s' % (self._fn, str(e)))
-            raise OciMigrateException(
-                'Failed to read the header of %s: %s' % (self._fn, str(e)))
+            _logger.critical('   Failed to read header of %s: %s', self._fn, str(e))
+            raise OciMigrateException('Failed to read the header of %s: %s' % self._fn) from e
 
         vmdkheader = struct.unpack(VmdkHead.vmdkhead_fmt, head_bin)
 
@@ -144,10 +142,8 @@ class VmdkHead(DeviceData):
                               it in f.read(1024).decode('utf-8').splitlines()
                               if '=' in it]
         except Exception as e:
-            _logger.critical(
-                '   Failed to read description of %s: %s' % (self._fn, str(e)))
-            raise OciMigrateException(
-                'Failed to read the description  of %s: %s' % (self._fn, str(e)))
+            _logger.critical('   Failed to read description of %s: %s', self._fn, str(e))
+            raise OciMigrateException('Failed to read the description  of %s: %s' % self._fn) from e
 
         self.stat = os.stat(self._fn)
         self.img_tag = os.path.splitext(os.path.split(self._fn)[1])[0]
@@ -158,8 +154,7 @@ class VmdkHead(DeviceData):
         self.img_header = dict()
         self.img_header['head'] = self.vmdkhead_dict
         self.img_header['desc'] = self.vmdkdesc_dict
-        migrate_tools.result_msg(msg='Got image %s header' % filename,
-                                 result=False)
+        result_msg(msg='Got image %s header' % filename, result=False)
 
     def show_header(self):
         """
@@ -169,19 +164,12 @@ class VmdkHead(DeviceData):
         -------
             No return value.
         """
-        migrate_tools.result_msg(msg='\n  %30s\n  %30s   %30s'
-                                     % ('VMDK file header data', '-' * 30, '-' * 30),
-                                 result=False)
+        result_msg(msg='\n  %30s\n  %30s   %30s' % ('VMDK file header data', '-' * 30, '-' * 30), result=False)
         for f in VmdkHead.header0_structure:
-            migrate_tools.result_msg(msg=''.join(['  %30s : ' % f[2], f[1]
-                                                  % self.vmdkhead_dict[f[2]]]),
-                                     result=False)
-        migrate_tools.result_msg(msg='\n  %30s\n  %30s   %30s'
-                                     % ('VMDK file descriptor data', '-' * 30, '-' * 30),
-                                 result=False)
+            result_msg(msg=''.join(['  %30s : ' % f[2], f[1] % self.vmdkhead_dict[f[2]]]), result=False)
+        result_msg(msg='\n  %30s\n  %30s   %30s' % ('VMDK file descriptor data', '-' * 30, '-' * 30), result=False)
         for k in sorted(self.vmdkdesc_dict):
-            migrate_tools.result_msg(msg='  %30s : %-30s'
-                                     % (k, self.vmdkdesc_dict[k]), result=False)
+            result_msg(msg='  %30s : %-30s' % (k, self.vmdkdesc_dict[k]), result=False)
 
     def image_size(self):
         """
@@ -195,7 +183,7 @@ class VmdkHead(DeviceData):
         img_sz = {'physical': float(self.stat.st_size)/gigabyte,
                   'logical': float(self.vmdkhead_dict['capacity']*512)/gigabyte}
 
-        migrate_tools.result_msg(
+        result_msg(
             msg='Image size: physical %10.2f GB, logical %10.2f GB'
                 % (img_sz['physical'], img_sz['logical']),
             result=True)
@@ -247,22 +235,22 @@ class VmdkHead(DeviceData):
             bool: True on success, False otherwise;
             dict: The image data.
         """
-        _logger.debug('Image data: %s' % self._fn)
+        _logger.debug('Image data: %s', self._fn)
         #
         # initialise the dictionary for the image data
-        self._img_info['img_name'] = self._fn
-        self._img_info['img_type'] = 'VMDK'
-        self._img_info['img_header'] = self.img_header
-        self._img_info['img_size'] = self.image_size()
+        self.image_info['img_name'] = self._fn
+        self.image_info['img_type'] = 'VMDK'
+        self.image_info['img_header'] = self.img_header
+        self.image_info['img_size'] = self.image_size()
 
         #
         # mount the image using the nbd
         try:
             result = self.handle_image()
         except Exception as e:
-            _logger.critical('   Error %s' % str(e))
-            raise OciMigrateException(str(e))
-        return result, self._img_info
+            _logger.critical('   Error %s', str(e))
+            raise OciMigrateException('Failed') from e
+        return result, self.image_info
 
     def type_specific_prereq_test(self):
         """
@@ -277,42 +265,35 @@ class VmdkHead(DeviceData):
         prereqs = format_data['4b444d56']['prereq']
         failmsg = ''
         #
-        # size:
+        # size
         passed_requirement = True
-        if self._img_info['img_size']['logical'] > prereqs['MAX_IMG_SIZE_GB']:
-            _logger.critical('   Image size %8.2f GB exceeds maximum allowed %8.2f GB'
-                             % (prereqs['MAX_IMG_SIZE_GB'],
-                                self._img_info['img_size']['logical']))
+        if self.image_info['img_size']['logical'] > prereqs['MAX_IMG_SIZE_GB']:
+            _logger.critical('   Image size %8.2f GB exceeds maximum allowed %8.2f GB',
+                             prereqs['MAX_IMG_SIZE_GB'], self.image_info['img_size']['logical'])
             failmsg += '\n  Image size %8.2f GB exceeds maximum allowed ' \
                        '%8.2f GB' % (prereqs['MAX_IMG_SIZE_GB'],
-                                     self._img_info['img_size']['logical'])
+                                     self.image_info['img_size']['logical'])
             passed_requirement = False
         else:
             failmsg += '\n  Image size %8.2f GB meets maximum allowed size ' \
-                       'of %8.2f GB' % (self._img_info['img_size']['logical'],
+                       'of %8.2f GB' % (self.image_info['img_size']['logical'],
                                         prereqs['MAX_IMG_SIZE_GB'])
 
         #
-        # type:
+        # type
         if self.img_header['desc']['createType'] \
                 not in prereqs['vmdk_supported_types']:
-            _logger.critical(
-                '   Image type %s is not in the supported type list: %s' %
-                (self.img_header['desc']['createType'],
-                 prereqs['vmdk_supported_types']))
-            failmsg += '\n  Image type %s is not in the supported type list: %s' %\
-                       (self.img_header['desc']['createType'],
-                        prereqs['vmdk_supported_types'])
+            _logger.critical('   Image type %s is not in the supported type list: %s',
+                             self.img_header['desc']['createType'], prereqs['vmdk_supported_types'])
+            failmsg += '\n  Image type %s is not in the supported type list: %s' \
+                       % (self.img_header['desc']['createType'], prereqs['vmdk_supported_types'])
             passed_requirement = False
         else:
             failmsg += '\n  Image type %s is in the supported type list: %s' \
-                       % (self.img_header['desc']['createType'],
-                          prereqs['vmdk_supported_types'])
+                       % (self.img_header['desc']['createType'], prereqs['vmdk_supported_types'])
             #
             # Warning, for now, streamOptimized format will probably cause problems.
             if self.img_header['desc']['createType'] == 'streamOptimized':
-                _ = read_yn('  %s\n  Continue' % self.streamoptimized_msg,
-                            yn=False,
-                            suppose_yes=migrate_data.yes_flag)
+                _ = read_yn('  %s\n  Continue' % self.streamoptimized_msg, yn=False, suppose_yes=migrate_data.yes_flag)
 
         return passed_requirement, failmsg

@@ -42,8 +42,7 @@ def state_loop(maxloop, intsec=1):
                     # _logger.debug('Failed, sleeping for %d sec: %s'
                     #              % (intsec, str(e)))
                     if i == maxloop - 1:
-                        raise OciMigrateException('State Loop exhausted: %s'
-                                                  % str(e))
+                        raise OciMigrateException('State Loop exhausted:') from e
                     time.sleep(intsec)
         return loop_func
     return wrap
@@ -57,5 +56,5 @@ def is_an_os_specific_method(some_method):
     -------
     Adds an atribute to the method.
     """
-    some_method._execute_as_os_specific = True
+    some_method.execute_as_os_specific = True
     return some_method

@@ -5,8 +5,8 @@
 # at http://oss.oracle.com/licenses/upl.
 
 """
-Module containing a Template Linux type specific OS methods; intended as a
-template.
+ Module containing a Template Linux type specific OS methods;
+ intended as a template.
 """
 import logging
 
@@ -29,7 +29,7 @@ def os_banner():
     console_msg('OS is one of %s' % _os_type_tag_csl_tag_type_os_)
 
 
-class OsSpecificOps(object):
+class OsSpecificOps():
     """
     Class containing specific operations for OL-type images.
 
