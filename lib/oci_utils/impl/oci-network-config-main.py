@@ -472,6 +472,10 @@ def main():
             __logger.debug('cannot create the VNIC', exc_info=True)
             __logger.error('cannot create the VNIC: %s' % str(e))
             return 1
+
+    vnic_utils = None
+    vnic_info = None
+ 
     try:
         vnic_utils = VNICUtils()
         vnic_info = vnic_utils.get_vnic_info()[1]
@@ -496,10 +500,12 @@ def main():
 
     if args.sshd:
         vnic_utils.set_sshd(args.sshd)
-
-    excludes = vnic_info['exclude']
-    if excludes is None:
-        excludes = []
+    
+    excludes = []
+    if vnic_info is not None: 
+      excludes = vnic_info['exclude']
+      if excludes is None:
+          excludes = []
 
     ret = 0
     out = ""
