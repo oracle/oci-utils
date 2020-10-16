@@ -64,10 +64,6 @@ class VNICUtils(object):
         oci_sess = None
         try:
             oci_sess = OCISession()
-        except Exception as e:
-            _logger.debug('Cannot get OCI session: %s' % str(e))
-
-        if oci_sess is not None:
             p_ips = oci_sess.this_instance().all_private_ips(refresh=True)
             sec_priv_ip = \
                 [[ip.get_address(), ip.get_vnic().get_ocid()] for ip in p_ips]
@@ -75,6 +71,9 @@ class VNICUtils(object):
             vnic_info_ts = \
                 cache.write_cache(cache_content=vnic_info,
                                   cache_fname=VNICUtils.__vnic_info_file)
+        except Exception as e:
+            _logger.debug('Cannot get OCI session: %s' % str(e))
+        
         return vnic_info_ts, vnic_info
 
     @staticmethod
