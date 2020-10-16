@@ -19,7 +19,7 @@ lc_all: en_US.utf8
 # logfilepath : /var/tmp/oci-image-migrate
 #
 # result file path without extension, image references are added runtime,
-resultfilepath : /var/tmp/oci-image-migrate
+result_filepath : /var/tmp/oci-image-migrate
 #
 # Dictionary containing utilities which might be needed with the packages
 # which provide them.

@@ -52,4 +52,5 @@ oci_image_migrate_config = dict()
 resolv_conf_path = ''
 #
 # full path for the (verbose) results.
-resultfilepath = ''
+result_filepath = ''
+result_filename = ''

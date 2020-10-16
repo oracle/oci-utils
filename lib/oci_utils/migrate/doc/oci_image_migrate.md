@@ -202,3 +202,32 @@ bootable partition. The issue is being worked on.  The workaround:
                                                                                                                                
    1. rebuild initramfs before migration so it includes all modules and rebuilding  
    again after first boot with the necessary ones.        
+
+### Debugging help
+
+To verify the status of the migration preparation, it is possible to stop the process 
+on predefined places without the attachment of a debugger. The wait is triggered by
+defining environment variables. Currently the next are implemented:
+1. _OCI_CHROOT
+1. _OCI_PART
+1. _OCI_LVM
+1. _OCI_EXEC
+1. _OCI_MOUNT
+1. _OCI_NETWORK
+
+Setting _OCI_PAUSE waits everywhere.
+
+### Testing
+
+Various image types are to be tested:
+1. BIOS boot - UEFI boot
+1. standard partitions
+1. logical volumes
+1. separate boot partition
+1. fstab entries: UUID, /dev/mapper, /dev/disk/by-uuid, ...
+1. network configurations:
+   1. ifcfg
+   1. network manager
+   1. netplan
+   1. systemd
+   

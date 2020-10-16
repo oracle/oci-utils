@@ -14,16 +14,17 @@ import pkgutil
 import re
 import sys
 import time
-from datetime import datetime
 
 import yaml
 from oci_utils.migrate import OciMigrateConfParam
 from oci_utils.migrate import ProgressBar
+from oci_utils.migrate import error_msg
 from oci_utils.migrate import bytes_to_hex
 from oci_utils.migrate import console_msg
 from oci_utils.migrate import migrate_data
 from oci_utils.migrate import pause_msg
 from oci_utils.migrate import read_yn
+from oci_utils.migrate import result_msg
 from oci_utils.migrate import system_tools
 from oci_utils.migrate import terminal_dimension
 from oci_utils.migrate.decorators import state_loop
@@ -52,39 +53,15 @@ def call_os_specific_methods(os_specific_object):
     method_returnvalues = dict()
     for method_name in dir(os_specific_object):
         attr = getattr(os_specific_object, method_name)
-        if getattr(attr, "_execute_as_os_specific", False):
-            _logger.debug('OS specific method: %s' % attr)
+        if getattr(attr, "execute_as_os_specific", False):
+            _logger.debug('OS specific method: %s', attr)
             os_methods[method_name] = attr
     for method_name, method_id in sorted(os_methods.items()):
-        _logger.debug("Calling: %s" % method_name)
+        _logger.debug("Calling: %s", method_name)
         method_return = method_id()
         method_returnvalues[method_name] = method_return
-        _logger.debug('OS specific method name: %s' % method_name)
+        _logger.debug('OS specific method name: %s', method_name)
     return method_returnvalues
-
-
-def error_msg(msg=None):
-    """
-    GT debug message
-
-    Parameters
-    ----------
-    msg: str
-        Eventual message.
-
-    Returns
-    -------
-        No return value
-    """
-    _logger.error('   %s' % msg)
-    if msg is not None:
-        msg = '  *** ERROR *** %s' % msg
-    else:
-        msg = '  *** ERROR *** Unidentified error.'
-    sys.stderr.write('%s' % msg)
-    sys.stderr.flush()
-    result_msg(msg=msg)
-    time.sleep(1)
 
 
 def exec_search(file_name, rootdir='/', dirnames=False):
@@ -104,25 +81,20 @@ def exec_search(file_name, rootdir='/', dirnames=False):
     -------
         str: The full path of the filename if found, None otherwise.
     """
-    _logger.debug('__ Looking for %s in %s' % (file_name, rootdir))
-    result_msg(msg='Looking for %s in %s, might take a while.'
-                   % (file_name, rootdir))
+    _logger.debug('__ Looking for %s in %s', file_name, rootdir)
+    result_msg(msg='Looking for %s in %s, might take a while.' % (file_name, rootdir))
     try:
         for path_name, directories, files in os.walk(rootdir):
-            # _logger.debug('%s %s %s' % (path_name, directories, files))
+            # _logger.debug('%s %s %s', path_name, directories, files)
             if file_name in files:
-                _logger.debug('Found %s'
-                              % os.path.join(rootdir, path_name, file_name))
+                _logger.debug('Found %s', os.path.join(rootdir, path_name, file_name))
                 return os.path.join(rootdir, path_name, file_name)
             if dirnames and file_name in directories:
-                _logger.debug('Found %s as directory.'
-                              % os.path.join(rootdir, path_name, file_name))
+                _logger.debug('Found %s as directory.', os.path.join(rootdir, path_name, file_name))
                 return os.path.join(rootdir, path_name, file_name)
     except Exception as e:
-        _logger.error('  Error while looking for %s: %s'
-                      % (file_name, str(e)))
-        raise OciMigrateException('Error while looking for %s: %s'
-                                  % (file_name, str(e)))
+        _logger.error('  Error while looking for %s: %s',  file_name, str(e))
+        raise OciMigrateException('Error while looking for %s:' % file_name) from e
     return None
 
 
@@ -139,43 +111,39 @@ def find_os_specific(ostag):
     -------
         str: The module name on success, None otherwise.
     """
-    _logger.debug('__ Find module with %s.' % ostag)
+    _logger.debug('__ Find module with %s.', ostag)
     module = None
     package_name = migrate_data.module_home
-    pkg = __import__(package_name)
+    _ = __import__(package_name)
     path = os.path.dirname(sys.modules.get(package_name).__file__)
-    current_module = os.path.splitext(
-        os.path.basename(sys.modules[__name__].__file__))[0]
-    _logger.debug('Path: %s' % path)
-    _logger.debug('ostag: %s' % ostag)
-    # _logger.debug('This module: %s' % sys.modules[__name__].__file__)
+    current_module = os.path.splitext(os.path.basename(sys.modules[__name__].__file__))[0]
+    _logger.debug('Path: %s', path)
+    _logger.debug('ostag: %s', ostag)
+    # _logger.debug('This module: %s', sys.modules[__name__].__file__)
     try:
         for _, module_name, _ in pkgutil.iter_modules([path]):
             #
             # find os_type_tag in files, contains a comma separted list of
             # supported os id's
-            _logger.debug('module_name: %s' % module_name)
+            _logger.debug('module_name: %s', module_name)
             if module_name != current_module:
                 module_file = path + '/' + module_name + '.py'
                 if os.path.isfile(module_file):
                     with open(module_file, 'r') as f:
                         for fline in f:
                             if '_os_type_tag_csl_tag_type_os_' in fline.strip():
-                                _logger.debug('Found os_type_tag in %s.'
-                                              % module_name)
-                                _logger.debug('In line:\n  %s' % fline)
-                                if ostag in \
-                                        re.sub("[ ']", "", fline).split('=')[1].split(','):
-                                    _logger.debug('Found ostag in %s.' % module_name)
+                                _logger.debug('Found os_type_tag in %s.', module_name)
+                                _logger.debug('In line:\n  %s', fline)
+                                if ostag in re.sub("[ ']", "", fline).split('=')[1].split(','):
+                                    _logger.debug('Found ostag in %s.', module_name)
                                     module = module_name
                                 else:
-                                    _logger.debug('ostag not found in %s.' % module_name)
+                                    _logger.debug('ostag not found in %s.', module_name)
                                 break
                 else:
-                    _logger.debug('No file found for module %s' % module_name)
+                    _logger.debug('No file found for module %s', module_name)
     except Exception as e:
-        _logger.critical('   Failed to locate the OS type specific module: %s'
-                         % str(e))
+        _logger.critical('   Failed to locate the OS type specific module: %s', str(e))
     return module
 
 
@@ -192,21 +160,18 @@ def get_config_data(key):
     Return:
        The configuration data.
     """
-    _logger.debug('__ Get config data: %s' % key)
+    _logger.debug('__ Get config data: %s', key)
     try:
         with OciMigrateConfParam(migrate_data.oci_migrate_conf_file, key) as config:
             return config.get_values()
     except FileNotFoundError as fnf:
-        _logger.debug('File %s not foud: %s, using data structure.'
-                      % (migrate_data.oci_migrate_conf_file, str(fnf)))
+        _logger.debug('File %s not foud: %s, using data structure.',  migrate_data.oci_migrate_conf_file, str(fnf))
         if key in migrate_data.oci_image_migrate_config:
             return migrate_data.oci_image_migrate_config[key]
-        else:
-            raise OciMigrateException('Failed to get data for %s: does '
-                                      'not exist' % key)
+
+        raise Exception('Failed to get data for %s: does not exist')
     except Exception as e:
-        raise OciMigrateException(
-            'Failed to get data for %s: %s' % (key, str(e)))
+        raise OciMigrateException('Failed to get data for %s: %s' % key) from e
 
 
 def get_magic_data(image):
@@ -222,15 +187,15 @@ def get_magic_data(image):
     -------
         str: Magic string on success, None otherwise.
     """
-    _logger.debug('__ Get magic data from %s.' % image)
+    _logger.debug('__ Get magic data from %s.', image)
     magic_hex = None
     try:
         with open(image, 'rb') as f:
             magic = f.read(4)
             magic_hex = bytes_to_hex(magic)
-            _logger.debug('Image magic number: %8s' % magic_hex)
+            _logger.debug('Image magic number: %8s', magic_hex)
     except Exception as e:
-        _logger.critical('   Image %s is not accessible: 0X%s' % (image, str(e)))
+        _logger.critical('   Image %s is not accessible: 0X%s', image, str(e))
     return magic_hex
 
 
@@ -248,25 +213,21 @@ def get_oci_config(section='DEFAULT'):
     -------
         dict: the contents of the configuration file as a dictionary.
     """
-    _logger.debug('__ Reading the %s configuration file.'
-                  % get_config_data('ociconfigfile'))
+    _logger.debug('__ Reading the %s configuration file.', get_config_data('ociconfigfile'))
     oci_config_file = get_config_data('ociconfigfile')
-    _logger.debug('oci config file path: %s' % oci_config_file)
+    _logger.debug('oci config file path: %s', oci_config_file)
     if oci_config_file.startswith('~/'):
         oci_config_file = os.path.expanduser('~') + oci_config_file[1:]
-        _logger.debug('oci config file expected at %s' % oci_config_file)
+        _logger.debug('oci config file expected at %s', oci_config_file)
     oci_cli_configer = ConfigParser()
     try:
-        rf = oci_cli_configer.read(oci_config_file)
+        _ = oci_cli_configer.read(oci_config_file)
         sectiondata = dict(oci_cli_configer.items(section))
-        _logger.debug('OCI configuration: %s' % sectiondata)
+        _logger.debug('OCI configuration: %s', sectiondata)
         return sectiondata
     except Exception as e:
-        _logger.error('  Failed to read OCI configuration %s: %s.'
-                      % (get_config_data('ociconfigfile'), str(e)))
-        raise OciMigrateException('Failed to read OCI configuration %s: %s.' %
-                                  (get_config_data('ociconfigfile'),
-                                   str(e)))
+        _logger.error('  Failed to read OCI configuration %s: %s.', get_config_data('ociconfigfile'), str(e))
+        raise OciMigrateException('Failed to read OCI configuration %s:' % (get_config_data('ociconfigfile'))) from e
 
 
 def import_formats():
@@ -291,29 +252,28 @@ def import_formats():
     imagetypes = dict()
     packagename = 'oci_utils.migrate.image_types'
     pkg = __import__(packagename)
-    _logger.debug('pkg name: %s' % pkg)
+    _logger.debug('pkg name: %s', pkg)
     path = os.path.dirname(sys.modules.get(packagename).__file__)
-    _logger.debug('path: %s' % path)
+    _logger.debug('path: %s', path)
     #
     # loop through modules in path, look for the attribute 'format_data' which
     # defines the basics of the image type, i.e. the magic number, the name and
     # essentially the class name and eventually prequisites.
     for _, module_name, _ in pkgutil.iter_modules([path]):
         type_name = packagename + '.' + module_name
-        _logger.debug('type_name: %s' % type_name)
+        _logger.debug('type_name: %s', type_name)
         try:
             impret = importlib.import_module(type_name)
-            _logger.debug('import result: %s' % impret)
+            _logger.debug('import result: %s', impret)
             attrret = getattr(sys.modules[type_name], attr_format)
-            _logger.debug('attribute format_data found: %s' % attrret)
+            _logger.debug('attribute format_data found: %s', attrret)
             for key in attrret:
                 if key != get_config_data('dummy_format_key'):
                     imagetypes.update(attrret)
                 else:
-                    _logger.debug('%s is the dummy key, skipping.' % key)
+                    _logger.debug('%s is the dummy key, skipping.', key)
         except Exception as e:
-            _logger.debug('attribute %s not found in %s: %s'
-                          % (attr_format, type_name, str(e)))
+            _logger.debug('attribute %s not found in %s: %s', attr_format, type_name, str(e))
     return imagetypes
 
 
@@ -333,17 +293,17 @@ def mount_imgfn(imgname):
     """
     #
     # create nbd devices
-    _logger.debug('__ Running mount image file %s.' % imgname)
+    _logger.debug('__ Running mount image file %s.', imgname)
     result_msg(msg='Load nbd')
     if not system_tools.create_nbd():
         raise OciMigrateException('Failed ot load nbd module')
-    else:
-        _logger.debug('nbd module loaded')
+
+    _logger.debug('nbd module loaded')
     #
     # find free nbd device
     result_msg(msg='Find free nbd device')
     devpath = system_tools.get_free_nbd()
-    _logger.debug('Device %s is free.' % devpath)
+    _logger.debug('Device %s is free.', devpath)
     #
     # link img with first free nbd device
     result_msg(msg='Mount image %s' % imgname, result=True)
@@ -352,21 +312,18 @@ def mount_imgfn(imgname):
         mountwait = ProgressBar(nbcols, 0.2, progress_chars=['mounting image'])
         mountwait.start()
         qemucmd = ['-c', devpath, imgname]
-        pause_msg(qemucmd)
+        pause_msg(qemucmd, pause_flag='_OCI_MOUNT')
         qemunbd_ret = system_tools.exec_qemunbd(qemucmd)
         if qemunbd_ret == 0:
             time.sleep(5)
-            _logger.debug('qemu-nbd %s succeeded' % qemucmd)
+            _logger.debug('qemu-nbd %s succeeded', qemucmd)
             return devpath
-        else:
-            _logger.critical('\n   Failed to create nbd devices: %d'
-                             % qemunbd_ret)
-            raise Exception('Failed to create nbd devices: %d'
-                            % qemunbd_ret)
+
+        _logger.critical('\n   Failed to create nbd devices: %d', qemunbd_ret)
+        raise Exception('Failed to create nbd devices: %d' % qemunbd_ret)
     except Exception as e:
-        _logger.critical('\n   Something wrong with creating nbd devices: %s'
-                         % str(e))
-        raise OciMigrateException('Unable to create nbd devices: %s' % str(e))
+        _logger.critical('\n   Something wrong with creating nbd devices: %s', str(e))
+        raise OciMigrateException('Unable to create nbd devices:') from e
     finally:
         if system_tools.is_thread_running(mountwait):
             mountwait.stop()
@@ -388,7 +345,7 @@ def mount_lvm2(devname):
         list: The list of mounted partitions.
         ?? need to collect lvm2 list this way??
     """
-    _logger.debug('__ Running mount lvm2 %s' % devname)
+    _logger.debug('__ Running mount lvm2 %s', devname)
     try:
         _, nbcols = terminal_dimension()
         mountwait = ProgressBar(int(nbcols), 0.2,
@@ -397,11 +354,11 @@ def mount_lvm2(devname):
         #
         # physical volumes
         if system_tools.exec_pvscan(['--cache'], devname):
-            _logger.debug('pvscan %s succeeded' % devname)
+            _logger.debug('pvscan %s succeeded', devname)
         else:
-            _logger.critical('   pvscan %s failed' % devname)
+            _logger.critical('   pvscan %s failed', devname)
         #
-        pause_msg('pvscan test')
+        pause_msg('pvscan test', pause_flag='_OCI_LVM')
         #
         # volume groups
         if system_tools.exec_vgscan(['--verbose']):
@@ -409,43 +366,43 @@ def mount_lvm2(devname):
         else:
             _logger.critical('   vgscan failed')
         #
-        pause_msg('vgscan test')
+        pause_msg('vgscan test', pause_flag='_OCI_LVM')
         #
         # logical volumes
         vgs = new_volume_groups()
         if bool(vgs):
-            _logger.debug('lvscan succeeded: %s' % vgs)
+            _logger.debug('lvscan succeeded: %s', vgs)
         else:
             _logger.critical('   lvscan failed')
         #
-        pause_msg('lvscan test')
+        pause_msg('lvscan test', pause_flag='_OCI_LVM')
         #
         # make available
         vgchange_args = ['--activate', 'y']
         vgchange_res = system_tools.exec_vgchange(vgchange_args)
-        _logger.debug('vgchange:\n%s' % vgchange_res)
+        _logger.debug('vgchange:\n%s', vgchange_res)
         #
-        pause_msg('vgchange_res test')
+        pause_msg('vgchange_res test', pause_flag='_OCI_LVM')
         vgfound = False
         if vgchange_res is not None:
             for resline in vgchange_res.splitlines():
-                _logger.debug('vgchange line: %s' % resline)
+                _logger.debug('vgchange line: %s', resline)
                 for vg in list(vgs.keys()):
                     if vg in resline:
                         _logger.debug('vgfound set to True')
                         vgfound = True
                     else:
-                        _logger.debug('vg %s not in l' % vg)
-            _logger.debug('vgchange: %s found: %s' % (vgchange_res, vgfound))
+                        _logger.debug('vg %s not in l', vg)
+            _logger.debug('vgchange: %s found: %s', vgchange_res, vgfound)
             #
             # for the sake of testing
-            pause_msg('vgchange_res test')
+            pause_msg('vgchange_res test', pause_flag='_OCI_LVM')
         else:
             _logger.critical('   vgchange failed')
         return vgs
     except Exception as e:
-        _logger.critical('   Mount lvm %s failed: %s' % (devname, str(e)))
-        raise OciMigrateException('Mount lvm %s failed: %s' % (devname, str(e)))
+        _logger.critical('   Mount lvm %s failed: %s', devname, str(e))
+        raise OciMigrateException('Mount lvm %s failed: %s' % devname) from e
     finally:
         if system_tools.is_thread_running(mountwait):
             mountwait.stop()
@@ -468,48 +425,45 @@ def mount_partition(devname, mountpoint=None):
     -------
         str: The mounted partition on Success, None otherwise.
     """
-    _logger.debug('__ Mount partition %s.' % devname)
+    _logger.debug('__ Mount partition %s.', devname)
     #
     # create mountpoint /mnt/<devname> if not specified.
     if mountpoint is None:
         mntpoint = migrate_data.loopback_root + '/' + devname.rsplit('/')[-1]
-        _logger.debug('Loopback mountpoint: %s' % mntpoint)
+        _logger.debug('Loopback mountpoint: %s', mntpoint)
         try:
             if system_tools.exec_mkdir(mntpoint):
-                _logger.debug('Mountpoint: %s created.' % mntpoint)
+                _logger.debug('Mountpoint: %s created.', mntpoint)
         except Exception as e:
-            _logger.critical('   Failed to create mountpoint %s: %s'
-                             % (mntpoint, str(e)))
-            raise OciMigrateException('Failed to create mountpoint %s: %s'
-                                      % (mntpoint, str(e)))
+            _logger.critical('   Failed to create mountpoint %s: %s', mntpoint, str(e))
+            raise OciMigrateException('Failed to create mountpoint %s:' % mntpoint) from e
     else:
         mntpoint = mountpoint
     #
     # actual mount
     cmd = ['mount', devname, mntpoint]
-    pause_msg(cmd)
+    pause_msg(cmd, pause_flag='_OCI_MOUNT')
     _, nbcols = terminal_dimension()
     try:
         mountpart = ProgressBar(nbcols, 0.2,
                                 progress_chars=['mount %s' % devname])
         mountpart.start()
-        _logger.debug('command: %s' % cmd)
+        _logger.debug('command: %s', cmd)
         cmdret = system_tools.run_call_cmd(cmd)
         if cmdret == 0:
-            _logger.debug('%s mounted on %s.' % (devname, mntpoint))
+            _logger.debug('%s mounted on %s.', devname, mntpoint)
             return mntpoint
-        else:
-            raise Exception('Mount %s failed: %d' % (devname, cmdret))
+
+        raise Exception('Mount %s failed: %d' % (devname, cmdret))
     except Exception as e:
         #
         # mount failed, need to remove mountpoint.
-        _logger.critical('   Failed to mount %s, missing driver, filesystem '
-                         'corruption...: %s' % (devname, str(e)))
+        _logger.critical('   Failed to mount %s, missing driver, filesystem corruption...: %s', devname, str(e))
         if mountpoint is None:
             if system_tools.exec_rmdir(mntpoint):
-                _logger.debug('%s removed' % mntpoint)
+                _logger.debug('%s removed', mntpoint)
             else:
-                _logger.critical('   Failed to remove mountpoint %s' % mntpoint)
+                _logger.critical('   Failed to remove mountpoint %s', mntpoint)
     finally:
         if system_tools.is_thread_running(mountpart):
             mountpart.stop()
@@ -526,9 +480,33 @@ def new_volume_groups():
         dict:  inactive, supposed new, volume groups with list of logical
         volumes on success, raises an exception on failure.
     """
+    def is_workstation_volume_group(vg2test):
+        """
+        Verify if vg2test is a logical volume on the workstation.
+
+        Parameters
+        ----------
+            vg2test: str
+                volume group name.
+
+        Returns
+        -------
+            bool: True if local volume group, False otherwise.
+        """
+        _logger.debug('__ Test if volume group %s is local', vg2test)
+        _logger.debug('Local volume groups: %s', migrate_data.local_volume_groups)
+        for vg_names in migrate_data.local_volume_groups:
+            # _logger.debug('types    vgdev %s vg_names_1 %s', type(vgdev), type(vg_names[1]))
+            _logger.debug('contents vgdev +%s+ vg_names_1 +%s+', vgdev, vg_names[1])
+            if vgdev == vg_names[1]:
+                # _logger.error('match')
+                return True
+        return False
+
     _logger.debug('__ Looking for logical volumes in image file.')
     lv_list = system_tools.exec_lvscan(['--verbose'])
-    _logger.debug('Logical volumes scanned:\n%s' % lv_list)
+    _logger.debug('Logical volumes scanned:\n%s', lv_list)
+    _logger.debug('Local volume groups: %s', migrate_data.local_volume_groups)
     new_vgs = dict()
     for lvdevdesc in lv_list:
         lvarr = re.sub(r"'", "", lvdevdesc).split()
@@ -537,24 +515,18 @@ def new_volume_groups():
         vgdev = vgarr[1]
         lvdev = vgarr[2]
         mapperdev = re.sub(r"-", "--", vgdev) + '-' + re.sub(r"-", "--", lvdev)
-        _logger.debug('vg: %s lv: %s mapper: %s' % (vgdev, lvdev, mapperdev))
-        _logger.debug('Local volume groups: %s' % migrate_data.local_volume_groups)
+        _logger.debug('vg: %s lv: %s mapper: %s', vgdev, lvdev, mapperdev)
         #
-        for vg_names in migrate_data.local_volume_groups:
-            if vgdev == vg_names[1]:
-                # is a local volume group
-                _logger.debug('%s is a local workstation volume group.' % vgdev)
-                break
+        # verify if volume group is an image or workstation volume group.
+        if not is_workstation_volume_group(vgdev):
+            if vgdev not in list(new_vgs.keys()):
+                # new volume group
+                new_vgs[vgdev] = [(lvdev, mapperdev)]
             else:
-                _logger.debug('%s is an image volume group.' % vgdev)
-                if vgdev not in list(new_vgs.keys()):
-                    # new volume group
-                    new_vgs[vgdev] = [(lvdev, mapperdev)]
-                else:
-                    # existing volume group, new logical volume
-                    new_vgs[vgdev].append((lvdev, mapperdev))
-                _logger.debug('vg: %s lv: %s added' % (vgdev, lvdev))
-        _logger.debug('New logical volumes: %s' % new_vgs)
+                # existing volume group, new logical volume
+                new_vgs[vgdev].append((lvdev, mapperdev))
+            _logger.debug('vg: %s lv: %s added', vgdev, lvdev)
+        _logger.debug('New logical volumes: %s', new_vgs)
     return new_vgs
 
 
@@ -574,43 +546,6 @@ def print_header(head):
     result_msg(msg='\n  %30s\n  %30s' % (head, '-'*30), result=True)
 
 
-def result_msg(msg, flags='a', result=False):
-    """
-    Write information to the log file, the result file and the console if the
-    result flag is set.
-
-    Parameters
-    ----------
-    msg: str
-        The message.
-    flags: str
-        The flags for the open file command.
-    result: bool
-        Flag, write to console if True.
-
-    Returns
-    -------
-        No return value.
-    """
-    msg = '  Just mentioning I am here.' if msg is None else msg
-    _logger.debug('%s' % msg)
-    try:
-        with open(migrate_data.resultfilename, flags) as f:
-            f.write('  %s: %s\n' % (datetime.now().strftime('%H:%M:%S'), msg))
-    except IOError as e:
-        errornb, strerror = e.args
-        #
-        # trap permission denied errors if running as non root.
-        if errornb != 13:
-            _logger.error('   Failed to write to %s: %s'
-                          % (migrate_data.resultfilename, strerror))
-    except Exception as e:
-        _logger.error('   Failed to write to %s: %s'
-                      % (migrate_data.resultfilename, str(e)))
-    if result:
-        sys.stdout.write('  %s\n' % msg)
-
-
 def set_default_user(cfgfile, username):
     """
     Update the default user name in the cloud.cfg file.
@@ -625,29 +560,27 @@ def set_default_user(cfgfile, username):
     -------
         bool: True on success, False otherwise.
     """
-    _logger.debug('__ Updating cloud.cfg file %s, setting default username to '
-                  '%s.' % (cfgfile, username))
+    _logger.debug('__ Updating cloud.cfg file %s, setting default username to %s.', cfgfile, username)
     if os.path.isfile(cfgfile):
         bck_cfgfile = system_tools.backup_file(cfgfile)
-        _logger.debug('Copied %s to %s' % (cfgfile, bck_cfgfile))
+        _logger.debug('Copied %s to %s', cfgfile, bck_cfgfile)
         with open(cfgfile, 'r') as f:
             cloudcfg = yaml.load(f, Loader=yaml.SafeLoader)
-        if type(cloudcfg) is dict:
+        if isinstance(cloudcfg, dict):
             if 'system_info' in list(cloudcfg.keys()) \
                     and 'default_user' in list(cloudcfg['system_info'].keys()) \
                     and 'name' in list(cloudcfg['system_info']['default_user'].keys()):
                 cloudcfg['system_info']['default_user']['name'] = username
                 with open(cfgfile, 'w') as f:
                     yaml.dump(cloudcfg, f, width=50)
-                _logger.debug('Cloud configuration file %s successfully '
-                              'updated.' % cfgfile)
+                _logger.debug('Cloud configuration file %s successfully updated.', cfgfile)
                 return True
-            else:
-                _logger.debug('No default username found in cloud config file.')
+
+            _logger.debug('No default username found in cloud config file.')
         else:
             _logger.error('  Invalid cloud config file.')
     else:
-        _logger.error('  Cloud config file %s does not exist.' % cfgfile)
+        _logger.error('  Cloud config file %s does not exist.', cfgfile)
     return False
 
 
@@ -698,7 +631,7 @@ def show_grub_data(grublist):
         No return value.
     """
     for entry in grublist:
-        _logger.debug('%s' % entry)
+        _logger.debug('%s', entry)
         for grubkey in entry:
             for grubline in entry[grubkey]:
                 result_msg(msg=grubline, result=True)
@@ -719,7 +652,7 @@ def show_image_data(imgobj):
         No return value.
     """
     print_header('Components collected.')
-    for k, v in sorted(imgobj._img_info.items()):
+    for k, _ in sorted(imgobj.image_info.items()):
         result_msg(msg='  %30s' % k, result=True)
 
     _logger.debug('show data')
@@ -728,132 +661,123 @@ def show_image_data(imgobj):
     # name
     fnname = '  missing'
     print_header('Image file path.')
-    if 'img_name' in imgobj._img_info:
-        fnname = imgobj._img_info['img_name']
+    if 'img_name' in imgobj.image_info:
+        fnname = imgobj.image_info['img_name']
     result_msg(msg='  %30s' % fnname, result=True)
     #
     # type
     imgtype = '  missing'
     print_header('Image type.')
-    if 'img_type' in imgobj._img_info:
-        imgtype = imgobj._img_info['img_type']
+    if 'img_type' in imgobj.image_info:
+        imgtype = imgobj.image_info['img_type']
     result_msg(msg='  %30s' % imgtype, result=True)
     #
     # size
     imgsizes = '    physical: missing data\n    logical:  missing data'
     print_header('Image size:')
-    if 'img_size' in imgobj._img_info:
+    if 'img_size' in imgobj.image_info:
         imgsizes = '    physical: %8.2f GB\n      logical:  %8.2f GB' \
-                   % (imgobj._img_info['img_size']['physical'],
-                      imgobj._img_info['img_size']['logical'])
+                   % (imgobj.image_info['img_size']['physical'],
+                      imgobj.image_info['img_size']['logical'])
     result_msg(msg='%s' % imgsizes, result=True)
     #
     # header
-    if 'img_header' in imgobj._img_info:
+    if 'img_header' in imgobj.image_info:
         try:
             imgobj.show_header()
         except Exception as e:
-            result_msg(msg='Failed to show the image hadear: %s'
-                                     % str(e), result=True)
+            result_msg(msg='Failed to show the image hadear: %s' % str(e), result=True)
     else:
         result_msg(msg='\n  Image header data missing.', result=True)
     #
     # mbr
     mbr = '  missing'
     print_header('Master Boot Record.')
-    if 'mbr' in imgobj._img_info:
-        if 'hex' in imgobj._img_info['mbr']:
-            mbr = imgobj._img_info['mbr']['hex']
+    if 'mbr' in imgobj.image_info:
+        if 'hex' in imgobj.image_info['mbr']:
+            mbr = imgobj.image_info['mbr']['hex']
         result_msg(msg='%s' % mbr, result=True)
     #
     # partition table
         print_header('Partiton Table.')
         parttabmissing = '  Partition table data is missing.'
-        if 'partition_table' in imgobj._img_info['mbr']:
-            show_partition_table(imgobj._img_info['mbr']['partition_table'])
+        if 'partition_table' in imgobj.image_info['mbr']:
+            show_partition_table(imgobj.image_info['mbr']['partition_table'])
         else:
             result_msg(msg=parttabmissing, result=True)
     #
     # parted data
     print_header('Parted data.')
     parteddata = '  Parted data is missing.'
-    if 'parted' in imgobj._img_info:
-        show_parted_data(imgobj._img_info['parted'])
+    if 'parted' in imgobj.image_info:
+        show_parted_data(imgobj.image_info['parted'])
     else:
         result_msg(msg='%s' % parteddata, result=True)
     #
     # partition data
     print_header('Partition Data.')
     partdata = '  Partition data is missing.'
-    if 'partitions' in imgobj._img_info:
-        show_partition_data(imgobj._img_info['partitions'])
+    if 'partitions' in imgobj.image_info:
+        show_partition_data(imgobj.image_info['partitions'])
     else:
         result_msg(msg='%s' % partdata, result=True)
     #
     # grub config data
     print_header('Grub configuration data.')
     grubdat = '  Grub configuration data is missing.'
-    if 'grubdata' in imgobj._img_info:
-        show_grub_data(imgobj._img_info['grubdata'])
+    if 'grubdata' in imgobj.image_info:
+        show_grub_data(imgobj.image_info['grubdata'])
     else:
         result_msg(msg='%s' % grubdat, result=True)
     #
     # kernel versions
     print_header('Default kernel version.')
     kerneldefdat = '   Default kernel data not found or is missing.'
-    if 'kernelversion' in imgobj._img_info:
-        show_default_kernel(imgobj._img_info['kernelversion'])
+    if 'kernelversion' in imgobj.image_info:
+        show_default_kernel(imgobj.image_info['kernelversion'])
     else:
         result_msg(msg='%s' % kerneldefdat, result=True)
     print_header('Installed kernels.')
     kernellisdat = '   List of kernels is missing.'
-    if 'kernellist' in imgobj._img_info:
-        show_kernel_list(imgobj._img_info['kernellist'])
+    if 'kernellist' in imgobj.image_info:
+        show_kernel_list(imgobj.image_info['kernellist'])
     else:
         result_msg(msg='%s' % kernellisdat, result=True)
     #
     # logical volume data
     print_header('Logical Volume data.')
     lvmdata = '  Logical Volume data is missing.'
-    if 'volume_groups' in imgobj._img_info:
-        if imgobj._img_info['volume_groups']:
-            show_lvm2_data(imgobj._img_info['volume_groups'])
+    if 'volume_groups' in imgobj.image_info:
+        if imgobj.image_info['volume_groups']:
+            show_lvm2_data(imgobj.image_info['volume_groups'])
     else:
         result_msg(msg=lvmdata, result=True)
     #
     # various data:
     print_header('Various data.')
-    if 'bootmnt' in imgobj._img_info:
+    if 'bootmnt' in imgobj.image_info:
         result_msg(msg='  %30s: %s mounted on %s'
-                                 % ('boot', imgobj._img_info['bootmnt'][0],
-                                    imgobj._img_info['bootmnt'][1]),
-                                 result=True)
-    if 'rootmnt' in imgobj._img_info:
+                       % ('boot', imgobj.image_info['bootmnt'][0], imgobj.image_info['bootmnt'][1]), result=True)
+    if 'rootmnt' in imgobj.image_info:
         result_msg(msg='  %30s: %s mounted on %s'
-                                 % ('root', imgobj._img_info['rootmnt'][0],
-                                    imgobj._img_info['rootmnt'][1]),
-                                 result=True)
-    if 'boot_type' in imgobj._img_info:
-        result_msg(msg='  %30s: %-30s'
-                                 % ('boot type:', imgobj._img_info['boot_type']),
-                                 result=True)
+                       % ('root', imgobj.image_info['rootmnt'][0], imgobj.image_info['rootmnt'][1]), result=True)
+    if 'boot_type' in imgobj.image_info:
+        result_msg(msg='  %30s: %-30s' % ('boot type:', imgobj.image_info['boot_type']), result=True)
     #
     # fstab
     print_header('fstab data.')
     fstabmiss = '  fstab data is missing.'
-    if 'fstab' in imgobj._img_info:
-        show_fstab(imgobj._img_info['fstab'])
+    if 'fstab' in imgobj.image_info:
+        show_fstab(imgobj.image_info['fstab'])
     else:
         result_msg(msg=fstabmiss, result=True)
     #
     # os release data
     print_header('Operating System information.')
     osinfomissing = '  Operation System information is missing.'
-    if 'osinformation' in imgobj._img_info:
-        for k in sorted(imgobj._img_info['osinformation']):
-            result_msg(msg='  %35s : %-30s'
-                                     % (k, imgobj._img_info['osinformation'][k]),
-                                     result=True)
+    if 'osinformation' in imgobj.image_info:
+        for k in sorted(imgobj.image_info['osinformation']):
+            result_msg(msg='  %35s : %-30s' % (k, imgobj.image_info['osinformation'][k]), result=True)
     else:
         result_msg(msg=osinfomissing, result=True)
 
@@ -872,8 +796,7 @@ def show_img_header(headerdata):
     -------
         No return value.
     """
-    result_msg(msg='\n  %30s\n  %30s'
-                             % ('Image header:', '-'*30), result=True)
+    result_msg(msg='\n  %30s\n  %30s' % ('Image header:', '-'*30), result=True)
     for k, v in sorted(headerdata):
         result_msg(msg='  %30s : %s' % (k, v), result=True)
 
@@ -970,8 +893,7 @@ def show_partition_data(partition_dict):
         No return value
     """
     for k, v in sorted(partition_dict.items()):
-        result_msg(msg='%30s :\n%s'
-                                 % ('partition %s' % k, '-'*60), result=True)
+        result_msg(msg='%30s :\n%s' % ('partition %s' % k, '-'*60), result=True)
         for x, y in sorted(v.items()):
             result_msg(msg='%30s : %s' % (x, y), result=True)
         result_msg(msg='\n', result=True)
@@ -991,10 +913,8 @@ def show_partition_table(table):
     -------
         No return value.
     """
-    result_msg(msg='  %2s %5s %16s %32s'
-                             % ('nb', 'boot', 'type', 'data'), result=True)
-    result_msg(msg='  %2s %5s %16s %32s'
-                             % ('-'*2, '-'*5, '-'*16, '-'*32), result=True)
+    result_msg(msg='  %2s %5s %16s %32s' % ('nb', 'boot', 'type', 'data'), result=True)
+    result_msg(msg='  %2s %5s %16s %32s' % ('-'*2, '-'*5, '-'*16, '-'*32), result=True)
     for i in range(0, 4):
         if table[i]['boot']:
             bootflag = 'YES'
@@ -1020,16 +940,15 @@ def unmount_imgfn(devname):
     -------
         bool: True on succes, raise an exception otherwise.
     """
-    _logger.debug('__ Unmount %s' % devname)
+    _logger.debug('__ Unmount %s', devname)
     try:
         #
         # release device
         qemucmd = ['-d', devname]
-        pause_msg(qemucmd)
+        pause_msg(qemucmd, pause_flag='_OCI_MOUNT')
         qemunbd_ret = system_tools.exec_qemunbd(qemucmd)
         if qemunbd_ret == 0:
-            _logger.debug('qemu-nbd %s succeeded: %d'
-                          % (qemucmd, qemunbd_ret))
+            _logger.debug('qemu-nbd %s succeeded: %d', qemucmd, qemunbd_ret)
         else:
             raise Exception('%s returned %d' % (qemucmd, qemunbd_ret))
         #
@@ -1043,13 +962,11 @@ def unmount_imgfn(devname):
         # remove nbd module
         if not system_tools.rm_nbd():
             raise OciMigrateException('Failed to remove nbd module.')
-        else:
-            _logger.debug('Successfully removed nbd module.')
+
+        _logger.debug('Successfully removed nbd module.')
     except Exception as e:
-        _logger.critical('   Something wrong with removing nbd devices: %s'
-                         % str(e))
-        raise OciMigrateException('\nSomething wrong with removing nbd '
-                                  'devices: %s' % str(e))
+        _logger.critical('   Something wrong with removing nbd devices: %s', str(e))
+        raise OciMigrateException('\nSomething wrong with removing nbd devices:') from e
     return True
 
 
@@ -1066,14 +983,14 @@ def unmount_lvm2(vg):
     -------
         bool: True on Success, exception otherwise.
     """
-    _logger.debug('__ Remove %s from system.' % vg)
+    _logger.debug('__ Remove %s from system.', vg)
     try:
         #
         # make unavailable
         for vg_name in list(vg.keys()):
             vgchange_args = ['--activate', 'n', vg_name]
             vgchange_res = system_tools.exec_vgchange(vgchange_args)
-            _logger.debug('vgchange: %s' % vgchange_res)
+            _logger.debug('vgchange: %s', vgchange_res)
         #
         # remove physical volume: clear cache, if necessary
         if system_tools.exec_pvscan(['--cache']):
@@ -1081,7 +998,7 @@ def unmount_lvm2(vg):
         else:
             _logger.error('  pvscan failed')
     except Exception as e:
-        _logger.error('  Failed to release lvms %s: %s' % (vg, str(e)))
+        _logger.error('  Failed to release lvms %s: %s', vg, str(e))
         error_msg('Failed to release lvms %s: %s' % (vg, str(e)))
         # raise OciMigrateException('Exception raised during release
         # lvms %s: %s' % (vg, str(e)))
@@ -1105,35 +1022,31 @@ def unmount_part(devname):
     """
     mntpoint = migrate_data.loopback_root + '/' + devname.rsplit('/')[-1]
     cmd = ['umount', mntpoint]
-    _logger.debug('__ Running %s' % cmd)
-    pause_msg(cmd)
+    _logger.debug('__ Running %s', cmd)
+    pause_msg(cmd, pause_flag='_OCI_MOUNT')
     while True:
         try:
-            _logger.debug('command: %s' % cmd)
+            _logger.debug('command: %s', cmd)
             cmdret = system_tools.run_call_cmd(cmd)
             if cmdret == 0:
-                _logger.debug('%s unmounted from %s' % (devname, mntpoint))
+                _logger.debug('%s unmounted from %s', devname, mntpoint)
                 #
                 # remove mountpoint
                 if system_tools.exec_rmdir(mntpoint):
-                    _logger.debug('%s removed' % mntpoint)
+                    _logger.debug('%s removed', mntpoint)
                     return True
-                else:
-                    _logger.critical('   Failed to remove mountpoint %s' % mntpoint)
-                    raise OciMigrateException('Failed to remove mountpoint %s'
-                                              % mntpoint)
-            else:
-                _logger.critical('   Failed to unmount %s: %d' % (devname, cmdret))
-                console_msg('Failed to unmount %s, error code %d.\n '
-                            'Please verify before continuing.'
-                            % (devname, cmdret))
-                retry = read_yn('Something prevented to complete %s, please '
-                                'verify and correct if possible. '
-                                'Press Y to retry, N to ignore.', waitenter=True)
-                if not retry:
-                    break
+                _logger.critical('   Failed to remove mountpoint %s', mntpoint)
+                raise OciMigrateException('Failed to remove mountpoint %s' % mntpoint)
+
+            _logger.critical('   Failed to unmount %s: %d', devname, cmdret)
+            console_msg('Failed to unmount %s, error code %d.\n '
+                        'Please verify before continuing.' % (devname, cmdret))
+            retry = read_yn('Something prevented to complete %s, please verify and correct if possible. '
+                            'Press Y to retry, N to ignore.', waitenter=True)
+            if not retry:
+                break
         except Exception as e:
-            _logger.critical('   Failed to unmount %s: %s' % (devname, str(e)))
+            _logger.critical('   Failed to unmount %s: %s', devname, str(e))
     return False
 
 
@@ -1152,9 +1065,9 @@ def verify_local_fstab():
         with open(fstab_file, 'r') as fstab:
             for fstab_line in fstab:
                 if '/dev/mapper' in fstab_line.split('#', 1)[0]:
-                    _logger.debug('Found a line in fstab:\n%s' % fstab_line)
+                    _logger.debug('Found a line in fstab:\n%s', fstab_line)
                     return True
     except Exception as e:
-        _logger.debug("Failed to verify local fstab file")
+        _logger.debug("Failed to verify local fstab file: %s", str(e))
         return True
     return False

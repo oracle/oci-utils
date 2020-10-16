@@ -24,14 +24,16 @@ import re
 import sys
 import time
 
+from oci_utils.migrate import error_msg
 from oci_utils.migrate import exit_with_msg
 from oci_utils.migrate import migrate_data
 from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import pause_msg
 from oci_utils.migrate import read_yn
+from oci_utils.migrate import result_msg
 from oci_utils.migrate import system_tools
 from oci_utils.migrate.exception import OciMigrateException
-from oci_utils.migrate.migrate_tools import get_config_data as get_config_data
+from oci_utils.migrate.migrate_tools import get_config_data
 
 
 _logger = logging.getLogger('oci-utils.oci-image-migrate')
@@ -43,7 +45,7 @@ try:
 except Exception as e:
     exit_with_msg('Failed to retrieve the list of required utilities. Verify '
                   'the existence and contents of the configuration file '
-                  'oci-migrate-conf.yaml.')
+                  'oci-migrate-conf.yaml: %s' % str(e))
 
 
 def parse_args():
@@ -157,10 +159,9 @@ def collect_image_data(img_object):
     try:
         res, img_info = img_object.image_data()
     except Exception as e:
-        _logger.critical('   Unable to collect or invalid image data: %s'
-                         % str(e), exc_info=True)
-        raise OciMigrateException('Unable to collect or invalid image data: %s'
-                                  % str(e))
+        _logger.critical('   Unable to collect or invalid image data: %s', str(e), exc_info=True)
+        raise OciMigrateException('Unable to collect or invalid image data.') from e
+    #
     # need to return the img_info object in the end...
     return res, img_info
 
@@ -178,19 +179,18 @@ def test_helpers():
     helpers = []
     missing = []
     path_env_var = os.getenv('PATH')
-    _logger.debug('PATH is %s' % path_env_var)
+    _logger.debug('PATH is %s', path_env_var)
     for util, package in helpers_list.items():
         try:
-            _logger.debug('Availability of %s' % util)
-            fullcmd = system_tools.exec_exists(util)
-            _logger.debug('full path: %s' % fullcmd)
+            _logger.debug('Availability of %s', util)
+            full_command = system_tools.exec_exists(util)
+            _logger.debug('full path: %s', full_command)
             if system_tools.exec_exists(util) is not None:
                 helpers.append(util)
             else:
                 missing.append(util)
         except Exception as e:
-            _logger.error('   %s is not found, verify presense of %s: %s'
-                          % (helpers_list[util], package, str(e)))
+            _logger.error('   %s is not found, verify presence of %s: %s', helpers_list[util], package, str(e))
     return helpers, missing
 
 
@@ -200,15 +200,19 @@ def qemu_img_version():
 
     Returns:
     -------
-        versiondata: str
-        versionnb: int
+        version_data: str
+        version_nb: int
     """
     _logger.debug('__ Retrieve qemu-img release data.')
     cmd = ['qemu-img', '--version']
-    versionstring = system_tools.run_popen_cmd(cmd).decode('utf-8').splitlines()
+    cmd_dict = system_tools.run_popen_cmd(cmd)
+    if bool(cmd_dict):
+        version_string = cmd_dict['output'].decode('utf-8').splitlines()
+    else:
+        return -1
     ptrn = re.compile(r'[. -]')
-    _logger.debug('qemu-img version: %s' % versionstring)
-    for lin in versionstring:
+    _logger.debug('qemu-img version: %s', version_string)
+    for lin in version_string:
         if 'version' in lin:
             ver_elts = ptrn.split(lin)
             for elt in ver_elts:
@@ -230,11 +234,11 @@ def main():
     # set locale
     lc_all_to_set = get_config_data('lc_all')
     os.environ['LC_ALL'] = "%s" % lc_all_to_set
-    _logger.debug('Locale set to %s' % lc_all_to_set)
+    _logger.debug('Locale set to %s', lc_all_to_set)
     #
     # python version
-    pythonver = sys.version_info[0]
-    _logger.debug('Python version is %s' % pythonver)
+    python_version = sys.version_info[0]
+    _logger.debug('Python version is %s', python_version)
     #
     # parse the commandline
     args = parse_args()
@@ -248,7 +252,7 @@ def main():
     #
     # Verbose mode is False by default
     migrate_data.verbose_flag = args.verbose_flag
-    _logger.debug('Verbose level set to %s' % migrate_data.verbose_flag)
+    _logger.debug('Verbose level set to %s', migrate_data.verbose_flag)
     #
     # Yes flag
     migrate_data.yes_flag = args.yes_flag
@@ -261,19 +265,16 @@ def main():
         #
         # input image
         if args.input_image:
-            imagepath = args.input_image.name
-            resultfilename = get_config_data('resultfilepath') + \
-                '_' + \
-                os.path.splitext(os.path.basename(imagepath))[0] \
-                + '.res'
-            migrate_data.resultfilename = resultfilename
-            migrate_tools.result_msg(msg='\n  Running %s at %s\n'
-                                         % ((os.path.basename(sys.argv[0])
-                                             + ' '
-                                             + ' '.join(sys.argv[1:])),
-                                            time.ctime()),
-                                     flags='w',
-                                     result=True)
+            image_path = args.input_image.name
+            result_filename = get_config_data('result_filepath') \
+                              + '_' \
+                              + os.path.splitext(os.path.basename(image_path))[0] \
+                              + '.res'
+            migrate_data.result_filename = result_filename
+            result_msg(msg='\n  Running %s at %s\n' % ((os.path.basename(sys.argv[0])
+                                                        + ' '
+                                                        + ' '.join(sys.argv[1:])), time.ctime()),
+                       flags='w', result=True)
         else:
             raise OciMigrateException('Missing argument: input image path.')
         #
@@ -286,7 +287,7 @@ def main():
         #
         # Check the utilities installed.
         util_list, missing_list = test_helpers()
-        _logger.debug('%s' % util_list)
+        _logger.debug('%s', util_list)
         if migrate_data.verbose_flag:
             show_utilities(util_list, missing_list)
         if missing_list:
@@ -294,68 +295,58 @@ def main():
                                       % (sys.argv[0], missing_list))
         #
         # if qemu-img is used, the minimal version is 2
-        qemuversioninfo = qemu_img_version()
-        if qemuversioninfo[1] < 2:
+        qemu_version_info = qemu_img_version()
+        if qemu_version_info[1] < 2:
             raise OciMigrateException('Minimal version of qemu-img is 2, '
-                                      '%s found.' % qemuversioninfo[0])
-        else:
-            _logger.debug('release data ok')
+                                      '%s found.' % qemu_version_info[0])
+        _logger.debug('release data ok')
         #
         # Get the nameserver definition
         if system_tools.get_nameserver():
-            migrate_tools.result_msg(msg='nameserver %s identified.'
-                                         % migrate_data.nameserver, result=False)
-            _logger.debug('Nameserver identified as %s' % migrate_data.nameserver)
+            result_msg(msg='nameserver %s identified.' % migrate_data.nameserver, result=False)
+            _logger.debug('Nameserver identified as %s', migrate_data.nameserver)
         else:
-            migrate_tools.error_msg('Failed to identify nameserver, using %s, '
-                                    'but might cause issues.'
-                                    % migrate_data.nameserver)
+            error_msg('Failed to identify nameserver, using %s, but might cause issues.' % migrate_data.nameserver)
     except Exception as e:
-        _logger.error('*** ERROR *** %s\n' % str(e))
+        _logger.error('*** ERROR *** %s\n', str(e))
         exit_with_msg('  *** ERROR *** %s\n' % str(e))
     #
     # More on command line arguments.
     #
     # initialise output
-    migrate_tools.result_msg(msg='Results are written to %s.'
-                                 % migrate_data.resultfilename, result=True)
-    migrate_tools.result_msg(msg='Input image:  %s' % imagepath, result=True)
+    result_msg(msg='Results are written to %s.' % migrate_data.result_filename, result=True)
+    result_msg(msg='Input image:  %s' % image_path, result=True)
     #
     # Verify if readable.
-    fn_magic = migrate_tools.get_magic_data(imagepath)
+    fn_magic = migrate_tools.get_magic_data(image_path)
     if fn_magic is None:
-        exit_with_msg('*** ERROR *** An error occured while trying to read '
-                      'magic number of File %s.' % imagepath)
+        exit_with_msg('*** ERROR *** An error occurred while trying to read '
+                      'magic number of File %s.' % image_path)
     else:
         pause_msg('Image Magic Number: %s' % fn_magic)
-        _logger.debug('Magic number %s successfully read' % fn_magic)
+        _logger.debug('Magic number %s successfully read', fn_magic)
     #
     # Verify if image type is supported.
-    _logger.debug('Magic number of %s is %s' % (imagepath, fn_magic))
+    _logger.debug('Magic number of %s is %s', image_path, fn_magic)
     if fn_magic not in supported_formats:
         exit_with_msg('*** ERROR *** Image type %s is not recognised.' % fn_magic)
     else:
         _logger.debug('Image type recognised.')
     #
     # Get the correct class.
-    imageclazz = supported_formats[fn_magic]
-    migrate_tools.result_msg(msg='Type of image %s identified as %s'
-                             % (imagepath, imageclazz['name']), result=True)
-    pause_msg('Image type is %s' % imageclazz['name'])
+    image_clazz = supported_formats[fn_magic]
+    result_msg(msg='Type of image %s identified as %s' % (image_path, image_clazz['name']), result=True)
+    pause_msg('Image type is %s' % image_clazz['name'])
     #
     # Locate the class and module
-    imageclassdef = getattr(sys.modules['oci_utils.migrate.image_types.%s'
-                                        % supported_formats[fn_magic]['name']],
-                            imageclazz['clazz'])
-    image_object = imageclassdef(imagepath)
+    image_class_def = getattr(sys.modules['oci_utils.migrate.image_types.%s'
+                                          % supported_formats[fn_magic]['name']], image_clazz['clazz'])
+    image_object = image_class_def(image_path)
     #
     # Local volume groups.
     vgs_result = system_tools.exec_vgs_noheadings()
-    migrate_data.local_volume_groups = \
-        vgs_result if bool(vgs_result) \
-        else []
-    _logger.debug('Workstation volume groups: %s'
-                  % migrate_data.local_volume_groups)
+    migrate_data.local_volume_groups = vgs_result if bool(vgs_result) else []
+    _logger.debug('Workstation volume groups: %s', migrate_data.local_volume_groups)
     #
     # Rename local volume groups
     if bool(migrate_data.local_volume_groups):
@@ -380,10 +371,15 @@ def main():
                 if not read_yn(fstab_msg,
                                waitenter=True,
                                suppose_yes=migrate_data.yes_flag):
-                    exit_with_msg('Exiting')
+                    exit_with_msg('Exiting.')
                 _logger.debug('Rename local volume groups to avoid conflicts.')
-                vgrename_res = system_tools.exec_rename_volume_groups(
-                    migrate_data.local_volume_groups, 'FORWARD')
+                vgrename_res = system_tools.exec_rename_volume_groups(migrate_data.local_volume_groups, 'FORWARD')
+                if not vgrename_res:
+                    _logger.warning('Failed to rename local volume groups.')
+                    if not read_yn('\n   Failed to rename the local volume groups. '
+                                   'Continue on your own responsibility?',
+                                   waitenter=True, suppose_yes=migrate_data.yes_flag):
+                        exit_with_msg('Exiting.')
                 migrate_data.local_volume_group_rename = True
             else:
                 _logger.debug('fstab file has no /dev/mapper devices.')
@@ -404,19 +400,20 @@ def main():
             _logger.critical('   Image processing failed.', exc_info=False)
         #
         if imagedata:
-            _logger.debug('%s passed.' % imagepath)
+            _logger.debug('%s passed.', image_path)
         else:
-            _logger.critical('   %s failed.' % imagepath, exc_info=False)
+            _logger.critical('   %s failed.', image_path, exc_info=False)
     except Exception as e:
-        _logger.critical('   %s failed: %s' % (imagepath, str(e)))
+        _logger.critical('   %s failed: %s', image_path, str(e))
         exit_with_msg('*** ERROR *** Problem detected during investigation of '
-                      'the image %s: %s, exiting.' % (imagepath, str(e)))
+                      'the image %s: %s, exiting.' % (image_path, str(e)))
     #
     # Restore volume group names.
     if migrate_data.local_volume_group_rename:
         _logger.debug('Restore local volume groups.')
-        vgrename_res = system_tools.exec_rename_volume_groups(
-            migrate_data.local_volume_groups, 'BACKWARD')
+        vgrename_res = system_tools.exec_rename_volume_groups(migrate_data.local_volume_groups, 'BACKWARD')
+        if not vgrename_res:
+            _logger.warning('Failed to restore local volume group names.')
     else:
         _logger.debug('No local volume group names to restore.')
     #
@@ -427,7 +424,7 @@ def main():
     prereq_msg = ''
     sup, msg = image_object.type_specific_prereq_test()
     if sup:
-        migrate_tools.result_msg(msg='%s' % msg, result=True)
+        result_msg(msg='%s' % msg, result=True)
     else:
         prereq_passed = False
         prereq_msg = msg
@@ -436,36 +433,32 @@ def main():
     try:
         gen_prereq, msg = image_object.generic_prereq_check()
         if gen_prereq:
-            prereq_msg += '\n  %s passed the generic preqrequisites.' % imagepath
+            prereq_msg += '\n  %s passed the generic preqrequisites.' % image_path
         else:
             prereq_passed = False
             prereq_msg += msg
         #
         if imgres:
             prereq_msg += '\n\n  %s data collection and processing succeeded.' \
-                          % imagepath
+                          % image_path
         else:
             prereq_passed = False
         #
         if prereq_passed:
-            migrate_tools.result_msg(msg=prereq_msg, result=True)
+            result_msg(msg=prereq_msg, result=True)
             if imagedata['boot_type'] == 'BIOS':
-                migrate_tools.result_msg(msg='\n  Boot type is BIOS, '
-                                             'use launch_mode PARAVIRTUALIZED '
-                                             '(or EMULATED) at import.',
-                                         result=True)
+                result_msg(msg='\n  Boot type is BIOS, use launch_mode PARAVIRTUALIZED (or EMULATED) at import.',
+                           result=True)
             elif imagedata['boot_type'] == 'UEFI':
-                migrate_tools.result_msg(msg='\n  Boot type is UEFI, '
-                                             'use launch_mode NATIVE '
-                                             '(or EMULATED) at import.',
-                                         result=True)
+                result_msg(msg='\n  Boot type is UEFI, use launch_mode NATIVE (or EMULATED) at import.',
+                           result=True)
             else:
                 raise OciMigrateException('Something wrong checking '
                                           'the boot type')
         else:
             prereq_msg += '\n\n  %s processing failed, check the logfile ' \
                           'and/or set environment variable _OCI_UTILS_DEBUG.' \
-                          % imagepath
+                          % image_path
             raise OciMigrateException(prereq_msg)
     except Exception as e:
         exit_with_msg('*** ERROR ***  %s' % str(e))
@@ -477,8 +470,7 @@ def main():
                       'to Oracle Cloud Infrastructure: %s'
                       % migrate_data.migrate_non_upload_reason)
     else:
-        migrate_tools.result_msg('Successfully verified and processed image %s '
-                                 'and is ready for upload.' % imagepath)
+        result_msg('Successfully verified and processed image %s and is ready for upload.' % image_path)
     return 0
 
 
