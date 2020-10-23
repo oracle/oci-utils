@@ -21,6 +21,7 @@ __all__ = ['skipUnlessRecorder',
            'skipUnlessOCI',
            'needsOCICLI',
            'skipUnlessOCISDKInstalled',
+           'skipUnlessVirSHInstalled',
            'skipItAsUnresolved']
 
 __can_connect_to_oci_sap = None
