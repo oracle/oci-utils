@@ -6,6 +6,7 @@
 import unittest
 
 from tools.decorators import skipUnlessOCI
+from tools.decorators import skipUnlessVirSHInstalled
 from tools.oci_test_case import OciTestCase
 
 
@@ -63,6 +64,7 @@ class TestVirtHelpers(OciTestCase):
         import oci_utils.impl.virt.virt_check
         oci_utils.impl.virt.virt_check.br_link_mode_check('lo')
 
+    @skipUnlessVirSHInstalled()
     @skipUnlessOCI()
     def test_virt_check_validate_kvm_env(self):
         """
@@ -86,6 +88,7 @@ class TestVirtHelpers(OciTestCase):
         import oci_utils.impl.virt.virt_check
         oci_utils.impl.virt.virt_check.validate_domain_name('__ff__')
 
+    @skipUnlessVirSHInstalled()
     @skipUnlessOCI()
     def test_virt_check_validate_block_device(self):
         """
@@ -98,6 +101,7 @@ class TestVirtHelpers(OciTestCase):
         import oci_utils.impl.virt.virt_check
         oci_utils.impl.virt.virt_check.validate_block_device(None)
 
+    @skipUnlessVirSHInstalled()
     @skipUnlessOCI()
     def test_virt_virt_utils_get_domains_name(self):
         """
@@ -110,6 +114,7 @@ class TestVirtHelpers(OciTestCase):
         import oci_utils.impl.virt.virt_utils
         oci_utils.impl.virt.virt_utils.get_domains_name()
 
+    @skipUnlessVirSHInstalled()
     @skipUnlessOCI()
     def test_virt_virt_utils_get_domains_state(self):
         """
@@ -124,6 +129,7 @@ class TestVirtHelpers(OciTestCase):
         if len(_all) > 0:
             oci_utils.impl.virt.virt_utils.get_domains_state(_all[0])
 
+    @skipUnlessVirSHInstalled()
     @skipUnlessOCI()
     def test_virt_virt_utils_get_domains_interfaces(self):
         """
@@ -138,6 +144,7 @@ class TestVirtHelpers(OciTestCase):
         if len(_all) > 0:
             oci_utils.impl.virt.virt_utils.get_domains_interfaces(_all[0])
 
+    @skipUnlessVirSHInstalled()
     @skipUnlessOCI()
     def test_virt_virt_utils_get_domains_xml(self):
         """
@@ -152,6 +159,7 @@ class TestVirtHelpers(OciTestCase):
         if len(_all) > 0:
             oci_utils.impl.virt.virt_utils.get_domain_xml(_all[0])
 
+    @skipUnlessVirSHInstalled()
     @skipUnlessOCI()
     def test_virt_virt_utils_get_interfaces_from_domain(self):
         """
@@ -167,6 +175,7 @@ class TestVirtHelpers(OciTestCase):
             oci_utils.impl.virt.virt_utils.get_interfaces_from_domain(
                 oci_utils.impl.virt.virt_utils.get_domain_xml(_all[0]))
 
+    @skipUnlessVirSHInstalled()
     @skipUnlessOCI()
     def test_virt_virt_utils_get_disks_from_domain(self):
         """

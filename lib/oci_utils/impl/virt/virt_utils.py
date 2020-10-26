@@ -28,12 +28,11 @@ def get_domains_name():
         All domains names as list of string.
     """
     ret = []
-    domains = sudo_utils.call_output(
-        [VIRSH_CMD, 'list', '--name', '--all']).splitlines()
-
-    for d in domains:
-        if len(d) > 0:
-            ret.append(d)
+    domains = sudo_utils.call_output([VIRSH_CMD, 'list', '--name', '--all'])
+    if domains is not None:
+        for d in domains.decode('utf-8').splitlines():
+            if len(d) > 0:
+                ret.append(d)
 
     return ret
 

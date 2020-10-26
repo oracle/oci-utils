@@ -43,7 +43,7 @@ class Store(object):
             if command.get('key') == key:
                 _logger.debug('fetched command [%s]' % str(command))
                 return command
-        _logger.warning('unknonwn command key [%s]' % key)
+        _logger.warning('unknown command key [%s]' % key)
         return None
 
     def store(self, storableObject):

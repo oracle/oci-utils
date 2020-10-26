@@ -261,7 +261,7 @@ class VNICUtils():
         Checks if interface name, VNIC ocid or ip addr is part of excluded items
         """
 
-        for excl in self.vnic_info.get('exclude',()):
+        for excl in self.vnic_info.get('exclude', ()):
             if excl in (interface['IFACE'], interface['VNIC'], interface['ADDR']):
                 return True
         return False

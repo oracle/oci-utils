@@ -13,8 +13,9 @@ _logger = logging.getLogger('oci-utils.TreeConfigParser')
 
 
 class TreeConfigParser(configparser.ConfigParser):
-    """Wrapper around ConfigParser.ConfigParser() objects
-    To handle a hierarchy ofconfiguration
+    """
+    Wrapper around ConfigParser.ConfigParser()
+    Objects to handle a hierarchy of configuration
     Configuration are organized as a directory based hierarchy
     Each stage may contain a property.cfg file
     Hierarchy is built based on class and module name
@@ -45,7 +46,7 @@ class TreeConfigParser(configparser.ConfigParser):
         configparser.ConfigParser.__init__(self)
 
         if base is None or not os.path.isdir(base):
-            _logger.info('Invalid base : [%s], skipping load' % base)
+            _logger.info('Invalid base : [%s], skipping load', base)
         else:
             _elems = [base]
             _elems.extend(obj.__module__.split('.'))
@@ -61,25 +62,25 @@ class TreeConfigParser(configparser.ConfigParser):
                 except IndexError:
                     # end of elems list
                     break
-            _logger.info('all properties files read : %s' % self.read(_all_files))
+            _logger.info('all properties files read : %s', self.read(_all_files))
 
     def get_property(self, key):
         try:
             return self.get('DEFAULT', key)
         except configparser.NoOptionError as e:
-            _logger.warning('missing option [%s] in test configuration' % key)
+            _logger.warning('missing option [%s] in test configuration', key)
 
     def get(self, section, option, **kargs):
         try:
             return configparser.ConfigParser.get(self, section, option, **kargs)
         except(configparser.NoOptionError, configparser.NoSectionError) as e:
-            _logger.warning('missing option [%s/%s] in test configuration' % (section, option))
+            _logger.warning('missing option [%s/%s] in test configuration', section, option)
 
     def items(self, section):
         try:
             return configparser.ConfigParser.items(self, section)
         except configparser.NoSectionError as e:
-            _logger.warning('missing option [%s] in test configuration' % section)
+            _logger.warning('missing option [%s] in test configuration', section)
 
     def write(self, fileobject):
         raise NotImplementedError('Not supported operation')

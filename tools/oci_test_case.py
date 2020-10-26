@@ -21,7 +21,7 @@ class OciTestCase(TestCase):
         Parameters
         ----------
         namespace : string
-            the tests nase dir
+            the tests base dir
 
         """
         OciTestCase.test_config_dir = namespace
