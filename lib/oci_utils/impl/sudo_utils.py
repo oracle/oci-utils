@@ -59,10 +59,10 @@ def call(cmd, log_output=True):
     _c = _prepare_command(cmd)
     try:
         if _logger.isEnabledFor(logging.DEBUG):
-            _logger.debug('Executing [%s]' % ' '.join(_c))
+            _logger.debug('Executing [%s]', ' '.join(_c))
         cp = subprocess.run(_c, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
         if cp.returncode != 0 and log_output:
-            _logger.debug("execution failed: ec=%s, output=[%s], stderr=[%s] " % (cp.returncode, cp.stdout, cp.stderr))
+            _logger.debug("execution failed: ec=%s, output=[%s], stderr=[%s] ", cp.returncode, cp.stdout, cp.stderr)
         return cp.returncode
     except OSError:
         return 404
@@ -97,7 +97,7 @@ def call_output(cmd, log_output=True):
         if log_output:
             if _logger.isEnabledFor(logging.DEBUG):
                 # pylint: disable=logging-not-lazy,logging-format-interpolation
-                _logger.debug("Error execeuting {}: {}\n{}\n".format(_c, e.returncode, e.output))
+                _logger.debug("Error executing {}: {}\n{}\n".format(_c, e.returncode, e.output.decode('utf-8')))
         return None
 
 
@@ -207,7 +207,7 @@ def write_to_file(path, content):
                                 stderr=subprocess.PIPE,
                                 stdin=subprocess.PIPE).communicate(content.encode())
     if err:
-        _logger.debug("Error writing content to file: %s" % err)
+        _logger.debug("Error writing content to file: %s", err)
         return 1
     return 0
 
@@ -227,7 +227,7 @@ def create_file(path, mode=None):
     -------
         The return code fo the cat(1) command.
     """
-    _logger.debug("creating file : %s" % path)
+    _logger.debug("creating file : %s", path)
     res = call([TOUCH_CMD,  path])
     if res == 0 and mode is not None:
         res = set_file_mode(path, mode)
@@ -249,5 +249,5 @@ def set_file_mode(path, mode=None):
     -------
         The return code fo the chmod(1) command.
     """
-    _logger.debug("applying mode  %s to file %s" % (mode, path))
+    _logger.debug("applying mode  %s to file %s", mode, path)
     return call([CHMOD_CMD, mode, path])

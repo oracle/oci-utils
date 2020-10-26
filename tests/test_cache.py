@@ -84,22 +84,14 @@ class testOciCache(OciTestCase):
         -------
             No return value.
         """
-        self.assertEqual(get_newer(self.file1, self.file2), self.file2,
-                         'expected self.file2 to be the newer')
-        self.assertEqual(get_newer(self.file2, self.file1), self.file2,
-                         'expected self.file2 to be the newer')
-        self.assertEqual(get_newer(self.file1, None), self.file1,
-                         'get_newer(filename, None) != filename')
-        self.assertEqual(get_newer(None, self.file1), self.file1,
-                         'get_newer(None, filename) != filename')
-        self.assertEqual(get_newer(self.file1, self.nofile), self.file1,
-                         'get_newer(filename, \'no existing file\') != filename')
-        self.assertEqual(get_newer(self.nofile, self.file2), self.file2,
-                         'get_newer(\'no existing file\', filename, ) != filename')
-        self.assertEqual(get_newer(self.nofile, None), None,
-                         'get_newer(\'no existing file\', None) != None')
-        self.assertEqual(get_newer(None, None), None,
-                         'get_newer(None, None) != None')
+        self.assertEqual(get_newer(self.file1, self.file2), self.file2, 'expected self.file2 to be the newer')
+        self.assertEqual(get_newer(self.file2, self.file1), self.file2, 'expected self.file2 to be the newer')
+        self.assertEqual(get_newer(self.file1, None), self.file1, 'get_newer(filename, None) != filename')
+        self.assertEqual(get_newer(None, self.file1), self.file1, 'get_newer(None, filename) != filename')
+        self.assertEqual(get_newer(self.file1, self.nofile), self.file1, 'get_newer(filename, \'no existing file\') != filename')
+        self.assertEqual(get_newer(self.nofile, self.file2), self.file2, 'get_newer(\'no existing file\', filename, ) != filename')
+        self.assertEqual(get_newer(self.nofile, None), None, 'get_newer(\'no existing file\', None) != None')
+        self.assertEqual(get_newer(None, None), None, 'get_newer(None, None) != None')
 
     def test_load_cache(self):
         """
@@ -131,7 +123,7 @@ class testOciCache(OciTestCase):
 
     def test_write_cache(self):
         """
-        Test cach.write_cache().
+        Test cache.write_cache().
 
         Returns
         -------
