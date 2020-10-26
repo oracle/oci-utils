@@ -13,7 +13,7 @@ from tools.decorators import (skipUnlessOCI, skipUnlessRoot)
 
 def _get_volume_data(volume_data):
     """
-    Formats the data list retrieved fr m show as a dictionary.
+    Formats the data list retrieved from show as a dictionary.
 
     Parameters
     ----------
