@@ -213,35 +213,36 @@ def find_unassigned_vf_by_phys(phys, domain_interfaces, desired_mac, vfs_blackli
     return list(vfs.values())[0]
 
 
-def get_phys_by_index(vnic, vnics, nics):
+def get_phys_by_index(vnic, nics):
     """
     Uses information stored in the OCI VNIC metadata to find the physical
     interface that a VNIC is associated with.
-
     Parameters
     ----------
     vnic : dict
-        The virtual interface card name.
-    vnics : dict
-        The list of virtual interface cards.
+        The OCI vNIC we are looking for the assocaited phys
     nics : dict
         The list of available network interface cards.
-
+        as the one returned by network_helpers.get_interfaces()
     Returns
     -------
         str
             The interface name if found, None otherwise.
-
     """
-    candidates = {}
-    for v in vnics:
-        if vnic['nicIndex'] == v['nicIndex']:
-            candidates[v['macAddr'].lower()] = True
 
-    for n, d in nics.items():
-        if d['physical'] and d['mac'] in candidates and not d.get('physfn'):
-            return n
+    # 1. we get the NIC index from the OCI vNIC
+    # 2. we find for physical interfaces and sort them
+    # 3. we find the associated physical nic
+
+    # the one we look for are the onw without physical function information (because they are one)
+    #   and have a PCI id. PCI is like 0000:3b:00.0. We keep the last digit as it is our index
+    _phys_ones = [(int(intf['pci'].split('.')[-1]),name ) for (name,intf) in nics.items() if 'physfn' not in intf and 'pci' in intf]
+    # _phys_ones is like [(idx,'name'),...]
+    for idx, name in _phys_ones:
+        if idx == vnic['nicIndex']:
+            return name
     return None
+
 
 
 def _get_intf_used_by_guest():
@@ -344,7 +345,7 @@ def test_vnic_and_assign_vf(ip_addr, free_vnics_ips, backlisted_vfs=()):
         _print_available_vnics(free_vnics_ips)
         return False, False, False
 
-    phys_nic = get_phys_by_index(vnic, vnics, get_interfaces())
+    phys_nic = get_phys_by_index(vnic, get_interfaces())
     _logger.debug('physical intf found by index  : %s' % phys_nic)
 
     vf_pci_id, vf_num = find_unassigned_vf_by_phys(phys_nic, domain_interfaces,
@@ -603,6 +604,7 @@ def create(**kargs):
                 _logger.debug('checking vnic [%s] and find VF' % free_vnic_ip_addr)
                 vnic, vf, vf_num = test_vnic_and_assign_vf(free_vnic_ip_addr, free_vnics, _blacklisted_vfs)
                 if not vnic:
+                    _logger.debug('vnic check failed, fnd find VF')
                     return 1
                 # be sure thi won't be used at next iteration
                 _blacklisted_vfs.append((vf, vf_num))
