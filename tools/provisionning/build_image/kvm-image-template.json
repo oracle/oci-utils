@@ -1,0 +1,60 @@
+// Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+// Licensed under the Universal Permissive License v 1.0 as shown
+// at http://oss.oracle.com/licenses/upl.
+{
+    "variables": {
+        "user_availability_domain": "",
+        "user_base_image_ocid": "",
+        "user_compartment_ocid": "",
+        "user_subnet_ocid": "",
+        "user_image_name": "",
+        "user_AL_version": ""
+    },
+    "builders": [
+        {
+            "use_instance_principals": "true",
+            "ssh_username": "opc",
+            "use_private_ip": "true",
+            "availability_domain": "{{user `user_availability_domain`}}",
+            "base_image_ocid": "{{user `user_base_image_ocid`}}",
+            "compartment_ocid": "{{user `user_compartment_ocid`}}",
+            "shape": "VM.Standard2.1",
+            "subnet_ocid": "{{user `user_subnet_ocid`}}",
+            "image_name": "{{user `user_image_name`}}",
+            "instance_name": "AL-KVM-builder-{{timestamp}}",
+            "tags": {
+                "AL_version": "{{user `user_AL_version`}}"
+            },
+            "type": "oracle-oci"
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "shell",
+            "inline": [
+                "sudo yum install -y python36-libvirt",
+                "sudo rpm -iv https://ca-artifacts.us.oracle.com/auto-build/x86_64-build-output-7/oci-utils-kvm-0.11.6-8.el7.noarch.rpm"
+            ]
+        },
+        {
+            "type": "shell",
+            "inline": [
+                "sudo yum -y install git",
+                "git  clone  https://gitlab+deploy-token-47:fa9KGVrxZG4oVMpbSiX9@linux-git.us.oracle.com:/oci-ol/oci-kvm-image-build.git /tmp/oci-kvm-image-build/",
+                "sudo -u root /bin/bash /tmp/oci-kvm-image-build/custom_post_install_task.sh",
+                "sudo -u root /bin/bash /tmp/oci-kvm-image-build/custom_firstboot.sh"
+            ]
+        },
+        {
+            "type": "shell",
+            "inline": [
+                "sudo rm -f /etc/cron.d/al-update /var/lib/al-config/* /var/log/al.log",
+                "sudo sed -i '/^auto_update_time_window=/d;/# Auto update time window/d' /etc/al-config/al.conf",
+                "sudo cp /var/lib/cloud/scripts/per-instance/oci.sh /var/tmp",
+                "sudo /usr/libexec/oci-image-cleanup --force",
+                "sudo mv /var/tmp/oci.sh /var/lib/cloud/scripts/per-instance",
+                "history -c"
+            ]
+        }
+    ]
+}
