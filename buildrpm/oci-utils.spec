@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.11.7
-Release: 6%{?dist}
+Version: 0.12.0
+Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -176,6 +176,12 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Tue Nov 10 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.12.0
+- LINUX-9546 - oci-image-cleanup --dry-run do not print the plan directly
+- oci-iscsi-config usage refactor
+- LINUX-9202 - oci-network-config error in oci_utils.exceptions.OCISDKError: Failed to fetch instance
+- LINUX-8946 - no warning when user select primary vnic
+
 * Fri Oct 9 2020 Guido Tijskens <guido.tijskens@oracle.com> --0.11.6-1
 - oci-image-migrate code cleanup
 
