@@ -1,0 +1,131 @@
+// Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+// Licensed under the Universal Permissive License v 1.0 as shown
+// at http://oss.oracle.com/licenses/upl.
+terraform {
+  required_providers {
+    oci = ">= 3.56.0"
+  }
+}
+
+variable "tenancy_ocid" {}
+variable "user_ocid" {}
+variable "fingerprint" {}
+variable "private_key_path" {}
+variable "region" {}
+variable "compartment_id" {}
+variable "availability_domain_id" {}
+variable "subnet_id" {}
+variable "instance_shape" {}
+variable "instance_image_ocid" {}
+
+variable "ssh_private_key_path" {}
+variable "ssh_authorized_key_path" {}
+variable "ssh_user" {}
+
+#variable "oci_utils_rpms_dir" {}
+
+
+variable "dns_search_domains" {}
+variable "dns_server_ip" {}
+variable "http_proxy_url" {}
+variable "https_proxy_url" {}
+
+
+provider "oci" {
+  tenancy_ocid     = var.tenancy_ocid
+  user_ocid        = var.user_ocid
+  fingerprint      = var.fingerprint
+  private_key_path = var.private_key_path
+  region           = var.region
+}
+
+variable "db_size" {
+  default = "50" # size in GBs
+}
+
+data "oci_identity_availability_domains" "ad" {
+  compartment_id = var.compartment_id
+}
+
+
+resource "oci_core_instance" "dev_instance" {
+  availability_domain = var.availability_domain_id
+  compartment_id      = var.compartment_id
+  display_name        = "OCI-DEV-Instance"
+  shape               = var.instance_shape
+
+  create_vnic_details {
+    subnet_id        = var.subnet_id
+    display_name     = "Primaryvnic"
+    assign_public_ip = false
+  }
+
+  source_details {
+    source_type = "image"
+    source_id   = var.instance_image_ocid
+  }
+
+  preserve_boot_volume = false
+
+  metadata = {
+    ssh_authorized_keys = file(var.ssh_authorized_key_path)
+  }
+
+
+  timeouts {
+    create = "60m"
+  }
+
+}
+
+resource "oci_core_vnic_attachment" "test_vnic_attachment_0" {
+  create_vnic_details {
+    subnet_id = var.subnet_id
+  }
+  instance_id = oci_core_instance.dev_instance.id
+
+  #Optional
+  #display_name = var.vnic_attachment_display_name
+  nic_index = 1
+}
+resource "oci_core_vnic_attachment" "test_vnic_attachment_1" {
+  create_vnic_details {
+
+    subnet_id = var.subnet_id
+    #vlan_id = oci_core_vlan.test_vlan.id
+  }
+  instance_id = oci_core_instance.dev_instance.id
+
+  #Optional
+  #display_name = var.vnic_attachment_display_name
+  nic_index = 1
+}
+resource "oci_core_vnic_attachment" "test_vnic_attachment_2" {
+  create_vnic_details {
+    subnet_id = var.subnet_id
+
+  }
+  instance_id = oci_core_instance.dev_instance.id
+
+  #Optional
+  #display_name = var.vnic_attachment_display_name
+  nic_index = 1
+}
+resource "oci_core_vnic_attachment" "test_vnic_attachment_3" {
+  create_vnic_details {
+
+    subnet_id = var.subnet_id
+  }
+  instance_id = oci_core_instance.dev_instance.id
+
+  #Optional
+  #display_name = var.vnic_attachment_display_name
+  nic_index = 1
+}
+
+output "instance_private_ip" {
+  value = oci_core_instance.dev_instance.*.private_ip
+}
+
+
+
