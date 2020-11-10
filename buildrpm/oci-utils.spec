@@ -176,10 +176,8 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
-* Tue Nov 10 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.7
-- LINUX-9592 - mapping between vNIC and NIC broken if some vNIC are removed
-
 * Thu Sep 24 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.6
+- LINUX-9592 - mapping between vNIC and NIC broken if some vNIC are removed
 - LINUX-7035 - oci-utils: move base functionality from al-config to oci-utils
 - LINUX-8976 - multi-vnic on bare metal shapes suffer from connection issues
 - LINUX-8952 - oci-growfs does not prompt for y/n and hangs.
