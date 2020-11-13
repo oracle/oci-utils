@@ -14,6 +14,7 @@ from distutils.core import Command
 from distutils.dist import Distribution
 from distutils.errors import DistutilsExecError
 from setuptools.command.test import test as TestCommand
+
 from distutils import log
 
 
@@ -110,7 +111,7 @@ class oci_tests(TestCommand):
 
     def finalize_options(self):
         TestCommand.finalize_options(self)
-        if self.tests_base == None or not os.path.isdir(self.tests_base):
+        if self.tests_base is None or not os.path.isdir(self.tests_base):
             self.tests_base = None
             log.warn('Warning: tests_base not found or missing !!')
         else:

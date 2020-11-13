@@ -11,6 +11,7 @@ import uuid
 from tools.oci_test_case import OciTestCase
 from tools.decorators import (skipUnlessOCI, skipUnlessRoot)
 
+
 def _get_volume_data(volume_data):
     """
     Formats the data list retrieved from show as a dictionary.
@@ -272,3 +273,25 @@ class TestCliOciIscsiConfig(OciTestCase):
         except Exception as e:
             self.fail('oci-iscsi-config sync has failed: %s' % str(e))
 
+    @skipUnlessOCI()
+    @skipUnlessRoot()
+    def test_show_compartment(self):
+        """
+        Test show block volumes in given compartment. The output is not checked.
+
+        Returns
+        -------
+            No return value.
+        """
+        try:
+            vol_data = subprocess.check_output([self.iscsi_config_path,
+                                                'show',
+                                                '--compartment', self.compartment_name]).decode('utf-8').splitlines()
+            print('\niScsi volumes in %s:\n%s' % (self.compartment_name, vol_data))
+        except Exception as e:
+            self.fail('oci-iscsi-config show --compartment <name> has failed: %s' % str(e))
+
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestCliOciIscsiConfig)
+    unittest.TextTestRunner().run(suite)

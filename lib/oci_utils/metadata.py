@@ -76,7 +76,7 @@ def _set_by_path(dic, keys, value, create_missing=True):
     while i < n_key:
         k = keys[i]
         if isinstance(k, int):
-            assert isinstance(d, list) , "Internal Error: %s is Expected as a list for %s." % (d, k)
+            assert isinstance(d, list), "Internal Error: %s is Expected as a list for %s." % (d, k)
 
             while len(d) <= k:
                 d.insert(k, {})
@@ -171,8 +171,7 @@ def _get_path_keys(metadata, key_path, newkey_list):
     key = key_path[0]
     if key.isdigit() and isinstance(metadata, list):
         nkey = int(key)
-        assert nkey < len(metadata), \
-            "key(%s) in %s is out of range.\n" % (nkey, key_path)
+        assert nkey < len(metadata), "key(%s) in %s is out of range.\n" % (nkey, key_path)
 
         for nk in newkey_list:
             nk.append(nkey)
@@ -190,6 +189,7 @@ def _get_path_keys(metadata, key_path, newkey_list):
         else:
             pass
     else:
+        assert not isinstance(metadata, list), "The provided key represents a list, please specify an index or *"
         lower_keys = {k.lower(): k for k in metadata}
         if key not in metadata and key in lower_keys:
             # lower case key, get original
@@ -198,8 +198,7 @@ def _get_path_keys(metadata, key_path, newkey_list):
         for nk in newkey_list:
             nk.append(key)
 
-        assert key in metadata, \
-            "Invalid key '%s'  in %s.\n" % (key, str(metadata))
+        assert key in metadata, "Invalid key '%s'  in %s.\n" % (key, str(metadata))
         metadata = metadata[key]
 
     if len(key_path) > 1:
@@ -294,7 +293,6 @@ class OCIMetadata(dict):
                 v = self._metadata['vnics'][i].pop('id')
                 self._metadata['vnics'][i]['vnicId'] = v
 
-
     def _name_convert_camel_case(self, meta):
         """
         Convert name to camelcase, name_xyz into nameXyz.
@@ -346,8 +344,7 @@ class OCIMetadata(dict):
         key_path_list = []
         new_meta = {}
         for key in keys:
-            key = key.replace("extendedMetadata", "metadata").replace(
-                "extendedmetadata", "metadata")
+            key = key.replace("extendedMetadata", "metadata").replace("extendedmetadata", "metadata")
             #
             # fixing issues with oci-metadata not working with hyphenated
             # keys; this was done initially to be consistent with the OCI SDK.
@@ -492,7 +489,7 @@ class OCIMetadata(dict):
         return self._metadata[item]
 
 
-class InstanceMetadata():
+class InstanceMetadata:
     """
     Class for querying OCI instance metadata.
     This class used the REST endpoint to fetch metadata
@@ -523,7 +520,7 @@ class InstanceMetadata():
         if oci_metadata is None:
             self.refresh()
         else:
-            assert isinstance(oci_metadata, OCIMetadata) , "input should be an OCIMetadata object"
+            assert isinstance(oci_metadata, OCIMetadata), "input should be an OCIMetadata object"
             self._metadata = oci_metadata
 
     def refresh(self):
@@ -553,8 +550,6 @@ class InstanceMetadata():
         except IOError as e:
             raise IOError("Error connecting to metadata server") from e
 
-
-
         # get the VNIC info
         try:
             _request = urllib.request.Request(self._oci_metadata_api_url + 'vnics/',
@@ -574,7 +569,6 @@ class InstanceMetadata():
 
         return self
 
-
     def filter(self, keys):
         """
         Filter metadata keys
@@ -590,8 +584,7 @@ class InstanceMetadata():
                 The filtered metadata.
         """
 
-        assert self._metadata is not None, "Metadata is None. Check your " \
-                                           "input, config, and connection."
+        assert self._metadata is not None, "Metadata is None. Check your input, config, and connection."
         return self._metadata.filter(keys)
 
     def get(self):

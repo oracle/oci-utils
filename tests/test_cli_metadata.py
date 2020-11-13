@@ -26,11 +26,10 @@ class TestCliOciMetadata(OciTestCase):
             If the metadata_cli does not exist.
         """
 
-        super(TestCliOciMetadata, self).setUp()
+        super().setUp()
         self.oci_metadata_path = self.properties.get_property('oci-metadata')
         if not os.path.exists(self.oci_metadata_path):
-            raise unittest.SkipTest("%s not present" %
-                                    self.oci_metadata_path)
+            raise unittest.SkipTest("%s not present" % self.oci_metadata_path)
 
     def test_display_help(self):
         """
@@ -41,8 +40,7 @@ class TestCliOciMetadata(OciTestCase):
         No return value.
         """
         try:
-            _ = subprocess.check_output([self.oci_metadata_path,
-                                         '--help'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--help'])
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
@@ -55,8 +53,7 @@ class TestCliOciMetadata(OciTestCase):
         No return value.
         """
         try:
-            _ = subprocess.check_output([self.oci_metadata_path,
-                                         '--human-readable'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--human-readable'])
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
@@ -69,8 +66,7 @@ class TestCliOciMetadata(OciTestCase):
         No return value.
         """
         try:
-            _ = subprocess.check_output([self.oci_metadata_path,
-                                         '--json'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--json'])
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
@@ -83,8 +79,7 @@ class TestCliOciMetadata(OciTestCase):
         No return value.
         """
         try:
-            _ = subprocess.check_output([self.oci_metadata_path,
-                                         '--get', 'instance'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', 'instance'])
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
@@ -97,8 +92,7 @@ class TestCliOciMetadata(OciTestCase):
         No return value.
         """
         try:
-            _ = subprocess.check_output([self.oci_metadata_path,
-                                         '--get', 'instance', '--value-only'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', 'instance', '--value-only'])
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
@@ -111,7 +105,50 @@ class TestCliOciMetadata(OciTestCase):
         No return value.
         """
         try:
-            _ = subprocess.check_output([self.oci_metadata_path,
-                                         '--get', 'vnics', '--value-only', '--trim'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', 'vnics', '--value-only', '--trim'])
+        except Exception as e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_single_key(self):
+        """
+        Test displaying data fro single key
+
+        Returns
+        -------
+        No return value.
+        """
+        try:
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/privateip', '--trim'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/privateip',
+                                         '--get', '/instance/id', '--trim'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/privateip',
+                                         '--trim', '--value-only'])
+        except Exception as e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_update_key(self):
+        """
+        Test update an instance metadata key
+
+        Returns
+        -------
+        No return value.
+        """
+        try:
+            this_displayname = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/displayName',
+                                                        '--value-only', '--trim']).decode('utf-8')
+            _ = subprocess.check_output([self.oci_metadata_path, '--update', 'displayName=AutoTest'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--update', 'displayName=%s' % this_displayname])
+        except Exception as e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_instance_id_data(self):
+        """
+        Test metadata retrieval via instance id
+        """
+        try:
+            instance_ocid = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/id',
+                                                     '--value-only', '--trim']).decode('utf-8')
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics', '--instance-id', instance_ocid])
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))

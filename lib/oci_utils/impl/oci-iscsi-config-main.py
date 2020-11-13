@@ -275,7 +275,7 @@ def ocid_refresh(wait=False):
     if wait:
         _cmd.append('--no-daemon')
     try:
-        output = subprocess.check_output(_cmd, stderr=subprocess.STDOUT)
+        output = subprocess.check_output(_cmd, stderr=subprocess.STDOUT).decode('utf-8').splitlines
         if _logger.isEnabledFor(logging.DEBUG):
             _logger.debug('ocid run output: %s', str(output))
         return True
@@ -689,8 +689,7 @@ def do_umount(mountpoint):
     """
     try:
         _logger.info("Unmounting %s", mountpoint)
-        subprocess.check_output(['/usr/bin/umount',
-                                 mountpoint], stderr=subprocess.STDOUT)
+        subprocess.check_output(['/usr/bin/umount', mountpoint], stderr=subprocess.STDOUT)
         return True
     except subprocess.CalledProcessError as e:
         _logger.error("Failed to unmount %s: %s", mountpoint, e.output)
@@ -1103,7 +1102,7 @@ def main():
                     retval = 1
                     continue
             else:
-                _logger.debug('given IQN [%s] is not an iqn', _iqn_to_use)
+                _logger.debug('given IQN [%s] is not an ocid', _iqn_to_use)
                 if args.username is not None and args.password is not None:
                     _attachment_username = args.username
                     _attachment_password = args.password
