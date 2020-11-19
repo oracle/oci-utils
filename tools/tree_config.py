@@ -62,7 +62,7 @@ class TreeConfigParser(configparser.ConfigParser):
                 except IndexError:
                     # end of elems list
                     break
-            _logger.info('all properties files read : %s', self.read(_all_files))
+            _logger.debug('all properties files read : %s', self.read(_all_files))
 
     def get_property(self, key):
         try:

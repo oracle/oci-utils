@@ -1,6 +1,3 @@
-// Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
-// Licensed under the Universal Permissive License v 1.0 as shown
-// at http://oss.oracle.com/licenses/upl.
 {
     "variables": {
         "user_availability_domain": "",
@@ -8,11 +5,12 @@
         "user_compartment_ocid": "",
         "user_subnet_ocid": "",
         "user_image_name": "",
-        "user_AL_version": ""
+        "user_AL_version": "",
+        "user_OL_flavour": "Autonomous"
     },
     "builders": [
         {
-            "use_instance_principals": "true",
+            "use_instance_principals": "false",
             "ssh_username": "opc",
             "use_private_ip": "true",
             "availability_domain": "{{user `user_availability_domain`}}",
@@ -23,7 +21,8 @@
             "image_name": "{{user `user_image_name`}}",
             "instance_name": "AL-KVM-builder-{{timestamp}}",
             "tags": {
-                "AL_version": "{{user `user_AL_version`}}"
+                "OL_flavour": "{{user `user_OL_flavour`}}",
+                "OL_version": "{{user `user_OL_version`}}"
             },
             "type": "oracle-oci"
         }
@@ -33,7 +32,8 @@
             "type": "shell",
             "inline": [
                 "sudo yum install -y python36-libvirt",
-                "sudo rpm -iv https://ca-artifacts.us.oracle.com/auto-build/x86_64-build-output-7/oci-utils-kvm-0.11.6-8.el7.noarch.rpm"
+                "sudo rpm -Uv https://ca-artifacts.us.oracle.com/auto-build/x86_64-build-output-7/oci-utils-0.11.6-9.el7.noarch.rpm",
+                "sudo rpm -Uv https://ca-artifacts.us.oracle.com/auto-build/x86_64-build-output-7/oci-utils-kvm-0.11.6-9.el7.noarch.rpm"
             ]
         },
         {

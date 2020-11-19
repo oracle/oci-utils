@@ -6,7 +6,7 @@ terraform {
     oci = ">= 3.56.0"
   }
 }
-variable "tests_tools_dir" {}
+
 variable "tenancy_ocid" {}
 variable "user_ocid" {}
 variable "fingerprint" {}
@@ -30,6 +30,14 @@ variable "dns_server_ip" {}
 variable "http_proxy_url" {}
 variable "https_proxy_url" {}
 
+variable "subnet_identifier" {
+  type = map(string)
+  default = {
+    us-ashburn-1 = "",
+    uk-london-1  = ""
+  }
+}
+
 
 provider "oci" {
   tenancy_ocid     = var.tenancy_ocid
@@ -37,14 +45,6 @@ provider "oci" {
   fingerprint      = var.fingerprint
   private_key_path = var.private_key_path
   region           = var.region
-}
-
-variable "db_size" {
-  default = "50" # size in GBs
-}
-
-data "oci_identity_availability_domains" "ad" {
-  compartment_id = var.compartment_id
 }
 
 data "template_file" "resolver_config" {
@@ -63,7 +63,6 @@ data "template_file" "tests_environement" {
 }
 
 resource "oci_core_instance" "test_instance" {
-  count               = "1"
   availability_domain = var.availability_domain_id
   compartment_id      = var.compartment_id
   display_name        = "OCIUtilsTestInstance"
@@ -93,8 +92,52 @@ resource "oci_core_instance" "test_instance" {
 
 }
 
+resource "oci_core_vnic_attachment" "test_vnic_attachment_nic0" {
+  count = 2
+  create_vnic_details {
+    subnet_id        = var.subnet_id
+    assign_public_ip = false
+  }
+
+  instance_id = oci_core_instance.test_instance.id
+  nic_index   = 0
+}
+
+
+resource "oci_core_vnic_attachment" "test_vnic_attachment_nic1" {
+  count = 2
+  create_vnic_details {
+    subnet_id        = var.subnet_id
+    assign_public_ip = false
+  }
+  instance_id = oci_core_instance.test_instance.id
+  nic_index   = 1
+}
+
+resource "oci_core_volume" "test_volume" {
+  availability_domain = var.availability_domain_id
+  compartment_id      = var.compartment_id
+  display_name        = "OCIUtilsTestVolume"
+  size_in_gbs         = 128
+}
+resource "oci_core_volume_attachment" "test_volume_attachment" {
+  #Required
+  attachment_type = "iscsi"
+  instance_id     = oci_core_instance.test_instance.id
+  volume_id       = oci_core_volume.test_volume.id
+
+  is_read_only = false
+
+}
+
+resource "oci_core_instance_console_connection" "test_instance_cnx" {
+  depends_on = [oci_core_instance.test_instance]
+  #Required
+  instance_id = oci_core_instance.test_instance.id
+  public_key  = file(var.ssh_public_key_path)
+}
 output "instance_private_ip" {
-  value = oci_core_instance.test_instance.*.private_ip
+  value = oci_core_instance.test_instance.private_ip
 }
 
 
@@ -109,7 +152,7 @@ resource "null_resource" "deploy_test" {
       type        = "ssh"
       agent       = false
       user        = var.ssh_user
-      host        = oci_core_instance.test_instance[0].private_ip
+      host        = oci_core_instance.test_instance.private_ip
       timeout     = "15m"
       private_key = file(var.ssh_private_key_path)
     }
@@ -124,7 +167,7 @@ resource "null_resource" "deploy_test" {
       type        = "ssh"
       agent       = false
       user        = var.ssh_user
-      host        = oci_core_instance.test_instance[0].private_ip
+      host        = oci_core_instance.test_instance.private_ip
       timeout     = "15m"
       private_key = file(var.ssh_private_key_path)
     }
@@ -138,7 +181,7 @@ resource "null_resource" "deploy_test" {
       type        = "ssh"
       agent       = false
       user        = var.ssh_user
-      host        = oci_core_instance.test_instance[0].private_ip
+      host        = oci_core_instance.test_instance.private_ip
       timeout     = "15m"
       private_key = file(var.ssh_private_key_path)
     }
@@ -150,7 +193,7 @@ resource "null_resource" "deploy_test" {
       type        = "ssh"
       agent       = false
       user        = var.ssh_user
-      host        = oci_core_instance.test_instance[0].private_ip
+      host        = oci_core_instance.test_instance.private_ip
       timeout     = "15m"
       private_key = file(var.ssh_private_key_path)
     }
@@ -166,29 +209,26 @@ resource "null_resource" "deploy_test" {
       type        = "ssh"
       agent       = false
       user        = var.ssh_user
-      host        = oci_core_instance.test_instance[0].private_ip
+      host        = oci_core_instance.test_instance.private_ip
       timeout     = "15m"
       private_key = file(var.ssh_private_key_path)
     }
 
     inline = [
       "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes gcc",
-      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes python3-devel",
-      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes python3-pip",
-      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes python-oci-sdk",
-      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes libvirt",
-      "/bin/sudo --login /usr/bin/yum install --quiet --assumeyes libvirt-python",
       "/bin/sudo --login /usr/bin/pip3 install --quiet --upgrade pip",
       "/bin/sudo --login /usr/bin/pip3 install setuptools --upgrade",
       "/bin/sudo --login /usr/bin/yum localinstall --assumeyes /tmp/oci-utils-*.rpm",
       "/bin/sudo --login /usr/bin/systemctl enable --now ocid",
       "/bin/sudo --login /usr/bin/systemctl enable --now libvirtd",
-      "/bin/sudo --login /usr/bin/pip3 install wheel",
+      "/bin/sudo --login /usr/bin/pip3 install wheel"
+
     ]
   }
 
 }
-resource "null_resource" "run_test" {
+
+resource "null_resource" "deploy_iso" {
   depends_on = [null_resource.deploy_test]
 
   provisioner "remote-exec" {
@@ -196,7 +236,25 @@ resource "null_resource" "run_test" {
       type        = "ssh"
       agent       = false
       user        = var.ssh_user
-      host        = oci_core_instance.test_instance[0].private_ip
+      host        = oci_core_instance.test_instance.private_ip
+      timeout     = "15m"
+      private_key = file(var.ssh_private_key_path)
+    }
+    inline = [
+      "wget -O /var/tmp/OracleLinux-R7-U9-Server-x86_64-dvd.iso --no-directories --progress=bar https://ca-artifacts.us.oracle.com/ISOs/build-isos/x86_64-el7-u9-isos/LATEST/OracleLinux-R7-U9-Server-x86_64-dvd.iso"
+    ]
+  }
+}
+
+resource "null_resource" "run_test" {
+  depends_on = [null_resource.deploy_iso]
+
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      agent       = false
+      user        = var.ssh_user
+      host        = oci_core_instance.test_instance.private_ip
       timeout     = "15m"
       private_key = file(var.ssh_private_key_path)
     }

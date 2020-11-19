@@ -1,8 +1,9 @@
 {
-    "user_availability_domain": "VkEH:UK-LONDON-1-AD-1",
-    "user_base_image_ocid": "ocid1.image.oc1.uk-london-1.aaaaaaaah4metxb64svtd6daj46opgtg6y7bru75krftd562gec4e22jxqkq",
-    "user_compartment_ocid": "ocid1.compartment.oc1..aaaaaaaawzn525kzymvcso4rxdfkdgkoscbuqam42dwihe3kzm44iv7mjnta",
-    "user_subnet_ocid": "ocid1.subnet.oc1.uk-london-1.aaaaaaaanmufiouwtja6r2t3g2kndzktnvyoqabmfqy75jjvn6ctfazvtgca",
-    "user_image_name": "AL-KVM-2.0",
-    "user_AL_version": "2020.11.06-v2.0"
+    "user_availability_domain": "<change this>",
+    "user_base_image_ocid": "<change this>",
+    "user_compartment_ocid": "<change this>",
+    "user_subnet_ocid": "<change this>",
+    "user_image_name": "<change this>",
+    "user_OL_version": "<change this>",
+    "user_OL_flavour": "<change this>"
 }
