@@ -27,6 +27,7 @@ Requires: util-linux
 # for iscsiadm
 Requires: iscsi-initiator-utils
 Requires: python36-oci-sdk
+Requires: python36-oci-cli
 #
 %if 0%{?rhel} == 7
 Requires: python36-netaddr

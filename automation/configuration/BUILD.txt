@@ -1,0 +1,24 @@
+as user:
+
+update files, sources, spec, gpg keys
+run 
+ make help
+    shows help info
+ make showversion
+    shows spec versiondata
+ make distro
+    creates compressed tarball
+ make directorystructure
+    creates the directorystructure for building the rpms
+ make rpms
+    builds the rpms
+ make repos
+    creates the repo directories
+ make publish
+    copies the rpms to the destination, the default is /var/www/html/channel_rpms/$USER
+    the default destination is in the webserver area. 
+ make clean
+
+current supported distributions:
+  .el7
+  .el8
