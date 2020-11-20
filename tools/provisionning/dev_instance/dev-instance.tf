@@ -22,8 +22,6 @@ variable "ssh_private_key_path" {}
 variable "ssh_authorized_key_path" {}
 variable "ssh_user" {}
 
-#variable "oci_utils_rpms_dir" {}
-
 
 variable "dns_search_domains" {}
 variable "dns_server_ip" {}
@@ -37,10 +35,6 @@ provider "oci" {
   fingerprint      = var.fingerprint
   private_key_path = var.private_key_path
   region           = var.region
-}
-
-variable "db_size" {
-  default = "50" # size in GBs
 }
 
 data "oci_identity_availability_domains" "ad" {
@@ -83,22 +77,16 @@ resource "oci_core_vnic_attachment" "test_vnic_attachment_0" {
     subnet_id = var.subnet_id
   }
   instance_id = oci_core_instance.dev_instance.id
-
-  #Optional
-  #display_name = var.vnic_attachment_display_name
-  nic_index = 1
+  nic_index   = 1
 }
 resource "oci_core_vnic_attachment" "test_vnic_attachment_1" {
   create_vnic_details {
 
     subnet_id = var.subnet_id
-    #vlan_id = oci_core_vlan.test_vlan.id
+
   }
   instance_id = oci_core_instance.dev_instance.id
-
-  #Optional
-  #display_name = var.vnic_attachment_display_name
-  nic_index = 1
+  nic_index   = 1
 }
 resource "oci_core_vnic_attachment" "test_vnic_attachment_2" {
   create_vnic_details {
@@ -106,10 +94,7 @@ resource "oci_core_vnic_attachment" "test_vnic_attachment_2" {
 
   }
   instance_id = oci_core_instance.dev_instance.id
-
-  #Optional
-  #display_name = var.vnic_attachment_display_name
-  nic_index = 1
+  nic_index   = 1
 }
 resource "oci_core_vnic_attachment" "test_vnic_attachment_3" {
   create_vnic_details {
@@ -118,8 +103,6 @@ resource "oci_core_vnic_attachment" "test_vnic_attachment_3" {
   }
   instance_id = oci_core_instance.dev_instance.id
 
-  #Optional
-  #display_name = var.vnic_attachment_display_name
   nic_index = 1
 }
 
