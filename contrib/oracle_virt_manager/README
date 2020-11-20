@@ -1,0 +1,25 @@
+This host the terraform template file which can be used
+to deploy the Oracle Linux Virtualization Manager on top of an OCI KVM image
+
+expected variables :
+   "tenancy_ocid": tenacy OCID to deploy the instance in
+    "user_ocid": user ocid to remote connection
+    "fingerprint": see https://docs.cloud.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm
+    "private_key_path": see https://docs.cloud.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm
+    "region": the region to use
+    "compartment_id": compartment OCID to deploy the instance in
+    "availability_domain_id": OCI availability domain to spawn the instance to
+    "subnet_id": subnet ocid for the instance vNICs
+    "instance_shape": OCI instance shape to use
+    "instance_image_ocid": KVM image ocid
+    "ssh_private_key_path": see https://docs.cloud.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm
+    "ssh_public_key_path": see https://docs.cloud.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm
+    "ssh_authorized_key_path": see https://docs.cloud.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm
+    "ssh_user": remote use to use for connection
+    "http_proxy_url": http proxy url,
+    "https_proxy_url": https proxy url
+
+References:
+  KVM Image : https://www.oracle.com/linux/technologies/ol-kvm-image.html
+  Virtualization manager : https://docs.oracle.com/en/virtualization/oracle-linux-virtualization-manager/index.html
+
