@@ -25,6 +25,19 @@ _logger = logging.getLogger('oci-utils.ubuntu-type-os')
 _os_type_tag_csl_tag_type_os_ = 'ubuntu, debian,'
 
 
+def execute_os_specific_tasks():
+    """
+    Executes the marked methods.
+
+    Returns
+    -------
+    dict: the return values.
+    """
+    os_specific_job = OsSpecificOps()
+    os_return_values = migrate_tools.call_os_specific_methods(os_specific_job)
+    return os_return_values
+
+
 def os_banner():
     """
     Show OS banner.
@@ -61,7 +74,7 @@ class OsSpecificOps():
         """
 
     @staticmethod
-    def exec_apt(cmd):
+    def _exec_apt(cmd):
         """
         Execute an apt command.
 
@@ -107,7 +120,7 @@ class OsSpecificOps():
                 _logger.debug('%s does not exist.', dpkg_cfg_path)
             #
             # remove cloud-init package
-            purge_output = self.exec_apt(['purge', 'cloud-init', '-y'])
+            purge_output = self._exec_apt(['purge', 'cloud-init', '-y'])
             _logger.debug('cloud-init purged: %s', purge_output)
             #
             # remove /etc/cloud
@@ -155,7 +168,10 @@ class OsSpecificOps():
             """
             _logger.debug('Collection list of packages.')
             try:
-                pkg_list = get_config_data('ubuntu_os_packages_to_install')
+                pkg_list = get_config_data('ubuntu_os_packages_to_install_apt')
+                if not bool(pkg_list):
+                    _logger.debug('apt package list is empty.')
+                    return False
                 _logger.debug('Package list: %s', pkg_list)
                 return pkg_list
             except Exception as e:
@@ -174,11 +190,18 @@ class OsSpecificOps():
                 _logger.debug('Updating nameserver info succeeded.')
             else:
                 _logger.error('  Failed to update nameserver info.')
+
+            #
+            # update package list
+            update_output = self._exec_apt(['update'])
+            _logger.debug('Successfully updated package list.')
+            #
+            # install packages
             for pkg in packages:
                 #
                 # verify if the package is available.
                 pkg_present = False
-                deblist = self.exec_apt(['list', pkg])
+                deblist = self._exec_apt(['list', pkg])
                 for lline in deblist.splitlines():
                     _logger.debug('%s', lline)
                     if pkg in lline:
@@ -193,7 +216,7 @@ class OsSpecificOps():
                         'the repository.' % pkg
                     return False
 
-                installoutput = self.exec_apt(['install', '-y', pkg])
+                installoutput = self._exec_apt(['install', '-y', pkg])
                 _logger.debug('Successfully installed %s:\n%s', pkg, installoutput)
                 pause_msg(msg='Installed %s here, or not.' % pkg, pause_flag='_OCI_CHROOT')
 
@@ -267,18 +290,80 @@ class OsSpecificOps():
                         break
             return enabled
         except Exception as e:
-            _logger.warning('   Failed to execute apt: %s', str(e))
-            raise OciMigrateException('\nFailed to execute apt:') from e
+            _logger.warning('   Failed to execute systemctl: %s', str(e))
+            raise OciMigrateException('\nFailed to execute systemctl: ') from e
 
+    @is_an_os_specific_method
+    def b30_install_snap_packages(self):
+        """
+        Add a job to the cloud-init config file to install additional packages
+        by snap at first boot. (snapd cannot be run while in chroot during
+        image preparation.)
 
-def execute_os_specific_tasks():
-    """
-    Executes the marked methods.
+        Returns
+        -------
+           bool: True on success, False otherwise. (always True as packages to
+                 be installed via snap are not considered essential.)
+        """
+        def get_ubuntu_snap_package_list():
+            """
+            Retrieve the list of packages to install from oci-migrate-config file.
 
-    Returns
-    -------
-    dict: the return values.
-    """
-    os_specific_job = OsSpecificOps()
-    os_return_values = migrate_tools.call_os_specific_methods(os_specific_job)
-    return os_return_values
+            Returns
+            -------
+            list: list of package names to install.
+            """
+            _logger.debug('__ Collection list of snap packages.')
+            try:
+                snap_pkg_list = get_config_data('ubuntu_os_packages_to_install_snap')
+                if bool(snap_pkg_list):
+                    pkg_list = '('
+                else:
+                    _logger.debug('snap package list is empty.')
+                    return False
+                _logger.debug('Package list: %s', snap_pkg_list)
+                for pkg in snap_pkg_list:
+                    pkg_list = pkg_list.__add__("'")\
+                        .__add__(pkg)\
+                        .__add__("'")\
+                        .__add__(" ")
+                pkg_list = pkg_list.__add__(')')
+                _logger.debug('Package list: %s', pkg_list)
+                return pkg_list
+            except Exception as e:
+                _logger.warning('Failed to find a list of packages: %s', str(e))
+                return False
+
+        _logger.debug('__ Install software packages using snap.')
+        try:
+            #
+            # collect packages to install
+            packages = get_ubuntu_snap_package_list()
+            if not bool(packages):
+                _logger.debug('No extra packages to install.')
+                return True
+            #
+            # get snapd script name
+            ubuntu_os_snap_install_script = \
+                get_config_data('ubuntu_os_snap_install_script')
+            _logger.debug('snap package install script: %s', ubuntu_os_snap_install_script)
+            #
+            # get, update and write the script.
+            with open(ubuntu_os_snap_install_script, 'w') as bashf:
+                bashf.writelines(
+                    ln.replace('_XXXX_', packages) + '\n'
+                    for ln in get_config_data('ubuntu_os_snapd_bash'))
+            os.chmod(ubuntu_os_snap_install_script, stat.S_IRWXU)
+            #
+            # update cloud-init with runcmd command
+            if migrate_tools.update_cloudconfig_runcmd(ubuntu_os_snap_install_script):
+                _logger.debug('snap install script successfully added.')
+                migrate_tools.result_msg(msg='snap packages install script '
+                                             'successfully added.', result=False)
+            else:
+                _logger.debug('Failed to add snap install script.')
+        except Exception as e:
+            _logger.warning('Failed to install one or more packages of %s:\n%s', packages, str(e))
+            #
+            # not considered as essential or fatal.
+        return True

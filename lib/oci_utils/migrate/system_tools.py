@@ -105,6 +105,7 @@ def enter_chroot(newroot):
     """
     _logger.debug('__ Entering chroot jail at %s.', newroot)
     root2return = -1
+    current_dir = ''
     try:
         #
         # current working directory

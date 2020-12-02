@@ -71,7 +71,7 @@ as required by the migration documentation;
 ## The data structure
 
 The **DeviceData** class creates, completes and uses a dictionary 
-datastructure **img_info** for analysing the image:
+datastructure **image_info** for analysing the image:
 
     img_name   <image file name>
 
@@ -141,6 +141,8 @@ datastructure **img_info** for analysing the image:
     remountlist [ list of mountpoints used while chroot]
 
     ostype <ref to os dependent code>
+    
+    major_release MAJOR os release
     
     kernelversion <version of kernel booted by default>
     

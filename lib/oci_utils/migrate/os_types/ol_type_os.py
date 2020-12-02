@@ -28,6 +28,21 @@ _logger = logging.getLogger('oci-utils.ol-type-os')
 _os_type_tag_csl_tag_type_os_ = 'ol, rhel, fedora, centos,'
 
 
+def execute_os_specific_tasks():
+    """
+    Executes the marked methods.
+
+    Returns
+    -------
+    dict: the return values.
+    """
+    _logger.debug('__ OS specific tasks.')
+    os_specific_job = OsSpecificOps()
+    os_return_values = migrate_tools.call_os_specific_methods(os_specific_job)
+    _logger.debug('OS specific tasks: %s', os_return_values)
+    return os_return_values
+
+
 def os_banner():
     """
     Show OS banner.
@@ -57,12 +72,14 @@ def get_package_mgr_tool():
         package_mgr_dict['package_available'] = ['--showduplicates', 'search']
         package_mgr_dict['package_remove'] = ['erase', '-y']
         package_mgr_dict['package_install'] = ['install', '-y']
+        package_mgr_dict['package_localinstall'] = ['localinstall', '-y']
     elif bool(system_tools.exec_exists('yum')):
         _logger.debug('Upgrade using yum')
         package_mgr_dict['pkg_mgr'] = 'yum'
         package_mgr_dict['package_available'] = ['--showduplicates', 'search']
         package_mgr_dict['package_remove'] = ['remove', '-y']
         package_mgr_dict['package_install'] = ['install', '-y']
+        package_mgr_dict['package_localinstall'] = ['localinstall', '-y']
     else:
         raise OciMigrateException('Failed to find upgrade tool')
     _logger.debug('Package install tool data:\n %s', package_mgr_dict)
@@ -95,56 +112,6 @@ class OsSpecificOps():
         """
         self.package_tool = get_package_mgr_tool()
 
-    @staticmethod
-    def exec_yum(cmd):
-        """
-        Execute a yum command.
-
-        Parameters
-        ----------
-        cmd: list
-            The yum command parameters as s list.
-
-        Returns
-        -------
-            str: yum output on success, raises an exception otherwise.
-        """
-        cmd = ['yum'] + cmd
-        _logger.debug('Running yum command: %s', cmd)
-        try:
-            _logger.debug('command: %s', cmd)
-            output = system_tools.run_popen_cmd(cmd)['output'].decode('utf-8')
-            _logger.debug('yum command output: %s', str(output))
-            return output
-        except Exception as e:
-            _logger.critical('   Failed to execute yum: %s', str(e))
-            raise OciMigrateException('\nFailed to execute yum.') from e
-
-    @staticmethod
-    def exec_dnf(cmd):
-        """
-        Execute a dnf command.
-
-        Parameters
-        ----------
-        cmd: list
-            The dnf command parameters as s list.
-
-        Returns
-        -------
-            str: dnf output on success, raises an exception otherwise.
-        """
-        cmd = ['dnf'] + cmd
-        _logger.debug('Running dnf command: %s', cmd)
-        try:
-            _logger.debug('command: %s', cmd)
-            output = system_tools.run_popen_cmd(cmd)['output'].decode('utf-8')
-            _logger.debug('dnf command output: %s', str(output))
-            return output
-        except Exception as e:
-            _logger.critical('   Failed to execute dnf: %s', str(e))
-            raise OciMigrateException('\nFailed to execute dnf.') from e
-
     @is_an_os_specific_method
     def a10_remove_cloud_init(self):
         """
@@ -156,8 +123,8 @@ class OsSpecificOps():
         """
         _logger.debug('__ Remove existing cloud_init config.')
         try:
-            pkg_mgr = self.exec_yum \
-                if self.package_tool['pkg_mgr'] == 'yum' else self.exec_dnf
+            pkg_mgr = self._exec_yum \
+                if self.package_tool['pkg_mgr'] == 'yum' else self._exec_dnf
             package_erase = self.package_tool['package_remove'] + ['cloud-init']
             remove_output = pkg_mgr(package_erase)
             _logger.debug('cloud-init removed: %s', remove_output)
@@ -209,6 +176,9 @@ class OsSpecificOps():
             _logger.debug('Collection list of packages.')
             try:
                 pkg_list = get_config_data('ol_os_packages_to_install')
+                if not bool(pkg_list):
+                    _logger.debug('Package list is empty.')
+                    return False
                 _logger.debug('Package list: %s', pkg_list)
                 return pkg_list
             except Exception as e:
@@ -233,8 +203,8 @@ class OsSpecificOps():
                 _logger.error('  Failed to update nameserver info.')
             #
             # get package manipulation tool.
-            pkg_mgr = self.exec_yum \
-                if self.package_tool['pkg_mgr'] == 'yum' else self.exec_dnf
+            pkg_mgr = self._exec_yum \
+                if self.package_tool['pkg_mgr'] == 'yum' else self._exec_dnf
             #
             # install packages
             for pkg in packages:
@@ -390,17 +360,84 @@ class OsSpecificOps():
             _logger.debug('dracut not found')
         return True
 
+    @is_an_os_specific_method
+    def b20_install_cloud_agent(self):
+        """
+        Install the oracle cloud agent.
+        Returns
+        -------
+           bool: True on success, False otherwise. (always True as failing to
+                 install the oracle cloud agent is not fatal.
+        """
+        _logger.debug('__ Install oracle cloud agent.')
+        if bool(migrate_data.oracle_cloud_agent_location):
+            _logger.debug('oracle cloud agent present: %s', migrate_data.oracle_cloud_agent_location)
+        else:
+            _logger.debug('No oracle cloud agent package present, skipping.')
+            return True
+        #
+        # get package manipulation tool.
+        pkg_mgr = self._exec_yum \
+            if self.package_tool['pkg_mgr'] == 'yum' else self._exec_dnf
+        #
+        # install rpm
+        oracle_cloud_agent_rpm = migrate_data.oracle_cloud_agent_location
+        simple_rpm = oracle_cloud_agent_rpm.split('/')[-1]
+        try:
+            install_output = pkg_mgr(self.package_tool['package_localinstall'] + [oracle_cloud_agent_rpm])
+            _logger.debug('Successfully installed pkg %s:\n%s', simple_rpm, install_output)
+            migrate_tools.result_msg(msg='Installed %s.' % simple_rpm, result=False)
+            pause_msg('cloud agent', pause_flag='_OCI_AGENT')
+        except Exception as e:
+            _logger.warning('Failed to install %s: %s', simple_rpm, str(e))
+        return True
 
-def execute_os_specific_tasks():
-    """
-    Executes the marked methods.
+    @staticmethod
+    def _exec_dnf(cmd):
+        """
+        Execute a dnf command.
 
-    Returns
-    -------
-    dict: the return values.
-    """
-    _logger.debug('__ OS specific tasks.')
-    os_specific_job = OsSpecificOps()
-    os_return_values = migrate_tools.call_os_specific_methods(os_specific_job)
-    _logger.debug('OS specific tasks: %s', os_return_values)
-    return os_return_values
+        Parameters
+        ----------
+        cmd: list
+            The dnf command parameters as s list.
+
+        Returns
+        -------
+            str: dnf output on success, raises an exception otherwise.
+        """
+        cmd = ['dnf'] + cmd
+        _logger.debug('Running dnf command: %s', cmd)
+        try:
+            _logger.debug('command: %s', cmd)
+            output = system_tools.run_popen_cmd(cmd)['output'].decode('utf-8')
+            _logger.debug('dnf command output: %s', str(output))
+            return output
+        except Exception as e:
+            _logger.critical('   Failed to execute dnf: %s', str(e))
+            raise OciMigrateException('\nFailed to execute dnf.') from e
+
+    @staticmethod
+    def _exec_yum(cmd):
+        """
+        Execute a yum command.
+
+        Parameters
+        ----------
+        cmd: list
+            The yum command parameters as s list.
+
+        Returns
+        -------
+            str: yum output on success, raises an exception otherwise.
+        """
+        cmd = ['yum'] + cmd
+        _logger.debug('Running yum command: %s', cmd)
+        try:
+            _logger.debug('command: %s', cmd)
+            output = system_tools.run_popen_cmd(cmd)['output'].decode('utf-8')
+            _logger.debug('yum command output: %s', str(output))
+            return output
+        except Exception as e:
+            _logger.critical('   Failed to execute yum: %s', str(e))
+            raise OciMigrateException('\nFailed to execute yum.') from e

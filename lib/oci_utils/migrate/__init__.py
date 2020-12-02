@@ -268,6 +268,13 @@ class OciMigrateConfParam():
             self._config_data = yaml.load(f, Loader=yaml.SafeLoader)
         return self
 
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        """
+        OciMigrateConfParam exit
+        """
+        if exc_value is not None:
+            _logger.error('Failed to read config file:%s - %s: %s',exc_type, exc_value, exc_traceback)
+
     def get_values(self):
         """
         Retrieve the configuration data, one entry if key is not '*', complete
