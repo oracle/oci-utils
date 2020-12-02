@@ -25,7 +25,7 @@ declare cmd_line=""
 
 if [ "${1:0:1}" != '-' ]
 then
-   # execute as is
+   # execute as is as the command line do not start with an option dash-<something>
    exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $@
 fi
 

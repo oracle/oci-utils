@@ -38,7 +38,6 @@ class VNICUtils():
         except IOError as e:
             _logger.warning('Cannot get metadata: %s', str(e))
 
-        self.get_vnic_info()
 
     @staticmethod
     def __new_vnic_info():
@@ -172,6 +171,22 @@ class VNICUtils():
         vnic_id: int
             The VNIC id.
         """
+        _interfaces = self.get_network_config()
+        _intf=None
+        for _interface in _interfaces:
+            if _interface.get('VNIC') == vnic_id:
+                _intf = _interface
+                break
+        if _intf is None:
+            # cannot happen
+            _logger.debug ('WARNING : cannot find vnic with id [%s]: caller did not check ?')
+        if 'SECONDARY_IPS' not in _intf:
+            _intf['SECONDARY_IPS'] = [ipaddr]
+        else:
+            _intf['SECONDARY_IPS'].append(ipaddr)
+
+        self._config_secondary_intf(_intf)
+
         if [ipaddr, vnic_id] not in self.vnic_info['sec_priv_ip']:
             self.vnic_info['sec_priv_ip'].append([ipaddr, vnic_id])
         self.save_vnic_info()
@@ -227,22 +242,19 @@ class VNICUtils():
         _interfaces = self.get_network_config()
         _interface_to_delete = None
         for _interface in _interfaces:
-            if _interface.get('VNIC') == vnic_id and _interface.get('ADDR') == ipaddr:
+            if _interface.get('VNIC') == vnic_id and (_interface.get('ADDR') == ipaddr or ipaddr in _interface.get('SECONDARY_ADDRS',())):
                 _interface_to_delete = _interface
                 break
 
         if not _interface_to_delete:
+            _logger.debug('del_private_ip. IP [%s] not found on vNIC %s',ipaddr,vnic_id)
             return 0, 'IP %s is not configured.' % ipaddr
 
         # 1. delete any rule for this ip
-        NetworkHelpers.remove_ip_addr_rules(_interface_to_delete['ADDR'])
+        NetworkHelpers.remove_ip_addr_rules(ipaddr)
 
         # 2. remove addr from the system
-        if _interface_to_delete.has('NS'):
-            NetworkHelpers.remove_ip_addr(_interface_to_delete['IFACE'],
-                                          _interface_to_delete['ADDR'], _interface_to_delete['NS'])
-        else:
-            NetworkHelpers.remove_ip_addr(_interface_to_delete['IFACE'], _interface_to_delete['ADDR'])
+        NetworkInterfaceSetupHelper(_interface_to_delete).remove_secondary_address(ipaddr)
 
         # 3. removes the mac address from the unmanaged-devices list in then NetworkManager.conf file.
         NetworkHelpers.add_mac_to_nm(_interface_to_delete['MAC'])
@@ -316,8 +328,7 @@ class VNICUtils():
 
         Returns
         -------
-        tuple
-            (exit code: int,  output from the "sec vnic" script execution.)
+
         """
 
         _all_intf = self.get_network_config()
@@ -341,10 +352,6 @@ class VNICUtils():
             if _intf['IFACE'] != '-':
                 # keep track of interface by NIC index
                 _by_nic_index[_intf['NIC_I']] = _intf['IFACE']
-
-            if _intf.has('IS_PRIMARY'):
-                # in nay case we touch the primary
-                continue
 
             # Is this intf excluded ?
             if self._is_intf_excluded(_intf):
@@ -415,19 +422,8 @@ class VNICUtils():
         # 4 add secondaries IP address
 
         for _intf in _all_to_be_modified:
-            ns_i=None
-            if 'ns' in self.vnic_info:
-                # if requested to use namespace, compute namespace name pattern
-                ns_i = {}
-                if self.vnic_info['ns']:
-                    ns_i['name'] = self.vnic_info['ns']
-                else:
-                    ns_i['name'] = 'ons%s' % _intf['IFACE']
+            self._config_secondary_intf(_intf)
 
-                ns_i['start_sshd'] = 'sshd' in self.vnic_info
-            self._auto_config_secondary_intf(ns_i, _intf)
-
-        return (0, '')
 
     def _deconfig_secondary_addr(self, intf_infos, address):
         """
@@ -601,6 +597,13 @@ class VNICUtils():
         if self._metadata is None:
             _logger.warning('no metadata available')
         else:
+            _ip_per_id=dict()
+            # re-order secondaris ips
+            for (ip,ocid) in self.get_vnic_info()[1]['sec_priv_ip']:
+                if ocid in _ip_per_id:
+                    _ip_per_id[ocid].append(ip)
+                else:
+                    _ip_per_id[ocid]=[ip]
             for md_vnic in self._metadata['vnics']:
                 _intf = _intf_dict()
                 if _first_loop:
@@ -617,6 +620,9 @@ class VNICUtils():
                 if 'nicIndex' in md_vnic:
                     # VMs do not have such attr
                     _intf['NIC_I'] = md_vnic['nicIndex']
+                if md_vnic['vnicId'] in _ip_per_id:
+                    _intf['SECONDARY_ADDRS']=_ip_per_id[md_vnic['vnicId']]
+
                 _all_from_metadata.append(_intf)
 
         # now we correlate informations
@@ -648,6 +654,7 @@ class VNICUtils():
                         if _vlan_is[0].has('SECONDARY_ADDRS'):
                             interface['SECONDARY_ADDRS'] = _vlan_is[0]['SECONDARY_ADDRS']
                 interface['CONFSTATE'] = _state
+
                 # clean up system list
                 _all_from_system = [_i for _i in _all_from_system if _i['MAC'] != interface['MAC']]
             except ValueError as e:
@@ -655,7 +662,7 @@ class VNICUtils():
             finally:
                 interfaces.append(interface)
 
-        # now collect the one left omr systeme
+        # now collect the one left omr system
         for interface in _all_from_system:
             interface['CONFSTATE'] = 'DELETE'
             interfaces.append(interface)
@@ -688,7 +695,7 @@ class VNICUtils():
         Deconfigure interface routing
         parameter:
         intf_info: interface info as dict
-            keys: see VNICITils.get_network_config
+            keys: see VNICUTils.get_network_config
 
         Raise:
             Exception. if configuration failed
@@ -758,16 +765,11 @@ class VNICUtils():
                         (intf_infos['ADDR'], _route_table_name, intf_infos['VIRTRT']))
 
 
-    def _auto_config_secondary_intf(self, net_namespace_info, intf_infos):
+    def _config_secondary_intf(self, intf_infos):
         """
         Configures interface secodnary IPs
 
         parameter:
-        net_namespace_info:
-            information about namespace (or None if no namespace use)
-            keys:
-            name : namespace name
-            start_sshd: if True start sshd within the namespace
         intf_info: interface info as dict
             keys: see VNICITils.get_network_config
 
@@ -779,7 +781,7 @@ class VNICUtils():
 
         _sec_addrs = []
         if intf_infos.has('SECONDARY_ADDRS'):
-            _sec_addrs = [ip['address'] for ip in intf_infos['SECONDARY_ADDRS']]
+            _sec_addrs = intf_infos.get('SECONDARY_ADDRS')
 
         for secondary_ip in intf_infos['SECONDARY_IPS']:
             if secondary_ip in _sec_addrs:
@@ -825,8 +827,9 @@ def _auto_config_intf(net_namespace_info, intf_infos):
 
     # create network namespace if needed
     if net_namespace_info is not None:
-        _logger.debug('creating namespace [%s]' % net_namespace_info['name'])
-        NetworkHelpers.create_network_namespace(net_namespace_info['name'])
+        if not NetworkHelpers.is_network_namespace_exists(net_namespace_info['name']):
+            _logger.debug('creating namespace [%s]' % net_namespace_info['name'])
+            NetworkHelpers.create_network_namespace(net_namespace_info['name'])
         NetworkInterfaceSetupHelper(intf_infos, net_namespace_info['name']).setup()
     else:
         NetworkInterfaceSetupHelper(intf_infos).setup()

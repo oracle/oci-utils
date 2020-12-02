@@ -77,33 +77,7 @@ resource "oci_core_vnic_attachment" "test_vnic_attachment_0" {
     subnet_id = var.subnet_id
   }
   instance_id = oci_core_instance.dev_instance.id
-  nic_index   = 1
-}
-resource "oci_core_vnic_attachment" "test_vnic_attachment_1" {
-  create_vnic_details {
-
-    subnet_id = var.subnet_id
-
-  }
-  instance_id = oci_core_instance.dev_instance.id
-  nic_index   = 1
-}
-resource "oci_core_vnic_attachment" "test_vnic_attachment_2" {
-  create_vnic_details {
-    subnet_id = var.subnet_id
-
-  }
-  instance_id = oci_core_instance.dev_instance.id
-  nic_index   = 1
-}
-resource "oci_core_vnic_attachment" "test_vnic_attachment_3" {
-  create_vnic_details {
-
-    subnet_id = var.subnet_id
-  }
-  instance_id = oci_core_instance.dev_instance.id
-
-  nic_index = 1
+  nic_index   = 0
 }
 
 output "instance_private_ip" {
