@@ -541,11 +541,7 @@ def vnic_func(context, func_logger):
         context['vnic_info_ts'], context['vnic_info'] = \
             context['vnic_utils'].get_vnic_info()
         context['vnics'] = get_metadata_vnics()
-        (ret, out) = context['vnic_utils'].auto_config([])
-        if ret != 0:
-            func_logger.warning("Failed to configure network interfaces")
-        if out is not None and out != "":
-            func_logger.info("secondary VNIC script reports: %s" % out)
+        context['vnic_utils'].auto_config([])
         func_logger.debug("Returning the context [%s]" % str(context))
         return context
 
@@ -598,11 +594,7 @@ def vnic_func(context, func_logger):
 
     if update_needed:
         func_logger.info("updating network interfaces")
-        (ret, out) = context['vnic_utils'].auto_config([])
-        if ret != 0:
-            func_logger.warning("Failed to configure network interfaces")
-        if out is not None and out != "":
-            func_logger.info("secondary VNIC script reports: %s" % out)
+        context['vnic_utils'].auto_config([])
 
     return context
 

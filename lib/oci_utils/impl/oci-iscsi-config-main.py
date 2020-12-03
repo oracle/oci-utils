@@ -511,7 +511,7 @@ def do_destroy_volume(sess, ocid):
     -----
         Exception : when destroy has failed
     """
-
+    _logger.debug("Destroying volume [%s]",ocid)
     try:
         vol = sess.get_volume(ocid)
     except Exception as e:
@@ -626,7 +626,7 @@ def _do_attach_oci_block_volume(sess, ocid):
     Raise:
         Exception if attachment failed
     """
-
+    _logger.debug("attaching volume [%s]",ocid)
     vol = sess.get_volume(ocid)
     if vol is None:
         raise Exception("Volume %s not found" % ocid)
