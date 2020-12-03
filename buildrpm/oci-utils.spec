@@ -160,10 +160,9 @@ rm -rf %{buildroot}
 %{python3_sitelib}/oci_utils/impl/__init__*
 %{python3_sitelib}/oci_utils/impl/migrate
 %{python3_sitelib}/oci_utils/migrate
-%exclude  %{python3_sitelib}/oci_utils/migrate/tests
 %{_datadir}/man/man1/oci-image-migrate*1.gz
 %config %{_sysconfdir}/oci-utils/oci-migrate-conf.yaml
-%exclude  %{python3_sitelib}/oci_utils/migrate/tests
+
 
 %files oumtest
 /opt/oci-utils/lib
