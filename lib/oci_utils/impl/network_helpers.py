@@ -39,9 +39,12 @@ _logger = logging.getLogger('oci-utils.net-helper')
 def is_network_namespace_exists(name):
     """
     Checks that a namespace exist or not
-    parameter:
+    
+    Parameter
+    ---------
       name : namespace name as str
-    Returns:
+    Returns
+    -------
        True if exists False otherwise
     """
     return os.path.exists('/var/run/netns/%s'%name)
@@ -49,11 +52,14 @@ def is_network_namespace_exists(name):
 def create_network_namespace(name):
     """
     Creates network namespace
-    parameter:
+    
+    Parameter
+    ---------
       name : namespace name as str
-    raise:
+      
+    raise
+    ------
       exception :in case of error
-    return none
     """
     _logger.debug('Creating network namespace [%s]',name)
     ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'add', name])
