@@ -8,6 +8,7 @@
 """
 
 import os
+import os.path
 import socket
 import subprocess
 import signal
@@ -35,16 +36,32 @@ _CLASS_NET_DIR = '/sys/class/net'
 _NM_CONF_DIR = "/etc/NetworkManager/conf.d/"
 _logger = logging.getLogger('oci-utils.net-helper')
 
+def is_network_namespace_exists(name):
+    """
+    Checks that a namespace exist or not
+    
+    Parameter
+    ---------
+      name : namespace name as str
+    Returns
+    -------
+       True if exists False otherwise
+    """
+    return os.path.exists('/var/run/netns/%s'%name)
 
 def create_network_namespace(name):
     """
     Creates network namespace
-    parameter:
+    
+    Parameter
+    ---------
       name : namespace name as str
-    raise:
+      
+    raise
+    ------
       exception :in case of error
-    retur none
     """
+    _logger.debug('Creating network namespace [%s]',name)
     ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'add', name])
     if ret != 0:
         raise Exception('Cannot create network namespace')
@@ -57,8 +74,9 @@ def destroy_network_namespace(name):
       name : namespace name as str
     raise:
       exception :in case of error
-    retur none
+    return none
     """
+    _logger.debug('Deleting network namespace [%s]',name)
     ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'delete', name])
     if ret != 0:
         raise Exception('Cannot delete network namespace')
