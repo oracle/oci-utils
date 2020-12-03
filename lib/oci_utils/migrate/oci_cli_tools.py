@@ -254,7 +254,12 @@ def upload_image(imgname, bucket_name, ociname):
     -------
         bool: True on success, raises an exception otherwise.
     """
-    cmd = ['oci', 'os', 'object', 'put', '--bucket-name', bucket_name, '--file', imgname, '--name', ociname]
+    cmd = ['oci', 'os', 'object', 'put',
+           '--bucket-name', bucket_name,
+           '--file', imgname,
+           '--name', ociname,
+           '--part-size', '100',
+           '--parallel-upload-count', '6']
     _logger.debug('__ Running %s', cmd)
     pause_msg(cmd)
     try:

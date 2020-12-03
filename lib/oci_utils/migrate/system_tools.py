@@ -835,8 +835,15 @@ def get_grub_default_kernel(grub_config_file):
 
     default_kernel_nb = find_default_boot(grub_config_file)
     if default_kernel_nb is None:
-        _logger.critical('No default boot found.')
-        raise OciMigrateException('No default boot found.')
+        # todo:
+        #   locate default and installed kernels in all the flavors of grub2 and EFI
+        # _logger.critical('No default boot found.')
+        # raise OciMigrateException('No default boot found.')
+        #
+        # not so fatal, only if boot device is not by lvm, by label or by uuid
+        default_kernel_nb = 0
+        kernelversion = 'not found'
+        return kernelversion
     kernel_cnt = 0
     with open(grub_config_file, 'r') as grub_config_fd:
         for grub_line in grub_config_fd:
