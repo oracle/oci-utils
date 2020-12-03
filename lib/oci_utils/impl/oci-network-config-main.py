@@ -23,7 +23,11 @@ _logger = logging.getLogger("oci-utils.oci-network-config")
 
 def uniq_item_validator(value):
     """
-    validate unicity
+    Validates unicity by checking that value not already in the list
+    
+    Parameter
+    ---------
+     value : str , option's value
     """
     already_seen = getattr(uniq_item_validator,"_item_seen",[])
 
