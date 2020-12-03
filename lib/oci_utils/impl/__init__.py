@@ -8,7 +8,6 @@ import io
 import os
 import os.path
 import sys
-import threading
 from configparser import ConfigParser
 from datetime import datetime, timedelta
 import logging
@@ -16,9 +15,7 @@ import logging.handlers
 
 from time import sleep
 
-from ..exceptions import OCISDKError
-
-__all__ = ['lock_thread', 'release_thread', 'read_config', 'SUDO_CMD',
+__all__ = ['read_config', 'SUDO_CMD',
            'CAT_CMD', 'SH_CMD', 'CP_CMD', 'TOUCH_CMD', 'CHMOD_CMD', 'LSBLK_CMD', 'MKDIR_CMD']
 
 
@@ -59,93 +56,6 @@ def print_choices(header, choices, sep="\n  "):
     sys.stderr.write("{}{}{}", header, sep, sep.join(choices))
     sys.stderr.write('\n')
 
-
-_oci_utils_thread_lock = threading.Lock()
-_oci_utils_thread_lock_owner = None
-_oci_utils_thread_lock_owner_l = threading.Lock()
-
-
-def lock_thread(timeout=30):
-    """
-    Timed locking; set a threading lock with timeout.
-
-    Parameters
-    ----------
-    timeout: int
-        Timeout in second to acquire the lock, default is 30sec.
-
-    Returns
-    -------
-        No return valiue.
-
-    Raises
-    ------
-        OCISDKError
-            If timeout occured
-
-    """
-    global _oci_utils_thread_lock
-    global _oci_utils_thread_lock_owner, _oci_utils_thread_lock_owner_l
-
-    # RE-ENTRANT not supported. check that the lock is free
-    # or not already acquired
-    _re_entrance_detected = False
-    _oci_utils_thread_lock_owner_l.acquire(True)
-    if _oci_utils_thread_lock_owner == threading.currentThread():
-        _re_entrance_detected = True
-    _oci_utils_thread_lock_owner_l.release()
-
-    assert (not _re_entrance_detected), 'trying to acquire a lock twice !'
-
-    if timeout > 0:
-        max_time = datetime.now() + timedelta(seconds=timeout)
-        while True:
-            # non-blocking
-            if _oci_utils_thread_lock.acquire(False):
-                _oci_utils_thread_lock_owner_l.acquire(True)
-                _oci_utils_thread_lock_owner = threading.currentThread()
-                _oci_utils_thread_lock_owner_l.release()
-                break
-            if max_time < datetime.now():
-                raise OCISDKError("Timed out waiting for API thread lock")
-            sleep(0.1)
-    else:
-        # blocking
-        _oci_utils_thread_lock.acquire(True)
-        _oci_utils_thread_lock_owner_l.acquire(True)
-        _oci_utils_thread_lock_owner = threading.currentThread()
-        _oci_utils_thread_lock_owner_l.release()
-
-
-def release_thread():
-    """
-    Release the thread lock.
-
-    Returns
-    -------
-        No return value.
-
-    Raises
-    ------
-       ThreadError
-           If lock not currently locked.
-    """
-
-    global _oci_utils_thread_lock
-    global _oci_utils_thread_lock_owner_l
-    global _oci_utils_thread_lock_owner
-
-    _safe_unlock = True
-
-    _oci_utils_thread_lock_owner_l.acquire(True)
-    if _oci_utils_thread_lock_owner != threading.currentThread():
-        _safe_unlock = False
-    _oci_utils_thread_lock_owner = None
-    _oci_utils_thread_lock_owner_l.release()
-
-    assert _safe_unlock, 'trying to relase a unlocked lock'
-
-    _oci_utils_thread_lock.release()
 
 
 # oci-utils configuration defaults
@@ -192,7 +102,7 @@ def read_config():
     oci_utils_config.set('public_ip', 'enabled', 'true')
     oci_utils_config.set('public_ip', 'refresh_interval', '600')
     oci_utils_config.add_section('ocid')
-    oci_utils_config.set('ocid', 'sdk_lock_timeout', '60')
+    oci_utils_config.set('ocid', 'sdk_lock_timeout', '60') # not used anymore
     oci_utils_config.set('ocid', 'debug', 'False')
 
     if not os.path.exists(__oci_utils_conf_d):

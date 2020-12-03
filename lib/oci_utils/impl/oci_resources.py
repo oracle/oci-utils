@@ -16,9 +16,6 @@ from .. import _configuration as oci_utils_configuration
 from .. import _MAX_VOLUMES_LIMIT, OCI_ATTACHMENT_STATE, \
     OCI_COMPARTEMENT_STATE, \
     OCI_RESOURCE_STATE, OCI_INSTANCE_STATE, OCI_VOLUME_SIZE_FMT
-from ..exceptions import OCISDKError
-
-
 
 
 class OCICompartment(OCIAPIAbstractResource):
@@ -673,7 +670,7 @@ class OCIInstance(OCIAPIAbstractResource):
             return self._oci_session.get_volume(vol_att.data.volume_id)
         except oci_sdk.exceptions.ServiceError as e:
             OCIInstance._logger.debug('Failed to attach volume', exc_info=True)
-            raise OCISDKError('Failed to attach volume') from e
+            raise Exception('Failed to attach volume') from e
 
     def attach_vnic(self, private_ip=None, subnet_id=None, nic_index=0,
                     display_name=None, assign_public_ip=False,
@@ -711,7 +708,7 @@ class OCIInstance(OCIAPIAbstractResource):
 
         Raises
         ------
-            OCISDKError
+            Exception
                 On any error.
         """
         if display_name is None and hostname_label is not None:
@@ -731,7 +728,7 @@ class OCIInstance(OCIAPIAbstractResource):
             if len(instance_subnets) == 0:
                 # subnet id is not provided, if instance has no subnet
                 # no need to go further
-                raise OCISDKError('No suitable subnet found for this instance')
+                raise Exception('No suitable subnet found for this instance')
             if private_ip is not None:
                 # choose the subnet that the ip belongs to
                 for sn in instance_subnets:
@@ -739,7 +736,7 @@ class OCIInstance(OCIAPIAbstractResource):
                         subnet_id = sn.get_ocid()
                 if subnet_id is None:
                     # no suitable subnet found for the IP address
-                    raise OCISDKError('No suitable subnet found for IP address '
+                    raise Exception('No suitable subnet found for IP address '
                                       '%s' % private_ip)
             else:
                 # choose one of the subnets the instance currently uses
@@ -776,7 +773,7 @@ class OCIInstance(OCIAPIAbstractResource):
             return self._oci_session.get_vnic(v_att.data.vnic_id)
         except oci_sdk.exceptions.ServiceError as e:
             OCIInstance._logger.debug('Failed to attach new VNIC', exc_info=True)
-            raise OCISDKError('Failed to attach new VNIC') from e
+            raise Exception('Failed to attach new VNIC') from e
 
     def create_volume(self, size, display_name=None):
         """
@@ -1209,7 +1206,7 @@ class OCIVNIC(OCIAPIAbstractResource):
 
         Raises
         ------
-            OCISDKError
+            Exception
                 On failure to add.
         """
         cpid = oci_sdk.core.models.CreatePrivateIpDetails(
@@ -1225,7 +1222,7 @@ class OCIVNIC(OCIAPIAbstractResource):
                                 private_ip_data=private_ip.data)
         except oci_sdk.exceptions.ServiceError as e:
             OCIVNIC._logger.debug('Failed to add private IP', exc_info=True)
-            raise OCISDKError("Failed to add private IP") from e
+            raise Exception("Failed to add private IP") from e
 
     def find_private_ip(self, ip_address):
         """
@@ -1295,11 +1292,11 @@ class OCIVNIC(OCIAPIAbstractResource):
 
         Raises
         ------
-            OCISDKError
+            Exception
                 When detaching the VNIC fails.
         """
         if self.is_primary():
-            raise OCISDKError("Cannot detach the primary VNIC.")
+            raise Exception("Cannot detach the primary VNIC.")
 
         cc = self._oci_session.get_compute_client()
         try:
@@ -1308,7 +1305,7 @@ class OCIVNIC(OCIAPIAbstractResource):
         except Exception as e:
             OCIVNIC._logger.debug(
                 'Failed to detach VNIC', exc_info=True)
-            raise OCISDKError("Failed to detach VNIC") from e
+            raise Exception("Failed to detach VNIC") from e
 
         if wait:
             try:
@@ -1844,12 +1841,12 @@ class OCISubnet(OCIAPIAbstractResource):
         match = re.match(r'([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)',
                          ipaddr)
         if match is None:
-            raise OCISDKError('Failed to parse IP address %s' % ipaddr)
+            raise Exception('Failed to parse IP address %s' % ipaddr)
         if int(match.group(1)) > 255 or \
            int(match.group(2)) > 255 or \
            int(match.group(3)) > 255 or \
            int(match.group(4)) > 255:
-            raise OCISDKError('Invalid IP address: %s' % ipaddr)
+            raise Exception('Invalid IP address: %s' % ipaddr)
 
         ipint = ((int(match.group(1)) * 256 +
                   int(match.group(2))) * 256 +
@@ -1857,7 +1854,7 @@ class OCISubnet(OCIAPIAbstractResource):
         match = re.match(r'([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)/([0-9]+)',
                          self._data.cidr_block)
         if match is None:
-            raise OCISDKError('Failed to parse cidr block %s' %
+            raise Exception('Failed to parse cidr block %s' %
                               self._data.cidr_block)
 
         cidripint = ((int(match.group(1)) * 256 +
@@ -2237,7 +2234,7 @@ class OCIVolume(OCIAPIAbstractResource):
 
         Raises
         ------
-             OCISDKError
+             Exception
                  On failure to attach the volume.
         """
         av_det = oci_sdk.core.models.AttachIScsiVolumeDetails(
@@ -2262,7 +2259,7 @@ class OCIVolume(OCIAPIAbstractResource):
         except oci_sdk.exceptions.ServiceError as e:
             OCIVolume._logger.debug(
                 'Failed to attach volume', exc_info=True)
-            raise OCISDKError('Failed to attach volume') from e
+            raise Exception('Failed to attach volume') from e
 
     def detach(self, wait=True):
         """
@@ -2274,7 +2271,7 @@ class OCIVolume(OCIAPIAbstractResource):
             Wait for completion if set.
         Raises
         ------
-        OCISDKError
+        Exception
             call to OCI SDK to detach the volume has failed
 
         Returns
@@ -2284,7 +2281,7 @@ class OCIVolume(OCIAPIAbstractResource):
 
         Raises
         ------
-            OCISDKError
+            Exception
                 Call to OCI SDK to detach the volume has failed.
         """
         if not self.is_attached():
@@ -2300,7 +2297,7 @@ class OCIVolume(OCIAPIAbstractResource):
         except oci_sdk.exceptions.ServiceError as e:
             OCIVolume._logger.debug(
                 'Failed to detach volume', exc_info=True)
-            raise OCISDKError('Failed to detach volume') from e
+            raise Exception('Failed to detach volume') from e
         _tries = 3
         vol_att = None
         if wait:
@@ -2334,11 +2331,11 @@ class OCIVolume(OCIAPIAbstractResource):
 
         Raises
         ------
-            OCISDKError
+            Exception
                 On any error.
         """
         if self.is_attached():
-            raise OCISDKError("Volume is currently attached, cannot destroy.")
+            raise Exception("Volume is currently attached, cannot destroy.")
 
         bsc = self._oci_session.get_block_storage_client()
         try:
@@ -2346,4 +2343,4 @@ class OCIVolume(OCIAPIAbstractResource):
                                        volume_id=self._ocid)
         except Exception as e:
             OCIVolume._logger.debug('Failed to destroy volume', exc_info=True)
-            raise OCISDKError("Failed to destroy volume") from e
+            raise Exception("Failed to destroy volume") from e

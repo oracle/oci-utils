@@ -13,8 +13,6 @@ import logging
 import sys
 
 from oci_utils import oci_api
-# import oci_utils.oci_api
-from oci_utils.exceptions import OCISDKError
 
 __logger = logging.getLogger("oci-utils.oci-network-inspector")
 
@@ -61,7 +59,7 @@ def main():
     try:
         sess = oci_api.OCISession()
         # sess = oci_utils.oci_api.OCISession()
-    except OCISDKError as e:
+    except Exception as e:
         __logger.error("Need OCI Service to inspect the networks.\n"
                        "Make sure to install and configure "
                        "OCI Python SDK (python36-oci-sdk)\n %s" % str(e))

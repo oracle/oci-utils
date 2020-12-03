@@ -22,7 +22,6 @@ from oci_utils import __ignore_file, iscsiadm, lsblk
 from oci_utils import _configuration as OCIUtilsConfiguration
 from oci_utils import (OCI_ATTACHMENT_STATE, OCI_VOLUME_SIZE_FMT)
 from oci_utils.cache import load_cache, write_cache
-from oci_utils.exceptions import OCISDKError
 from oci_utils.metadata import InstanceMetadata
 from oci_utils.impl.oci_resources import OCIVolume
 
@@ -478,7 +477,7 @@ def do_detach_volume(oci_session, iscsiadm_session, iqn):
     try:
         _logger.info("Detaching volume %s (%s)", _volume.get_display_name(), _volume.get_iqn())
         _volume.detach()
-    except OCISDKError as e:
+    except Exception as e:
         _logger.debug("Failed to disconnect volume", exc_info=True)
         raise Exception("Failed to disconnect volume %s: %s" % iqn) from e
 

@@ -16,17 +16,15 @@ import oci_utils.oci_api
 ```
 
 Creating an OCISession() object will fail if the SDK isn't properly
-configured or authentication failed.  In this case an OCISDKError
-exception is thrown:
+configured or authentication failed.
 
 ```python
 import sys
 import oci_utils.oci_api
-import oci_utils.exceptions
 
 try:
     sess = oci_utils.oci_api.OCISession()
-except oci_utils.exceptions.OCISDKError as e:
+except Exception as e:
     sys.stderr.write("Failed to access OCI services: %s\n" % e)
 ```
 
@@ -37,8 +35,6 @@ OCISession uses one of 3 authentication methods:
 
 By default, OCISession will try them in the above order and retuns an OCISession
 object when one of them succeeds.
-
-Oci_api calls are thread-safe.  A shared lock is used to ensure only one API call is made at a time as urllib2 is not thread-safe.
 
 ## Classes
 
@@ -89,17 +85,6 @@ Valid values for auth_method are:
  * oci_utils.oci_api.DIRECT = use the OCI SDK config file
  * oci_utils.oci_api.PROXY = use a designated user's config files; the user is defined in the OCI config files and defaults to 'opc'
  * oci_utils.oci_api.IP = use instance principals
-
-To achieve thread safety, oci-utils makes OCI SDK calls through the
-OCISession.sdk_call(client_func, *args, **kwargs) method, which uses locking
-to ensure that only one call is made at a time.  If it cannot acquire the lock
-within a timeout (default 60sec) then an OCISDKError exception is raised.
-The set_sdk_call_timeout(timeout) method can be used to change the default
-timeout.  A timeout value of 0 means wait forever.
-The timeout can be changed in configuration
-create a config file in /etc/oci-utils.conf.d that says:
-    [ocid]
-    sdk_lock_timeout = <number>
 
 
 The OCISession object allows you to list or find various OCI artifacts.
@@ -216,11 +201,6 @@ Use the following methods for creating/destroying OCI artifacts:
 
 * delete Private IP: OCIPrivateIP.delete()
 
-## Exceptions
-
-All oci_api methods throw an oci_utils.exceptions.OCISDKError exception
-for any error conditions.  The "value" attribute contains an error message
-(str).
 
 ## Future Plans
 

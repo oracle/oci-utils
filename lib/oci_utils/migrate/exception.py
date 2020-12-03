@@ -30,7 +30,7 @@ class OciMigrateException(Exception):
 
     def __str__(self):
         """
-        Get this OCISDKError representation.
+        Get this OciMigrateException representation.
 
         Returns
         -------

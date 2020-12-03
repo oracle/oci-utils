@@ -16,7 +16,6 @@ import sys
 import time
 import oci_utils
 import oci_utils.oci_api
-from oci_utils.exceptions import OCISDKError
 from oci_utils.vnicutils import VNICUtils
 
 _logger = logging.getLogger("oci-utils.oci-network-config")
@@ -318,7 +317,7 @@ def do_create_vnic(create_options):
             subnet_id=subnet_id,
             nic_index=create_options.nic_index,
             display_name=create_options.vnic_name)
-    except OCISDKError as e:
+    except Exception as e:
         raise Exception('Failed to create VNIC') from e
 
     public_ip = vnic.get_public_ip()
@@ -377,7 +376,7 @@ def do_add_private_ip(vnic_utils, add_options):
         vnic = vnics[0]
     try:
         priv_ip = vnic.add_private_ip(private_ip=add_options.private_ip)
-    except OCISDKError as e:
+    except Exception as e:
         raise Exception('Failed to provision private IP') from e
 
     _logger.info(
