@@ -4,16 +4,13 @@
 # at http://oss.oracle.com/licenses/upl.
 #
 
-import io
 import os
 import os.path
 import sys
 from configparser import ConfigParser
-from datetime import datetime, timedelta
 import logging
 import logging.handlers
 
-from time import sleep
 
 __all__ = ['read_config', 'SUDO_CMD',
            'CAT_CMD', 'SH_CMD', 'CP_CMD', 'TOUCH_CMD', 'CHMOD_CMD', 'LSBLK_CMD', 'MKDIR_CMD']
@@ -63,7 +60,6 @@ def print_choices(header, choices, sep="\n  "):
 
 # oci-utils config file
 __oci_utils_conf_d = "/etc/oci-utils.conf.d"
-oci_utils_config = None
 
 
 def read_config():
@@ -78,9 +74,9 @@ def read_config():
         [ConfigParser]
             The oci_utils configuration.
     """
-    global oci_utils_config
-    if oci_utils_config is not None:
-        return oci_utils_config
+    _config = getattr(read_config,"oci_utils_config",None)
+    if _config is not None:
+        return _config
 
     oci_utils_config = ConfigParser()
     # assign default
@@ -104,6 +100,8 @@ def read_config():
     oci_utils_config.add_section('ocid')
     oci_utils_config.set('ocid', 'sdk_lock_timeout', '60') # not used anymore
     oci_utils_config.set('ocid', 'debug', 'False')
+
+    setattr(read_config,"oci_utils_config",oci_utils_config)
 
     if not os.path.exists(__oci_utils_conf_d):
         return oci_utils_config

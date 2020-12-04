@@ -156,7 +156,6 @@ rm -rf %{buildroot}
 %files migrate
 %{_bindir}/oci-image-migrate*
 %{python3_sitelib}/oci_utils/__init__*
-%{python3_sitelib}/oci_utils/exceptions*
 %{python3_sitelib}/oci_utils/impl/__init__*
 %{python3_sitelib}/oci_utils/impl/migrate
 %{python3_sitelib}/oci_utils/migrate

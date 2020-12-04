@@ -33,7 +33,7 @@ def uniq_item_validator(value):
     if value in already_seen:
         raise argparse.ArgumentTypeError("Invalid arguments: item both included and excluded: %s" % value)
     already_seen.append(value)
-    getattr(uniq_item_validator,"_item_seen",already_seen)
+    setattr(uniq_item_validator,"_item_seen",already_seen)
 
     return value
 
@@ -559,7 +559,6 @@ def main():
     if args.command == 'detach-vnic':
         try:
             do_detach_vnic(args, vnic_utils)
-            time.sleep(10)
         except Exception as e:
             _logger.debug('cannot detach VNIC', exc_info=True)
             _logger.error('cannot detach vNIC: %s' % str(e))

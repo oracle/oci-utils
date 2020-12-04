@@ -419,28 +419,6 @@ class OCISession():
                         config=self.oci_config)
         return self._block_storage_client
 
-    # TODO : developer of this method should add documentation
-    def get_object_storage_client(self):
-        """
-        Get a new object storage client.
-
-        Returns
-        -------
-            The new object storage client.
-        """
-        if self._object_storage_client is None:
-            if self.signer is not None:
-                self._object_storage_client = \
-                    oci_sdk.object_storage.object_storage_client.\
-                    ObjectStorageClient(
-                        config=self.oci_config, signer=self.signer)
-            else:
-                self._object_storage_client = \
-                    oci_sdk.object_storage.object_storage_client.\
-                    ObjectStorageClient(
-                        config=self.oci_config)
-        return self._object_storage_client
-
     def all_instances(self):
         """Get all compartements intances across all compartments.
 
@@ -807,8 +785,10 @@ class OCISession():
             return None
 
         try:
-            v_att_list = cc.list_volume_attachments(compartment_id=vol_data.compartment_id,
-                                       volume_id=vol_data.id).data
+            v_att_list = oci_sdk.pagination.list_call_get_all_results(
+                cc.list_volume_attachments,
+                compartment_id=vol_data.compartment_id,
+                volume_id=vol_data.id).data
         except Exception:
             _logger.debug('cannot find any attachments for this volume', exc_info=True)
             return OCIVolume(self, volume_data=vol_data)
@@ -922,10 +902,8 @@ class OCISession():
         try:
             vol_data = bsc.create_volume(create_volume_details=cvds)
             if wait:
-                while OCI_RESOURCE_STATE[vol_data.data.lifecycle_state] \
-                        != OCI_RESOURCE_STATE.AVAILABLE:
-                    sleep(2)
-                    vol_data = bsc.get_volume(volume_id=vol_data.data.id)
+                get_vol_state = bsc.get_volume(volume_id=vol_data.data.id)
+                oci_sdk.wait_until(bsc, get_vol_state, 'lifecycle_state', 'AVAILABLE')
             return OCIVolume(self, vol_data.data)
         except oci_sdk.exceptions.ServiceError as e:
             raise Exception('Failed to create volume') from e

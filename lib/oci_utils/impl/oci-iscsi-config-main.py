@@ -20,7 +20,7 @@ from datetime import timedelta
 import oci_utils.oci_api
 from oci_utils import __ignore_file, iscsiadm, lsblk
 from oci_utils import _configuration as OCIUtilsConfiguration
-from oci_utils import (OCI_ATTACHMENT_STATE, OCI_VOLUME_SIZE_FMT)
+from oci_utils import OCI_VOLUME_SIZE_FMT
 from oci_utils.cache import load_cache, write_cache
 from oci_utils.metadata import InstanceMetadata
 from oci_utils.impl.oci_resources import OCIVolume

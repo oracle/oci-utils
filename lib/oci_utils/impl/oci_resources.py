@@ -8,12 +8,12 @@ import json
 import logging
 import os
 import re
-from time import sleep
+
 import oci as oci_sdk
 from oci_utils.metadata import OCIMetadata
 from .resources import OCIAPIAbstractResource
-from .. import _configuration as oci_utils_configuration
-from .. import _MAX_VOLUMES_LIMIT, OCI_ATTACHMENT_STATE, \
+
+from .. import OCI_ATTACHMENT_STATE, \
     OCI_COMPARTEMENT_STATE, \
     OCI_RESOURCE_STATE, OCI_INSTANCE_STATE, OCI_VOLUME_SIZE_FMT
 
@@ -114,9 +114,7 @@ class OCICompartment(OCIAPIAbstractResource):
         # in this compartment, so ignoring ServiceError exceptions
         instances = []
         try:
-            instances_data = self._oci_session.sdk_call(
-                cc.list_instances,
-                compartment_id=self._ocid)
+            instances_data = oci_sdk.pagination.list_call_get_all_results(cc.list_instances, compartment_id=self._ocid)
             for i_data in instances_data.data:
                 if OCI_INSTANCE_STATE[i_data.lifecycle_state] \
                         == OCI_INSTANCE_STATE.TERMINATED:
@@ -203,8 +201,7 @@ class OCICompartment(OCIAPIAbstractResource):
         # in this compartment, so ignoring ServiceError exceptions
         vcns = []
         try:
-            vcns_data = self._oci_session.sdk_call(
-                nc.list_vcns, compartment_id=self._ocid)
+            vcns_data = oci_sdk.pagination.list_call_get_all_results(nc.list_vcns, compartment_id=self._ocid)
             for v_data in vcns_data.data:
                 if OCI_RESOURCE_STATE[v_data.lifecycle_state] \
                         != OCI_RESOURCE_STATE.AVAILABLE:
@@ -247,17 +244,17 @@ class OCICompartment(OCIAPIAbstractResource):
         bs = []
         try:
             if availability_domain:
-                bs_data = self._oci_session.sdk_call(
+                bs_data = oci_sdk.pagination.list_call_get_all_results(
                     bsc.list_volumes, availability_domain=availability_domain,
                     compartment_id=self._ocid)
             else:
-                bs_data = self._oci_session.sdk_call(bsc.list_volumes,
+                bs_data = oci_sdk.pagination.list_call_get_all_results(bsc.list_volumes,
                                                      compartment_id=self._ocid)
             for v_data in bs_data.data:
                 if OCI_RESOURCE_STATE[v_data.lifecycle_state] \
                         != OCI_RESOURCE_STATE.AVAILABLE:
                     continue
-                v_att_list = self._oci_session.sdk_call(
+                v_att_list = oci_sdk.pagination.list_call_get_all_results(
                     cc.list_volume_attachments,
                     compartment_id=self._ocid,
                     volume_id=v_data.id).data
@@ -481,7 +478,7 @@ class OCIInstance(OCIAPIAbstractResource):
         cc = self._oci_session.get_compute_client()
         nc = self._oci_session.get_network_client()
         try:
-            vnic_atts = self._oci_session.sdk_call(
+            vnic_atts = oci_sdk.pagination.list_call_get_all_results(
                 cc.list_vnic_attachments,
                 compartment_id=self._data.compartment_id,
                 instance_id=self._ocid)
@@ -494,8 +491,7 @@ class OCIInstance(OCIAPIAbstractResource):
                     != OCI_ATTACHMENT_STATE.ATTACHED:
                 continue
             try:
-                vnic_data = self._oci_session.sdk_call(nc.get_vnic,
-                                                       v_a_data.vnic_id).data
+                vnic_data = nc.get_vnic(v_a_data.vnic_id).data
                 vnics.append(OCIVNIC(self._oci_session, vnic_data=vnic_data,
                                      attachment_data=v_a_data))
             except oci_sdk.exceptions.ServiceError:
@@ -584,7 +580,7 @@ class OCIInstance(OCIAPIAbstractResource):
         # Note: the user may not have permission to list volumes
         # so ignoring ServiceError exceptions
         try:
-            v_att_list = self._oci_session.sdk_call(
+            v_att_list = oci_sdk.pagination.list_call_get_all_results(
                 cc.list_volume_attachments,
                 compartment_id=self._data.compartment_id,
                 instance_id=self._ocid).data
@@ -615,9 +611,7 @@ class OCIInstance(OCIAPIAbstractResource):
                 continue
 
             try:
-                vol_data = self._oci_session.sdk_call(
-                    bsc.get_volume,
-                    volume_id=vol_id).data
+                vol_data = sbsc.get_volume(volume_id=vol_id).data
             except oci_sdk.exceptions.ServiceError:
                 OCIInstance._logger.debug('exc getting volume', exc_info=True)
                 continue
@@ -659,14 +653,11 @@ class OCIInstance(OCIAPIAbstractResource):
             display_name=display_name)
         cc = self._oci_session.get_compute_client()
         try:
-            vol_att = self._oci_session.sdk_call(cc.attach_volume, av_det)
+            vol_att = cc.attach_volume(av_det)
             if wait:
-                while OCI_ATTACHMENT_STATE[vol_att.data.lifecycle_state] \
-                        != OCI_ATTACHMENT_STATE.ATTACHED:
-                    sleep(2)
-                    vol_att = self._oci_session.sdk_call(
-                        cc.get_volume_attachment,
-                        vol_att.data.id)
+                get_vol_att = cc.get_volume_attachment(vol_att.data.id)
+                oci_sdk.wait_until(cc, get_vol_att, 'lifecycle_state', 'ATTACHED')
+
             return self._oci_session.get_volume(vol_att.data.volume_id)
         except oci_sdk.exceptions.ServiceError as e:
             OCIInstance._logger.debug('Failed to attach volume', exc_info=True)
@@ -761,16 +752,11 @@ class OCIInstance(OCIAPIAbstractResource):
             nic_index=nic_index,
             instance_id=self.get_ocid())
         try:
-            resp = self._oci_session.sdk_call(cc.attach_vnic,
-                                              attach_vnic_details)
-            v_att = self._oci_session.sdk_call(cc.get_vnic_attachment,
-                                               resp.data.id)
+            resp = cc.attach_vnic(attach_vnic_details)
             if wait:
-                while OCI_ATTACHMENT_STATE[v_att.data.lifecycle_state] \
-                        != OCI_ATTACHMENT_STATE.ATTACHED:
-                    sleep(2)
-                    v_att = self._oci_session.sdk_call(cc.get_vnic_attachment,
-                                                       resp.data.id)
+                v_att = cc.get_vnic_attachment(resp.data.id)
+                oci_sdk.wait_until(cc, v_att, 'lifecycle_state', 'ATTACHED')
+
             return self._oci_session.get_vnic(v_att.data.vnic_id)
         except oci_sdk.exceptions.ServiceError as e:
             OCIInstance._logger.debug('Failed to attach new VNIC', exc_info=True)
@@ -941,7 +927,7 @@ class OCIVCN(OCIAPIAbstractResource):
         # in this compartment, so ignoring ServiceError exceptions
         subnets = []
         try:
-            subnets_data = self._oci_session.sdk_call(
+            subnets_data = oci_sdk.pagination.list_call_get_all_results(
                 nc.list_subnets,
                 compartment_id=self._data.compartment_id,
                 vcn_id=self._ocid)
@@ -973,7 +959,7 @@ class OCIVCN(OCIAPIAbstractResource):
         # in this compartment, so ignoring ServiceError exceptions
         security_lists = dict()
         try:
-            security_list_data = self._oci_session.sdk_call(
+            security_list_data = oci_sdk.pagination.list_call_get_all_results(
                 nc.list_security_lists,
                 compartment_id=self._data.compartment_id,
                 vcn_id=self._ocid)
@@ -1113,12 +1099,8 @@ class OCIVNIC(OCIAPIAbstractResource):
         nc = self._oci_session.get_network_client()
         cc = self._oci_session.get_compute_client()
         try:
-            self._data = self._oci_session.sdk_call(
-                nc.get_vnic,
-                vnic_id=self._ocid).data
-            self._att_data = self._oci_session.sdk_call(
-                cc.get_vnic_attachment,
-                vnic_attachment_id=self._att_data.id)
+            self._data = nc.get_vnic(vnic_id=self._ocid).data
+            self._att_data = cc.get_vnic_attachment(vnic_attachment_id=self._att_data.id)
         except oci_sdk.exceptions.ServiceError as e:
             OCIVNIC._logger.debug('refresh failed', exc_info=True)
             OCIVNIC._logger.warning('refresh failed [%s]' % e.message)
@@ -1216,9 +1198,7 @@ class OCIVNIC(OCIAPIAbstractResource):
             vnic_id=self.get_ocid())
         nc = self._oci_session.get_network_client()
         try:
-            private_ip = self._oci_session.sdk_call(
-                nc.create_private_ip,
-                cpid)
+            private_ip = nc.create_private_ip(cpid)
             return OCIPrivateIP(session=self._oci_session,
                                 private_ip_data=private_ip.data)
         except oci_sdk.exceptions.ServiceError as e:
@@ -1260,14 +1240,14 @@ class OCIVNIC(OCIAPIAbstractResource):
         nc = self._oci_session.get_network_client()
         all_privips = []
         try:
-            privips = self._oci_session.sdk_call(
+            privips = oci_sdk.pagination.list_call_get_all_results(
                 nc.list_private_ips,
                 vnic_id=self.get_ocid()).data
         except oci_sdk.exceptions.ServiceError as e:
             OCIVNIC._logger.debug(
-                'sdk_call failed for all_private_ips', exc_info=True)
+                'sdk call failed for all_private_ips', exc_info=True)
             OCIVNIC._logger.warning(
-                'sdk_call failed for all_private_ips [%s]' % e.message)
+                'sdk call failed for all_private_ips [%s]' % e.message)
             return []
 
         for privip in privips:
@@ -1302,8 +1282,7 @@ class OCIVNIC(OCIAPIAbstractResource):
 
         cc = self._oci_session.get_compute_client()
         try:
-            self._oci_session.sdk_call(cc.detach_vnic,
-                                       vnic_attachment_id=self._att_data.id)
+            cc.detach_vnic(vnic_attachment_id=self._att_data.id)
         except oci_sdk.exceptions.ServiceError as e:
             OCIVNIC._logger.debug(
                 'Failed to detach VNIC', exc_info=True)
@@ -1312,18 +1291,11 @@ class OCIVNIC(OCIAPIAbstractResource):
 
         if wait:
             try:
-                vnic_att = self._oci_session.sdk_call(cc.get_vnic_attachment,
-                                                      self._att_data.id).data
-                self._att_data = vnic_att
-                while OCI_ATTACHMENT_STATE[vnic_att.lifecycle_state] \
-                        != OCI_ATTACHMENT_STATE.DETACHED:
-                    sleep(2)
-                    vnic_att = self._oci_session.sdk_call(
-                        cc.get_vnic_attachment, self._att_data.id).data
-                    self._att_data = vnic_att
+                get_vnic_att = cc.get_vnic_attachment(self._att_data.id)
+                oci_sdk.wait_until(cc, get_vnic_att, 'lifecycle_state', 'DETACHED')
             except oci_sdk.exceptions.ServiceError as e:
                 OCIVNIC._logger.debug(
-                    'sdk_call failed for detach() [%s]' % e.message, exc_info=True)
+                    'sdk call failed for detach() [%s]' % e.message, exc_info=True)
 
         return True
 
@@ -1406,9 +1378,7 @@ class OCIPrivateIP(OCIAPIAbstractResource):
         """
         nc = self._oci_session.get_network_client()
         try:
-            self._oci_session.sdk_call(
-                nc.delete_private_ip,
-                self.get_ocid())
+            nc.delete_private_ip(self.get_ocid())
             return True
         except oci_sdk.exceptions.ServiceError as e:
             OCIPrivateIP._logger.debug('delete failed', exc_info=True)
@@ -1883,14 +1853,14 @@ class OCISubnet(OCIAPIAbstractResource):
         nc = self._oci_session.get_network_client()
         all_privips = []
         try:
-            privips = self._oci_session.sdk_call(
+            privips = oci_sdk.pagination.list_call_get_all_results(
                 nc.list_private_ips,
                 subnet_id=self.get_ocid()).data
         except oci_sdk.exceptions.ServiceError as e:
             OCISubnet._logger.debug(
-                'all_private_ips() sdk_call failed', exc_info=True)
+                'all_private_ips() sdk call failed', exc_info=True)
             OCISubnet._logger.warning(
-                'all_private_ips() sdk_call failed [%s]' % e.message)
+                'all_private_ips() sdk call failed [%s]' % e.message)
             return []
         for privip in privips:
             if privip.is_primary:
@@ -1916,14 +1886,14 @@ class OCISubnet(OCIAPIAbstractResource):
         nc = self._oci_session.get_network_client()
         all_privips = []
         try:
-            privips = self._oci_session.sdk_call(
+            privips = oci_sdk.pagination.list_call_get_all_results(
                 nc.list_private_ips,
                 subnet_id=self.get_ocid()).data
         except oci_sdk.exceptions.ServiceError as e:
             OCISubnet._logger.debug(
-                'all_private_ips() sdk_call failed', exc_info=True)
+                'all_private_ips() sdk call failed', exc_info=True)
             OCISubnet._logger.warning(
-                'all_private_ips() sdk_call failed [%s]' % e.message)
+                'all_private_ips() sdk call failed [%s]' % e.message)
             return []
         for privip in privips:
             all_privips.append(OCIPrivateIP(session=self._oci_session,
@@ -2248,16 +2218,11 @@ class OCIVolume(OCIAPIAbstractResource):
             display_name=display_name)
         cc = self._oci_session.get_compute_client()
         try:
-            vol_att = self._oci_session.sdk_call(
-                cc.attach_volume,
-                av_det)
+            vol_att = cc.attach_volume(av_det)
             if wait:
-                while OCI_ATTACHMENT_STATE[vol_att.data.lifecycle_state] \
-                        != OCI_ATTACHMENT_STATE.ATTACHED:
-                    sleep(2)
-                    vol_att = self._oci_session.sdk_call(
-                        cc.get_volume_attachment,
-                        vol_att.data.id)
+                get_attachement = cc.get_volume_attachment(vol_att.data.id)
+                oci_sdk.wait_until(cc, get_attachement, 'lifecycle_state', 'ATTACHED')
+
             return self._oci_session.get_volume(vol_att.data.volume_id)
         except oci_sdk.exceptions.ServiceError as e:
             OCIVolume._logger.debug(
@@ -2294,9 +2259,7 @@ class OCIVolume(OCIAPIAbstractResource):
         cc = self._oci_session.get_compute_client()
 
         try:
-            self._oci_session.sdk_call(
-                cc.detach_volume,
-                volume_attachment_id=self.att_data.id)
+            cc.detach_volume(volume_attachment_id=self.att_data.id)
         except oci_sdk.exceptions.ServiceError as e:
             OCIVolume._logger.debug(
                 'Failed to detach volume', exc_info=True)
@@ -2305,21 +2268,9 @@ class OCIVolume(OCIAPIAbstractResource):
         _tries = 3
         vol_att = None
         if wait:
-            while _tries > 0:
-                try:
-                    vol_att = self._oci_session.sdk_call(
-                        cc.get_volume_attachment,
-                        self.att_data.id).data
-                except oci_sdk.exceptions.ServiceError as e:
-                    OCIVolume._logger.debug('sdk_call failed', exc_info=True)
-                    OCIVolume._logger.warning(
-                        'sdk_call failed checking state of '
-                        'volume [%s]' % e.message)
-                    _tries = _tries - 1
-                if OCI_ATTACHMENT_STATE[vol_att.lifecycle_state] == \
-                        OCI_ATTACHMENT_STATE.DETACHED:
-                    break
-                sleep(2)
+            get_vol_attachment = cc.get_volume_attachment(self.att_data.id)
+            oci_sdk.wait_until(cc, get_vol_attachment, 'lifecycle_state', 'DETACHED')
+
 
         # TODO : can really be alwasy success ?
         self.unset_volume_attachment()
@@ -2343,8 +2294,7 @@ class OCIVolume(OCIAPIAbstractResource):
 
         bsc = self._oci_session.get_block_storage_client()
         try:
-            self._oci_session.sdk_call(bsc.delete_volume,
-                                       volume_id=self._ocid)
+            bsc.delete_volume(volume_id=self._ocid)
         except oci_sdk.exceptions.ServiceError as e:
             OCIVolume._logger.debug('Failed to destroy volume', exc_info=True)
             raise Exception("Failed to destroy volume: %s" % e.message) from e
