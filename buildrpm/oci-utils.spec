@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.0
-Release: 0%{?dist}
+Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -26,6 +26,8 @@ Requires: cloud-utils-growpart
 Requires: util-linux
 # for iscsiadm
 Requires: iscsi-initiator-utils
+# for notify for now
+Requires: python36-oci-cli
 Requires: python36-oci-sdk
 #
 %if 0%{?rhel} == 7
@@ -66,10 +68,14 @@ Requires: util-linux
 Requires: parted
 Requires: bind-utils
 Requires: qemu-img >= 15:2.12
+# for upload and import
+Requires: python36-oci-cli
 %if 0%{?rhel} == 7
 Requires: python36-pyyaml
+Requires: python36-requests
 %else
 Requires: python3-pyyaml
+Requires: python3-requests
 Requires: python36
 %endif
 %description migrate
@@ -175,6 +181,8 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Tue Dec 1 2020 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.0-1
+ - update migrate
 
 * Tue Nov 10 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.12.0
  - LINUX-9546 - oci-image-cleanup --dry-run do not print the plan directly

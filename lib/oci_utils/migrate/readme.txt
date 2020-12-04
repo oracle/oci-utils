@@ -91,6 +91,8 @@ supported_formats = {'514649fb': {'name': 'qcow2',
 
               ostype <ref to os dependent code>
 
+              major_release <MAJOR os release>
+
               kernelversion <version of kernel booted by default>
 
               kernellist [ list of kernels defined in grub config file ]

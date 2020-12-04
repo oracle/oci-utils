@@ -158,6 +158,7 @@ How to test oci-utils.
 
 
             What is expected in instance.tfvars.json ?
+                tests_tools_dir: path to directory containing some tests conf scripts
                 tenancy_ocid: The tenancy OCID in which to create the instance  (like for OCI sdk usage)
                 user_ocid : User OCID to use for remote connection (like for OCI sdk usage)
                 fingerprint: key fingerprint,

@@ -132,7 +132,7 @@ class Qcow2Head(DeviceData):
         Returns
         -------
             dict: {'physical': float,
-                   'logical': float}
+                   'logical' : float}
                 physical file size, logical file size
         """
 

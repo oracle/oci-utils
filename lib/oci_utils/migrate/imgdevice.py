@@ -21,6 +21,7 @@ from oci_utils.migrate import ProgressBar
 from oci_utils.migrate import bytes_to_hex
 from oci_utils.migrate import console_msg
 from oci_utils.migrate import error_msg
+from oci_utils.migrate import migrate_data
 from oci_utils.migrate import migrate_tools
 from oci_utils.migrate import pause_msg
 from oci_utils.migrate import reconfigure_network
@@ -111,7 +112,7 @@ class UpdateImage(threading.Thread):
                     _logger.debug('Really no /etc/resolv.conf.')
             #
             # chroot entry notification
-            pause_msg('In chroot:', pause_flag='_OCICHROOT')
+            pause_msg('In chroot:', pause_flag='_OCI_CHROOT')
             chroot_notification = 'Please verify nameserver, proxy, update-repository configuration before ' \
                                   'proceeding the cloud-init package install.'
             #
@@ -135,7 +136,7 @@ class UpdateImage(threading.Thread):
                 _logger.debug('Default cloud user updated.')
             else:
                 _logger.error('   Failed to update default cloud user.')
-            # placeholder: failing to update the cloud user name ia probably not fatal.
+            # placeholder: failing to update the cloud user name is probably not fatal.
             #    raise OciMigrateException(
             #        'Failed to update default cloud user.')
             #
@@ -400,6 +401,13 @@ class DeviceData():
             #
             # collect os data.
             _ = self.collect_os_data()
+            #
+            # oracle cloud agent download, if appropriate; a failure of this
+            # operation is not fatal.
+            _ = migrate_tools.get_cloud_agent_if_relevant(
+                self.image_info['rootmnt'][1],
+                self.image_info['osinformation']['ID'],
+                self.image_info['major_release'])
             #
             # pause here for test reasons..
             pause_msg('os data collected', pause_flag='_OCI_MOUNT')
@@ -730,6 +738,10 @@ class DeviceData():
             if bool(osrelease):
                 self.image_info['osinformation'] = osrelease
                 _logger.debug('OS type: %s', osrelease['ID'])
+                migrate_data.os_version_id = osrelease['VERSION_ID']
+                _logger.debug('OS version: %s', osrelease['VERSION_ID'])
+                self.image_info['major_release'] = re.split('\\.', osrelease['VERSION_ID'])[0]
+                _logger.debug('Major release: %s', self.image_info['major_release'])
             else:
                 oscollectmesg += '\n  . Unable to collect OS information.'
                 raise OciMigrateException('Failed to find OS release information')
@@ -777,8 +789,7 @@ class DeviceData():
             _logger.debug('OS data collected.')
             #
             # grub
-            grub_data, kernel_version, kernel_list = self.get_grub_data(
-                self.image_info['rootmnt'][1])
+            grub_data, kernel_version, kernel_list = self.get_grub_data(self.image_info['rootmnt'][1])
             self.image_info['grubdata'] = grub_data
             self.image_info['kernelversion'] = kernel_version
             self.image_info['kernellist'] = kernel_list
@@ -860,7 +871,6 @@ class DeviceData():
                 if fstab is not None:
                     #
                     # found fstab, reading it
-                    # self.image_info['fstab'] = self.get_fstab()
                     fstabdata = self.get_fstab(fstab)
                     self.image_info['fstab'] = fstabdata
                     for line in fstabdata:
@@ -1243,6 +1253,9 @@ class DeviceData():
         osdict = dict()
         #
         # hostnamectl is a systemd command, not available in OL/RHEL/CentOS 6
+        _, nb_columns = terminal_dimension()
+        osreleasewait = ProgressBar(nb_columns, 0.2, progress_chars=['search os release'])
+        osreleasewait.start()
         try:
             for mnt in self._mountpoints:
                 osdata = migrate_tools.exec_search('os-release', rootdir=mnt)
@@ -1253,7 +1266,11 @@ class DeviceData():
                     break
                 _logger.debug('os-release not found in %s', mnt)
         except Exception as e:
-            _logger.error('   Failed to collect os data: %s', str(e))
+            _logger.error('   Failed to collect os data: %s', str(e), exc_info=True)
+        finally:
+            if system_tools.is_thread_running(osreleasewait):
+                osreleasewait.stop()
+
         _logger.debug('os data: %s', osdict)
         return osdict
 
@@ -1322,8 +1339,7 @@ class DeviceData():
                 failmsg += '\n  - The image %s does not contain a valid MBR.' % self.image_info['img_name']
             #
             # 1 disk: considering only 1 image file, representing 1 virtual
-            # disk,
-            # implicitly.
+            # disk, implictly.
             #
             # Bootable
             #   from MBR

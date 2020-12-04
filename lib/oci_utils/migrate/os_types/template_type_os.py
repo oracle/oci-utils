@@ -5,8 +5,8 @@
 # at http://oss.oracle.com/licenses/upl.
 
 """
- Module containing a Template Linux type specific OS methods;
- intended as a template.
+Module containing a Template Linux type specific OS methods; intended as a
+template.
 """
 import logging
 
@@ -106,6 +106,8 @@ def execute_os_specific_tasks():
     -------
     dict: the return values.
     """
+    _logger.debug('__ OS specific tasks.')
     os_specific_job = OsSpecificOps()
     os_return_values = migrate_tools.call_os_specific_methods(os_specific_job)
+    _logger.debug('OS specific tasks: %s', os_return_values)
     return os_return_values
