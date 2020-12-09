@@ -10,7 +10,6 @@
 import logging
 import os
 import re
-from time import sleep
 import oci as oci_sdk
 from . import metadata
 from . import _configuration as OCIUtilsConfiguration

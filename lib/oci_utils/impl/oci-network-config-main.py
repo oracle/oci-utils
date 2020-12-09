@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -13,11 +13,10 @@ import logging
 import os
 import sys
 
-import time
 import oci_utils
 import oci_utils.oci_api
 from oci_utils.vnicutils import VNICUtils
-from oci_utils.impl.row_printer import (get_row_printer_impl, TablePrinter, TextPrinter,ParsableTextPrinter,JSONPrinter)
+from oci_utils.impl.row_printer import (get_row_printer_impl, TablePrinter, TextPrinter)
 
 _logger = logging.getLogger("oci-utils.oci-network-config")
 
@@ -40,6 +39,9 @@ def uniq_item_validator(value):
 def vnic_oci_validator(value):
     """
     validate than value passed is a VNIC ocid
+    parameter:
+    ----------
+            value : option's value as str
     """
     if value.startswith('ocid1.vnic.oc'):
         return value
@@ -214,9 +216,17 @@ def get_oci_api_session():
 
 
 class IndentPrinter(object):
+    """
+    Printer used in ColumnsPrinter.
+    Print rows with indentation to stdout
+    """
     def __init__(self, howmany):
+        '''how many space indentation'''
         self.hm = howmany
     def write(self, s):
+        """
+            write string to stdout
+        """
         sys.stdout.write('  '*self.hm + s)
 
 def do_show_vnics_information(vnics, mode, details=False):
@@ -295,11 +305,13 @@ def do_show_information (vnic_utils, mode, details=False):
             vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
             return '%s/%s (%s)' % (interface['SPREFIX'],interface['SBITS'],vnic.get_subnet().get_display_name())
         return '%s/%s' % (interface['SPREFIX'],interface['SBITS'])
+
     def _get_vnic_name(_, interface):
         """ if interface match a vnic return its display name """
         if interface['VNIC']:
             vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
             return vnic.get_display_name()
+
     def _get_hostname(_, interface):
         """ if interface match a vnic return its hostname """
         if interface['VNIC']:
