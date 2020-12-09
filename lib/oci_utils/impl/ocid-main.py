@@ -570,8 +570,7 @@ def vnic_func(context, func_logger):
 
     if context['oci_sess'] is not None:
         func_logger.debug("look for new or removed secondary private IP addresses")
-        p_ips = context['oci_sess'].this_instance(). \
-            all_private_ips()
+        p_ips = context['oci_sess'].this_instance().all_private_ips()
         sec_priv_ip = \
             [[ip.get_address(), ip.get_vnic_ocid()] for ip in p_ips]
         for ip in sec_priv_ip:

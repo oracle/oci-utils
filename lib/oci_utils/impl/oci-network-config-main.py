@@ -17,6 +17,7 @@ import time
 import oci_utils
 import oci_utils.oci_api
 from oci_utils.vnicutils import VNICUtils
+from oci_utils.impl.row_printer import (get_row_printer_impl, TablePrinter, TextPrinter,ParsableTextPrinter,JSONPrinter)
 
 _logger = logging.getLogger("oci-utils.oci-network-config")
 
@@ -36,6 +37,13 @@ def uniq_item_validator(value):
     setattr(uniq_item_validator,"_item_seen",already_seen)
 
     return value
+def vnic_oci_validator(value):
+    """
+    validate than value passed is a VNIC ocid
+    """
+    if value.startswith('ocid1.vnic.oc'):
+        return value
+    raise argparse.ArgumentTypeError("Invalid arguments: invalid VNIC ocid : %s" % value)
 
 def get_arg_parser():
     """
@@ -54,6 +62,7 @@ def get_arg_parser():
     parser.add_argument('--quiet', '-q', action='store_true',
                         help='Suppress information messages')
 
+
     subparser = parser.add_subparsers(dest='command')
     subparser.add_parser('usage',
                          description='Displays usage')
@@ -70,6 +79,21 @@ def get_arg_parser():
                         help='Persistently exclude ITEM from automatic '
                              'configuration/deconfiguration.  Use the '
                              '--include option to include the ITEM again.')
+    show_parser.add_argument('--details', action='store_true', default=False,
+                                help='Display detailed information')
+    show_parser.add_argument('--output-mode', choices=('parsable','table','json','text'),
+                        help='Set output mode',default='table')
+    # Display information the way previous version used to do (backward compatibility mode)
+    show_parser.add_argument('--compat-output', action='store_true', default=False, help=argparse.SUPPRESS)
+
+    show_vnics_parser = subparser.add_parser('show-vnics', description="shows VNICs information of this instance")
+    show_vnics_parser.add_argument('--output-mode', choices=('parsable','table','json','text'),
+                        help='Set output mode',default='table')
+    show_vnics_parser.add_argument('--details', action='store_true', default=False,
+                                help='Display detailed information')
+    show_vnics_parser.add_argument('--ocid', type=vnic_oci_validator, action='store', metavar='VNIC_OCID', help='Show information of vNIC matching ocid')
+    show_vnics_parser.add_argument('--name', type=str, action='store', metavar='VNIC_NAME', help='Show information of vNIC matching name')
+    show_vnics_parser.add_argument('--ip-address', type=str, action='store', metavar='PRIMARY_IP', help='Show information of vNIC matching IP as primary IP')
 
     configure_parser = subparser.add_parser('configure',
                             description='Add IP configuration for VNICs that are not '
@@ -96,8 +120,6 @@ def get_arg_parser():
                         help='Persistently exclude ITEM from automatic '
                              'configuration/deconfiguration.  Use the '
                              '--include option to include the ITEM again.')
-    configure_parser.add_argument('-s', '--show', action='store_true',
-                        help='After operation completed, show information on all provisioning and interface configuration.')
 
     deconfigure_parser = subparser.add_parser('deconfigure',
                             description='Deconfigure all VNICs (except the primary).')
@@ -116,8 +138,7 @@ def get_arg_parser():
                         help='Persistently exclude ITEM from automatic '
                              'configuration/deconfiguration.  Use the '
                              '--include option to include the ITEM again.')
-    deconfigure_parser.add_argument('-s', '--show', action='store_true',
-                        help='After operation completed, show information on all provisioning and interface configuration.')
+
     attach_vnic = subparser.add_parser('attach-vnic',
                             description='Create a new VNIC and attach it to this instance.')
     attach_vnic.add_argument('-I','--ip-address', action='store', metavar='IP_ADDR',
@@ -136,8 +157,6 @@ def get_arg_parser():
                             help='assign a public IP address to the new VNIC.')
     attach_vnic.add_argument('--configure', action='store_true',
                             help='Adds IP configuration for that vNIC')
-    attach_vnic.add_argument('-s', '--show', action='store_true',
-                        help='After operation completed, show information on all provisioning and interface configuration.')
 
     detach_vnic = subparser.add_parser('detach-vnic',description='Detach and delete the VNIC with the given OCID'
                              ' or primary IP address')
@@ -146,22 +165,17 @@ def get_arg_parser():
                         help='detach the vNIC with the given VNIC')
     dg.add_argument('-I','--ip-address', action='store', metavar='IP_ADDR',
                         help='detach the vNIC with the given ip address configured on it')
-    detach_vnic.add_argument('-s', '--show', action='store_true',
-                        help='After operation completed, show information on all provisioning and interface configuration.')
 
     add_sec_addr = subparser.add_parser('add-secondary-addr',description="Adds the given secondary private IP.")
     add_sec_addr.add_argument('-I','--ip-address', action='store', metavar='IP_ADDR',
                         help='Secondary private IP to to be added',required=True)
     add_sec_addr.add_argument('--ocid', action='store', metavar='OCID',
                         help='Uses vNIC with the given VNIC',required=True)
-    add_sec_addr.add_argument('-s', '--show', action='store_true',
-                        help='After operation completed, show information on all provisioning and interface configuration.')
 
     rem_sec_addr = subparser.add_parser('remove-secondary-addr',description="Removes the given secondary private IP.")
     rem_sec_addr.add_argument('-I','--ip-address', action='store', metavar='IP_ADDR',
                         help='Secondary private IP to to be removed',required=True)
-    rem_sec_addr.add_argument('-s', '--show', action='store_true',
-                        help='After operation completed, show information on all provisioning and interface configuration.')
+
     return parser
 
 
@@ -186,6 +200,7 @@ def get_oci_api_session():
     sess = None
 
     try:
+        _logger.debug('Creating session')
         sess = oci_utils.oci_api.OCISession()
         # it seems that having a client is not enough, we may not be able to query anything on it
         # workaround :
@@ -194,67 +209,203 @@ def get_oci_api_session():
         setattr(uniq_item_validator, "_session", sess)
     except Exception as e:
         _logger.error("Failed to access OCI services: %s" % str(e))
-
+    _logger.debug('Returning session')
     return sess
 
 
-def oci_show_network_config():
+class IndentPrinter(object):
+    def __init__(self, howmany):
+        self.hm = howmany
+    def write(self, s):
+        sys.stdout.write('  '*self.hm + s)
+
+def do_show_vnics_information(vnics, mode, details=False):
     """
-    Show the current network configuration of the instance based on
-    information obtained through OCI API calls, if the OCI SDK is
-    configured.
+    Show given vNIC information
+    parameter
+    ---------
+        vnics : OCIVNIC instances
+        mode : the output mode as str (text,json,parsable)
+        details : display detailed information ?
+    """
+
+    def _display_secondary_ip_subnet(_, privip):
+        _sn = privip.get_subnet()
+        return '%s (%s)' % (_sn.get_display_name() ,_sn.get_cidr_block())
+
+    _title = 'VNIs Information'
+    _columns = [['Name',32,'get_display_name']]
+    _columns.append(['Private IP',15,'get_private_ip'])
+    _columns.append(['OCID',90,'get_ocid'])
+    _columns.append(['MAC',17,'get_mac_address'])
+    printerKlass = get_row_printer_impl(mode)
+    if details:
+        printerKlass = get_row_printer_impl('text')
+        _columns.append(['Primary',7,'is_primary'])
+        _columns.append(['Subnet',25,'get_subnet'])
+        _columns.append(['NIC',3,'get_nic_index'])
+        _columns.append(['Public IP',15,'get_public_ip'])
+        _columns.append(['Availability domain',20,'get_availability_domain_name'])
+
+        ips_printer = TextPrinter(title='Private IP addresses:',
+            columns=(['IP address',15,'get_address'],['OCID','90','get_ocid'],['Hostname',25,'get_hostname'],
+            ['Subnet',24,_display_secondary_ip_subnet]),printer=IndentPrinter(3))
+
+    printer = printerKlass(title=_title, columns=_columns)
+    printer.printHeader()
+    for vnic in vnics:
+        printer.printRow(vnic)
+        if details:
+            private_ips = vnic.all_private_ips()
+            if len(private_ips) > 1:
+                # private_ips include the primary we won't print (>1)
+                ips_printer.printHeader()
+                for p_ip in private_ips:
+                    if not p_ip.is_primary():
+                        # primary already displayed
+                        ips_printer.printRow(p_ip)
+                        print()
+            ips_printer.printFooter()
+            ips_printer.finish()
+    printer.printFooter()
+    printer.finish()
+
+def do_show_information (vnic_utils, mode, details=False):
+    """
+    Display network information
+    parameter
+    ---------
+        vnic_utils : instance ov VNICUtil
+        mode : output mode (text,parsable etc...)
+        details : display detailed information ?
+    """
+
+    sess = get_oci_api_session()
+    if sess is None:
+        raise Exception("Failed to get API session.")
+
+
+
+    vnics = sess.this_instance().all_vnics()
+    network_config = vnic_utils.get_network_config()
+
+    def _display_subnet(_, interface):
+        """ return network subnet. if interface match a vnic return OCI vnic subnet """
+        if interface['VNIC']:
+            vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
+            return '%s/%s (%s)' % (interface['SPREFIX'],interface['SBITS'],vnic.get_subnet().get_display_name())
+        return '%s/%s' % (interface['SPREFIX'],interface['SBITS'])
+    def _get_vnic_name(_, interface):
+        """ if interface match a vnic return its display name """
+        if interface['VNIC']:
+            vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
+            return vnic.get_display_name()
+    def _get_hostname(_, interface):
+        """ if interface match a vnic return its hostname """
+        if interface['VNIC']:
+            vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
+            return vnic.get_hostname()
+
+    _columns = []
+    _columns.append(['State',6,'CONFSTATE'])
+    _columns.append(['Link',15,'IFACE'])
+    _columns.append(['Status',6,'STATE'])
+    _columns.append(['Ip address',15,'ADDR'])
+    _columns.append(['VNIC',30,_get_vnic_name])
+    _columns.append(['MAC',17,'MAC'])
+    if details:
+        _columns.append(['Hostname',25,_get_hostname])
+        _columns.append(['Subnet',32,_display_subnet])
+        _columns.append(['Router IP',15,'VIRTRT'])
+        _columns.append(['Namespace',10,'NS'])
+        _columns.append(['Index',5,'IND'])
+        _columns.append(['VLAN tag',8,'VLTAG'])
+        _columns.append(['VLAN',11,'VLAN'])
+
+    printerKlass = get_row_printer_impl(mode)
+    printer = printerKlass(title='Network configuration', columns=_columns)
+
+    printer.printHeader()
+    for item in network_config:
+        printer.printRow(item)
+    printer.printFooter()
+    printer.finish()
+
+def compat_show_vnics_information():
+    """
+    Show the current vNIC configuration of the instance based on
+
+
+    parameters
+    ----------
+     mode : output mode as str 'json','test','table','parsable','json'
+     details : display details information ?
 
     Returns
     -------
        No return value.
     """
 
+    def _display_subnet(_, vnic):
+        """return subnet display name of this vnic """
+        return vnic.get_subnet().get_display_name()
+    def _display_secondary_ip_subnet(_, privip):
+        _sn = privip.get_subnet()
+        return '%s (%s)' % (_sn.get_display_name() ,_sn.get_cidr_block())
+    def _display_vnic_name(_, vn):
+        if vn.is_primary():
+            return '%s (primary)' % vn.get_display_name()
+        return vn.get_display_name()
+
     sess = get_oci_api_session()
     if sess is None:
         _logger.error("Failed to get API session.")
         return
+    _logger.debug('getting instance ')
     inst = sess.this_instance()
     if inst is None:
         _logger.error("Failed to get information from OCI.")
         return
+    _logger.debug('getting all vnics ')
     vnics = inst.all_vnics()
-    i = 1
-    print("VNIC configuration for instance %s" % inst.get_display_name())
-    print()
+    _logger.debug('got for printing')
+
+    _title = 'VNIC configuration for instance %s' % inst.get_display_name()
+
+    _columns=(['Name',32,_display_vnic_name],
+        ['Hostname',25,'get_hostname'],
+        ['MAC',17,'get_mac_address'],
+        ['Public IP',15,'get_public_ip'],
+        ['Private IP(s)',15,'get_private_ip'],
+        ['Subnet',18,_display_subnet],
+        ['OCID',90,'get_ocid'])
+
+
+    printer = TextPrinter(title=_title, columns=_columns, column_separator='')
+    ips_printer = TextPrinter(title='Private IP addresses:',
+            columns=(['IP address',15,'get_address'],['OCID','90','get_ocid'],['Hostname',25,'get_hostname'],
+            ['Subnet',24,_display_secondary_ip_subnet]),printer=IndentPrinter(3))
+
+    printer.printHeader()
     for vnic in vnics:
-        primary = ""
-        if vnic.is_primary():
-            primary = " (primary)"
-        print("VNIC %d%s: %s" % (i, primary, vnic.get_display_name()))
-        print("     Hostname: %s" % vnic.get_hostname())
-        print("     OCID: %s" % vnic.get_ocid())
-        print("     MAC address: %s" % vnic.get_mac_address())
-        print("     Public IP address: %s" % vnic.get_public_ip())
-        print("     Private IP address: %s" % vnic.get_private_ip())
-
-        _subn = vnic.get_subnet()
-        if _subn is not None:
-            print("     Subnet: %s (%s)" % (_subn.get_display_name(), _subn))
-        else:
-            print("     Subnet: Not found")
-
-        privips = vnic.all_private_ips()
-        if len(privips) > 0:
-            print("     Private IP addresses:")
-            for privip in privips:
-                print("         IP address: %s" % privip.get_address())
-                print("         OCID: %s" % privip.get_ocid())
-                print("         Hostname: %s" % privip.get_hostname())
-                print("         Subnet: %s (%s)" %
-                      (privip.get_subnet().get_display_name(),
-                       privip.get_subnet().get_cidr_block()))
-                print()
-        else:
+        printer.printRow(vnic)
+        _all_p_ips = vnic.all_private_ips()
+        if len(_all_p_ips) > 1:
+            # _all_p_ips include the primary we won't print (>1)
+            ips_printer.printHeader()
+            for p_ip in _all_p_ips:
+                if not p_ip.is_primary():
+                    # primary already displayed
+                    ips_printer.printRow(p_ip)
             print()
-        i += 1
+            ips_printer.printFooter()
+            ips_printer.finish()
+    printer.printFooter()
+    printer.finish()
 
 
-def system_show_network_config(vnic_utils):
+
+def compat_show_network_config(vnic_utils):
     """
     Display the currect network interface configuration as well as the
     VNIC configuration from OCI.
@@ -268,22 +419,30 @@ def system_show_network_config(vnic_utils):
     -------
         No return value.
     """
-
-    _logger.info("Operating System level network configuration")
+    def _get_subnet(_, interface):
+        return '%s/%s' % (interface['SPREFIX'],interface['SBITS'])
 
     ret = vnic_utils.get_network_config()
 
-    _fmt = "{:6} {:15} {:15} {:5} {:15} {:10} {:3} {:15} {:5} {:11} {:5} {:17} {}"
-    print(_fmt.format('CONFIG', 'ADDR', 'SPREFIX', 'SBITS', 'VIRTRT',
-                      'NS', 'IND', 'IFACE', 'VLTAG', 'VLAN', 'STATE', 'MAC', 'VNIC'))
+    _title = "Operating System level network configuration"
+    _columns=(['CONFIG',6,'CONFSTATE'],
+        ['ADDR',15,'ADDR'],
+        ['SPREFIX',15,'SPREFIX'],
+        ['SBITS',5,'SBITS'],
+        ['VIRTRT',15,'VIRTRT'],
+        ['NS',10,'NS'],
+        ['IND',4,'IND'],
+        ['IFACE',15,'IFACE'],
+        ['VLTAG',5,'VLTAG'],
+        ['VLAN',11,'VLAN'],
+        ['STATE',5,'STATE'],['MAC',17,'MAC'],['VNIC',90,'VNIC'])
+    printer=TablePrinter(title=_title, columns=_columns, column_separator='', text_truncate=False)
+
+    printer.printHeader()
     for item in ret:
-        print(_fmt.format(item['CONFSTATE'],
-                          item['ADDR'], item['SPREFIX'],
-                          item['SBITS'], item['VIRTRT'],
-                          item['NS'], item['IND'],
-                          item['IFACE'], item['VLTAG'],
-                          item['VLAN'], item['STATE'],
-                          item['MAC'], item['VNIC']))
+        printer.printRow(item)
+    printer.printFooter()
+    printer.finish()
 
 
 def do_detach_vnic(detach_options, vnic_utils):
@@ -370,9 +529,9 @@ def do_create_vnic(create_options):
             assign_public_ip=create_options.assign_public_ip,
             subnet_id=subnet_id,
             nic_index=create_options.nic_index,
-            display_name=create_options.vnic_name)
+            display_name=create_options.name)
     except Exception as e:
-        raise Exception('Failed to create VNIC') from e
+        raise Exception('Failed to create VNIC: %s'%str(e)) from e
 
 
     public_ip = vnic.get_public_ip()
@@ -537,9 +696,44 @@ def main():
 
 
     if args.command == 'show':
-        system_show_network_config(vnic_utils)
-        oci_show_network_config()
+        if args.compat_output:
+            compat_show_vnics_information()
+            compat_show_network_config(vnic_utils)
+        else:
+            try:
+                do_show_information(vnic_utils,args.output_mode, args.details)
+            except Exception as e:
+                _logger.debug('cannot show  information', exc_info=True)
+                _logger.error('cannot show information: %s' % str(e))
+                return 1
         return 0
+
+    if args.command == 'show-vnics':
+        sess = get_oci_api_session()
+        if sess is None:
+            _logger.error("Failed to get API session.")
+            return 1
+        vnics = set()
+        _vnics = sess.this_instance().all_vnics()
+        if not args.ocid and not args.name and not args.ip_address:
+            vnics.update(_vnics)
+        else:
+            if args.ocid:
+                for v in _vnics:
+                    if v.get_ocid() == args.ocid:
+                        vnics.add(v)
+            if args.name:
+                for v in _vnics:
+                    if v.get_display_name() == args.name:
+                        vnics.add(v)
+            if args.ip_address:
+                for v in _vnics:
+                    if v.get_private_ip() == args.ip_address:
+                        vnics.add(v)
+        do_show_vnics_information(vnics,args.output_mode, args.details)
+
+        return 0
+
 
     if args.command == 'attach-vnic':
         if 'nic_index' in args and args.nic_index != 0:
@@ -599,10 +793,6 @@ def main():
 
     if args.command == 'deconfigure':
         vnic_utils.auto_deconfig(args.sec_ip)
-
-    if 'show' in args and args.show:
-        system_show_network_config(vnic_utils)
-        oci_show_network_config()
 
     return 0
 

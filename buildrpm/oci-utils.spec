@@ -216,7 +216,7 @@ rm -rf %{buildroot}
 * Thu Jul 16 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.2
 - support for LVM root filesystem in oci-growfs
 
-* Wed Jul 2 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.1
+* Thu Jul 2 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.11.1
 - multi vnic support for KVM guests
 - removal of libexec/secondary_vnic_all_configure.sh, replaced by python implementation
 - oci-kvm, added sanity around parameters passes as part of extra-args option
