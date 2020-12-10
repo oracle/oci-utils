@@ -87,11 +87,11 @@ class TestCliOciIscsiConfig(OciTestCase):
         self.volume_name = uuid.uuid4().hex
         try:
             self.waittime = int(self.properties.get_property('waittime'))
-        except Exception as e:
+        except Exception:
             self.waittime = 10
         try:
             self.volume_size = self.properties.get_property('volume-size')
-        except Exception as e:
+        except Exception:
             self.volume_size = '60'
         try:
             self.compartment_name = self.properties.get_property('compartment-name')

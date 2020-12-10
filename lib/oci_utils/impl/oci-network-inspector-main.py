@@ -13,10 +13,9 @@ import logging
 import sys
 
 from oci_utils import oci_api
-# import oci_utils.oci_api
-from oci_utils.exceptions import OCISDKError
+from oci_utils.impl.oci_resources import OCISecurityList
 
-__logger = logging.getLogger("oci-utils.oci-network-inspector")
+_logger = logging.getLogger("oci-utils.oci-network-inspector")
 
 
 def parse_args():
@@ -45,6 +44,114 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+def _print_security_list(sec_list, indent):
+    """
+    Print the security list.
+
+    Parameters
+    ----------
+    indent: str
+        The indentation string.
+
+    Returns
+    -------
+        No return value.
+    """
+    print("%sSecurity List: %s" % (indent, sec_list.get_display_name()))
+    for rule in sec_list.get_ingress_rules():
+        prot = OCISecurityList.protocol.get(rule.protocol, rule.protocol)
+        src = rule.source
+        des = "---"
+        desport = "-"
+        srcport = "-"
+        if rule.protocol == "6" or rule.protocol == "17":
+            if rule.protocol == "6":
+                option = rule.tcp_options
+            else:
+                option = rule.udp_options
+
+            try:
+                if option.destination_port_range.min \
+                        != option.destination_port_range.max:
+                    desport = "%s-%s" % (option.destination_port_range.min,
+                                            option.destination_port_range.max)
+                else:
+                    desport = option.destination_port_range.min
+            except Exception:
+                _logger.debug('error during print', exc_info=True)
+
+
+            try:
+                if option.source_port_range.min \
+                        != option.source_port_range.max:
+                    srcport = "%s-%s" % (option.source_port_range.min,
+                                            option.source_port_range.max)
+                else:
+                    srcport = option.source_port_range.min
+            except Exception:
+                _logger.debug('error during print', exc_info=True)
+
+        elif rule.protocol == "1":
+            srcport = "-"
+            option = rule.icmp_options
+            desport = "type--"
+            try:
+                desport = "type-%s" % option.type
+            except Exception:
+                _logger.debug('error during print', exc_info=True)
+
+            try:
+                des = "code-%s" % option.code
+            except Exception:
+                des = "code--"
+        print("%s  Ingress: %-5s %20s:%-6s %20s:%s" % (
+            indent, prot, src, srcport, des, desport))
+
+    for rule in self.get_egress_rules():
+        prot = OCISecurityList.protocol.get(rule.protocol, rule.protocol)
+        des = rule.destination
+        src = "---"
+        desport = "-"
+        srcport = "-"
+        if rule.protocol == "6" or rule.protocol == "17":
+            if rule.protocol == "6":
+                option = rule.tcp_options
+            else:
+                option = rule.udp_options
+
+            try:
+                if option.destination_port_range.min \
+                        != option.destination_port_range.max:
+                    desport = "%s-%s" % (option.destination_port_range.min,
+                                            option.destination_port_range.max)
+                else:
+                    desport = option.destination_port_range.min
+            except Exception:
+                desport = "-"
+
+            try:
+                if option.source_port_range.min \
+                        != option.source_port_range.max:
+                    srcport = "%s-%s" % (option.source_port_range.min,
+                                            option.source_port_range.max)
+                else:
+                    srcport = option.source_port_range.min
+
+            except Exception:
+                srcport = "-"
+        elif rule.protocol == "1":
+            srcport = "-"
+            option = rule.icmp_options
+            try:
+                desport = "type-%s" % option.type
+            except Exception:
+                desport = "type--"
+            try:
+                des = "code-%s" % option.code
+            except Exception:
+                des = "code--"
+        print("%s  Egress : %-5s %20s:%-6s %20s:%s" % (
+            indent, prot, src, srcport, des, desport))
 
 def main():
     """
@@ -61,8 +168,8 @@ def main():
     try:
         sess = oci_api.OCISession()
         # sess = oci_utils.oci_api.OCISession()
-    except OCISDKError as e:
-        __logger.error("Need OCI Service to inspect the networks.\n"
+    except Exception as e:
+        _logger.error("Need OCI Service to inspect the networks.\n"
                        "Make sure to install and configure "
                        "OCI Python SDK (python36-oci-sdk)\n %s" % str(e))
         return 1
@@ -71,16 +178,16 @@ def main():
     if args.compartment:
         comp = sess.get_compartment(ocid=args.compartment)
         if comp is None:
-            __logger.error("Compartment [%s] not found\n" % args.compartment)
+            _logger.error("Compartment [%s] not found\n" % args.compartment)
             return 1
         comps.append(comp)
     else:
         comp = sess.all_compartments()
-        __logger.debug('no compartement specified, requesting all, got (%d)' % len(comp))
+        _logger.debug('no compartement specified, requesting all, got (%d)' % len(comp))
         comps.extend(comp)
 
     if len(comps) == 0:
-        __logger.error("No Compartment found\n")
+        _logger.error("No Compartment found\n")
         return 1
 
     vcns = []
@@ -94,30 +201,30 @@ def main():
             if vcn is not None:
                 vcns.extend(vcn)
         if len(vcns) == 0:
-            __logger.error("VCN not found: %s\n" % args.vcn)
+            _logger.error("VCN not found: %s\n" % args.vcn)
             return 1
     else:
         # get all vcns for the compartment.
         for comp in comps:
             comp_vcns = comp.all_vcns()
-            if __logger.isEnabledFor(logging.DEBUG):
-                __logger.debug('Requesting VCNs of [%s], got (%d)' % (comp.get_display_name(), len(comp_vcns)))
+            if _logger.isEnabledFor(logging.DEBUG):
+                _logger.debug('Requesting VCNs of [%s], got (%d)' % (comp.get_display_name(), len(comp_vcns)))
             for vcn in comp_vcns:
                 vcn.set_compartment_name(comp.get_display_name())
             vcns += comp_vcns
 
     if len(vcns) == 0:
         if args.vcn is not None:
-            __logger.error("VCN not found: %s\n" % args.vcn)
+            _logger.error("VCN not found: %s\n" % args.vcn)
         else:
-            __logger.error("No VCN information found")
+            _logger.error("No VCN information found")
         return 1
 
     comp_ocid = None
     for vcn in vcns:
         _compartment = vcn.get_compartment()
         if _compartment is None:
-            __logger.error("no compartment returned for VCN %s\n" % str(vcn))
+            _logger.error("no compartment returned for VCN %s\n" % str(vcn))
             continue
         if _compartment.get_ocid() != comp_ocid:
             print("")
@@ -128,20 +235,20 @@ def main():
         print("  vcn: %s (%s)" % (vcn.get_display_name(), vcn.get_ocid()))
         sll = vcn.all_security_lists()
         for _, value in list(sll.items()):
-            value.print_security_list("    ")
+            _print_security_list(value,"    ")
 
         for subnet in vcn.all_subnets():
             print("")
-            print("     Subnet: %s (%s)" % (subnet.get_display_name(), subnet.get_ocid()))
-            print("                Availibility domain: %s" % subnet.get_availability_domain())
+            print("     Subnet: %s (%s)" % (subnet.get_display_name(), subnet.get_ocid(1)))
+            print("                Availibility domain: %s" % subnet.get_availability_domain_name())
             print("                Cidr_block: %s" % subnet.get_cidr_block())
             print("                DNS Domain Name: %s" % subnet.get_domain_name())
 
             for sl_id in subnet.get_security_list_ids():
                 try:
-                    sll.get(sl_id).print_security_list("       ")
+                    _print_security_list(sll.get(sl_id), "       ")
                 except Exception as e:
-                    __logger.error("The security list %s is not in the VCN's "
+                    _logger.error("The security list %s is not in the VCN's "
                                    "list. \nException:%s" % (sl_id, e))
 
             '''
@@ -158,7 +265,7 @@ def main():
                 for ip in vnic.all_private_ips():
                     print "        Private IP: %s" % ip
             '''
-            for ip in subnet.all_private_ips_with_primary():
+            for ip in subnet.all_private_ips():
                 primary = ""
                 if ip.is_primary():
                     primary = "primary"

@@ -250,9 +250,9 @@ default_systemd_config :
 valid_os :
     - ORACLE LINUX SERVER
     - RHEL
-    - CENTOS
+    - CENTOS LINUX
     - UBUNTU
-    - DEBIAN
+    - DEBIAN GNU/LINUX
     - FEDORA
 #
 # cloud-config
@@ -265,6 +265,26 @@ default_clouduser : opc
 ol_os_packages_to_install:
     - cloud-init
     - jq
+#
+# oracle cloud agent
+# for OL, RH, CentOS
+ol_os_for_cloud_agent:
+  - ol
+  - rhel
+  - centos
+ol_version_id_dict:
+    '6': 'el6'
+    '7': 'el7'
+    '8': 'el8'
+ol_os_oracle_cloud_agent_base : 'https://objectstorage.us-phoenix-1.oraclecloud.com'
+ol_os_oracle_cloud_agent_store : '/tmp'
+ol_os_oracle_cloud_agent:
+    el6 : 'https://objectstorage.us-phoenix-1.oraclecloud.com/p/-hpUhDl33ZvNC4bs9YFIqnUd247076Ga_mswv2kCGP0/n/imagegen/b/agents/o/latest_el6_rpm_par_url'
+    el7 : 'https://objectstorage.us-phoenix-1.oraclecloud.com/p/dUQMlRrvwS86ENeHtS7RlRA4MXVVhjhLKSWAeeN6PVg/n/imagegen/b/agents/o/latest_el7_rpm_par_url'
+    el8 : 'https://objectstorage.us-phoenix-1.oraclecloud.com/p/qJrxMMEHghOnLsCAu2br5gyFiGkkWA_U2Q4SW_kUBzk/n/imagegen/b/agents/o/latest_el8_rpm_par_url'
+#
+# oracle cloud agent doc
+oracle_cloud_agent_doc: 'https://docs.cloud.oracle.com/en-us/iaas/Content/Compute/Tasks/enablingmonitoring.htm'
 #
 # oci region script
 ol_os_oci_region_script : /usr/local/bin/setregion.sh
@@ -282,8 +302,34 @@ ol_os_oci_region_bash :
     - echo '-'$OCIREGION > /etc/yum/vars/ociregion
 #
 # Ubuntu type specific
-ubuntu_os_packages_to_install:
+ubuntu_os_packages_to_install_apt:
     - cloud-init
+    - snapd
+ub_version_id_dict:
+    'any': 'ub'
+ubuntu_os_packages_to_install_snap:
+    - oracle-cloud-agent
+ubuntu_os_snapd_bash:
+    - '#!/bin/bash'
+    - SNAPD='snapd'
+    - snaplist=_XXXX_
+    - SNAP=$(which snap)
+    - SYSCTL=$(which systemctl)
+    - LOGGER=$(which logger)
+    - ${SYSCTL} enable ${SNAPD}
+    - ${SYSCTL} start ${SNAPD}
+    - snapdstatus=$(${SYSCTL} status ${SNAPD})
+    - SNAPSTAT=${?}
+    - if [[ ${SNAPSTAT} -ne 0 ]]; then
+    - ${LOGGER} "Failed to start ${SNAPD}."
+    - exit 1
+    - fi
+    - for pkg in ${snaplist[@]}; do
+    - ${SNAP} install ${pkg} --classic
+    - done
+#
+# install snap packages script
+ubuntu_os_snap_install_script: /usr/local/bin/install_snap_pkgs.sh
 #
 # reinitialise cloud-init script
 reinitialise_cloud_init_script : /usr/local/bin/reinitialise_cloud_init.sh

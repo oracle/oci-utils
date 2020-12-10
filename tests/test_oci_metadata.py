@@ -51,7 +51,7 @@ class TestOciMetadata(OciTestCase):
             regionlist += re.split(' - | \(', region.replace(')',''))
         metadata = InstanceMetadata().get()
         self.assertNotEqual(metadata, [], 'Instanciated metadata is empty')
-        self.assertTrue(metadata['instance'], 'instance key of metadata should be True')
+        self.assertTrue('instance' in metadata, 'instance key should be in metadata')
         self.assertIn('region', metadata['instance'], 'metadata does not contain region information')
         self.assertIn(metadata['instance']['region'], regionlist,
                       'instance region [%s] not part of possible values [%s]'
@@ -60,11 +60,11 @@ class TestOciMetadata(OciTestCase):
         self.assertEqual(metadata['instance']['state'], 'Running',
                          'execute state of OCI instance should  be running. [%s]'
                          % metadata['instance']['state'])
-        self.assertTrue(metadata['instance']['displayname'], 'displayname key of metadata shoudl be True')
-        self.assertTrue(metadata['instance']['availabilitydomain'],
-                        'availability domain key of metadata shoudl be True')
-        self.assertTrue(metadata['instance']['id'], 'OCID key of metadata shoudl be True')
-        self.assertTrue(metadata['instance']['compartmentid'], 'compartment OCID key of metadata shoudl be True')
+        self.assertIn('displayName' , metadata['instance'], 'displayname key should be in metadata')
+        self.assertIn('availabilityDomain' , metadata['instance'],
+                        'availability domain key should be in metadata')
+        self.assertIn('id' , metadata['instance'], 'OCID key should be in metadata')
+        self.assertIn('compartmentId' , metadata['instance'], 'compartment OCID key should be in metadata')
 
     @skipUnlessOCI()
     def test_oci_metadata_refresh(self):

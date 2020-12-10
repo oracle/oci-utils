@@ -48,6 +48,10 @@ local_volume_groups = list()
 # the migrate util configuration is saved here for use while in chroot jail.
 oci_image_migrate_config = dict()
 #
+# the os version information is saved here for use while in chroot jail.
+os_version_id = 'X'
+oracle_cloud_agent_location = None
+#
 # resolv.conf path
 resolv_conf_path = ''
 #

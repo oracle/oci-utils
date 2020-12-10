@@ -197,8 +197,7 @@ def main():
     import_progress.start()
     try:
         while not finished:
-            if oci_cli_tools.get_lifecycle_state(display_name, compartment_id) \
-                    == 'AVAILABLE':
+            if oci_cli_tools.get_lifecycle_state(display_name, compartment_id) == 'AVAILABLE':
                 finished = True
     except Exception as e:
         _logger.error('Failed to follow up on the import of %s, giving up: %s', display_name, str(e))

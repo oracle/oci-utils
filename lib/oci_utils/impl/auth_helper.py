@@ -11,7 +11,6 @@ import json
 import os
 import subprocess
 import sys
-from ..exceptions import OCISDKError
 
 _HELPER_SCRIPT = '/usr/libexec/oci-utils-config-helper'
 
@@ -32,7 +31,7 @@ class OCIAuthProxy():
 
         Raises
         ------
-        OCISDKError
+        Exception
             Proxy authentication failed
         """
         self.is_open = False
@@ -42,7 +41,7 @@ class OCIAuthProxy():
         resp = self._receive()
         self._close()
         if resp['status'] != 'OK':
-            raise OCISDKError('Proxy authentication failed: %s' % resp['data'])
+            raise Exception('Proxy authentication failed: %s' % resp['data'])
         self.config = resp['data']
 
     def _open(self):
@@ -51,7 +50,7 @@ class OCIAuthProxy():
 
         Raises
         ------
-        OCISDKError
+        Exception
             Execution has failed.
         """
         try:
@@ -67,7 +66,7 @@ class OCIAuthProxy():
                                            universal_newlines=True)
             self.is_open = True
         except Exception as e:
-            raise OCISDKError('Failed to start auth helper script') from e
+            raise Exception('Failed to start auth helper script') from e
 
     def _receive(self):
         """
@@ -75,9 +74,9 @@ class OCIAuthProxy():
 
         Raises
         ------
-        OCISDKError
+        Exception
             Error executing helper process.
-        OCISDKError
+        Exception
             API error.
 
         Returns
@@ -86,7 +85,7 @@ class OCIAuthProxy():
                 The response,
         """
         if not self.is_open or self.helper.poll() is not None:
-            raise OCISDKError('Internal error: helper process pipe not open')
+            raise Exception('Internal error: helper process pipe not open')
         # skip debug lines
         resp = {'status': 'DEBUG'}
         while resp['status'] == 'DEBUG':
@@ -94,9 +93,9 @@ class OCIAuthProxy():
             try:
                 resp = json.loads(line.strip())
             except ValueError as e:
-                raise OCISDKError('%s is not valid JSON' % line.strip()) from e
+                raise Exception('%s is not valid JSON' % line.strip()) from e
             if resp['status'] == 'ERROR':
-                raise OCISDKError('API Proxy error: %s' % resp['data'])
+                raise Exception('API Proxy error: %s' % resp['data'])
         return resp
 
     def _close(self):

@@ -10,15 +10,12 @@
 import logging
 import os
 import re
-from time import sleep
 import oci as oci_sdk
-import oci_utils
+from . import metadata
 from . import _configuration as OCIUtilsConfiguration
 from . import OCI_RESOURCE_STATE
-from .exceptions import OCISDKError
-from .impl import lock_thread, release_thread
 from .impl.auth_helper import OCIAuthProxy
-from .impl.oci_resources import (OCICompartment, OCIInstance, OCIVolume, OCISubnet)
+from .impl.oci_resources import (OCICompartment, OCIInstance, OCIVolume, OCISubnet, OCIVNIC)
 
 # authentication methods
 DIRECT = 'direct'
@@ -54,32 +51,22 @@ class OCISession():
 
         Raises
         ------
-        OCISDKError
+        Exception
             if fails to authenticate.
         """
 
-        assert authentication_method in (None, NONE,DIRECT,PROXY,AUTO,IP), 'Invalid auth method'
+        assert authentication_method in (None, NONE,DIRECT,IP,PROXY,AUTO), 'Invalid auth method'
 
         self.config_file = config_file
         self.config_profile = config_profile
-        self._compartments = None
-        self._instances = None
-        # max time spent waiting for the sdk thread lock
-        self._sdk_lock_timeout = int(OCIUtilsConfiguration.get('ocid', 'sdk_lock_timeout'))
-        self._vcns = None
-        self._subnets = None
-        self._volumes = None
         self._identity_client = None
         self._compute_client = None
         self._network_client = None
         self._block_storage_client = None
         self._object_storage_client = None
 
-        self._metadata = None
-        try:
-            self._metadata = oci_utils.metadata.InstanceMetadata().refresh().get().get()
-        except Exception as e:
-            _logger.debug('Cannot get instance metadata: %s' , str(e))
+
+        self._metadata = metadata.InstanceMetadata().refresh().get().get()
 
         self.oci_config = {}
         self.signer = None
@@ -90,7 +77,7 @@ class OCISession():
         self.auth_method = self._get_auth_method(authentication_method)
 
         if self.auth_method == NONE:
-            raise OCISDKError('Failed to authenticate with the Oracle Cloud Infrastructure service')
+            raise Exception('Failed to authenticate with the Oracle Cloud Infrastructure service')
 
         self.tenancy_ocid = None
         if 'tenancy' in self.oci_config:
@@ -124,7 +111,7 @@ class OCISession():
 
         Raises
         ------
-        OCISDKError
+        Exception
             If the configuration file does not exist or is not readable.
         """
         full_fname = os.path.expanduser(fname)
@@ -133,9 +120,9 @@ class OCISession():
                 oci_config = oci_sdk.config.from_file(full_fname, profile)
                 return oci_config
             except oci_sdk.exceptions.ConfigFileNotFound as e:
-                raise OCISDKError("Unable to read OCI config file") from e
+                raise Exception("Unable to read OCI config file") from e
         else:
-            raise OCISDKError("Config file %s not found" % full_fname)
+            raise Exception("Config file %s not found" % full_fname)
 
     def this_shape(self):
         """
@@ -146,78 +133,6 @@ class OCISession():
         """
         return self._metadata['instance']['shape']
 
-
-    def set_sdk_call_timeout(self, timeout):
-        """
-        Set the timeout for calls to OCI SDK
-        the timeout is used as a timeout to acquire the lock protecting the
-        OCI sdk.
-
-        Parameters
-        ----------
-        timeout : int
-            The timeout value, in seconds.
-
-        Returns
-        -------
-            No return value
-
-        Raises
-        ------
-        OCISDKError
-            If timeout is less or equal to 0.
-        ValueError
-            If the given timeout cannot be converted ot int.
-        """
-        if timeout is None or int(timeout) < 0:
-            raise OCISDKError("Invalid value for timeout in sdk_call()")
-        self._sdk_lock_timeout = int(timeout)
-
-    def sdk_call(self, client_func, *args, **kwargs):
-        """
-        Make an SDK call in a thread-safe way. Give up acquiring the
-        thread lock after timeout seconds.
-
-        Parameters
-        ----------
-        client_func : func
-            The SDK function call.
-        args :
-            Non-keyworded function call arguments.
-        kwargs :
-            Keyworded function call arguments.
-
-        Returns
-        -------
-            The function return value.
-
-        Raises
-        ------
-        OCISDKError
-            If the timeout is reached.
-        """
-        lock_thread(timeout=self._sdk_lock_timeout)
-        # for login purposes
-        call_name = str(client_func)
-        try:
-            call_name = client_func.__name__
-        except Exception:
-            _logger.debug('function name not found',
-                          stack_info=True, exc_info=True)
-        try:
-            result = client_func(*args, **kwargs)
-            next_res = result
-            while hasattr(next_res, 'data') and next_res.has_next_page:
-                next_res = client_func(*args, page=next_res.next_page, **kwargs)
-                result.data.extend(next_res.data)
-        except Exception as e:
-            _logger.debug("API call %s failed: %s" % (call_name, e),
-                          stack_info=True, exc_info=True)
-            raise
-        finally:
-            release_thread()
-
-        return result
 
     def _get_auth_method(self, authentication_method=None):
         """
@@ -248,8 +163,8 @@ class OCISession():
         # order matters
         _auth_mechanisms = {
             DIRECT: self._direct_authenticate,
-            PROXY: self._proxy_authenticate,
-            IP: self._ip_authenticate}
+            IP: self._ip_authenticate,
+            PROXY: self._proxy_authenticate}
 
         if auth_method in _auth_mechanisms.keys():
             # user specified something, respect that choice
@@ -296,7 +211,7 @@ class OCISession():
         try:
             proxy = OCIAuthProxy(sdk_user)
             self.oci_config = proxy.get_config()
-            self._identity_client = self.sdk_call(oci_sdk.identity.IdentityClient, self.oci_config)
+            self._identity_client = oci_sdk.identity.IdentityClient(self.oci_config)
         except Exception as e:
             _logger.debug("Proxy authentication failed: %s" % str(e))
             raise Exception("Proxy authentication failed") from e
@@ -317,7 +232,7 @@ class OCISession():
 
         try:
             self.oci_config = self._read_oci_config(fname=self.config_file, profile=self.config_profile)
-            self._identity_client = self.sdk_call(oci_sdk.identity.IdentityClient, self.oci_config)
+            self._identity_client = oci_sdk.identity.IdentityClient(self.oci_config)
         except Exception as e:
             _logger.debug("Direct authentication failed: %s" % str(e))
             raise Exception("Direct authentication failed") from e
@@ -337,7 +252,7 @@ class OCISession():
         """
         try:
             self.signer = oci_sdk.auth.signers.InstancePrincipalsSecurityTokenSigner()
-            self._identity_client = self.sdk_call(oci_sdk.identity.IdentityClient, config={}, signer=self.signer)
+            self._identity_client = oci_sdk.identity.IdentityClient(config={}, signer=self.signer)
         except Exception as e:
             _logger.debug('Instance Principals authentication failed: %s' % str(e))
             raise Exception('Instance Principals authentication failed') from e
@@ -351,24 +266,20 @@ class OCISession():
         list
             List of compartements.
         """
-        if self._compartments is not None:
-            return self._compartments
 
-        self._compartments = []
+        _compartments = []
         try:
             compartments_data = oci_sdk.pagination.list_call_get_all_results(
                 self._identity_client.list_compartments,
                 compartment_id=self.tenancy_ocid).data
         except Exception as e:
             _logger.error('%s' % e)
-            return self._compartments
+            return _compartments
 
-        # compartments_data = self.identity_client.list_compartments(
-        #    compartment_id=self.tenancy_ocid).data
         for c_data in compartments_data:
-            self._compartments.append(
-                OCICompartment(session=self, compartment_data=c_data))
-        return self._compartments
+            _compartments.append(
+                OCICompartment(session=self, compartment_data=oci_sdk.util.to_dict(c_data)))
+        return _compartments
 
     def find_compartments(self, display_name):
         """
@@ -424,15 +335,12 @@ class OCISession():
         list
             A list of subnets.
         """
-        if self._subnets is not None:
-            return self._subnets
 
         subnets = []
         for compartment in self.all_compartments():
             comp_subnets = compartment.all_subnets()
             if comp_subnets is not None:
                 subnets += comp_subnets
-        self._subnets = subnets
         return subnets
 
     # TODO : developer of this method should add documentation
@@ -455,7 +363,6 @@ class OCISession():
                         config=self.oci_config)
         return self._compute_client
 
-    # TODO : developer of this method should add documentation
     def get_network_client(self):
         """
         Get a new network client.
@@ -495,28 +402,6 @@ class OCISession():
                         config=self.oci_config)
         return self._block_storage_client
 
-    # TODO : developer of this method should add documentation
-    def get_object_storage_client(self):
-        """
-        Get a new object storage client.
-
-        Returns
-        -------
-            The new object storage client.
-        """
-        if self._object_storage_client is None:
-            if self.signer is not None:
-                self._object_storage_client = \
-                    oci_sdk.object_storage.object_storage_client.\
-                    ObjectStorageClient(
-                        config=self.oci_config, signer=self.signer)
-            else:
-                self._object_storage_client = \
-                    oci_sdk.object_storage.object_storage_client.\
-                    ObjectStorageClient(
-                        config=self.oci_config)
-        return self._object_storage_client
-
     def all_instances(self):
         """Get all compartements intances across all compartments.
 
@@ -525,15 +410,13 @@ class OCISession():
         list
             List of OCIInstance object, can be empty
         """
-        if self._instances is not None:
-            return self._instances
 
         instances = []
         for compartment in self.all_compartments():
             comp_instances = compartment.all_instances()
             if comp_instances is not None:
                 instances += comp_instances
-        self._instances = instances
+
         return instances
 
     def update_instance_metadata(self, instance_id=None, **kwargs):
@@ -575,9 +458,7 @@ class OCISession():
         cc = self.get_compute_client()
 
         try:
-            result = self.sdk_call(
-                cc.update_instance, instance_id=instance_id,
-                update_instance_details=details,).data
+            result = cc.update_instance(instance_id=instance_id, update_instance_details=details,).data
         except Exception as e:
             _logger.error('Failed to set metadata: %s. ' , str(e))
             return None
@@ -673,14 +554,11 @@ class OCISession():
         list
             list of OCIVCN object, can be empty
         """
-        if self._vcns is not None:
-            return self._vcns
-
-        self._vcns = []
+        _vcns = []
         for compartment in self.all_compartments():
-            self._vcns.extend(compartment.all_vcns())
+            _vcns.extend(compartment.all_vcns())
 
-        return self._vcns
+        return _vcns
 
     def all_volumes(self):
         """
@@ -692,15 +570,11 @@ class OCISession():
         list
             list of OCIVolume object, can be empty
         """
-        if self._volumes is not None:
-            return self._volumes
-
         volumes = []
         for compartment in self.all_compartments():
             comp_volumes = compartment.all_volumes()
             if comp_volumes is not None:
                 volumes += comp_volumes
-        self._volumes = volumes
         return volumes
 
     def this_instance(self):
@@ -715,12 +589,9 @@ class OCISession():
             information for it.
         Raises
         ------
-        OCISDKError : fetching instance has failed
+        Exception : fetching instance has failed
         """
 
-        if self._metadata is None:
-            _logger.warning('metadata is None !')
-            return None
         try:
             my_instance_id = self._metadata['instance']['id']
         except Exception as e:
@@ -813,21 +684,15 @@ class OCISession():
             The OCI instance or None if it is not found.
         Raises
         ------
-        OCISDKError : fetching instance has failed
+        Exception : fetching instance has failed
         """
-        if self._instances:
-            # return from cache
-            for i in self._instances:
-                if i.get_ocid() == instance_id:
-                    return i
         try:
             cc = self.get_compute_client()
-            instance_data = self.sdk_call(cc.get_instance,
-                                          instance_id=instance_id).data
-            return OCIInstance(self, instance_data)
+            instance_data = cc.get_instance(instance_id=instance_id).data
+            return OCIInstance(self, oci_sdk.util.to_dict(instance_data))
         except Exception as e:
             _logger.debug('Failed to fetch instance: %s. Check your connection and settings.', e)
-            raise OCISDKError('Failed to fetch instance [%s]' % instance_id) from e
+            raise Exception('Failed to fetch instance [%s]' % instance_id) from e
 
 
     def get_subnet(self, subnet_id):
@@ -841,13 +706,13 @@ class OCISession():
 
         Returns
         -------
+            OCISubnet
             The subnet object or None if not found.
         """
         nc = self.get_network_client()
         try:
-            sn_data = self.sdk_call(nc.get_subnet,
-                                    subnet_id=subnet_id).data
-            return OCISubnet(self, subnet_data=sn_data)
+            sn_data = nc.get_subnet(subnet_id=subnet_id).data
+            return OCISubnet(self, subnet_data=oci_sdk.util.to_dict(sn_data))
         except oci_sdk.exceptions.ServiceError:
             _logger.debug('failed to get subnet', exc_info=True)
             # return None
@@ -868,17 +733,12 @@ class OCISession():
         dict
             The volume object or None if not found.
         """
-        if self._volumes is not None:
-            for vol in self._volumes:
-                if vol.get_ocid() == volume_id:
-                    return vol
 
         bsc = self.get_block_storage_client()
         cc = self.get_compute_client()
 
         try:
-            vol_data = self.sdk_call(bsc.get_volume,
-                                     volume_id=volume_id).data
+            vol_data = bsc.get_volume(volume_id=volume_id).data
         except oci_sdk.exceptions.ServiceError:
             _logger.debug('failed to get volume', exc_info=True)
             return None
@@ -888,12 +748,13 @@ class OCISession():
             return None
 
         try:
-            v_att_list = self.sdk_call(cc.list_volume_attachments,
-                                       compartment_id=vol_data.compartment_id,
-                                       volume_id=vol_data.id).data
+            v_att_list = oci_sdk.pagination.list_call_get_all_results(
+                cc.list_volume_attachments,
+                compartment_id=vol_data.compartment_id,
+                volume_id=vol_data.id).data
         except Exception:
             _logger.debug('cannot find any attachments for this volume', exc_info=True)
-            return OCIVolume(self, volume_data=vol_data)
+            return OCIVolume(self, volume_data=oci_sdk.util.to_dict(vol_data))
 
         # find the latest attachment entry for this volume
         v_att_data = None
@@ -905,8 +766,8 @@ class OCISession():
                 v_att_data = v_att
 
         return OCIVolume(self,
-                         volume_data=vol_data,
-                         attachment_data=v_att_data)
+                         volume_data=oci_sdk.util.to_dict(vol_data),
+                         attachment_data=oci_sdk.util.to_dict(v_att_data))
 
     def get_compartment(self, **kargs):
         if 'ocid' not in kargs:
@@ -916,7 +777,7 @@ class OCISession():
         try:
             c_data = \
                 self._identity_client.get_compartment(compartment_id=kargs['ocid']).data
-            return OCICompartment(session=self, compartment_data=c_data)
+            return OCICompartment(session=self, compartment_data=oci_sdk.util.to_dict(c_data))
         except Exception as e:
             _logger.error('error getting compartment: %s' % e)
             return None
@@ -935,11 +796,7 @@ class OCISession():
         OCIVCN
             The OCI VCN  or None if it is not found.
         """
-        if self._vcns:
-            # return from cache
-            for i in self._vcns:
-                if i.get_ocid() == vcn_id:
-                    return i
+
         for c in self.all_vcns():
             if c.get_ocid() == vcn_id:
                 return c
@@ -958,13 +815,15 @@ class OCISession():
         -------
         OCIVNIC
             The OCI VNIC  or None if it is not found.
+            The returned VNIC do not have any attachemnet information
         """
-        # FIXME: use list_vnic_attachments and get_vnic directly
-        for c in self.all_compartments():
-            for v in c.all_vnics():
-                if v.get_ocid() == vnic_id:
-                    return v
-        return None
+        try:
+            nc = self.get_network_client()
+            vnic_data = nc.get_vnic(vnic_id).data
+            return OCIVNIC(self, oci_sdk.util.to_dict(vnic_data),{})
+        except Exception as e:
+            _logger.debug('Failed to fetch vnic: %s', e)
+            raise Exception('Failed to fetch VNIC [%s]' % vnic_id) from e
 
     def create_volume(self, compartment_id, availability_domain,
                       size, display_name=None, wait=True):
@@ -992,7 +851,7 @@ class OCISession():
 
         Raises
         ------
-        OCISDKError
+        Exception
             If the creation of the volume fails for any reason.
         """
         bsc = self.get_block_storage_client()
@@ -1002,14 +861,10 @@ class OCISession():
             size_in_gbs=size,
             display_name=display_name)
         try:
-            vol_data = self.sdk_call(bsc.create_volume,
-                                     create_volume_details=cvds)
+            vol_data = bsc.create_volume(create_volume_details=cvds).data
             if wait:
-                while OCI_RESOURCE_STATE[vol_data.data.lifecycle_state] \
-                        != OCI_RESOURCE_STATE.AVAILABLE:
-                    sleep(2)
-                    vol_data = self.sdk_call(bsc.get_volume,
-                                             volume_id=vol_data.data.id)
-            return OCIVolume(self, vol_data.data)
+                get_vol_state = bsc.get_volume(volume_id=vol_data.id)
+                oci_sdk.wait_until(bsc, get_vol_state, 'lifecycle_state', 'AVAILABLE')
+            return OCIVolume(self, oci_sdk.util.to_dict(vol_data))
         except oci_sdk.exceptions.ServiceError as e:
-            raise OCISDKError('Failed to create volume') from e
+            raise Exception('Failed to create volume') from e

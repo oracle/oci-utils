@@ -9,7 +9,6 @@ import oci_utils
 import oci_utils.oci_api
 from tools.decorators import needsOCICLI
 from tools.oci_test_case import OciTestCase
-from oci_utils.exceptions import OCISDKError
 
 
 class TestOCIVolume(OciTestCase):
@@ -30,7 +29,7 @@ class TestOCIVolume(OciTestCase):
         self.testVol = None
         try:
             self.sess = oci_utils.oci_api.OCISession()
-        except OCISDKError:
+        except Exception:
             self.fail("Failed to start OCI API session")
         self.testVol = self.sess.create_volume(
             availability_domain=self.sess.this_availability_domain(),
@@ -82,7 +81,7 @@ class TestOCIVolume(OciTestCase):
         try:
             self.testVol = inst.attach_volume(volume_id=self.testVol.get_ocid())
             self.volume_attached = True
-        except OCISDKError as e:
+        except Exception as e:
             self.fail('attach of volume failed: %s' % str(e))
 
 

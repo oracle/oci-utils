@@ -34,7 +34,7 @@ def bucket_exists(bucket_name):
     _logger.debug('__ Running %s.', cmd)
     pause_msg(cmd)
     try:
-        bucket_result = json.loads(system_tools.run_popen_cmd(cmd)['output'])
+        bucket_result = json.loads(system_tools.run_popen_cmd(cmd)['output'].decode('utf-8'))
         _logger.debug('Result: \n%s', bucket_result)
         return bucket_result
     except Exception as e:
@@ -58,16 +58,15 @@ def display_name_exists(display_name, compartment_id):
         bool: True on success, False otherwise.
     """
     _logger.debug('__ Verify if %s exists in compartment %s', display_name, compartment_id)
-    cmd = ['oci', 'compute', 'image', 'list', '--compartment-id',
-           '%s' % compartment_id, '--display-name',
-           '%s' % display_name]
+    cmd = ['oci', 'compute', 'image', 'list',
+           '--compartment-id', '%s' % compartment_id,
+           '--display-name', '%s' % display_name]
     object_status = system_tools.run_popen_cmd(cmd)['output'].decode('utf-8')
-    if object_status is None:
-        _logger.debug('Object %s is not present in %s', display_name, compartment_id)
-        return False
-
-    _logger.debug('Object %s is present in %s', display_name, compartment_id)
-    return True
+    if bool(object_status):
+        _logger.debug('Object %s is present in %s', display_name, compartment_id)
+        return True
+    _logger.debug('Object %s is not present in %s', display_name, compartment_id)
+    return False
 
 
 def find_compartment_id(compartment, compartment_dict):
@@ -117,7 +116,7 @@ def get_lifecycle_state(display_name, compartment_id):
            '--compartment-id', '%s' % compartment_id,
            '--display-name', '%s' % display_name]
     try:
-        object_list = json.loads(system_tools.run_popen_cmd(cmd))['output']
+        object_list = json.loads(system_tools.run_popen_cmd(cmd)['output'].decode('utf-8'))
         for object_x in object_list['data']:
             if object_x['display-name'] == display_name:
                 return object_x['lifecycle-state']
@@ -131,6 +130,7 @@ def get_lifecycle_state(display_name, compartment_id):
 def get_os_namespace():
     """
     Collect the object storage namespace name.
+
     Returns
     -------
        str: object storage namespace name
@@ -139,7 +139,7 @@ def get_os_namespace():
     _logger.debug('__ Collect the object storage namespace name.')
     cmd = ['oci', 'os', 'ns', 'get']
     try:
-        ns_dict = json.loads(system_tools.run_popen_cmd(cmd)['output'])
+        ns_dict = json.loads(system_tools.run_popen_cmd(cmd)['output'].decode('utf-8'))
         return ns_dict['data']
     except Exception as e:
         raise OciMigrateException('Failed to collect object storage namespace name:') from e
@@ -163,15 +163,14 @@ def get_tenancy_data(tenancy):
     cmd = ['oci', 'iam', 'compartment', 'list', '-c', '%s' % tenancy, '--all']
     _logger.debug('Running %s', cmd)
     try:
-        return json.loads(system_tools.run_popen_cmd(cmd)['output'])
+        return json.loads(system_tools.run_popen_cmd(cmd)['output'].decode('utf-8'))
     except Exception as e:
         raise OciMigrateException('Failed to collect compartment data for tenancy %s:' % tenancy) from e
 
 
 def import_image(image_name, display_name, compartment_id, os_namespace, os_name, launch_mode):
     """
-    Import an os image from object storage in the custom images repository
-    from the OCI.
+    Import an os image from object storage in the custom images repository from the OCI.
 
     Parameters
     ----------
@@ -209,8 +208,7 @@ def import_image(image_name, display_name, compartment_id, os_namespace, os_name
 
 def object_exists(bucket, object_name):
     """
-    Verify if the object object_name already exists in the
-    object storage.
+    Verify if the object object_name already exists in the object storage.
 
     Parameters
     ----------
@@ -256,7 +254,12 @@ def upload_image(imgname, bucket_name, ociname):
     -------
         bool: True on success, raises an exception otherwise.
     """
-    cmd = ['oci', 'os', 'object', 'put', '--bucket-name', bucket_name, '--file', imgname, '--name', ociname]
+    cmd = ['oci', 'os', 'object', 'put',
+           '--bucket-name', bucket_name,
+           '--file', imgname,
+           '--name', ociname,
+           '--part-size', '100',
+           '--parallel-upload-count', '6']
     _logger.debug('__ Running %s', cmd)
     pause_msg(cmd)
     try:

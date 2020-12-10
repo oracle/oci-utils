@@ -54,6 +54,6 @@ class TestCliOciNetworkConfig(OciTestCase):
         """
         try:
 
-            print(subprocess.check_output([self.oci_net_config, '--show', '--quiet']))
+            print(subprocess.check_output([self.oci_net_config, 'show']))
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
