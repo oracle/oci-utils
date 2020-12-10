@@ -74,12 +74,14 @@ def _display_ip_list(ip_list, displayALL, outputMode, displayDetails):
     arguments:
       ip_list : list of IPs as string
       displayALL : display all or only the one on the primary vNIC
+      outputMode : output mode (table, text, etc..)
+      displayDetails : display detailed information ?
     """
-    #we assume that primary is the first one
 
     if displayALL:
         _ip_list_to_display = ip_list
     else:
+        #we assume that primary is the first one and we want ot display only it
         _ip_list_to_display = ip_list[:1]
 
     _title = 'Public IPs information (primary on top)'
