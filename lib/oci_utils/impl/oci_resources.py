@@ -407,21 +407,6 @@ class OCIInstance(OCIAPIAbstractResource):
                 return v.get_public_ip()
         return None
 
-    def all_public_ips(self):
-        """
-        Get all the public IP addresses associated with this instance.
-
-        Returns
-        -------
-            list
-                The list of all public IP addresses of this instance.
-        """
-        ips = []
-        for v in self.all_vnics():
-            ip = v.get_public_ip()
-            if ip is not None:
-                ips.append(ip)
-        return ips
 
     def get_vnic(self, vnic_id):
         """

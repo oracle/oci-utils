@@ -13,11 +13,10 @@ import argparse
 import logging
 import sys
 
-import json
 from oci_utils.packages.stun import get_ip_info, STUN_SERVERS
 from oci_utils import oci_api
 
-
+from oci_utils.impl.row_printer import get_row_printer_impl
 
 stun_log = logging.getLogger("oci-utils.oci-public-ip")
 
@@ -35,12 +34,19 @@ def parse_args():
         description='Utility for displaying the public IP address of the '
                     'current OCI instance.', add_help=False)
     group = parser.add_mutually_exclusive_group()
+
+    # deprecated option
     parser.add_argument('-h', '--human-readable', action='store_true',
-                        help='Display human readable output (default)')
+                        help=argparse.SUPPRESS)
+    # deprecated option
     parser.add_argument('-j', '--json', action='store_true',
-                        help='Display json output')
+                        help=argparse.SUPPRESS)
+    # deprecated option
     parser.add_argument('-g', '--get', action='store_true',
-                        help='Print the IP address only')
+                        help=argparse.SUPPRESS)
+    parser.add_argument('--output-mode', choices=('parsable','table','json','text'), help='Set output mode',default='table')
+    parser.add_argument('-d', '--details', action='store_true',
+                        help="display details information")
     parser.add_argument('-a', '--all', action='store_true',
                         help='list all of the public IP addresses for the '
                              'instance.')
@@ -60,38 +66,36 @@ def parse_args():
     return args
 
 
-def _display_ip_list(ip_list, displayALL=True, doJSON=False, doParsable=False):
+def _display_ip_list(ip_list, displayALL, outputMode, displayDetails):
     """
     Receive a list of IPs and display them
     arguments:
       ip_list : list of IPs as string
-      displayALL : only display the primary (i.e only display the first in the list)
-      doJSON : display using Json format
-      doParsable: display using parsable format
+      displayALL : display all or only the one on the primary vNIC
+      outputMode : output mode (table, text, etc..)
+      displayDetails : display detailed information ?
     """
-    if displayALL:
-        _ip = ip_list.pop()
-        if doJSON:
-            print(json.dumps({'publicIp': _ip}))
-        elif doParsable:
-            print(_ip)
-        else:
-            print("Public IP address: %s" % _ip)
-        return 0
 
-    if doJSON:
-        print(json.dumps({'publicIps': ip_list}))
-    elif doParsable:
-        print(ip_list)
+    if displayALL:
+        _ip_list_to_display = ip_list
     else:
-        print("Public IP addresses: ")
-        print("  Primary public IP: %s " % ip_list[0])
-        if len(ip_list) < 2:
-            print("  Other public IP(s): None")
-            return 0
-        print("  Other public IP(s):")
-        for ip in ip_list[1:]:
-            print("    %s" % ip)
+        #we assume that primary is the first one and we want ot display only it
+        _ip_list_to_display = ip_list[:1]
+
+    _title = 'Public IPs information (primary on top)'
+    _columns = [['IP Address',15,'ip']]
+    if displayDetails:
+        _columns.append(['vNIC name',15,'vnic_name'])
+        _columns.append(['vNIC OCID',90,'vnic_ocid'])
+
+    printerKlass = get_row_printer_impl(outputMode)
+
+    _printer = printerKlass(title=_title, columns=_columns)
+    _printer.printHeader()
+    for _ip in ip_list:
+        _printer.printRow(_ip)
+    _printer.printFooter()
+    _printer.finish()
     return 0
 
 
@@ -105,6 +109,14 @@ def main():
             0 on success, 1 otherwise.
     """
     args = parse_args()
+
+    # deal with deprecated options
+    if args.human_readable:
+        args.output_mode = 'table'
+    if args.get:
+        args.output_mode = 'parsable'
+    if args.json:
+        args.output_mode = 'json'
 
     if args.list_servers:
         # print the list of known STUN servers and exit
@@ -139,24 +151,23 @@ def main():
             return 1
         # can we really end up here ?
         stun_log.debug("current Instance not found")
-    else:
-        _all_p_ips = _instance.all_public_ips()
-        stun_log.debug('%s ips retreived from sdk information' % len(_all_p_ips))
-
-    if len(_all_p_ips) == 0:
         # fall back to pystun
         stun_log.debug('No ip found , fallback to STUN')
         _ip = get_ip_info(source_ip=args.sourceip,
                           stun_host=args.stun_server)[1]
         stun_log.debug('STUN gave us : %s' % _ip)
         if _ip:
-            _all_p_ips.append(_ip)
+            _all_p_ips.append({'ip':_ip})
+    else:
+        _all_p_ips=[{'ip':v.get_public_ip(),'vnic_name':v.get_display_name(),'vnic_ocid':v.get_ocid()} for v in _instance.all_vnics() if v.get_public_ip()]
+        stun_log.debug('%s ips retreived from sdk information' % len(_all_p_ips))
 
     if len(_all_p_ips) == 0:
         # none of the methods give us information
         stun_log.info("No public IP address found.\n")
         return 1
-    _display_ip_list(_all_p_ips, args.all, args.json, args.get)
+
+    _display_ip_list(_all_p_ips, args.all, args.output_mode, args.details)
     return 0
 
 
