@@ -36,7 +36,7 @@ class OCIAPIAbstractResource():
         self._oci_session = session
         # While doing recursive things we may have to instanciate simple dict as OCIAPIAbstractResource
         # in that case we do not have 'id'.
-        self._ocid = getattr(self._data, 'id', None)
+        self._ocid = self._data['id']
 
     def __dict__(self):
         """
@@ -59,6 +59,26 @@ class OCIAPIAbstractResource():
                 The OCID.
         """
         return self._ocid
+
+    def get_state(self):
+        """
+        Get the state.
+
+        Returns
+        -------
+             str
+                 The state, one of:
+                  PROVISIONING,
+                  RUNNING,
+                  STARTING,
+                  STOPPING,
+                  STOPPED,
+                  CREATING_IMAGE,
+                  TERMINATING,
+                  TERMINATED,
+                  UNKNOWN_ENUM_VALUE
+        """
+        return self._data['lifecycle_state']
 
     def _get_dict_recursive(self):
         """
@@ -102,7 +122,7 @@ class OCIAPIAbstractResource():
             str
                 The display name.
         """
-        return self._data.display_name
+        return self._data['display_name']
 
     def get_availability_domain_name(self):
         """
@@ -113,7 +133,8 @@ class OCIAPIAbstractResource():
             str
                 The domain name.
         """
-        return self._data.availability_domain
+        return self._data['availability_domain']
+
     def get_compartment_id(self):
         """
         Get the compartment id
@@ -123,7 +144,7 @@ class OCIAPIAbstractResource():
             str
                 The compartment id
         """
-        return self._data.compartment_id
+        return self._data['compartment_id']
 
     def get_compartment(self):
         """
@@ -134,7 +155,7 @@ class OCIAPIAbstractResource():
             str
                 The compartment id.
         """
-        return self._oci_session.get_compartment(ocid=self._data.compartment_id)
+        return self._oci_session.get_compartment(ocid=self._data['compartment_id'])
 
     def __str__(self):
         """
@@ -146,6 +167,16 @@ class OCIAPIAbstractResource():
                 The string representation of the instance.
         """
         return "'%s' (%s)" % (self.get_display_name(), self.get_ocid())
+    def __repr__(self):
+        """
+        Override the string representation of the instance.
+
+        Returns
+        -------
+            str
+                The string representation of the instance.
+        """
+        return "%s (ocid=%s)" % (super().__repr__(), self.get_ocid())
 
     def __eq__(self, other):
         """

@@ -12,6 +12,7 @@ s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirna
 
 declare COMMAND
 declare cmd_line=""
+declare -i post_operation_show=0
 # included items. Can be a VNIC OCID, an IP address or a VLAN interface name.
 declare -A INCLUDED_ITEMS
 # excluded items. Can be a VNIC OCID, an IP address or a VLAN interface name.
@@ -35,7 +36,7 @@ then
   if [ $# -eq 0 ]
   then
    # former behavior : no option means '--show'
-   exec ${_PY3} ${s_dir}/oci-network-config-main.py show
+   exec ${_PY3} ${s_dir}/oci-network-config-main.py show --compat-output
   fi
    # execute as is as the command line do not start with an option dash-<something>
    exec ${_PY3} ${s_dir}/oci-network-config-main.py $@
@@ -50,10 +51,11 @@ do
     case "$1" in
         -s | --show)              if [ -z ${COMMAND} ]
                                   then
-                                    COMMAND="show"
+                                    COMMAND="show --compat-output"
                                   else
-                                    # not displaying the overall usage but command specific one.
-                                    cmd_line="${cmd_line} --show"
+                                    # display information after operation. Used to be an option
+                                    # change thiso to call ourself again with the show command
+                                    post_operation_show=1
                                   fi
                                   shift
                                   ;;
@@ -106,7 +108,7 @@ done
 if [ -z "${COMMAND}" ]
 then
     COMMAND="show"
-    cmd_line=""
+    cmd_line="--compat-output"
 fi
 
 if [ -n "${OCID_OR_IP}" ]
@@ -159,6 +161,14 @@ then
   done
 fi
 
-
-exec ${_PY3} ${s_dir}/oci-network-config-main.py $COMMAND ${cmd_line}
-
+if [ $post_operation_show -eq 1  ]
+then
+  ${_PY3} ${s_dir}/oci-network-config-main.py $COMMAND ${cmd_line}
+  # print things as we used to do : incolude systme interface as table , vnic as list etc..
+  if [ $? -eq 0 ]
+  then
+     exec ${_PY3} ${s_dir}/oci-network-config-main.py show --compat-output
+  fi
+else
+  exec ${_PY3} ${s_dir}/oci-network-config-main.py $COMMAND ${cmd_line}
+fi

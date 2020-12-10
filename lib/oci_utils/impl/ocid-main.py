@@ -31,7 +31,6 @@ from oci_utils import _MAX_VOLUMES_LIMIT
 from oci_utils import vnicutils
 from oci_utils.cache import get_timestamp, load_cache, write_cache
 from oci_utils.packages.stun import get_ip_info
-from oci_utils.exceptions import OCISDKError
 
 __ocid_logger = logging.getLogger('oci-utils.ocid')
 
@@ -218,9 +217,9 @@ def public_ip_func(context, func_logger):
         sess = oci_utils.oci_api.OCISession()
         instance = sess.this_instance()
         if instance is None:
-            raise OCISDKError('Cannot get instance')
+            raise Exception('Cannot get instance')
         return {'publicIp': instance.get_public_ip()}
-    except OCISDKError as e:
+    except Exception as e:
         func_logger.exception('failed to retrieve public ip information: %s' % str(e))
 
     # fallback
@@ -571,8 +570,7 @@ def vnic_func(context, func_logger):
 
     if context['oci_sess'] is not None:
         func_logger.debug("look for new or removed secondary private IP addresses")
-        p_ips = context['oci_sess'].this_instance(). \
-            all_private_ips()
+        p_ips = context['oci_sess'].this_instance().all_private_ips()
         sec_priv_ip = \
             [[ip.get_address(), ip.get_vnic_ocid()] for ip in p_ips]
         for ip in sec_priv_ip:
