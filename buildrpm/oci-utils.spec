@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.12.0
-Release: 1%{?dist}
+Version: 0.12.1
+Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -180,6 +180,18 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Thu Dec 10 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.12.1
+- LINUX-9315: reduce use of sleep calls
+- LINUX-9806: OCISession.get_vnic not optimised
+- LINUX-9566: oci-network-config should display NIC index
+- LINUX-9781: Should add parsable output
+- LINUX-9740: oci_api module takes long time to load
+- LINUX-9334: remove use of sleep in oci-network-config-main
+- LINUX-9770: oci-network-config usage refactor
+- LINUX-9815 : oci-public-ip do not implement --human-readable option
+- LINUX-9812 : oci-public-ip should leverage new output mechanism
+
+
 * Tue Dec 1 2020 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.0-1
  - update migrate
 

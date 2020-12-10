@@ -54,9 +54,10 @@ def print_choices(header, choices, sep="\n  "):
     sys.stderr.write('\n')
 
 
-
-# oci-utils configuration defaults
-
+def _oci_utils_exception_hook(exctype, value ,tb):
+    logging.getLogger('oci-utils').critical('An unexpected error occured: %s' , str(value))
+    logging.getLogger('oci-utils').debug('An unexpected error occured',exc_info=value)
+sys.excepthook = _oci_utils_exception_hook
 
 # oci-utils config file
 __oci_utils_conf_d = "/etc/oci-utils.conf.d"

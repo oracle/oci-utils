@@ -13,12 +13,10 @@ import argparse
 import logging
 import sys
 
-import json
 from oci_utils.packages.stun import get_ip_info, STUN_SERVERS
 from oci_utils import oci_api
 
 from oci_utils.impl.row_printer import get_row_printer_impl
-
 
 stun_log = logging.getLogger("oci-utils.oci-public-ip")
 
@@ -153,11 +151,6 @@ def main():
             return 1
         # can we really end up here ?
         stun_log.debug("current Instance not found")
-    else:
-        _all_p_ips=[{'ip':v.get_public_ip(),'vnic_name':v.get_display_name(),'vnic_ocid':v.get_ocid()} for v in _instance.all_vnics()]
-        stun_log.debug('%s ips retreived from sdk information' % len(_all_p_ips))
-
-    if len(_all_p_ips) == 0:
         # fall back to pystun
         stun_log.debug('No ip found , fallback to STUN')
         _ip = get_ip_info(source_ip=args.sourceip,
@@ -165,11 +158,15 @@ def main():
         stun_log.debug('STUN gave us : %s' % _ip)
         if _ip:
             _all_p_ips.append({'ip':_ip})
+    else:
+        _all_p_ips=[{'ip':v.get_public_ip(),'vnic_name':v.get_display_name(),'vnic_ocid':v.get_ocid()} for v in _instance.all_vnics() if v.get_public_ip()]
+        stun_log.debug('%s ips retreived from sdk information' % len(_all_p_ips))
 
     if len(_all_p_ips) == 0:
         # none of the methods give us information
         stun_log.info("No public IP address found.\n")
         return 1
+
     _display_ip_list(_all_p_ips, args.all, args.output_mode, args.details)
     return 0
 
