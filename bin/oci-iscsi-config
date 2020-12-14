@@ -16,7 +16,7 @@ declare -A OCIDS
 declare -A COMPS
 declare COMMAND
 declare cmd_line=""
-
+declare -i post_operation_show=0
 
 # former implementation of oci-iscsi-config was mixing options and sub-commands.
 # oci-iscsi-config-main.py now expect proper command line like '<sub-command> <options>'
@@ -37,9 +37,11 @@ do
         -s | --show)          if [ -z ${COMMAND} ]
                               then
                                 COMMAND="show"
+                                cmd_line="${cmd_line} --compat"
                               else
-                                # not displaying the overall usage but command specific one.
-                                md_line="${cmd_line} --show"
+                                # display information after operation. Used to be an option
+                                # change thiso to call ourself again with the show command
+                                post_operation_show=1
                               fi
                               shift
                               ;;
@@ -99,5 +101,13 @@ if [ ${COMMAND} == "create" ]
 then
   cmd_line="${cmd_line} --attach-volume"
 fi
-
-exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $COMMAND ${cmd_line}
+if [ $post_operation_show -eq 1  ]
+then
+    ${_PY3} ${s_dir}/oci-iscsi-config-main.py $COMMAND ${cmd_line}
+    if [ $? -eq 0 ]
+    then
+        exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py show --compat
+    fi
+else
+  exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $COMMAND ${cmd_line}
+fi

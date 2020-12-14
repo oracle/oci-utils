@@ -65,7 +65,7 @@ class OCICompartment(OCIAPIAbstractResource):
         self._subnets = None
         self._instances = None
         self._vcns = None
-        self._volumes = None
+
 
     def __str__(self):
         """
@@ -196,11 +196,10 @@ class OCICompartment(OCIAPIAbstractResource):
         # in this compartment, so ignoring ServiceError exceptions
         vcns = []
         try:
-            vcns_data = oci_sdk.pagination.list_call_get_all_results(nc.list_vcns, compartment_id=self._ocid)
+            vcns_data = oci_sdk.pagination.list_call_get_all_results(nc.list_vcns,
+                compartment_id=self._ocid,
+                lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
             for v_data in vcns_data.data:
-                if OCI_RESOURCE_STATE[v_data.lifecycle_state] \
-                        != OCI_RESOURCE_STATE.AVAILABLE:
-                    continue
                 vcns.append(OCIVCN(self._oci_session, oci_sdk.util.to_dict(v_data)))
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
@@ -223,9 +222,7 @@ class OCICompartment(OCIAPIAbstractResource):
             list
                 List of volume as list of OCIVolume objects, can be empty.
         """
-        if self._volumes is not None \
-                and availability_domain is None:
-            return self._volumes
+
         if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] \
                 != OCI_COMPARTEMENT_STATE.ACTIVE:
             OCICompartment._logger.debug('current state not active')
@@ -237,22 +234,33 @@ class OCICompartment(OCIAPIAbstractResource):
         # Note: the user may not have permission to list volumes
         # in this compartment, so ignoring ServiceError exceptions
         bs = []
+        bs_data = None
         try:
             if availability_domain:
                 bs_data = oci_sdk.pagination.list_call_get_all_results(
                     bsc.list_volumes, availability_domain=availability_domain,
-                    compartment_id=self._ocid)
+                                      compartment_id=self._ocid,
+                                      lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
             else:
                 bs_data = oci_sdk.pagination.list_call_get_all_results(bsc.list_volumes,
-                                                     compartment_id=self._ocid)
-            for v_data in bs_data.data:
-                if OCI_RESOURCE_STATE[v_data.lifecycle_state] \
-                        != OCI_RESOURCE_STATE.AVAILABLE:
-                    continue
-                v_att_list = oci_sdk.pagination.list_call_get_all_results(
-                    cc.list_volume_attachments,
-                    compartment_id=self._ocid,
-                    volume_id=v_data.id).data
+                                                     compartment_id=self._ocid,
+                                                     lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
+        except oci_sdk.exceptions.ServiceError as e:
+            raise Exception ('Cannot list compartement volumes') from e
+
+        for v_data in bs_data.data:
+            try:
+                if availability_domain:
+                    v_att_list = oci_sdk.pagination.list_call_get_all_results(
+                        cc.list_volume_attachments,
+                        compartment_id=self._ocid,
+                        availability_domain=availability_domain,
+                        volume_id=v_data.id).data
+                else:
+                    v_att_list = oci_sdk.pagination.list_call_get_all_results(
+                        cc.list_volume_attachments,
+                        compartment_id=self._ocid,
+                        volume_id=v_data.id).data
                 v_att_data = None
                 for v_att in v_att_list:
                     if v_att_data is None:
@@ -263,13 +271,11 @@ class OCICompartment(OCIAPIAbstractResource):
                 bs.append(OCIVolume(self._oci_session,
                                     volume_data=oci_sdk.util.to_dict(v_data),
                                     attachment_data=oci_sdk.util.to_dict(v_att_data)))
-        except oci_sdk.exceptions.ServiceError:
-            # ignore these, it means the current user has no
-            # permission to list the volumes in the compartment
-            OCICompartment._logger.debug('current user has no permission to list the volumes in the compartment')
+            except oci_sdk.exceptions.ServiceError:
+                # ignore these, it means the current user has no
+                # permission to list the volumes in the compartment
+                OCICompartment._logger.debug('current user has no permission to list the volume attachement', exc_info=True)
 
-        if availability_domain is None:
-            self._volumes = bs
         return bs
 
     def create_volume(self, availability_domain, size, display_name=None,
@@ -1797,34 +1803,6 @@ class OCIVolume(OCIAPIAbstractResource):
         """
         return "Volume %s" % OCIAPIAbstractResource.__str__(self)
 
-    def set_volume_attachment(self, attachment_data):
-        """
-        Set lifecycle status.
-
-        Parameters
-        ----------
-        attachment_data: str
-            The new attachement status.
-
-        Returns
-        -------
-            No return value.
-        """
-        self.att_data = attachment_data
-        self.volume_lifecycle = \
-            OCI_ATTACHMENT_STATE[self.att_data['lifecycle_state']]
-
-    def unset_volume_attachment(self):
-        """
-        Set lifecycle status to NOT_ATTACHED.
-
-        Returns
-        -------
-            No return value.
-        """
-        # volume is not attached
-        self.att_data = None
-        self.volume_lifecycle = OCI_ATTACHMENT_STATE.NOT_ATTACHED
 
     def get_attachment_state(self):
         """
@@ -2023,14 +2001,13 @@ class OCIVolume(OCIAPIAbstractResource):
             raise Exception('Failed to detach volume: %s' % e.message) from e
 
         _tries = 3
-        vol_att = None
+
         if wait:
             get_vol_attachment = cc.get_volume_attachment(self.att_data['id'])
             oci_sdk.wait_until(cc, get_vol_attachment, 'lifecycle_state', 'DETACHED')
 
-
-        # TODO : can really be alwasy success ?
-        self.unset_volume_attachment()
+        self.att_data = None
+        self.volume_lifecycle = OCI_ATTACHMENT_STATE.NOT_ATTACHED
         return True
 
     def destroy(self):
