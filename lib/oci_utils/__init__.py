@@ -22,6 +22,30 @@ _METADATA_ENDPOINT = '169.254.169.254'
 _MAX_VOLUMES_LIMIT = 32
 _configuration = read_configuration()
 
+oci_regions = {
+    'phx': 'phx - us-phoenix-1 (Phoenix, AZ, USA)',
+    'iad': 'iad - us-ashburn-1 (Ashburn, VA, USA)',
+    'fra': 'fra - eu-frankfurt-1 (Frankfurt, Germany)',
+    'lhr': 'lhr - uk-london-1 (London, UK)',
+    'ams': 'ams - eu-amsterdam-1 (Amsterdam, The Netherlands)',
+    'bom': 'bom - ap-mumbai-1 (Mumbai, India)',
+    'cwl': 'cwl - uk-cardiff-1 (Newport, UK)',
+    'dxb': 'dxb - me-dubai-1 (Duabi, UAE)',
+    'gru': 'gru - sa-saopaulo-1 (Sao Paulo, Brazil)',
+    'hyd': 'hyd - ap-hyderabad-1 (Hyderabad, India)',
+    'icn': 'icn - ap-seoul-1 (Seoul, South Korea)',
+    'jed': 'jed - me-jeddah-1 (Jeddah, Saoudi Arabia)',
+    'kix': 'kix - ap-osaka-1 (Osaka, Japan)',
+    'mel': 'mel - ap-melbourne-1 (Melbourne, Australia)',
+    'nrt': 'nrt - ap-tokyo-1 (Tokyo, Japan)',
+    'sjc': 'sjc - us-sanjose-1 (San Jose, CA, USA)',
+    'syd': 'syd - ap-sydney-1 (Sydney, Australia)',
+    'yny': 'yny - ap-chuncheon-1 (Chuncheon, South Korea)',
+    'yul': 'yul - ca-montreal-1 (Montreal, Canada)',
+    'yyz': 'yyz - ca-toronto-1 (Toronto, Canada)',
+    'zrh': 'zrh - eu-zurich-1 (Zurich, Switzerland)'}
+
+
 class OCI_ATTACHMENT_STATE(enum.Enum):
     """ Attachment state defintions.
     """
