@@ -8,7 +8,7 @@ import types
 import json
 import sys
 
-__all__ = ['get_row_printer']
+__all__ = ['get_row_printer_impl']
 
 _logger = logging.getLogger("oci-utils.row_printer")
 
@@ -85,7 +85,6 @@ class ColumnsPrinter():
 
         self.printer = kargs.get('printer',sys.stdout)
 
-
     def printHeader(self):
         """
         prints the header of the array
@@ -100,6 +99,11 @@ class ColumnsPrinter():
         if o is a list all elements' string representation will be printed in order
         if o is an instance, defined callback or attribute will be called
         depend of the implementation
+        """
+
+    def rowBreak(self):
+        """
+        Row break, what to be display between rows
         """
 
     def printKeyValue(self, attrName,attrValue):
@@ -413,4 +417,7 @@ class TextPrinter(ColumnsPrinter):
                 _logger.debug('cannot get value',exc_info=True)
                 _value = self.replacement
             print ('%s: %s' % (self.columnsNames[cidx],_value), file=self.printer)
-        print('', file=self.printer)
+
+    def rowBreak(self):
+        # print some space between rows (block of information)
+        print ('', file=self.printer)

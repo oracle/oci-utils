@@ -264,6 +264,7 @@ def do_show_vnics_information(vnics, mode, details=False):
     printer = printerKlass(title=_title, columns=_columns)
     printer.printHeader()
     for vnic in vnics:
+        print ()
         printer.printRow(vnic)
         if details:
             private_ips = vnic.all_private_ips()

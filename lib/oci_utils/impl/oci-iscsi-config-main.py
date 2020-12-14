@@ -23,8 +23,8 @@ from oci_utils import _configuration as OCIUtilsConfiguration
 from oci_utils import OCI_VOLUME_SIZE_FMT
 from oci_utils.cache import load_cache, write_cache
 from oci_utils.metadata import InstanceMetadata
-from oci_utils.impl.oci_resources import OCIVolume
 
+from oci_utils.impl.row_printer import get_row_printer_impl
 
 _logger = logging.getLogger("oci-utils.oci-iscsi-config")
 
@@ -113,6 +113,7 @@ def get_args_parser():
                                        description='Show block volumes and iSCSI information')
     show_parser.add_argument('-C', '--compartments',
                              metavar='COMP',
+                             default=(),
                              type=lambda s: [ocid.strip() for ocid in s.split(',') if ocid],
                              help='Display iSCSI devices in the given comparment(s) '
                                   'or all compartments if COMP is  "all".')
@@ -121,7 +122,14 @@ def get_args_parser():
                              default=False,
                              help='Display all iSCSI devices. By default only devices that are '
                                   'not attached to an instance are listed.')
-
+    show_parser.add_argument('--output-mode', choices=('parsable','table','json','text'),
+                        help='Set output mode',default='table')
+    show_parser.add_argument('--details', action='store_true', default=False,
+                                help='Display detailed information')
+    show_parser.add_argument('--no-truncate', action='store_true', default=False,
+                                help='Do not truncate value during output ')
+    show_parser.add_argument('--compat', action='store_true', default=False,
+                                help=argparse.SUPPRESS)
     create_parser = subparser.add_parser('create',
                                          description='Creates a block volume')
     create_parser.add_argument('-S', '--size',
@@ -130,9 +138,6 @@ def get_args_parser():
                                help='Size of the block volume to create in GB')
     create_parser.add_argument('-v', '--volume-name',
                                help='Name of the block volume to create')
-    create_parser.add_argument('-s', '--show',
-                               action='store_true',
-                               help='Display the iSCSI configuration after the creation')
     create_parser.add_argument('--attach-volume',
                                action='store_true',
                                help='Once created, should the volume be attached ?')
@@ -155,19 +160,12 @@ def get_args_parser():
                                action='store',
                                help='Use PASSWD as the password when attaching a device that '
                                     'requires CHAP authentication')
-    attach_parser.add_argument('-s', '--show',
-                               action='store_true',
-                               help='Display the iSCSI configuration after the attach operation')
-
     detach_parser = subparser.add_parser('detach',
                                          description='Detach a block volume')
     detach_parser.add_argument('-I', '--iqns',
                                required=True,
                                type=detachable_iqn_list_validator,
                                help='Comma separated list of IQN(s) of the iSCSI devices to be detached')
-    detach_parser.add_argument('-s', '--show',
-                               action='store_true',
-                               help='Display the iSCSI configuration after the detach operation')
     detach_parser.add_argument('-f', '--force',
                                action='store_true',
                                help='Continue detaching even if device cannot be unmounted')
@@ -188,9 +186,7 @@ def get_args_parser():
     destroy_parser.add_argument('-i', '--interactive',
                                 action='store_true',
                                 help=argparse.SUPPRESS)
-    destroy_parser.add_argument('-s', '--show',
-                                action='store_true',
-                                help='Display the iSCSI configuration after the destruction')
+
 
     return parser
 
@@ -232,29 +228,6 @@ def get_instance_ocid():
     return InstanceMetadata().refresh()['instance']['id']
 
 
-def nvl(value, defval="Unknown"):
-    """
-    Provide a default value for empty/NULL/None.
-
-    Parameters
-    ----------
-    value: obj
-        The value to verify.
-    defval: obj
-        The value to return if the provide value is None or empty.
-
-    Returns
-    -------
-        defval if value is None or empty, otherwise return value
-
-    """
-    if value is None:
-        return defval
-    if not value:
-        return defval
-    return value
-
-
 def ocid_refresh(wait=False):
     """
     Refresh OCID cached information; it runs
@@ -282,32 +255,67 @@ def ocid_refresh(wait=False):
         _logger.debug('launch of ocid failed : %s', str(e))
         return False
 
-
-def _display_block_volume(volume):
+def _display_oci_volume_list(volumes, output_mode, details, truncate):
     """
-    display information about a block volume
+    display information about list of block volume
     argument:
-        volume : OCIVOlume
+        volumes : list of OCIVOlume
+        output_mode : output_mode
+        details : display details information ?
+        truncate : truncate text ?
     """
-    assert isinstance(volume, OCIVolume), 'Must be a OCIVolume'
 
-    print("Volume name:    %s" % volume.get_display_name())
-    print("Volume OCID:    %s" % volume.get_ocid())
-    print("Volume iSCSI target %s" % volume.get_iqn())
-    print("Volume size:    %s" % volume.get_size(format_str=OCI_VOLUME_SIZE_FMT.HUMAN.name))
-    if volume.is_attached():
-        if volume.get_instance().get_ocid() == get_instance_ocid():
-            instance = "this instance"
+    def _get_displayable_size(_,volume):
+        return volume.get_size(format_str=OCI_VOLUME_SIZE_FMT.HUMAN.name)
+
+    def _get_attached_instance_name(_,volume):
+        global _this_instance_ocid
+        if not volume.is_attached():
+            return '-'
+        _vol_instance_attach_to = volume.get_instance()
+        if _vol_instance_attach_to.get_ocid() == _this_instance_ocid:
+            return "this instance"
         else:
-            instance = "instance %s (%s)" % \
-                           (volume.get_instance().get_display_name(),
-                            volume.get_instance().get_public_ip())
-            print("   attached to: %s" % instance)
+            pip=_vol_instance_attach_to.get_public_ip()
+            if pip:
+                return "%s (%s)" % (_vol_instance_attach_to.get_display_name(), _vol_instance_attach_to.get_public_ip())
+            return _vol_instance_attach_to.get_display_name()
+        return '-'
+
+    def _get_comp_name(_,volume):
+        """ keep track of compartment per ID as it may be expensive info to fetch """
+        _map = getattr(_get_comp_name,'c_id_to_name',{})
+        if volume.get_compartment_id() not in _map:
+            _map[volume.get_compartment_id()] = volume.get_compartment().get_display_name()
+        setattr(_get_comp_name,'c_id_to_name',_map)
+        return  _map[volume.get_compartment_id()]
+
+
+    _title='Block volumes information'
+    _columns = [['Name',32,'get_display_name'],
+                ['Size',6,_get_displayable_size],
+                ['Attached to',32,_get_attached_instance_name],
+                ['OCID',64,'get_ocid']]
+    if details:
+        _columns.extend((['IQN',14,'get_iqn'],
+                        ['Compartement',14,_get_comp_name],
+                        ['Availability domain',19,'get_availability_domain_name']))
+    if output_mode == 'compat':
+        printerKlass = get_row_printer_impl('text')
     else:
-        print("   attached to: (not attached)")
+        printerKlass = get_row_printer_impl(output_mode)
+
+    printer = printerKlass(title=_title, columns=_columns, text_truncate=truncate)
+    printer.printHeader()
+    for vol in volumes:
+        printer.printRow(vol)
+        printer.rowBreak()
+    printer.printFooter()
+    printer.finish()
 
 
-def display_current_devices(oci_sess, iscsiadm_session, disks):
+
+def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, details, truncate):
     """
     Display the attched iSCSI devices.
 
@@ -320,14 +328,16 @@ def display_current_devices(oci_sess, iscsiadm_session, disks):
     disks: dict
         List of disk to be displayed. Information about disks in the system,
         as returned by lsblk.list()
+    output_mode : the output mode as str (text,json,parsable)
+    details : display detailed information ?
 
     Returns
     -------
        No return value.
     """
-    print("Currently attached iSCSI devices:")
+
     try:
-        oci_vols = oci_sess.this_instance().all_volumes()
+        oci_vols = oci_sess.this_instance().all_volumes().sort()
     except Exception as e:
         oci_vols = []
         _logger.debug('Cannot get all volumes of this instance : %s', str(e))
@@ -336,48 +346,70 @@ def display_current_devices(oci_sess, iscsiadm_session, disks):
         print("Local iSCSI info not available. ")
         print("List info from Cloud instead(No boot volume).")
         print("")
-        for oci_vol in oci_vols:
-            _display_block_volume(oci_vol)
+        oci_vols.sort()
+        _display_oci_volume_list(oci_vols, output_mode, details, truncate)
 
+    _columns = []
+    if details:
+        _columns.append(['Target',32,'target'])
+    _columns.append(['Volume name',32,'name'])
+    if details:
+        _columns.append(['Volume OCID',64,'ocid'])
+        _columns.append(['Persistent portal',20,'p_portal'])
+        _columns.append(['Current portal',20,'c_portal'])
+        _columns.append(['Session State',13,'s_state'])
+    _columns.append(['Attached device',15,'dev'])
+    _columns.append(['Size',6,'size'])
+
+    # this is only used in compatibility mode i.e using 'text'
+    partitionPrinter = get_row_printer_impl('text')(title='Partitions',
+                                   columns=(['Device',8,'dev_name'],['Size',6,'size'],
+                                            ['Filesystem',12,'fstype'],['Mountpoint',12,'mountpoint']))
+    _items=[]
     for iqn in list(iscsiadm_session.keys()):
+        _item = {}
         oci_vol = get_volume_by_iqn(oci_sess, iqn)
-        if oci_vol is None:
-            _logger.debug('Cannot find volume by iqn [%s]', iqn)
-
-        print()
-        print("Target %s" % iqn)
+        _item['target'] = iqn
         if oci_vol is not None:
-            print("         Volume name:    %s" % oci_vol.get_display_name())
-            print("         Volume OCID:    %s" % oci_vol.get_ocid())
+            _item['name'] = oci_vol.get_display_name()
+            _item['ocid'] = oci_vol.get_ocid()
+        _item['p_portal'] = "%s:%s" % (iscsiadm_session[iqn]['persistent_portal_ip'], iscsiadm_session[iqn]['persistent_portal_port'])
+        _item['c_portal'] = "%s:%s" % (iscsiadm_session[iqn]['current_portal_ip'], iscsiadm_session[iqn]['current_portal_port'])
+        _item['s_state'] = iscsiadm_session[iqn].get('session_state','n/a')
+        device = iscsiadm_session[iqn].get('device',None)
+        if device is None:
+            _item['dev'] = '(not attached)'
+        else:
+            _item['dev'] = device
+            if device in disks:
+                _item['size'] = disks[device]['size']
 
-        print("   Persistent portal:    %s:%s" %
-              (iscsiadm_session[iqn]['persistent_portal_ip'],
-               iscsiadm_session[iqn]['persistent_portal_port']))
-        print("      Current portal:    %s:%s" %
-              (iscsiadm_session[iqn]['current_portal_ip'],
-               iscsiadm_session[iqn]['current_portal_port']))
-        if 'session_state' in iscsiadm_session[iqn]:
-            print("               State:    %s" % iscsiadm_session[iqn]['session_state'])
-        if 'device' not in iscsiadm_session[iqn]:
-            print()
-            continue
-        device = iscsiadm_session[iqn]['device']
-        print("     Attached device:    %s" % device)
-        if device in disks:
-            print("                Size:    %s" % disks[device]['size'])
-            if 'partitions' not in disks[device]:
-                print("    File system type:    %s" % nvl(disks[device]['fstype']))
-                print("          Mountpoint:    %s" % nvl(disks[device]['mountpoint'], "Not mounted"))
+        _items.append(_item)
+
+    if output_mode == 'compat':
+        iscsi_dev_printer = get_row_printer_impl('text')(title='Currently attached iSCSI devices', columns=_columns,text_truncate=truncate)
+    else:
+        iscsi_dev_printer = get_row_printer_impl(output_mode)(title='Currently attached iSCSI devices', columns=_columns,text_truncate=truncate)
+    iscsi_dev_printer.printHeader()
+    for _item in _items:
+        iscsi_dev_printer.printRow(_item)
+        if output_mode == 'compat':
+            if 'partitions' not in disks[_item['dev']]:
+                iscsi_dev_printer.printKeyValue('File system type',disks[_item['dev']]['fstype'])
+                iscsi_dev_printer.printKeyValue('Mountpoint',disks[_item['dev']]['mountpoint'])
             else:
-                print("          Partitions:    Device  %6s  %10s   Mountpoint" % ("Size", "Filesystem"))
                 partitions = disks[device]['partitions']
-                plist = list(partitions.keys())
-                plist.sort()
-                for part in plist:
-                    print("                         %s  %8s  %10s   %s" %
-                          (part, partitions[part]['size'],
-                           nvl(partitions[part]['fstype'], "Unknown fs"),
-                           nvl(partitions[part]['mountpoint'], "Not mounted")))
+                partitionPrinter.printHeader()
+                for part in list(partitions.keys()).sort():
+                    # add it as we need it during the print
+                    partitions[part]['dev_name'] = part
+                    partitionPrinter.printRow(partitions[part])
+                    partitionPrinter.rowBreak()
+                partitionPrinter.printFooter()
+                partitionPrinter.finish()
+        iscsi_dev_printer.rowBreak()
+    iscsi_dev_printer.printFooter()
+    iscsi_dev_printer.finish()
 
 
 def display_detached_iscsi_device(iqn, targets, attach_failed=()):
@@ -393,14 +425,21 @@ def display_detached_iscsi_device(iqn, targets, attach_failed=()):
     attach_failed: dict
         The devices for which attachment failed.
     """
-    print("Target %s" % iqn)
+    devicePrinter = get_row_printer_impl('table')(title="Target %s" % iqn,
+                                    text_truncate=False,
+                                   columns=(['Portal',12,'portal'],['State',12,'state']))
+    devicePrinter.printHeader()
+    _item={}
     for ipaddr in list(targets.keys()):
-        if iqn in targets[ipaddr]:
-            print("              Portal:    %s:%s" % (ipaddr, 3260))
-            if iqn in attach_failed:
-                print("               State:    %s" % iscsiadm.error_message_from_code(attach_failed[iqn]))
-            else:
-                print("               State:    Detached")
+        _item['portal'] = "%s:3260" % ipaddr
+        if iqn in attach_failed:
+            _item['state'] = iscsiadm.error_message_from_code(attach_failed[iqn])
+        else:
+            _item['state'] = "Detached"
+        devicePrinter.printRow(_item)
+        devicePrinter.rowBreak()
+    devicePrinter.printFooter()
+    devicePrinter.finish()
 
 
 def _do_iscsiadm_attach(iqn, targets, user=None, passwd=None, iscsi_portal_ip=None):
@@ -531,7 +570,7 @@ def do_destroy_volume(sess, ocid):
         raise Exception("Failed to destroy volume") from e
 
 
-def api_display_available_block_volumes(sess, compartments=(), show_all=False):
+def api_display_available_block_volumes(sess, compartments, show_all, output_mode, details,truncate):
     """
     Display the available devices.
 
@@ -541,15 +580,19 @@ def api_display_available_block_volumes(sess, compartments=(), show_all=False):
         The OCISession instance.
     compartments: list of str
         compartement ocid(s)
-    all: boot
+    all: bool
         display all volumes. By default display only not-attached  ones
+    output_mode : informtion display mode
+    details : display detailed informtion ?
     Returns
     -------
         No return value.
     """
 
+    _title =  "Other available storage volumes"
+
     vols = []
-    if compartments and len(compartments) > 0:
+    if len(compartments) > 0:
         for cspec in compartments:
             if cspec == 'all':
                 vols = sess.all_volumes()
@@ -574,6 +617,7 @@ def api_display_available_block_volumes(sess, compartments=(), show_all=False):
     else:
         # -C/--compartment option wasn't used, default to the instance's own
         # compartment
+
         comp = sess.this_compartment()
         avail_domain = sess.this_availability_domain()
         if comp is not None:
@@ -581,32 +625,20 @@ def api_display_available_block_volumes(sess, compartments=(), show_all=False):
         else:
             _logger.error("Compartment for this instance not found")
 
+        _title =  "Other available storage volumes %s/%s" % (comp.get_display_name(),avail_domain)
+
     if len(vols) == 0:
         _logger.info("No additional storage volumes found.")
         return
 
-    print("Other available storage volumes:")
-    print()
-
-    for vol in vols:
-        if vol.is_attached() and not show_all:
+    _vols_to_be_displayed = []
+    for v in vols:
+        if v.is_attached() and not show_all:
             continue
-        print("Volume %s" % vol.get_display_name())
-        print("   OCID:        %s" % vol.get_ocid())
-        if vol.is_attached():
-            if vol.get_instance().get_ocid() \
-                    == sess.this_instance().get_ocid():
-                instance = "this instance"
-            else:
-                instance = "instance %s (%s)" % \
-                           (vol.get_instance().get_display_name(),
-                            vol.get_instance().get_public_ip())
-            print("   attached to: %s" % instance)
-        else:
-            print("   attached to: (not attached)")
-        print("   size:        %s" %
-              vol.get_size(format_str=OCI_VOLUME_SIZE_FMT.HUMAN.name))
-        print()
+        # display also the attached ones
+        _vols_to_be_displayed.append(v)
+    _vols_to_be_displayed.sort()
+    _display_oci_volume_list(_vols_to_be_displayed,output_mode, details, truncate)
 
 
 def _do_attach_oci_block_volume(sess, ocid):
@@ -858,7 +890,7 @@ def get_chap_secret(iqn):
         return chap_passwords[iqn]
     return None, None
 
-
+_this_instance_ocid = None
 def main():
     """
     Main.
@@ -869,6 +901,7 @@ def main():
             Return value of the operation, if any.
             0 otherwise.
     """
+    global _this_instance_ocid
 
     parser = get_args_parser()
     args = parser.parse_args()
@@ -886,15 +919,22 @@ def main():
     except Exception as e:
         _logger.debug('Cannot get OCI session: %s', str(e))
 
+    # we need this at many places, grab it once
+    _this_instance_ocid = oci_sess.this_instance().get_ocid()
+
+    if 'compat' in args and args.compat is True:
+        # display information as previous version for compatibility reason
+        # for few settings
+        args.output_mode = 'compat'
+        args.details = True
+
     system_disks = lsblk.list()
     iscsiadm_session = iscsiadm.session()
 
     if args.command == 'show':
-        display_current_devices(oci_sess, iscsiadm_session, system_disks)
-        if args.compartments:
-            api_display_available_block_volumes(oci_sess, args.compartments, args.all)
-        else:
-            api_display_available_block_volumes(oci_sess, None, args.all)
+        display_attached_volumes(oci_sess, iscsiadm_session, system_disks, args.output_mode, args.details, not args.no_truncate)
+        api_display_available_block_volumes(oci_sess, args.compartments, args.all, args.output_mode, args.details, not args.no_truncate)
+
         return 0
 
     max_volumes = OCIUtilsConfiguration.getint('iscsi', 'max_volumes')
@@ -924,7 +964,6 @@ def main():
     if args.command == 'sync' and not detached_volume_iqns and not attach_failed:
         # nothing to do, stop here
         print("All known devices are attached.")
-        print("Use the -s or --show option for details.")
 
     # starting from here, nothing works if we are not root
     _user_euid = os.geteuid()
@@ -1003,10 +1042,6 @@ def main():
         except Exception as e:
             _logger.error('volume creation has failed: %s', str(e))
             return 1
-
-        if args.show:
-            display_current_devices(oci_sess, iscsiadm_session, system_disks)
-            api_display_available_block_volumes(oci_sess)
         return 0
 
     if args.command == 'destroy':
@@ -1028,9 +1063,6 @@ def main():
                 _logger.error('volume [%s] deletion has failed: %s', ocid, str(e))
                 retval = 1
 
-        if args.show:
-            display_current_devices(oci_sess, iscsiadm_session, system_disks)
-            api_display_available_block_volumes(oci_sess)
         return retval
 
     if args.command == 'detach':
@@ -1061,9 +1093,7 @@ def main():
             except Exception as e:
                 _logger.error('volume [%s] detach has failed: %s', iqn, str(e))
                 retval = 1
-        if args.show:
-            display_current_devices(oci_sess, iscsiadm_session, system_disks)
-            api_display_available_block_volumes(oci_sess)
+
 
         _logger.info("Updating detached volume cache file: %s", detached_volume_iqns)
         write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
@@ -1129,9 +1159,6 @@ def main():
                 _logger.debug('attachment OK: saving chap creds')
                 save_chap_secret(_iqn_to_use, _attachment_username, _attachment_password)
 
-        if args.show:
-            display_current_devices(oci_sess, iscsiadm_session, system_disks)
-            api_display_available_block_volumes(oci_sess)
 
         if retval == 0:
             _logger.info("Updating detached volume cache file: %s", detached_volume_iqns)
@@ -1141,7 +1168,7 @@ def main():
 
         return retval
 
-    if not args.show and not attach_failed and not detached_volume_iqns:
+    if not attach_failed and not detached_volume_iqns:
         print("All known devices are attached.")
         print("Use the -s or --show option for details.")
 
