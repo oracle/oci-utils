@@ -18,6 +18,7 @@ _GLOBAL_CACHE_DIR = "/var/cache/oci-utils"
 
 _logger = logging.getLogger("oci-utils.cache")
 
+
 def get_cache_file_path(filename):
     """
     Get the cachefile path. All cache file are located at same location.

@@ -9,18 +9,17 @@ instances.  See the manual page for more information.
 """
 import argparse
 import collections
+import json
 import logging
 import os
 import sys
 
-import json
-
 import oci_utils
-from oci_utils.oci_api import OCISession
+from oci_utils import oci_regions
+from oci_utils.impl.oci_resources import OCIInstance
 from oci_utils.metadata import InstanceMetadata
 from oci_utils.metadata import _get_by_path, _get_path_keys
-from oci_utils.impl.oci_resources import OCIInstance
-
+from oci_utils.oci_api import OCISession
 
 oci_metadata_detail = {
     'displayName': 'Display Name',
@@ -55,12 +54,6 @@ oci_metadata_detail = {
     'canonicalRegionName': 'Canonical Region Name', }
 
 lower_metadata_fields = {key.lower(): key for key in oci_metadata_detail}
-
-oci_regions = {
-    'phx': 'phx - us-phoenix-1 (Phoenix, AZ, USA)',
-    'iad': 'iad - us-ashburn-1 (Ashburn, VA, USA)',
-    'fra': 'fra - eu-frankfurt-1 (Frankfurt, Germany)',
-    'lhr': 'lhr - uk-london-1 (London, UK)'}
 
 oci_metadata_display_order = [
     'displayName',

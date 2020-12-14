@@ -110,7 +110,7 @@ class OCIAPIAbstractResource():
                     data_dict[key] = value
             return data_dict
         except Exception as e:
-            OCIAPIAbstractResource._logger.debug('error calling __dict__: %s' % str(e))
+            OCIAPIAbstractResource._logger.debug('error calling __dict__: %s', str(e))
             return None
 
     def get_display_name(self):
