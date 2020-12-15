@@ -518,14 +518,12 @@ def do_create_vnic(create_options):
     sess = get_oci_api_session()
     if sess is None:
         raise Exception("Failed to get API session.")
+
+    _this_instance = sess.this_instance()
+
     subnet_id = None
     if create_options.subnet:
-        if create_options.subnet.startswith('ocid1.subnet.'):
-            subnet = sess.get_subnet(create_options.subnet)
-            if subnet is None:
-                raise Exception("Subnet not found: %s" % create_options.subnet)
-            subnet_id = subnet.get_ocid()
-        else:
+        if not create_options.subnet.startswith('ocid1.subnet.'):
             subnets = sess.find_subnets(create_options.subnet)
             if len(subnets) == 0:
                 raise Exception("No subnet matching %s found" % create_options.subnet)
@@ -536,8 +534,22 @@ def do_create_vnic(create_options):
                     _logger.error("   %s\n" % sn.get_display_name())
                 raise Exception("More than one subnet matching")
             subnet_id = subnets[0].get_ocid()
+    else:
+        # if private ip provided, pick up subnet whihc match IP
+        # else pick the subnet of the primary vnic
+        if create_options.ip_address:
+            _all_subnets = [v.get_subnet() for v in _this_instance.all_vnics()]
+            for subn in _all_subnets:
+                if subn.is_suitable_for_ip(create_options.ip_addres):
+                    subnet_id = subn.get_subnet_id()
+                if subnet_id is None:
+                    raise Exception('cannot find suitable subnet for ip %s' % create_options.ip_address)
+        else:
+            # We have a primary vnic for sure
+            _primary_v = [v for v in _this_instance.all_vnics() if v.is_primary()][0]
+            subnet_id = _primary_v.get_subnet_id()
     try:
-        vnic = sess.this_instance().attach_vnic(
+        vnic = _this_instance.attach_vnic(
             private_ip=create_options.ip_address,
             assign_public_ip=create_options.assign_public_ip,
             subnet_id=subnet_id,

@@ -142,14 +142,24 @@ class OCICompartment(OCIAPIAbstractResource):
                 != OCI_COMPARTEMENT_STATE.ACTIVE:
             OCICompartment._logger.debug('current state not active')
             return []
+        nc = self._oci_session.get_network_client()
 
+        # Note: the user may not have permission to list instances
+        # in this compartment, so ignoring ServiceError exceptions
         subnets = []
-        for vcn in self.all_vcns():
-            vcn_subnets = vcn.all_subnets()
-            if vcn_subnets is not None:
-                subnets += vcn_subnets
-        self._subnets = subnets
+        try:
+            subnets_data = oci_sdk.pagination.list_call_get_all_results(
+                nc.list_subnets,
+                compartment_id=self._data['compartment_id'])
+            for s_data in subnets_data.data:
+                subnets.append(OCISubnet(self._oci_session, oci_sdk.util.to_dict(s_data)))
+        except oci_sdk.exceptions.ServiceError:
+            OCICompartment._logger.debug('service error', exc_info=True)
+            # ignore these, it means the current user has no
+            # permission to list the instances in the compartment
+
         return subnets
+
 
     def all_vnics(self):
         """
@@ -166,11 +176,22 @@ class OCICompartment(OCIAPIAbstractResource):
             OCICompartment._logger.debug('current state not active')
             return []
 
+        cc = self._oci_session.get_compute_client()
+        vnic_ids = []
+        try:
+            vnic_att_data = oci_sdk.pagination.list_call_get_all_results(cc.list_vnic_attachments,
+                compartment_id=self._ocid)
+            for v_data in vnic_att_data.data:
+                vnic_ids.append(v_data['vnic_id'])
+        except oci_sdk.exceptions.ServiceError:
+            # ignore these, it means the current user has no
+            # permission to list the vcns in the compartment
+            OCICompartment._logger.debug('current user has no permission to list the vnic attachment in the compartment')
+
         vnics = []
-        for instance in self.all_instances():
-            inst_vnics = instance.all_vnics()
-            if inst_vnics:
-                vnics += inst_vnics
+        for vid in vnic_ids:
+            vnics.append(self._oci_session.get_vnic(vid))
+
         return vnics
 
     def all_vcns(self):
@@ -206,7 +227,7 @@ class OCICompartment(OCIAPIAbstractResource):
             # permission to list the vcns in the compartment
             OCICompartment._logger.debug('current user has no permission to list the vcns in the compartment')
 
-        self._vcns = vcns
+
         return vcns
 
     def all_volumes(self, availability_domain=None):
@@ -278,33 +299,6 @@ class OCICompartment(OCIAPIAbstractResource):
 
         return bs
 
-    def create_volume(self, availability_domain, size, display_name=None,
-                      wait=True):
-        """
-        Create a new OCI Storage Volume in this compartment.
-
-        Parameters
-        ----------
-        availability_domain: str
-            The domain name.
-        size: int
-            The volume size.
-        display_name: str
-            The name of the volume.
-        wait: bool
-            Wait for completion if set.
-
-        Returns
-        -------
-            OCIVolume
-                The created volume.
-        """
-        return self._oci_session.create_volume(
-            compartment_id=self.get_ocid(),
-            availability_domain=availability_domain,
-            size=size,
-            display_name=display_name,
-            wait=wait)
 
 
 class OCIInstance(OCIAPIAbstractResource):
@@ -511,23 +505,6 @@ class OCIInstance(OCIAPIAbstractResource):
             private_ips += pips
         return private_ips
 
-    def all_subnets(self):
-        """
-        Get all subnets associated with the instance.
-
-
-        Returns
-        -------
-            set
-                All the subnets.
-        """
-
-        subnets = set()
-        for vnic in self.all_vnics():
-            # discard vnic with no subnet
-            if vnic.get_subnet() is not None:
-                subnets.add(vnic.get_subnet())
-        return list(subnets)
 
     def all_volumes(self):
         """
@@ -586,46 +563,6 @@ class OCIInstance(OCIAPIAbstractResource):
 
         return vols
 
-    def attach_volume(self, volume_id, use_chap=False,
-                      display_name=None, wait=True):
-        """
-        Attach the given volume to this instance.
-
-        Parameters
-        ----------
-        volume_id: str
-            The volume id.
-        use_chap: bool
-            Use chap security if set.
-        display_name: str
-            The instance name.
-        wait: bool
-            Wait for completion if set.
-
-        Returns
-        -------
-            OCIVolume
-                The attached volume.
-        """
-
-
-        av_det = oci_sdk.core.models.AttachIScsiVolumeDetails(
-            type="iscsi",
-            use_chap=use_chap,
-            volume_id=volume_id,
-            instance_id=self.get_ocid(),
-            display_name=display_name)
-        cc = self._oci_session.get_compute_client()
-        try:
-            vol_att = cc.attach_volume(av_det)
-            if wait:
-                get_vol_att = cc.get_volume_attachment(vol_att.data.id)
-                oci_sdk.wait_until(cc, get_vol_att, 'lifecycle_state', 'ATTACHED')
-
-            return self._oci_session.get_volume(vol_att.data.volume_id)
-        except oci_sdk.exceptions.ServiceError as e:
-            OCIInstance._logger.debug('Failed to attach volume', exc_info=True)
-            raise Exception('Failed to attach volume: %s' % e.message) from e
 
     @staticmethod
     def _create_vnic_hostname_label(d_name):
@@ -642,34 +579,31 @@ class OCIInstance(OCIAPIAbstractResource):
         # list of acceptable chars in a host name
         return ''.join([c for c in hostname_label if c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'])
 
-    def attach_vnic(self, private_ip=None, subnet_id=None, nic_index=0,
-                    display_name=None, assign_public_ip=False,
-                    hostname_label=None, skip_source_dest_check=False,
-                    wait=True):
+    def attach_vnic(self, **kargs):
         """
         Create and attach a VNIC to this device.
         Use sensible defaults:
-          - subnet_id: if None, use the same subnet as the primary VNIC.
-          - private_ip: if None, the next available IP in the subnet.
+          - private_ip: if None, the next available IP in the subnet will be picked up by OCI service.
 
         Parameters
         ----------
-        private_ip: str
-            The private IP address.
-        subnet_id: int
-            The subnet id.
-        nic_index: int
-            The interface index.
-        display_name: str
-            The name.
-        assign_public_ip: bool
-            Provide a public IP address if set.
-        hostname_label: str
-            The label.
-        skip_source_dest_check: bool
-            Skip source and destiantion existence check if set.
-        wait: bool
-            Wait for completion if set.
+        kargs: accepted keyword
+            private_ip: str
+                The private IP address.
+            subnet_id: str (mandatory)
+                The subnet id.
+            nic_index: int (optional)
+                The interface index.
+            display_name: str (optional)
+                The name.
+            assign_public_ip: bool (default False)
+                Provide a public IP address if set.
+            hostname_label: str (optional)
+                The label.
+            skip_source_dest_check: bool (default False)
+                Skip source and destiantion existence check if set.
+            wait: bool (default True)
+                Wait for completion if set.
 
         Returns
         -------
@@ -681,34 +615,21 @@ class OCIInstance(OCIAPIAbstractResource):
             Exception
                 On any error.
         """
+        display_name = kargs.get('display_name',None)
+        subnet_id = kargs.get('subnet_id')
+        private_ip = kargs.get('private_ip',None)
+        nic_index = int(kargs.get('nic_index',0))
+        display_name = kargs.get('display_name',None)
+        assign_public_ip= kargs.get('assign_public_ip',False)
+        hostname_label= kargs.get('hostname_label',None)
+        skip_source_dest_check= kargs.get('skip_source_dest_check',False)
+        wait= kargs.get('wait',True)
+
         if display_name is None and hostname_label is not None:
             display_name = hostname_label
         if hostname_label is None and display_name is not None:
             hostname_label = OCIInstance._create_vnic_hostname_label(display_name)
-        # step 1: choose a subnet
-        if subnet_id is None:
-            instance_subnets = self.all_subnets()
-            if len(instance_subnets) == 0:
-                # subnet id is not provided, if instance has no subnet
-                # no need to go further
-                raise Exception('No suitable subnet found for this instance')
-            if private_ip is not None:
-                # choose the subnet that the ip belongs to
-                for sn in instance_subnets:
-                    if sn._ip_matches(private_ip):
-                        subnet_id = sn.get_ocid()
-                if subnet_id is None:
-                    # no suitable subnet found for the IP address
-                    raise Exception('No suitable subnet found for IP address '
-                                      '%s' % private_ip)
-            else:
-                # choose one of the subnets the instance currently uses
-                if len(instance_subnets) == 1:
-                    subnet_id = instance_subnets[0].get_ocid()
-                else:
-                    # FIXME: for now just choose the first one,
-                    # but we can probably be cleverer
-                    subnet_id = instance_subnets[0].get_ocid()
+
         cc = self._oci_session.get_compute_client()
         create_vnic_details = oci_sdk.core.models.CreateVnicDetails(
             assign_public_ip=assign_public_ip,
@@ -733,38 +654,6 @@ class OCIInstance(OCIAPIAbstractResource):
             OCIInstance._logger.debug('Failed to attach new VNIC', exc_info=True)
             raise Exception('Failed to attach new VNIC: %s' % e.message) from e
 
-    def create_volume(self, size, display_name=None):
-        """
-        Create a new OCI Storage Volume and attach it to this instance.
-
-        Parameters
-        ----------
-        size: int
-            The size of the volume.
-        display_name: str
-            The name.
-
-        Returns
-        -------
-            OCIVolume
-                The volume.
-        """
-
-        vol = self._oci_session.create_volume(
-            compartment_id=self._data['compartment_id'],
-            availability_domain=self._data['availability_domain'],
-            size=size,
-            display_name=display_name,
-            wait=True)
-
-        try:
-            vol = vol.attach_to(instance_id=self.get_ocid())
-        except Exception as e:
-            OCIInstance._logger.debug('cannot attach BV', exc_info=True)
-            OCIInstance._logger.warning('cannot attach BV [%s]' % str(e))
-            vol.destroy()
-            return None
-        return vol
 
     def get_metadata(self, get_public_ip=False):
         """
@@ -1110,6 +999,17 @@ class OCIVNIC(OCIAPIAbstractResource):
                 The subnet obj.
         """
         return self._oci_session.get_subnet(subnet_id=self._data['subnet_id'])
+
+    def get_subnet_id(self):
+        """
+        Get the subnet id.
+
+        Returns
+        -------
+            OCISubnet
+                The subnet obj.
+        """
+        return self._data['subnet_id']
 
     def get_hostname(self):
         """
@@ -1627,12 +1527,12 @@ class OCISubnet(OCIAPIAbstractResource):
             return []
         vnics = []
         for vnic in compartment.all_vnics():
-            if vnic.get_subnet().get_ocid() == self.get_ocid():
+            if vnic.get_subnet_id() == self.get_ocid():
                 vnics.append(vnic)
 
         return vnics
 
-    def _ip_matches(self, ipaddr):
+    def is_suitable_for_ip(self, ipaddr):
         """
         Verify if the given IP address matches the cidr block of the subnet.
 
