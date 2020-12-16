@@ -198,16 +198,14 @@ class TestCliOciIscsiConfig(OciTestCase):
             create_volume_data = subprocess.check_output([self.iscsi_config_path,
                                                           'create',
                                                           '--size', self.volume_size,
-                                                          '--volume-name', self.volume_name,
-                                                          '--show']).decode('utf-8').splitlines()
+                                                          '--volume-name', self.volume_name]).decode('utf-8').splitlines()
             # print('\nvolume created: %s' % create_volume_data)
             time.sleep(self.waittime)
             new_ocid = self._get_ocid(create_volume_data, self.volume_name)
             destroy_volume_data = subprocess.check_output([self.iscsi_config_path,
                                                            'destroy',
                                                            '--ocids', new_ocid,
-                                                           '--yes',
-                                                           '--show']).decode('utf-8').splitlines()
+                                                           '--yes']).decode('utf-8').splitlines()
             # print('\nvolume %s destroyed: %s' % (self.volume_name, destroy_volume_data))
         except Exception as e:
             self.fail('oci-iscsi-config create/destroy has failed: %s' % str(e))
@@ -226,15 +224,13 @@ class TestCliOciIscsiConfig(OciTestCase):
             create_volume_data = subprocess.check_output([self.iscsi_config_path,
                                                           'create',
                                                           '--size', self.volume_size,
-                                                          '--volume-name', self.volume_name,
-                                                          '--show']).decode('utf-8').splitlines()
+                                                          '--volume-name', self.volume_name]).decode('utf-8').splitlines()
             # print('\nvolume created: %s' % create_volume_data)
             time.sleep(self.waittime)
             new_ocid = self._get_ocid(create_volume_data, self.volume_name)
             attach_volume_data = subprocess.check_output([self.iscsi_config_path,
                                                           'attach',
-                                                          '--iqns', new_ocid,
-                                                          '--show']).decode('utf-8').splitlines()
+                                                          '--iqns', new_ocid]).decode('utf-8').splitlines()
             attach_volume_data_show = subprocess.check_output([self.iscsi_config_path,
                                                                'show']).decode('utf-8').splitlines()
             # print('\nvolume attached: %s' % attach_volume_data_show)
@@ -248,8 +244,7 @@ class TestCliOciIscsiConfig(OciTestCase):
             destroy_volume_data = subprocess.check_output([self.iscsi_config_path,
                                                            'destroy',
                                                            '--ocids', new_ocid,
-                                                           '--yes',
-                                                           '--show']).decode('utf-8').splitlines()
+                                                           '--yes']).decode('utf-8').splitlines()
             # print('\nvolume %s destroyed: %s' % (self.volume_name, destroy_volume_data))
         except Exception as e:
             self.fail('oci-iscsi-config attach/detach has failed: %s' % str(e))

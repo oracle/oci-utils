@@ -3,7 +3,7 @@
 # at http://oss.oracle.com/licenses/upl.
 
 import unittest
-from  oci_utils.impl.row_printer import (TablePrinter, ParsableTextPrinter,CSVPrinter , HtmlPrinter,JSONPrinter)
+from  oci_utils.impl.row_printer import (TablePrinter, ParsableTextPrinter,CSVPrinter , HtmlPrinter,TextPrinter, JSONPrinter)
 from tools.oci_test_case import OciTestCase
 
 
@@ -41,7 +41,7 @@ class TestRowPrinter(OciTestCase):
         tp.printFooter()
         tp.finish()
     def test_parsable_printer(self):
-        tp=ParsableTablePrinter(title="mytitle",columns=(['COL1',25,'attr1'],['COL2',10,'attr2'],['COL3',12,'attr3'],['COL4-1',10,_mycallback]))
+        tp=ParsableTextPrinter(title="mytitle",columns=(['COL1',25,'attr1'],['COL2',10,'attr2'],['COL3',12,'attr3'],['COL4-1',10,_mycallback]))
         tp.printHeader()
         tp.printRow(_mylist)
         tp.printRow(_mylist2)

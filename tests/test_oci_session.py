@@ -225,34 +225,7 @@ class TestOCISession(OciTestCase):
         self.assertTrue(len(_c_list) == 0,
                         'wrong list length returned, shoudl be empty')
 
-    @skipUnlessOCI()
-    @skipUnlessOCISDKInstalled()
-    def test_oci_session_all_subnets(self):
-        """
-        Test OCISession.all_subnets.
 
-        Returns
-        -------
-            No return value.
-        """
-        _all = self.setUpSession().all_subnets()
-        self.assertIsNotNone(_all, 'None list of subnets returned')
-
-    @skipUnlessOCI()
-    @skipUnlessOCISDKInstalled()
-    def test_oci_session_get_subnet(self):
-        """
-        Test OCISession.get_subnet.
-
-        Returns
-        -------
-            No return value.
-        """
-        _all = self.setUpSession().all_subnets()
-        if len(_all) > 0:
-            _s = self.setUpSession().get_subnet(_all[0].get_ocid())
-            self.assertEqual(_s, _all[0],
-                             'Wrong subnet returned by search by id')
 
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()

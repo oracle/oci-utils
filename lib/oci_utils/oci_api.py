@@ -325,32 +325,14 @@ class OCISession():
                 vcns.append(vcn)
         return vcns
 
-    def all_subnets(self):
-        """
-        Return a list of OCISubnet objects.
 
-
-        Returns
-        -------
-        list
-            A list of subnets.
-        """
-
-        subnets = []
-        for compartment in self.all_compartments():
-            comp_subnets = compartment.all_subnets()
-            if comp_subnets is not None:
-                subnets += comp_subnets
-        return subnets
-
-    # TODO : developer of this method should add documentation
     def get_compute_client(self):
         """
         Get a new compute client.
 
         Returns
         -------
-            The compute client.
+            A instance of oci.core.ComputeClient
         """
         if self._compute_client is None:
             if self.signer is not None:
@@ -369,7 +351,7 @@ class OCISession():
 
         Returns
         -------
-            The network client.
+            A instance of oci.core.VirtualNetworkClient
         """
         if self._network_client is None:
             if self.signer is not None:
@@ -382,14 +364,14 @@ class OCISession():
                         config=self.oci_config)
         return self._network_client
 
-    # TODO : developer of this method should add documentation
+
     def get_block_storage_client(self):
         """
         Get a new block storage client.
 
         Returns
         -------
-            The block storage client.
+            A instance of oci.core.BlockStorageClient
         """
         if self._block_storage_client is None:
             if self.signer is not None:
@@ -523,6 +505,22 @@ class OCISession():
             # all filter conditions match
             volumes.append(volume)
         return volumes
+
+    def all_subnets(self):
+        """
+        Return a list of OCISubnet objects.
+        Returns
+        -------
+        list
+            A list of subnets.
+        """
+
+        subnets = []
+        for compartment in self.all_compartments():
+            comp_subnets = compartment.all_subnets()
+            if comp_subnets is not None:
+                subnets += comp_subnets
+        return subnets
 
     def find_subnets(self, display_name):
         """
