@@ -149,7 +149,7 @@ def get_args_parser():
     attach_parser.add_argument('-I', '--iqns',
                                required=True,
                                type=attachable_iqn_list_validator,
-                               help='Comma separated list of OCID(s) of the iSCSI devices to be attached')
+                               help='Comma separated list of IQN(s) of the iSCSI devices to be attached')
     attach_parser.add_argument('-u', '--username',
                                metavar='USER',
                                action='store',
@@ -295,7 +295,7 @@ def _display_oci_volume_list(volumes, output_mode, details, truncate):
     _columns = [['Name',32,'get_display_name'],
                 ['Size',6,_get_displayable_size],
                 ['Attached to',32,_get_attached_instance_name],
-                ['OCID',64,'get_ocid']]
+                ['OCID',32,'get_ocid']]
     if details:
         _columns.extend((['IQN',14,'get_iqn'],
                         ['Compartement',14,_get_comp_name],
@@ -354,7 +354,7 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
         _columns.append(['Target',32,'target'])
     _columns.append(['Volume name',32,'name'])
     if details:
-        _columns.append(['Volume OCID',64,'ocid'])
+        _columns.append(['Volume OCID',32,'ocid'])
         _columns.append(['Persistent portal',20,'p_portal'])
         _columns.append(['Current portal',20,'c_portal'])
         _columns.append(['Session State',13,'s_state'])

@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tascii oci-network-config.1
 .\"
-.\" Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+.\" Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
 .\" Licensed under the Universal Permissive License v 1.0 as shown
 .\" at http://oss.oracle.com/licenses/upl.
 .\"
@@ -9,67 +9,34 @@
 .SH NAME
 oci-network-config \- configure network devices on Oracle Cloud Infrastructure compute instances
 .SH SYNOPSIS
-.B oci-network-config [-s|--show] [-X
-.I ITEM
-.B | --exclude
-.I ITEM
-.B ] [-I
-.I ITEM
-.B | --include
-.I ITEM
-.B ] [-q|--quiet] [--help]
 
-.B oci-network-config [-s|--show] [-a|--auto|-c|--configure] [-e
-.I IP_ADDR VNIC_OCID
-.B ] [-n
-.I NS
-.B | --ns
-.I NS
-.B ] [-r|--sshd] [-X
-.I ITEM
-.B | --exclude
-.I ITEM
-.B ] [-I
-.I ITEM
-.B | --include
-.I ITEM
-.B ] [-q|--quiet] [--help]
+.B oci-network-config
+usage
 
-.B oci-network-config [-s|--show] [-d|--deconfigure] [-e
-.I IP_ADDR VNIC_OCID
-.B ] [-X
-.I ITEM
-.B | --exclude
-.I ITEM
-.B ] [-I
-.I ITEM
-.B | --include
-.I ITEM
-.B ] [-q|--quiet] [--help]
+.B oci-iscsi-config
+show [-h|--help] [-I ITEM|--include ITEM] [-X ITEM|--exclude ITEM] [--output-mode MODE] [--details]
 
-.B oci-network-config [-s|--show] [--create-vnic] [--nic-index
-.I IND
-.B ] [--vnic-name
-.I NAME
-.B ] [--detach-vnic
-.I VNIC
-.B ] [--add-private-ip] [--private-ip
-.I ADDR
-.B ] [--del-private-ip
-.I ADDR
-.B ] [--subnet
-.I SUBNET
-.B ] [--assign-public-ip] [--vnic
-.I OCID
-.B ] [-X
-.I ITEM
-.B | --exclude
-.I ITEM
-.B ] [-I
-.I ITEM
-.B | --include
-.I ITEM
-.B ] [-q|--quiet] [--help]
+.B oci-iscsi-config
+show-vnics [-h|--help] [--output-mode MODE] [--details] [--ocid VNIC_OCID] [--name VNIC_NAME] [--ip-adress PRIMARY_IP]
+
+.B oci-iscsi-config
+configure [-h|--help] [-n FORMAT|--namespace FORMAT] [-r |--start-sshd] [-I ITEM|--include ITEM] [-X ITEM|--exclude ITEM]
+
+.B oci-iscsi-config
+unconfigure [-h|--help] [-I ITEM|--include ITEM] [-X ITEM|--exclude ITEM]
+
+.B oci-iscsi-config
+attach-vnic [-h|--help] [-I IP_ADDR|--ip-addres IP_ADDR] [-i INDEX |--nic-index INDEX] [--subnet SUBNET] [-n NAME |--name NAME] [--assign-public-ip] [--configure]
+
+.B oci-iscsi-config
+detach-vnic [-h|--help] [-I IP_ADDR|--ip-addres IP_ADDR] [--ocid OCID]
+
+.B oci-iscsi-config
+add-secondary-addr [-h|--help] [-I IP_ADDR|--ip-addres IP_ADDR] [--ocid OCID]
+
+.B oci-iscsi-config
+remove-secondary-addr [-h|--help] [-I IP_ADDR|--ip-addres IP_ADDR]
+
 
 .SH DESCRIPTION
 
@@ -80,18 +47,34 @@ Virtual interface Cards provisioned in the
 Oracle Cloud Infrastructure
 and configured on this instance. When a secondary VNIC is provisioned in Oracle Cloud Infrastructure it must be explicitly configured on the instance using this script or similar commands.
 
-The first version of this command displays the currently provisioned VNICs and the current IP configuration for this instance. VNICs that are not yet configured are marked with '$ADD' and IP configurations that no longer have an associated VNIC are marked with '$DELETE'.
+By default this command displays the currently provisioned VNICs and the current IP configuration for this instance. VNICs that are not yet configured are marked with '$ADD' and IP configurations that no longer have an associated VNIC are marked with '$DELETE'.
 
-The second version, with -c (or --configure or -a or --auto), configures VNICs that do not have an IP configuration and deletes the IP configurations of VNICs that are not currently provisioned. This puts the instance IP configuration in sync with current Oracle Cloud Infrastructure provisioning.  If one or more optional -e options are present the secondary IP addresses are configured on the same interfaces as the corresponding VNIC.
+Using the 
+.B configure
+sub-command, it configures VNICs that do not have an IP configuration and deletes the IP configurations of VNICs that are not currently provisioned. This puts the instance IP configuration in sync with current Oracle Cloud Infrastructure provisioning.
 
 The configuring interfaces can optionally be placed inside separate network namespaces. This is necessary when VNICs are in subnets (different VCNs) with overlapping address blocks and the network applications are not bound directly to interfaces. Network namespaces require applications to be launched in them explicitly (via 'ip netns exec <ns>') in order to establish association with the interface. When namespaces are not used, policy-based routing is configured to provide a default route to the secondary VNIC\'s virtual router (default gateway) when the VNIC\'s address is the source address.
 
 Bare Metal secondary VNICs are configured using VLANs (where there is no corresponding physical interface). These will look like 2 addition interfaces when showing IP links, with names like '$MACVLAN_FORMAT' for the MAC VLAN and '$VLAN_FORMAT' for the IP VLAN.
 
-The third version, -d (or --deconfigure), deletes all IP configuration for provisioned secondary VNICs as long as there is no -e option. If one or more optional -e options are present only the given secondary IP addresses are deconfigured and the remaining configuration is left as is.
+Using the
+.B unconfigure
+sub-command, it deletes all IP configuration for provisioned secondary VNICs.
 
-The fourth version allows creating a new VNIC for the instance, detaching a VNIC from the instance,
+The
+.B attach-vnic
+and
+.B detach-vnic
+sub-commands allows creating a new VNIC for the instance, detaching a VNIC from the instance,
 or adding/removing private IP addresses to/from an existing VNIC.
+
+The
+.B add-secondary-addrc
+and
+.B remove-secondary-addr
+sub-commands allows adding/removing private IP addresses to/from an existing VNIC.
+
+
 
 To install the Oracle Cloud Infrastructure Python SDK, use
 .PP
@@ -128,76 +111,27 @@ To exclude VNICs, IP addresses or VLAN interfaces from automatic configuration u
 .BR ocid(8)
 runs this utility.  The exclusion remains in place until the VNIC/address/interface is re-included using the -I (or --include) option.
 
-.SH OPTIONS
-.IP "-s, --show"
+.TP
+oci-network-config show
 Show information on all provisioning and interface configuration. This is the default action if no options are given.
 Columns:
-    CONFIG   '$ADD' indicates missing IP config,
-             '$DELETE' missing VNIC, '$EXCL' excluded (-X)
-    ADDR     IP address
-    SPREFIX  subnet CIDR prefix
-    SBITS    subnet mask bits
-    VIRTRT   virutal router IP address
-    NS       namespace (if any)
-    IND      interface index (if BM)
-    IFACE    interface (underlying physical if VLAN is also set)
-    VLTAG    VLAN tag (if BM)
-    VLAN     IP virtual LAN (if any)
-    STATE    state of interface
-    MAC      MAC address
-    VNIC     VNIC object identifier
-.IP "-a, --auto, -c, --configure"
-Add IP configuration for VNICs that are not configured and delete for VNICs that are no longer provisioned.
-.IP "-d, --deconfigure"
-Deconfigure all VNICs (except the primary). If a -e option is also present only the secondary IP address(es) are deconfigured.
-.IP "--create-vnic"
-Create a new VNIC and attach it to this instance.  Use the --subnet option to
-choose a subnet and --private-ip to choose a specific private IP address.
-This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
-.IP "--nic-index IND"
-Physical NIC index. When creating a new VNIC using the --create-vnic option, assign the VNIC to this physical network interface card.
-Default value is 0.
-.IP "--vnic-name NAME"
-When creating a new VNIC using the --create-vnic option, set the display
-name and hostname of the VNIC to NAME.
-.IP "--detach-vnic VNIC"
-Detach and delete the VNIC with the given OCID or IP address.  The primary
-VNIC cannot be detached.  Any secondary private IP addresses attached to the
-VNIC are also deleted.
-This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
-.IP "--add-private-ip"
-Add a secondary private IP address to an existing VNIC.  When the instance has
-multiple VNICs, use the --vnic option to select the VNIC to add the secondary
-private IP address to.
-This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
-.IP "--del-private-ip ADDR"
-Delete the given secondary private IP.
-This option requires the Oracle Cloud Infrastructure Python SDK to be installed and configured.
-.IP "--private-ip ADDR"
-When used with --create-vnic or --add-private-ip, assign the given private IP
-address.  Without this option an unused IP address from the subnet will be
-assigned automatically.
-.IP "--subnet SUBNET"
-When used with the --create-vnic option, connect the VNIC to the given
-.B SUBNET.
-The
-.B SUBNET
-can be an OCID or a regular expression that is matched against the display name
-of all available subnets.  When --private-ip is used, the subnet is inferred
-from the IP address, or it defaults to the subnet of the primary VNIC.
-.IP "--assign-public-ip"
-When used with the --create-vnic option, assign a public IP address to the new
-VNIC.  By default only a private IP address is assigned.
-.IP "--vnic OCID"
-When used with the --add-private-ip option, assign the new private IP address
-to the given VNIC.  This option is required when the instance has multiple
-VNICs.  Use the --show option to display the OCIDs of the VNICs.
-.IP "-e IP_ADDR VNIC_OCID"
-Secondary private IP address to configure or deconfigure.
-.IP "-n FORMAT, --ns FORMAT"
-When configuring, place interfaces in namespace identified by the given format. Format can include $nic and $vltag variables. The name defaults to '$DEF_NS_FORMAT_BM' for BMs and '$DEF_NS_FORMAT_VM' for VMs. When configuring multiple VNICs ensure the namespaces are unique.
-.IP "-r, --sshd"
-Start sshd in namespace (if -n or --ns is present)
+    State     '$ADD' indicates missing IP config,
+              '$DELETE' missing VNIC, '$EXCL' excluded (-X)
+    Link      interface (underlying physical)
+    Status    state of interface
+    Ip        IP address
+    VNIC      VNIC friendly name
+    MAC       MAC address
+    Hostname  the configured hostname of that vNIC
+    Subnet    subnet CIDR and name
+    Router IP virutal router IP address
+    Namespace namespace (if any)
+    Index     interface index
+    VLAN tag  VLAN tag
+    VLAN      IP virtual LAN 
+.RS
+.IP "-h, --help"
+Print a summary of the command line options.
 .IP "-X ITEM, --exclude ITEM"
 Persistently exclude
 .B ITEM
@@ -210,15 +144,140 @@ can be a VNIC OCID, an IP address or a VLAN interface name.
 Include an
 .B ITEM
 that was previously excluded using the --exclude option in automatic configuration/deconfiguration.
-.IP --debug
-Print diagnostic messages.
-.IP --help
+.IP "--details"
+Display detailed information
+.IP --output-mode={parsable,table,json,text}
+Display list of block volumes as table, using json format, simple text or using parsable output
+(default is table)
+.RE
+.TP
+oci-network-config show-vnics
+Shows VNICs information of this instance
+.RS
+.IP "-h, --help"
 Print a summary of the command line options.
+.IP "--ocid VNIC_NAME"
+Show only information of vNIC matching name
+.IP "--ocid VNIC_OCID"
+Show  information of vNIC matching ocid
+.IP "--ip-address PRIMARY_IP"
+Show information of vNIC matching IP as primary IP
+.IP "--details"
+Display detailed information
+.IP --output-mode={parsable,table,json,text}
+Display list of block volumes as table, using json format, simple text or using parsable output
+(default is table)
+.RE
+.TP
+oci-network-config configure
+Puts in sync network configuration. Add IP configuration for VNICs that are not configured and delete VNICs
+that are no longer provisioned.
+.RS
+.IP "-h, --help"
+Print a summary of the command line options.
+.IP "-X ITEM, --exclude ITEM"
+Persistently exclude
+.B ITEM
+from automatic configuration/deconfiguration. Use the --include option to include the
+.B ITEM
+again.
+.B ITEM
+can be a VNIC OCID, an IP address or a VLAN interface name.
+.IP "-I ITEM, --include ITEM"
+Include an
+.B ITEM
+that was previously excluded using the --exclude option in automatic configuration/deconfiguration.
+.IP "-n FORMAT, --ns FORMAT"
+When configuring, place interfaces in namespace identified by the given format. Format can include $nic and $vltag variables. The name defaults to '$DEF_NS_FORMAT_BM' for BMs and '$DEF_NS_FORMAT_VM' for VMs. When configuring multiple VNICs ensure the namespaces are unique.
+.IP "-r, --sshd"
+Start sshd in namespace (if -n or --ns is present)
+.RE
+.TP
+oci-network-config unconfigure
+Deconfigure all VNICs (except the primary).
+.RS
+.IP "-h, --help"
+Print a summary of the command line options.
+.IP "-X ITEM, --exclude ITEM"
+Persistently exclude
+.B ITEM
+from automatic configuration/deconfiguration. Use the --include option to include the
+.B ITEM
+again.
+.B ITEM
+can be a VNIC OCID, an IP address or a VLAN interface name.
+.IP "-I ITEM, --include ITEM"
+Include an
+.B ITEM
+that was previously excluded using the --exclude option in automatic configuration/deconfiguration.
+.RE
+.TP
+oci-network-config attach-vnic
+Create a new VNIC and attach it to this instance.  Use the --subnet option to
+choose a subnet and --private-ip to choose a specific private IP address.
+.RS
+.IP "-h, --help"
+Print a summary of the command line options.
+.IP "-I|--ip-address ADDR"
+Assign the given private IP address. Without this option an unused IP address from the subnet will be
+assigned automatically.
+.IP "-i|--nic-index IND"
+Physical NIC index. Assign the VNIC to this physical network interface card.
+Default value is 0. (only relevent on BareMetal shapes)
+.IP "--subnet SUBNET"
+Connect the VNIC to the given
+.B SUBNET.
+The
+.B SUBNET
+can be an OCID or a regular expression that is matched against the display name
+of all available subnets.  When --ip-address is used, the subnet is inferred
+from the IP address, or it defaults to the subnet of the primary VNIC.
+.IP "-n|--name NAME"
+When creating a new VNIC, set the display name and hostname of the VNIC to NAME.
+.IP "--assign-public-ip"
+Assign a public IP address to the new VNIC.  By default only a private IP address is assigned.
+.IP --configure
+Once vNIC created and attached, configure the network interface on the system
+.RE
+.TP
+oci-network-config detach-vnic
+Detach and delete the VNIC with the given OCID or IP address.  The primary
+VNIC cannot be detached.  Any secondary private IP addresses attached to the
+VNIC are also deleted.
+.RS
+.IP "-h, --help"
+Print a summary of the command line options.
+.IP "-I|--ip-address ADDR"
+Detach the vNIC with the given ip address configured on it
+.IP "--ocid OCID"
+Detach the vNIC with the given OCID
+.RE
+.TP
+oci-network-config add-secondary-addr
+Add a secondary private IP address to an existing VNIC.
+.RS
+.IP "-h, --help"
+Print a summary of the command line options.
+.IP "-I|--ip-address ADDR"
+Secondary private IP to to be added
+.IP "--ocid OCID"
+Assign the secondary address to the vNIC mof given OCID
+.RE
+.TP
+oci-network-config remove-secondary-addr
+Remove the secondary private IP address from an existing VNIC.
+.RS
+.IP "-h, --help"
+Print a summary of the command line options.
+.IP "-I|--ip-address ADDR"
+Secondary private IP to to be removed
+
+
 .SH EXAMPLES
 .PP
 .nf
 .RS
-sudo oci-network-config --add-private-ip --private-ip 10.0.1.200
+sudo oci-network-config add-secondary-addr --ip-address 10.0.1.200 --ocid ocid1.vnic.oc1.uk-london-1.abwgiljsdv3chg4jholnrumaeoi7jbf25mymccxpzrp3zd2mor2u7wdusdqa
 .RE
 .fi
 .PP
@@ -229,7 +288,7 @@ for information about configuring oci-utils to work as the root user.
 .PP
 .nf
 .RS
-sudo oci-network-config --del-private-ip 10.0.1.200
+sudo oci-network-config remove-secondary-addr 10.0.1.200
 .RE
 .fi
 .PP
@@ -237,7 +296,7 @@ Delete and de-configure the secondary private IP set up in the previous example.
 .PP
 .nf
 .RS
-sudo oci-network-config --create-vnic --assign-public-ip --subnet my-subnet --show
+sudo oci-network-config attach-vnic --assign-public-ip --subnet my-subnet
 .RE
 .fi
 .PP
@@ -246,7 +305,7 @@ Create a new VNIC in the
 subnet.  An unused IP address from
 .B my-subnet
 is assigned automatically.  A public IP address is also assigned to the VNIC.
-The new network interface configuration is displayed after creating the VNIC.
+
 .SH DIAGNOSTICS
 Return an exit status of 0 for success or 1 if an error occured.
 .SH "SEE ALSO"
