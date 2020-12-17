@@ -123,19 +123,19 @@ def get_arg_parser():
                              'configuration/deconfiguration.  Use the '
                              '--include option to include the ITEM again.')
 
-    deconfigure_parser = subparser.add_parser('deconfigure',
-                            description='Deconfigure all VNICs (except the primary).')
-    # Secondary private IP address to use in conjunction configure or deconfigure.'
+    unconfigure_parser = subparser.add_parser('unconfigure',
+                            description='Unconfigure all VNICs (except the primary).')
+    # Secondary private IP address to use in conjunction configure or unconfigure.'
     # deprecated as redundant with add-secondary-addr and remove-secondary-addr
-    deconfigure_parser.add_argument('-S','--secondary-ip', nargs=2, metavar=('IP_ADDR', 'VNIC_OCID'),
+    unconfigure_parser.add_argument('-S','--secondary-ip', nargs=2, metavar=('IP_ADDR', 'VNIC_OCID'),
                         dest='sec_ip', action='append',
                         help=argparse.SUPPRESS)
-    deconfigure_parser.add_argument('-I', '--include', metavar='ITEM', action='append',
+    unconfigure_parser.add_argument('-I', '--include', metavar='ITEM', action='append',
                                 type=str, dest='include',
                                 help='Include an ITEM that was previously excluded '
                                      'using the --exclude option in automatic '
                                      'configuration/deconfiguration.')
-    deconfigure_parser.add_argument('-X', '--exclude', metavar='ITEM', action='append',
+    unconfigure_parser.add_argument('-X', '--exclude', metavar='ITEM', action='append',
                         type=str, dest='exclude',
                         help='Persistently exclude ITEM from automatic '
                              'configuration/deconfiguration.  Use the '
@@ -164,9 +164,9 @@ def get_arg_parser():
                              ' or primary IP address')
     dg = detach_vnic.add_mutually_exclusive_group(required=True)
     dg.add_argument('--ocid', action='store', metavar='OCID',
-                        help='detach the vNIC with the given VNIC')
+                        help='Detach the vNIC with the given OCID')
     dg.add_argument('-I','--ip-address', action='store', metavar='IP_ADDR',
-                        help='detach the vNIC with the given ip address configured on it')
+                        help='Detach the vNIC with the given ip address configured on it')
 
     add_sec_addr = subparser.add_parser('add-secondary-addr',description="Adds the given secondary private IP.")
     add_sec_addr.add_argument('-I','--ip-address', action='store', metavar='IP_ADDR',
@@ -264,7 +264,7 @@ def do_show_vnics_information(vnics, mode, details=False):
     printer = printerKlass(title=_title, columns=_columns)
     printer.printHeader()
     for vnic in vnics:
-        print ()
+        printer.rowBreak()
         printer.printRow(vnic)
         if details:
             private_ips = vnic.all_private_ips()
@@ -275,7 +275,7 @@ def do_show_vnics_information(vnics, mode, details=False):
                     if not p_ip.is_primary():
                         # primary already displayed
                         ips_printer.printRow(p_ip)
-                        print()
+                        ips_printer.rowBreak()
             ips_printer.printFooter()
             ips_printer.finish()
     printer.printFooter()
@@ -410,7 +410,7 @@ def compat_show_vnics_information():
                 if not p_ip.is_primary():
                     # primary already displayed
                     ips_printer.printRow(p_ip)
-            print()
+            printer.rowBreak()
             ips_printer.printFooter()
             ips_printer.finish()
     printer.printFooter()
@@ -816,7 +816,7 @@ def main():
     if args.command == 'configure':
         vnic_utils.auto_config(args.sec_ip)
 
-    if args.command == 'deconfigure':
+    if args.command == 'unconfigure':
         vnic_utils.auto_deconfig(args.sec_ip)
 
     return 0
