@@ -26,7 +26,7 @@ oci-kvm - install and remove KVM guests on Oracle Cloud Infrastructure instances
 
 .B oci-kvm destroy -D|--domain
 .I NAME
-.B [--destroy-disks]
+.B [--destroy-disks] [--stop] [--force]
 
 .B oci-kvm create-pool  -n|--name
 .I NAME
@@ -105,6 +105,10 @@ tools to manage.
 .SH OPTIONS
 .IP "--destroy-disks"
 For the destroy subcommand, specify that all disks based on libvirt storage pool must also be deleted.
+.IP "-s|--stop"
+For the destroy subcommand, specify that the guest should be first shutdown.
+.IP "-f|--force"
+For the destroy subcommand, specify that operations will be forced, no gracefull shutdown etc...
 .IP "-D NAME, --domain NAME"
 For both the
 .B create

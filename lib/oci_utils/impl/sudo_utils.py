@@ -12,7 +12,7 @@ import subprocess
 
 from . import (SUDO_CMD, CAT_CMD, RM_CMD, SH_CMD, CP_CMD, TOUCH_CMD, CHMOD_CMD, MKDIR_CMD)
 
-__all__ = ['call', 'call_output', 'call_popen_output', 'delete_file', 'copy_file', 'write_to_file']
+__all__ = ['call', 'call_output', 'execute', 'call_popen_output', 'delete_file', 'copy_file', 'write_to_file']
 
 _logger = logging.getLogger('oci-utils.sudo')
 
@@ -38,6 +38,25 @@ def _prepare_command(cmd):
     _cmd.extend(cmd)
 
     return _cmd
+
+
+def execute(cmd):
+    """
+    execute a command return
+    Parameters
+    ----------
+    cmd: list
+        Command line as list of strings.
+    return
+    (exit code, stdout, stderr)
+    """
+    _c = _prepare_command(cmd)
+    if _logger.isEnabledFor(logging.DEBUG):
+        _logger.debug('Executing [%s]', ' '.join(_c))
+    cp = subprocess.run(_c, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    if cp.returncode != 0 and _logger.isEnabledFor(logging.DEBUG):
+        _logger.debug("execution failed: ec=%s, output=[%s], stderr=[%s] ", cp.returncode, cp.stdout, cp.stderr)
+    return (cp.returncode, cp.stdout.decode('utf-8'), cp.stderr.decode('utf-8'))
 
 
 def call(cmd, log_output=True):
