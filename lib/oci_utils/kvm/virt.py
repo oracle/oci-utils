@@ -50,7 +50,7 @@ def _print_available_vnics(vnics):
     """
     if not vnics or len(vnics) == 0:
         _logger.error("All OCI VNICs are currently in use. "
-                    "Please create a new VNIC via the OCI console.")
+                      "Please create a new VNIC via the OCI console.")
     else:
         print_choices("Available VNICs:", vnics)
 
@@ -533,7 +533,7 @@ def create(**kargs):
 
     if not virt_check.validate_kvm_env(_is_bm_shape):
         _logger.error("Server does not have supported environment "
-                    "for guest creation")
+                      "for guest creation")
         return 1
 
     if not virt_check.validate_domain_name(kargs['name']):
@@ -712,6 +712,10 @@ def destroy(name, delete_disks):
             The domain name.
         delete_disks : bool
             Do we also delette to storage pool based disks ?
+        stop_it_first : boool
+            Do we shutdown the VM if it is running ?
+        gracefull : bool
+            Do we force the operation ?
     Returns
     -------
         int
@@ -723,26 +727,9 @@ def destroy(name, delete_disks):
     if libvirtConn is None:
         _logger.error('Failed to open connection to qemu:///system')
         return 1
-    dom = None
-    try:
-        dom = libvirtConn.lookupByName(name)
-    except libvirt.libvirtError as e:
-        domains = virt_utils.get_domains_name()
-        _logger.error("Domain {} does not exist.", name)
-        if len(domains) > 0:
-            print_choices("Domains:", domains)
-        else:
-            _logger.error("No domains are defined.")
-        libvirtConn.close()
-        return 1
-
-    # from here , domain exists
-    if dom.isActive():
-        _logger.error(
-            "Domain {} is running.  Only domains that are not running can be "
-            "destroyed.",
-            name)
-        libvirtConn.close()
+    dom = libvirtConn.lookupByName(name)
+    if dom == None:
+        _logger.error('domain do not exists')
         return 1
 
     # check that domains is on libvirt network or not
@@ -1044,8 +1031,9 @@ def create_virtual_network(**kargs):
 
     ElementTree.ElementTree(netXML).write(tf.name)
 
-    if sudo_utils.call([VIRSH_CMD, '--quiet', 'net-define', tf.name]):
-        _logger.error('Failed to define the network')
+    (code, _, stderr) = sudo_utils.execute([VIRSH_CMD, '--quiet', 'net-define', tf.name])
+    if code != 0:
+        _logger.error('Failed to define the network: %s' % stderr)
         os.remove(tf.name)
         delete_route_table(vf_dev)
         destroy_networking(vf_dev, vnic['vlanTag'])

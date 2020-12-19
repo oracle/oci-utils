@@ -11,11 +11,12 @@ page for more information.
 
 import argparse
 import sys
-
+import logging
 import xml.dom.minidom
 import libvirt
 import oci_utils.kvm.virt
 
+_logger = logging.getLogger("oci-utils.oci-kvm")
 
 _create = 'create'
 _destroy = 'destroy'
@@ -88,6 +89,10 @@ def parse_args():
                                 required=True)
     destroy_parser.add_argument('--destroy-disks', action='store_true',
                                 help='Also delete storage pool based disks')
+    destroy_parser.add_argument('-s', '--stop', action='store_true', default=False,
+                                help='First stop the guess if it si running')
+    destroy_parser.add_argument('-f', '--force', action='store_true', default=False,
+                                help='Forced operation, no gracefull shutdown')
 
     dbp_group = create_pool_parser.add_argument_group(
         title='disk pool', description='Options for disk based storage pool')
@@ -198,6 +203,39 @@ def destroy_vm(args):
             The return value provided by the kvm virtual machine destroy
             call, 0 on success, 1 otherwise.
     """
+    libvirtConn = libvirt.open(None)
+    if libvirtConn is None:
+        print('Cannot contact hypervisor', file=sys.stderr)
+        return 1
+    dom = None
+    try:
+        dom = libvirtConn.lookupByName(args.domain)
+        if dom == None:
+            print("Domain %s does not exist." % args.domain, file=sys.stderr)
+            return 1
+    except Exception as e:
+        print("Failed looking for Domain %s: %s" % (args.domain, str(e)))
+        return 1
+    # from here , domain exists
+    if dom.isActive():
+        if not args.stop:
+            _logger.error("Domain %s is running.  Only domains that are not running can be destroyed." % args.domain)
+            libvirtConn.close()
+            return 1
+
+        shut_res = 0
+        _logger.debug('Domain is running, stop it first with force ? %s' % args.force)
+        if args.force:
+            shut_res = dom.destroyFlags()
+        else:
+            shut_res = dom.destroyFlags(libvirt.VIR_DOMAIN_DESTROY_GRACEFUL)
+
+        libvirtConn.close()
+
+        if shut_res != 0:
+            _logger.error("Failed to stop domain")
+            return 1
+
     return oci_utils.kvm.virt.destroy(args.domain, args.destroy_disks)
 
 
