@@ -8,7 +8,6 @@
 """
 
 import subprocess
-import time
 import logging
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element
@@ -549,11 +548,14 @@ def create(**kargs):
         _disk_virt_install_args = _root_disk
     else:
         _disk_virt_install_args = 'pool=%s,size=%d' % (kargs['pool'], kargs['disk_size'])
-
-    args = [SUDO_CMD, '/usr/bin/virt-install',
-            '--name', kargs['name'],
-            '--cpu', 'host',
-            '--disk', _disk_virt_install_args]
+    args = []
+    if os.getuid() != 0:
+        args.append(SUDO_CMD)
+    args.append('/usr/bin/virt-install')
+    args.extend(['--wait', '0'])
+    args.extend(['--name', kargs['name'],
+                 '--cpu', 'host',
+                 '--disk', _disk_virt_install_args])
 
     if _logger.isEnabledFor(logging.DEBUG):
         _logger.debug('virt-install command [%s]' % ' '.join(args))
@@ -685,20 +687,16 @@ def create(**kargs):
     if _logger.isEnabledFor(logging.DEBUG):
         _logger.debug('create: executing [%s]' % ' '.join(args))
 
-    dev_null = open('/dev/null', 'w')
-    virt_install = subprocess.Popen(args, stdout=dev_null)
-
-    # Check for errors
-    while virt_install.poll() is None:
-        time.sleep(.1)
-        if kargs['name'] in virt_utils.get_domains_name():
-            break
-
-    if virt_install.returncode is not None and virt_install.returncode != 0:
+    virt_install = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    _logger.debug('Waiting for virt-install process to terminate')
+    (_out, _err) = virt_install.communicate()
+    _logger.debug('virt-install process terminated')
+    if virt_install.returncode != 0:
+        _logger.error('Creation failed: %s' % _err.decode('utf-8'))
         if _is_bm_shape and not kargs['virtual_network']:
             destroy_networking(vf_dev, vnic['vlanTag'])
         return 1
-
+    _logger.debug('Creation succeed: %s' % _out)
     return 0
 
 
