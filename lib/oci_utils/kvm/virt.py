@@ -549,7 +549,7 @@ def create(**kargs):
     else:
         _disk_virt_install_args = 'pool=%s,size=%d' % (kargs['pool'], kargs['disk_size'])
     args = []
-    if os.getuid() == 0:
+    if os.getuid() != 0:
         args.append(SUDO_CMD)
     args.append('/usr/bin/virt-install')
     args.extend(['--wait', '0'])
