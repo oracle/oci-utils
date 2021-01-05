@@ -527,72 +527,14 @@ def vnic_func(context, func_logger):
         func_logger.debug("Don't do any network configuration if something else is doing it")
         return context
 
+    _vnic_utils = None
+
     if context['vnic_utils'] is None:
-        func_logger.debug("context['vnic_utils'] is None : first iteration")
-        # first iteration
-        oci_sess = None
-        try:
-            oci_sess = oci_utils.oci_api.OCISession()
-        except Exception as e:
-            func_logger.debug("error getting session: %s" % str(e))
-        context['oci_sess'] = oci_sess
-        context['vnic_utils'] = vnicutils.VNICUtils()
-        context['vnic_info_ts'], context['vnic_info'] = \
-            context['vnic_utils'].get_vnic_info()
-        context['vnics'] = get_metadata_vnics()
-        context['vnic_utils'].auto_config([])
-        func_logger.debug("Returning the context [%s]" % str(context))
-        return context
+        _vnic_utils = vnicutils.VNICUtils()
+    else:
+        _vnic_utils = context['vnic_utils']
 
-    # If the vnic_info file changed then oci-network-config was invoked
-    # and made changes.  We have to avoid undoing those changes.  Rebuild
-    # the context instead.
-    if vnicutils.VNICUtils.get_vnic_info_timestamp() > \
-            context['vnic_info_ts']:
-        func_logger.debug("vnic_info file changed, rebuilding context")
-        context['vnic_info_ts'], context['vnic_info'] = \
-            context['vnic_utils'].get_vnic_info()
-        context['vnics'] = get_metadata_vnics()
-        func_logger.debug("Returning the context [%s]" % str(context))
-        return context
-
-    vnics = get_metadata_vnics()
-
-    func_logger.debug("VNICs from metadata [%s]" % str(vnics))
-
-    update_needed = False
-
-    if vnics != context['vnics']:
-        # VNIC configuration changed
-        func_logger.info("VNIC configuration changed.")
-        update_needed = True
-        context['vnics'] = vnics
-
-    if context['oci_sess'] is not None:
-        func_logger.debug("look for new or removed secondary private IP addresses")
-        p_ips = context['oci_sess'].this_instance().all_private_ips()
-        sec_priv_ip = \
-            [[ip.get_address(), ip.get_vnic_ocid()] for ip in p_ips]
-        for ip in sec_priv_ip:
-            if ip not in context['vnic_info']['sec_priv_ip']:
-                func_logger.info("New secondary private IP: %s" %
-                                 ip[0])
-                update_needed = True
-        for ip in context['vnic_info']['sec_priv_ip']:
-            if ip not in sec_priv_ip:
-                func_logger.info("Secondary private IP "
-                                 "disconnected: %s" % ip[0])
-                update_needed = True
-        if update_needed:
-            # this one is used for comparing with the previous iteration
-            context['vnic_info']['sec_priv_ip'] = sec_priv_ip
-            context['vnic_utils'].set_private_ips(sec_priv_ip)
-
-    func_logger.debug('update_needed == %s' % str(update_needed))
-
-    if update_needed:
-        func_logger.info("updating network interfaces")
-        context['vnic_utils'].auto_config([])
+    _vnic_utils.auto_config([])
 
     return context
 

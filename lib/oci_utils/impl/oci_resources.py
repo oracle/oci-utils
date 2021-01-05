@@ -66,7 +66,6 @@ class OCICompartment(OCIAPIAbstractResource):
         self._instances = None
         self._vcns = None
 
-
     def __str__(self):
         """
         Override the string representation of the instance.
@@ -160,7 +159,6 @@ class OCICompartment(OCIAPIAbstractResource):
 
         return subnets
 
-
     def all_vnics(self):
         """
         Get all VNICs of this compartment.
@@ -180,13 +178,14 @@ class OCICompartment(OCIAPIAbstractResource):
         vnic_ids = []
         try:
             vnic_att_data = oci_sdk.pagination.list_call_get_all_results(cc.list_vnic_attachments,
-                compartment_id=self._ocid)
+                                                                         compartment_id=self._ocid)
             for v_data in vnic_att_data.data:
                 vnic_ids.append(v_data['vnic_id'])
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
             # permission to list the vcns in the compartment
-            OCICompartment._logger.debug('current user has no permission to list the vnic attachment in the compartment')
+            OCICompartment._logger.debug(
+                'current user has no permission to list the vnic attachment in the compartment')
 
         vnics = []
         for vid in vnic_ids:
@@ -218,15 +217,14 @@ class OCICompartment(OCIAPIAbstractResource):
         vcns = []
         try:
             vcns_data = oci_sdk.pagination.list_call_get_all_results(nc.list_vcns,
-                compartment_id=self._ocid,
-                lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
+                                                                     compartment_id=self._ocid,
+                                                                     lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
             for v_data in vcns_data.data:
                 vcns.append(OCIVCN(self._oci_session, oci_sdk.util.to_dict(v_data)))
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
             # permission to list the vcns in the compartment
             OCICompartment._logger.debug('current user has no permission to list the vcns in the compartment')
-
 
         return vcns
 
@@ -260,14 +258,14 @@ class OCICompartment(OCIAPIAbstractResource):
             if availability_domain:
                 bs_data = oci_sdk.pagination.list_call_get_all_results(
                     bsc.list_volumes, availability_domain=availability_domain,
-                                      compartment_id=self._ocid,
-                                      lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
+                    compartment_id=self._ocid,
+                    lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
             else:
                 bs_data = oci_sdk.pagination.list_call_get_all_results(bsc.list_volumes,
-                                                     compartment_id=self._ocid,
-                                                     lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
+                                                                       compartment_id=self._ocid,
+                                                                       lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
         except oci_sdk.exceptions.ServiceError as e:
-            raise Exception ('Cannot list compartement volumes') from e
+            raise Exception('Cannot list compartement volumes') from e
 
         for v_data in bs_data.data:
             try:
@@ -295,10 +293,10 @@ class OCICompartment(OCIAPIAbstractResource):
             except oci_sdk.exceptions.ServiceError:
                 # ignore these, it means the current user has no
                 # permission to list the volumes in the compartment
-                OCICompartment._logger.debug('current user has no permission to list the volume attachement', exc_info=True)
+                OCICompartment._logger.debug(
+                    'current user has no permission to list the volume attachement', exc_info=True)
 
         return bs
-
 
 
 class OCIInstance(OCIAPIAbstractResource):
@@ -392,7 +390,6 @@ class OCIInstance(OCIAPIAbstractResource):
         """
         return self._data['display_name']
 
-
     def get_public_ip(self):
         """
         Get the public IP address of the primary VNIC.
@@ -406,7 +403,6 @@ class OCIInstance(OCIAPIAbstractResource):
             if v.is_primary():
                 return v.get_public_ip()
         return None
-
 
     def get_vnic(self, vnic_id):
         """
@@ -427,9 +423,9 @@ class OCIInstance(OCIAPIAbstractResource):
             vnic_data = nc.get_vnic(vnic_id).data
             cc = self._oci_session.get_compute_client()
             vnic_att_data = cc.list_vnic_attachments(compartment_id=self.get_compartment_id(),
-                    instance_id=self.get_ocid(),
-                    vnic_id=vnic_data.id).data
-            return OCIVNIC(self._oci_session, oci_sdk.util.to_dict(vnic_data),oci_sdk.util.to_dict(vnic_att_data[0]))
+                                                     instance_id=self.get_ocid(),
+                                                     vnic_id=vnic_data.id).data
+            return OCIVNIC(self._oci_session, oci_sdk.util.to_dict(vnic_data), oci_sdk.util.to_dict(vnic_att_data[0]))
         except Exception as e:
             OCIInstance._logger.debug('Failed to fetch vnic: %s', e)
             raise Exception('Failed to fetch VNIC [%s]' % vnic_id) from e
@@ -469,7 +465,6 @@ class OCIInstance(OCIAPIAbstractResource):
 
         return vnics
 
-
     def find_private_ip(self, ip_address):
         """
         Find a secondary private IP based on its IP if address.
@@ -504,7 +499,6 @@ class OCIInstance(OCIAPIAbstractResource):
             pips = vnic.all_private_ips()
             private_ips += pips
         return private_ips
-
 
     def all_volumes(self):
         """
@@ -563,7 +557,6 @@ class OCIInstance(OCIAPIAbstractResource):
 
         return vols
 
-
     @staticmethod
     def _create_vnic_hostname_label(d_name):
         """
@@ -615,15 +608,15 @@ class OCIInstance(OCIAPIAbstractResource):
             Exception
                 On any error.
         """
-        display_name = kargs.get('display_name',None)
+        display_name = kargs.get('display_name', None)
         subnet_id = kargs.get('subnet_id')
-        private_ip = kargs.get('private_ip',None)
-        nic_index = int(kargs.get('nic_index',0))
-        display_name = kargs.get('display_name',None)
-        assign_public_ip= kargs.get('assign_public_ip',False)
-        hostname_label= kargs.get('hostname_label',None)
-        skip_source_dest_check= kargs.get('skip_source_dest_check',False)
-        wait= kargs.get('wait',True)
+        private_ip = kargs.get('private_ip', None)
+        nic_index = int(kargs.get('nic_index', 0))
+        display_name = kargs.get('display_name', None)
+        assign_public_ip = kargs.get('assign_public_ip', False)
+        hostname_label = kargs.get('hostname_label', None)
+        skip_source_dest_check = kargs.get('skip_source_dest_check', False)
+        wait = kargs.get('wait', True)
 
         if display_name is None and hostname_label is not None:
             display_name = hostname_label
@@ -649,11 +642,10 @@ class OCIInstance(OCIAPIAbstractResource):
             if wait:
                 v_att = oci_sdk.wait_until(cc, v_att, 'lifecycle_state', 'ATTACHED')
             _new_vnic = self._oci_session.get_network_client().get_vnic(v_att.data.vnic_id)
-            return OCIVNIC(self._oci_session,oci_sdk.util.to_dict(_new_vnic.data),oci_sdk.util.to_dict(v_att.data))
+            return OCIVNIC(self._oci_session, oci_sdk.util.to_dict(_new_vnic.data), oci_sdk.util.to_dict(v_att.data))
         except oci_sdk.exceptions.ServiceError as e:
             OCIInstance._logger.debug('Failed to attach new VNIC', exc_info=True)
             raise Exception('Failed to attach new VNIC: %s' % e.message) from e
-
 
     def get_metadata(self, get_public_ip=False):
         """
@@ -1051,11 +1043,10 @@ class OCIVNIC(OCIAPIAbstractResource):
         try:
             private_ip = nc.create_private_ip(cpid)
             return OCIPrivateIP(session=self._oci_session,
-                                private_ip_data=private_ip.data)
+                                private_ip_data=oci_sdk.util.to_dict(private_ip.data))
         except oci_sdk.exceptions.ServiceError as e:
             OCIVNIC._logger.debug('Failed to add private IP', exc_info=True)
             raise Exception("Failed to add private IP: %s" % e.message) from e
-
 
     def find_private_ip(self, ip_address):
         """
@@ -1085,7 +1076,6 @@ class OCIVNIC(OCIAPIAbstractResource):
             list
                 The list of all secondary private IPs assigned to this VNIC.
         """
-
 
         nc = self._oci_session.get_network_client()
         all_privips = []
@@ -1134,7 +1124,6 @@ class OCIVNIC(OCIAPIAbstractResource):
             OCIVNIC._logger.debug(
                 'Failed to detach VNIC', exc_info=True)
             raise Exception("Failed to detach VNIC: %s" % e.message) from e
-
 
         if wait:
             try:
@@ -1562,7 +1551,7 @@ class OCISubnet(OCIAPIAbstractResource):
                          self._data['cidr_block'])
         if match is None:
             raise Exception('Failed to parse cidr block %s' %
-                              self._data['cidr_block'])
+                            self._data['cidr_block'])
 
         cidripint = ((int(match.group(1)) * 256 +
                       int(match.group(2))) * 256 +
@@ -1702,7 +1691,6 @@ class OCIVolume(OCIAPIAbstractResource):
                 The string representation of the OCIVolume object.
         """
         return "Volume %s" % OCIAPIAbstractResource.__str__(self)
-
 
     def get_attachment_state(self):
         """
@@ -1932,4 +1920,3 @@ class OCIVolume(OCIAPIAbstractResource):
         except oci_sdk.exceptions.ServiceError as e:
             OCIVolume._logger.debug('Failed to destroy volume', exc_info=True)
             raise Exception("Failed to destroy volume: %s" % e.message) from e
-
