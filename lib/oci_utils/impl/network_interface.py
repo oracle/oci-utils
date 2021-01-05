@@ -55,7 +55,7 @@ class _intf_dict(dict):
         everything stored as str
         """
 
-        if isinstance(value,list):
+        if isinstance(value, list):
             super().__setitem__(key, [_intf_dict._to_str(_v) for _v in value])
         else:
             super().__setitem__(key, _intf_dict._to_str(value))

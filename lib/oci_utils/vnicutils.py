@@ -7,9 +7,8 @@
 import logging
 import os
 import os.path
-
-from . import cache
 from .oci_api import OCISession
+from . import cache
 from .metadata import InstanceMetadata
 from .impl import network_helpers as NetworkHelpers
 from .impl.network_interface import NetworkInterfaceSetupHelper, _intf_dict
@@ -24,20 +23,19 @@ class VNICUtils():
     # file with saved vnic information
     __vnic_info_file = "/var/lib/oci-utils/vnic_info"
     # OBSOLETE: file with VNICs and stuff to exclude from automatic
-    # configuration
+    # configuration. only kept for migration
     __net_exclude_file = "/var/lib/oci-utils/net_exclude"
 
     def __init__(self):
         """ Class VNICUtils initialisation.
         """
-        self.vnic_info = None
-        self.vnic_info_ts = 0
+        self.vnic_info = {
+            'exclude': []}
         self._metadata = None
         try:
             self._metadata = InstanceMetadata().refresh()
         except IOError as e:
             _logger.warning('Cannot get metadata: %s', str(e))
-
 
     @staticmethod
     def __new_vnic_info():
@@ -49,68 +47,29 @@ class VNICUtils():
         tuple
             (vnic info timestamp: datetime, vnic info: dict)
         """
-        vnic_info = {
-            'exclude': [],
-            'sec_priv_ip': []}
-        vnic_info_ts = 0
+        _vnic_info = {
+            'exclude': []}
 
         # migration from oci-utils 0.5's net_exclude file
         excludes = cache.load_cache(VNICUtils.__net_exclude_file)[1]
         if excludes is not None:
-            vnic_info['exclude'] = excludes
-            vnic_info_ts = \
-                cache.write_cache(cache_content=vnic_info,
-                                  cache_fname=VNICUtils.__vnic_info_file)
+            _vnic_info['exclude'] = excludes
+            cache.write_cache(cache_content=_vnic_info,
+                              cache_fname=VNICUtils.__vnic_info_file)
             try:
                 os.remove(VNICUtils.__net_exclude_file)
             except Exception as e:
-                _logger.debug('Cannot remove file [%s]: %s' , VNICUtils.__net_exclude_file, str(e))
+                _logger.debug('Cannot remove file [%s]: %s', VNICUtils.__net_exclude_file, str(e))
 
-        # can we make API calls?
-        oci_sess = None
-        try:
-            oci_sess = OCISession()
-        except Exception as e:
-            _logger.debug('Cannot get OCI session: %s' % str(e))
+            _logger.debug('Excluded intf: %s ' % excludes)
 
-        if oci_sess is not None:
-            p_ips = oci_sess.this_instance().all_private_ips()
-            sec_priv_ip = \
-                [[ip.get_address(), ip.get_vnic().get_ocid()] for ip in p_ips]
-            vnic_info['sec_priv_ip'] = sec_priv_ip
-            vnic_info_ts = \
-                cache.write_cache(cache_content=vnic_info,
-                                  cache_fname=VNICUtils.__vnic_info_file)
-        return vnic_info_ts, vnic_info
+        return _vnic_info
 
-    @staticmethod
-    def get_vnic_info_timestamp():
+    def get_excluded_interfaces(self):
         """
-        Get timestamp of vnic info repository The last modification time of
-        the vnic info file
-
-        Returns
-        -------
-        int
-            The last modification time since epoch in seconds.
+        gets excluded interface from auto configuration/deconfiguration
         """
-        return cache.get_timestamp(VNICUtils.__vnic_info_file)
-
-    def get_vnic_info(self):
-        """
-        Load the vnic_info file. If the file is missing , a new one is created.
-
-        Returns
-        -------
-        tuple (int, dict)
-            (vnic info timestamp: datetime, vnic info: dict)
-        """
-        self.vnic_info_ts, self.vnic_info = \
-            cache.load_cache(VNICUtils.__vnic_info_file)
-        if self.vnic_info is None:
-            self.vnic_info_ts, self.vnic_info = VNICUtils.__new_vnic_info()
-
-        return self.vnic_info_ts, self.vnic_info
+        return self.vnic_info['exclude']
 
     def save_vnic_info(self):
         """
@@ -122,13 +81,8 @@ class VNICUtils():
             The timestamp of the file or None on failure.
         """
         _logger.debug("Saving vnic_info.")
-        vnic_info_ts = cache.write_cache(cache_content=self.vnic_info,
-                                         cache_fname=VNICUtils.__vnic_info_file)
-        if vnic_info_ts is not None:
-            self.vnic_info_ts = vnic_info_ts
-        else:
-            _logger.warning("Failed to save VNIC info to %s" , VNICUtils.__vnic_info_file)
-        return vnic_info_ts
+        _ = cache.write_cache(cache_content=self.vnic_info,
+                              cache_fname=VNICUtils.__vnic_info_file)
 
     def set_namespace(self, ns):
         """
@@ -143,7 +97,6 @@ class VNICUtils():
             The namespace value.
         """
         self.vnic_info['ns'] = ns
-        self.save_vnic_info()
 
     def set_sshd(self, val):
         """
@@ -157,7 +110,6 @@ class VNICUtils():
             runs sshd in the namespace. The default is False.
         """
         self.vnic_info['sshd'] = val
-        self.save_vnic_info()
 
     def add_private_ip(self, ipaddr, vnic_id):
         """
@@ -172,54 +124,21 @@ class VNICUtils():
             The VNIC id.
         """
         _interfaces = self.get_network_config()
-        _intf=None
+        _intf = None
         for _interface in _interfaces:
             if _interface.get('VNIC') == vnic_id:
                 _intf = _interface
                 break
         if _intf is None:
             # cannot happen
-            _logger.debug ('WARNING : cannot find vnic with id [%s]: caller did not check ?')
-        if 'SECONDARY_IPS' not in _intf:
-            _intf['SECONDARY_IPS'] = [ipaddr]
+            _logger.debug('WARNING : cannot find vnic with id [%s]: caller did not check ?')
+        if 'MISSING_SECONDARY_IPS' not in _intf:
+            _intf['MISSING_SECONDARY_IPS'] = [ipaddr]
         else:
-            _intf['SECONDARY_IPS'].append(ipaddr)
+            if ipaddr not in _intf['MISSING_SECONDARY_IPS']:
+                _intf['MISSING_SECONDARY_IPS'].append(ipaddr)
 
         self._config_secondary_intf(_intf)
-
-        if [ipaddr, vnic_id] not in self.vnic_info['sec_priv_ip']:
-            self.vnic_info['sec_priv_ip'].append([ipaddr, vnic_id])
-        self.save_vnic_info()
-
-    def set_private_ips(self, priv_ips):
-        """
-        Set the secondary private IP.
-
-        Parameters
-        ----------
-        priv_ips: str
-            The private IP addresses.
-        """
-        self.vnic_info['sec_priv_ip'] = priv_ips
-        self.save_vnic_info()
-
-    def delete_all_private_ips(self, vnic_id):
-        """
-        Delete all private IPs attached to a given VNIC.
-
-        Parameters
-        ----------
-        vnic_id: int
-            The vnic ID from which we delete private IP's.
-        """
-        remove_privip = []
-        for privip in self.vnic_info['sec_priv_ip']:
-            if privip[1] == vnic_id:
-                remove_privip.append(privip)
-                self.include(privip[0], save=False)
-        for pi in remove_privip:
-            self.vnic_info['sec_priv_ip'].remove(pi)
-        self.save_vnic_info()
 
     def del_private_ip(self, ipaddr, vnic_id):
         """
@@ -242,12 +161,12 @@ class VNICUtils():
         _interfaces = self.get_network_config()
         _interface_to_delete = None
         for _interface in _interfaces:
-            if _interface.get('VNIC') == vnic_id and (_interface.get('ADDR') == ipaddr or ipaddr in _interface.get('SECONDARY_ADDRS',())):
+            if _interface.get('VNIC') == vnic_id and (_interface.get('ADDR') == ipaddr or ipaddr in _interface.get('SECONDARY_ADDRS', ())):
                 _interface_to_delete = _interface
                 break
 
         if not _interface_to_delete:
-            _logger.debug('del_private_ip. IP [%s] not found on vNIC %s',ipaddr,vnic_id)
+            _logger.debug('del_private_ip. IP [%s] not found on vNIC %s', ipaddr, vnic_id)
             return 0, 'IP %s is not configured.' % ipaddr
 
         # 1. delete any rule for this ip
@@ -258,12 +177,6 @@ class VNICUtils():
 
         # 3. removes the mac address from the unmanaged-devices list in then NetworkManager.conf file.
         NetworkHelpers.add_mac_to_nm(_interface_to_delete['MAC'])
-
-        # 4. update cache
-        if [ipaddr, vnic_id] in self.vnic_info['sec_priv_ip']:
-            self.vnic_info['sec_priv_ip'].remove([ipaddr, vnic_id])
-        self.include(ipaddr, save=False)
-        self.save_vnic_info()
 
         return 0, ''
 
@@ -278,7 +191,7 @@ class VNICUtils():
                 return True
         return False
 
-    def exclude(self, item, save=True):
+    def exclude(self, item):
         """
         Add item to the "exclude" list. IP addresses or interfaces that are
         excluded from automatic configuration.
@@ -294,10 +207,9 @@ class VNICUtils():
         if item not in self.vnic_info['exclude']:
             _logger.debug('Adding %s to "exclude" list' % item)
             self.vnic_info['exclude'].append(item)
-            if save:
-                self.save_vnic_info()
+            self.save_vnic_info()
 
-    def include(self, item, save=True):
+    def include(self, item):
         """
         Remove item from the "exclude" list, IP addresses or interfaces that
         are excluded from automatic configuration.
@@ -313,13 +225,11 @@ class VNICUtils():
         if item in self.vnic_info['exclude']:
             _logger.debug('Removing %s from "exclude" list' % item)
             self.vnic_info['exclude'].remove(item)
-            if save:
-                self.save_vnic_info()
+            self.save_vnic_info()
 
     def auto_config(self, sec_ip):
         """
-        Auto configure VNICs. Run the secondary vnic script in automatic
-        configuration mode (-c).
+        Auto configure VNICs.
 
         Parameters
         ----------
@@ -361,21 +271,39 @@ class VNICUtils():
             if sec_ip:
                 for (ip, vnic) in sec_ip:
                     if vnic == _intf['VNIC']:
-                        if 'SECONDARY_IPS' not in _intf:
-                            _intf['SECONDARY_IPS'] = [ip]
+                        if 'MISSING_SECONDARY_IPS' not in _intf:
+                            _intf['MISSING_SECONDARY_IPS'] = [ip]
                         else:
-                            _intf['SECONDARY_IPS'].append(ip)
+                            if ip not in _intf['MISSING_SECONDARY_IPS']:
+                                _intf['MISSING_SECONDARY_IPS'].append(ip)
 
             if _intf['CONFSTATE'] == 'ADD':
                 _all_to_be_configured.append(_intf)
+                # take care of secondady addresses.
+                # at this point we cannot rely on MISSING_SECONDARY_IPS as we are configured "new" interface
+                # in order ot use the same code path, set MISSING_SECONDARY_IPS here so _all_to_be_modified set
+                # will also contain this one. Need better refactoring: enough for now.
+                if len(_intf.get('SECONDARY_ADDRS', ())) > 0:
+                    _intf['MISSING_SECONDARY_IPS'] = _intf['SECONDARY_ADDRS']
             if _intf['CONFSTATE'] == 'DELETE':
                 _all_to_be_deconfigured.append(_intf)
-            if 'SECONDARY_IPS' in _intf:
+            if 'MISSING_SECONDARY_IPS' in _intf:
                 _all_to_be_modified.append(_intf)
+
+        if _logger.isEnabledFor(logging.DEBUG):
+            _logger.debug("interfaces to be configured: %d" % len(_all_to_be_configured))
+            for _in in _all_to_be_configured:
+                _logger.debug("CONFIGURE %s" % _in)
+            _logger.debug("interfaces to be unconfigured: %d" % len(_all_to_be_deconfigured))
+            for _in in _all_to_be_deconfigured:
+                _logger.debug("DECONFIGURE %s" % _in)
+            _logger.debug("interfaces to be modified: %d" % len(_all_to_be_modified))
+            for _in in _all_to_be_modified:
+                _logger.debug("MODIFY %s" % _in)
 
         # 2 configure the one which need it
         for _intf in _all_to_be_configured:
-            ns_i=None
+            ns_i = None
             if 'ns' in self.vnic_info:
                 # if requested to use namespace, compute namespace name pattern
                 ns_i = {}
@@ -397,6 +325,9 @@ class VNICUtils():
                 if self._metadata['instance']['shape'].startswith('BM') and _intf['IFACE'] == '-':
                     _intf_to_use['IFACE'] = _by_nic_index[_intf['NIC_I']]
                     _intf_to_use['STATE'] = "up"
+
+                if _logger.isEnabledFor(logging.DEBUG):
+                    _logger.debug("begin configuration of %s" % _intf_to_use)
 
                 _auto_config_intf(ns_i, _intf_to_use)
 
@@ -420,10 +351,12 @@ class VNICUtils():
                 _logger.warning('Cannot deconfigure %s: %s' % (_intf, str(e)))
 
         # 4 add secondaries IP address
-
         for _intf in _all_to_be_modified:
+            if self._metadata['instance']['shape'].startswith('BM') and _intf['IFACE'] == '-':
+                # it may happen if we came after configuring the interface by injecting MISSING_SECONDARY_IPS
+                _intf['IFACE'] = _by_nic_index[_intf['NIC_I']]
+                _intf['STATE'] = "up"
             self._config_secondary_intf(_intf)
-
 
     def _deconfig_secondary_addr(self, intf_infos, address):
         """
@@ -468,7 +401,7 @@ class VNICUtils():
         if sec_ip:
             _translated = []
             if self._metadata is None:
-                return (1,'no metadata available')
+                return (1, 'no metadata available')
             _all_vnic_md = self._metadata['vnics']
             # 1. locate the MAC: translate ip/vnic to ip/mac
             for (ip, vnic) in sec_ip:
@@ -506,10 +439,36 @@ class VNICUtils():
                 # Is this intf excluded ?
                 if self._is_intf_excluded(intf):
                     continue
+                for secondary_addr in intf.get('SECONDARY_ADDRS', ()):
+                    self._deconfig_secondary_addr(intf, secondary_addr)
                 self._auto_deconfig_intf_routing(intf)
                 _auto_deconfig_intf(intf)
 
         return (0, '')
+
+    def _get_priv_addrs(self):
+        """
+        Gets all vnic private addrs
+        returns:
+        --------
+          dict : a vnic ocid indexed dict of list of IPs
+        """
+        res = {}
+        oci_sess = None
+        try:
+            oci_sess = OCISession()
+        except Exception as e:
+            _logger.debug('Cannot get OCI session: %s' % str(e))
+
+        p_ips = oci_sess.this_instance().all_private_ips()
+        for p_ip in p_ips:
+            _ocid = p_ip.get_vnic_ocid()
+            _addr = p_ip.get_address()
+            if _ocid not in res:
+                res[_ocid] = []
+            res[_ocid].append(_addr)
+
+        return res
 
     def get_network_config(self):
         """
@@ -584,6 +543,7 @@ class VNICUtils():
                     _intf['CONFSTATE'] = '-'
                     _intf['ADDR'] = _i.get('addresses')[0]['address']
                     if len(_i.get('addresses', [])) > 1:
+                        # first one in the list is the primary address of that vnic
                         _intf['SECONDARY_ADDRS'] = [ip['address'] for ip in _i.get('addresses')[1:]]
                 else:
                     if not _i.get('is_vf'):
@@ -597,13 +557,8 @@ class VNICUtils():
         if self._metadata is None:
             _logger.warning('no metadata available')
         else:
-            _ip_per_id=dict()
-            # re-order secondaris ips
-            for (ip,ocid) in self.get_vnic_info()[1]['sec_priv_ip']:
-                if ocid in _ip_per_id:
-                    _ip_per_id[ocid].append(ip)
-                else:
-                    _ip_per_id[ocid]=[ip]
+            _ip_per_id = self._get_priv_addrs()
+
             for md_vnic in self._metadata['vnics']:
                 _intf = _intf_dict()
                 if _first_loop:
@@ -621,7 +576,8 @@ class VNICUtils():
                     # VMs do not have such attr
                     _intf['NIC_I'] = md_vnic['nicIndex']
                 if md_vnic['vnicId'] in _ip_per_id:
-                    _intf['SECONDARY_ADDRS']=_ip_per_id[md_vnic['vnicId']]
+                    # get all but the primary one
+                    _intf['SECONDARY_ADDRS'] = [_ip for _ip in _ip_per_id[md_vnic['vnicId']] if _ip != md_vnic['privateIp']]
 
                 _all_from_metadata.append(_intf)
 
@@ -632,8 +588,12 @@ class VNICUtils():
                 # locate the one with same ether address
                 _candidates = [_i for _i in _all_from_system if _i['MAC'] == interface['MAC']]
                 _state = 'ADD'
+                _have_to_be_added = set()
                 if len(_candidates) == 1:
                     # only one found , no ambiguity
+                    # treat secondary addrs: if have some in metadata not present on system , we have to plumb them
+                    _have_to_be_added = set(interface.get('SECONDARY_ADDRS', [])).difference(
+                        _candidates[0].get('SECONDARY_ADDRS', []))
                     interface.update(_candidates[0])
                     if _candidates[0].has('ADDR'):
                         # an addr on the correlated system intf -> state is '-'
@@ -646,6 +606,9 @@ class VNICUtils():
                     _macvlan_is = [_i for _i in _candidates if _i['LINKTYPE'] in ('macvlan', 'macvtap')]
                     _vlan_is = [_i for _i in _candidates if _i['LINKTYPE'] == 'vlan']
                     if len(_macvlan_is) > 0 and len(_vlan_is) > 0:
+                        # treat secondary addrs: if have some in metadata not present on system , we have to plumb them
+                        _have_to_be_added = set(interface.get('SECONDARY_ADDRS', [])).difference(
+                            _vlan_is[0].get('SECONDARY_ADDRS', []))
                         interface.update(_macvlan_is[0])
                         interface['VLAN'] = _vlan_is[0]['IFACE']
                         interface['IFACE'] = _macvlan_is[0]['LINK']
@@ -658,8 +621,11 @@ class VNICUtils():
                 # clean up system list
                 _all_from_system = [_i for _i in _all_from_system if _i['MAC'] != interface['MAC']]
             except ValueError as e:
-                _logger.debug('error while parsing [%s]: %s' , str(interface), str(e))
+                _logger.debug('error while parsing [%s]: %s', str(interface), str(e))
             finally:
+                if len(_have_to_be_added) > 0:
+                    # this key will trigger configuration (see auto_config())
+                    interface['MISSING_SECONDARY_IPS'] = list(_have_to_be_added)
                 interfaces.append(interface)
 
         # now collect the one left omr system
@@ -677,7 +643,6 @@ class VNICUtils():
 
         return interfaces
 
-
     def _compute_routing_table_name(self, interface_info):
         """
         Compute the routing table name for a givne interface
@@ -688,7 +653,6 @@ class VNICUtils():
         if self._metadata['instance']['shape'].startswith('BM'):
             return 'ort%svl%s' % (interface_info['NIC_I'], interface_info['VLTAG'])
         return 'ort%s' % interface_info['IND']
-
 
     def _auto_deconfig_intf_routing(self, intf_infos):
         """
@@ -706,7 +670,6 @@ class VNICUtils():
             # TODO: rename method to remove_ip_rules
             NetworkHelpers.remove_ip_addr_rules(_route_table_name)
             NetworkHelpers.delete_route_table(_route_table_name)
-
 
     def _auto_config_intf_routing(self, net_namespace_info, intf_infos):
         """
@@ -754,7 +717,7 @@ class VNICUtils():
                 raise Exception("cannot add default route via %s on %s to table %s" %
                                 (intf_infos['VIRTRT'], _intf_to_use, _route_table_name))
             _logger.debug("added default route via %s dev %s table %s" %
-                        (intf_infos['VIRTRT'], _intf_to_use, _route_table_name))
+                          (intf_infos['VIRTRT'], _intf_to_use, _route_table_name))
 
             # create source-based rule to use table
             ret, out = NetworkHelpers.add_static_ip_rule('from', intf_infos['ADDR'], 'lookup', _route_table_name)
@@ -762,8 +725,7 @@ class VNICUtils():
                 raise Exception("cannot add rule from %s use table %s" % (intf_infos['ADDR'], _route_table_name))
 
             _logger.debug("added rule for routing from %s lookup %s with default via %s" %
-                        (intf_infos['ADDR'], _route_table_name, intf_infos['VIRTRT']))
-
+                          (intf_infos['ADDR'], _route_table_name, intf_infos['VIRTRT']))
 
     def _config_secondary_intf(self, intf_infos):
         """
@@ -783,13 +745,9 @@ class VNICUtils():
         if intf_infos.has('SECONDARY_ADDRS'):
             _sec_addrs = intf_infos.get('SECONDARY_ADDRS')
 
-        for secondary_ip in intf_infos['SECONDARY_IPS']:
-            if secondary_ip in _sec_addrs:
-                _logger.debug("secondary IP address %s already plumbed on the interface (or VLAN) %s" , secondary_ip, intf_infos['IFACE'])
-                continue
-
+        for secondary_ip in intf_infos['MISSING_SECONDARY_IPS']:
             _logger.debug("adding secondary IP address %s to interface (or VLAN) %s" %
-                        (secondary_ip, intf_infos['IFACE']))
+                          (secondary_ip, intf_infos['IFACE']))
 
             NetworkInterfaceSetupHelper(intf_infos).add_secondary_address(secondary_ip)
 
@@ -799,7 +757,7 @@ class VNICUtils():
             if ret != 0:
                 raise Exception("cannot add rule from %s use table %s" % (secondary_ip, _route_table_name))
             _logger.debug("added rule for routing from %s lookup %s with default via %s" %
-                        (secondary_ip, _route_table_name, intf_infos['VIRTRT']))
+                          (secondary_ip, _route_table_name, intf_infos['VIRTRT']))
 
 
 def _auto_config_intf(net_namespace_info, intf_infos):
@@ -834,6 +792,7 @@ def _auto_config_intf(net_namespace_info, intf_infos):
     else:
         NetworkInterfaceSetupHelper(intf_infos).setup()
 
+
 def _auto_deconfig_intf(intf_infos):
     """
     Deconfigures interface
@@ -848,7 +807,8 @@ def _auto_deconfig_intf(intf_infos):
     """
     if intf_infos.has('NS'):
         NetworkHelpers.kill_processes_in_namespace(intf_infos['NS'])
-
+    # TODO EJANNET : LOOP on ('SECONDARY_ADDRS')
+    #    -> NetworkInterfaceSetupHelper(intf_infos).remove_secondary_address()
     NetworkInterfaceSetupHelper(intf_infos).tear_down()
 
     # delete namespace
