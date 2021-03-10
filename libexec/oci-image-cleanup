@@ -1,17 +1,19 @@
 #!/bin/bash
-# Copyright (c) 2018, 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
-
+      
 # This script runs a set of cleanup steps to prepare instance for snapshot
-
-
+     
+  
 # Globals
 FORCE=false
 DRYRUN=false
+PLAN_PRINT=0
 BASE_DIR=/dev/shm/oci-utils
+PLAN_BASE_DIR=/tmp/oci-utils
 BACKUP_LOC=$BASE_DIR/image-cleanup-backup
-PLANFILE=$BASE_DIR/image-cleanup.plan
+PLANFILE=$PLAN_BASE_DIR/image-cleanup.plan
 LOGFILE=$BASE_DIR/image-cleanup.log
 CONFLOG=$BASE_DIR/image-cleanup.conf
 LAST_BACKUP_LOC_FILE=$BASE_DIR/image-cleanup.loc
@@ -24,6 +26,8 @@ CLEAN_ROOT_PASSWD=
 CLEAN_USER_SSH_KEYS=
 CLEAN_HISTORY_DADA_LOG=
 
+# OS release
+OSRELEASE=$(uname -r | sed 's/^.*\(el[0-9]\+\).*$/\1/')
 
 print_warning_essage()
 {
@@ -185,7 +189,9 @@ CLEAN_HISTORY_DATA_LOG=$CLEAN_HISTORY_DATA_LOG
 
 warn()
 {
-    if grep "=YES" $CONFLOG |grep -E "_SSH_|_ROOT_" &>/dev/null; then
+    [[ $FORCE == true ]] || [[ $RESTORE == true ]] && return 0
+    
+    if grep "=YES" $CONFLOG |grep -E "_SSH_|_ROOT_" &>/dev/null; then 
         echo -e "\n\nWARNING!!!
 You will NOT be able to login to this instance once ssh keys and root passwd get removed!!!
 However, you can restore the information by running
@@ -193,6 +199,12 @@ However, you can restore the information by running
 for more information, run
     $(basename "$CMD") -h or man 8 $(basename "$CMD")
 "
+    fi
+    read -n 1 -s -r -p "Press 'R' to review plan or any other key to execute." input
+    if [[ "$input" = "R" ]]; then
+        print_plan |tee -a $LOGFILE
+        PLAN_PRINT=1
+        confirm || clean_and_abort 
     fi
 }
 
@@ -273,8 +285,8 @@ cleanup()
       plan "passwd -l root && sed -i 's/^root:[^:]*:/root:*:/I' /etc/shadow"
   else
       CLEAN_ROOT_PASSWD=NO
-  fi
-  echo -e "\n\nThe next steps will clean up the following files:
+  fi 
+  echo -e "\n\nThe next steps will clean up the following files if they exist:
       /etc/udev/rules.d/70*,
       /etc/machine-id,
       /var/log/*,
@@ -339,7 +351,7 @@ cleanup()
 
   # Clean Yum UUID
   plan 'echo -e "\nRemoving Yum UUID..."'
-  backup_and_delete "/var/lib/yum/uuid"
+  [ $OSRELEASE != 'el8' ] && backup_and_delete "/var/lib/yum/uuid"
 
   # Cleaning up Yum metadata
   if [ -d "/var/cache/yum" ]; then
@@ -362,9 +374,9 @@ cleanup()
   if [ -f "/etc/sysconfig/rhn/systemid" ]; then
       plan 'echo -e "\nClearing ULN data..."'
       backup_and_delete "/etc/sysconfig/rhn/systemid"
-      backup_and_delete /etc/sysconfig/rhn/up2date -c 2
+      backup_and_delete /etc/sysconfig/rhn/up2date -c 2 
       plan "sed -i  \"s/^uuid.*/#&/\" /etc/sysconfig/rhn/up2date"
-  fi
+  fi     
 
   # Clear bash history for opc and root users
   plan 'echo -e "\nCleaning bash history..."'
@@ -377,7 +389,7 @@ cleanup()
   done
   plan "echo \"$BACKUP_LOC\" >$LAST_BACKUP_LOC_FILE"
 }
-
+    
 update_bashrc_history() {
     hist_file=$1/.bash_history
 
@@ -404,6 +416,7 @@ log(){
     echo -e "$@" | tee -a $LOGFILE
 }
 print_plan(){
+    [ $PLAN_PRINT -gt 0 ] && return $PLAN_PRINT
     echo -e "\n\nThe following commands will be run:"
     echo -e "========================================="
     cat $PLANFILE
@@ -450,6 +463,13 @@ restore()
 }
 
 # Main
+  
+if [ "$EUID" -ne 0 ]; then 
+    echo "This script needs root privileges to execute."
+    exit 1
+fi
+
+#trap 'clean_and_abort' SIGINT 
 
 CMD=$0
 RESTORE=false
@@ -459,6 +479,7 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
     -f|--force)
         FORCE=true
+        F_VALUE=y
         shift 1
         ;;
     --dry-run)
@@ -466,12 +487,25 @@ while [ "$#" -gt 0 ]; do
         shift 1
         ;;
     -c)
-        config_file=$2
-        shift 2
+        if [ -e $2 ] && [ -s $2 ]; then
+            source $(dirname $2)/$(basename $2)
+            shift 2
+        else
+            log "Error: ${config_file} does not appear to be a valid file." 
+            usage
+            exit 1
+        fi
         ;;
     --config-file=*)
         config_file="${1#*=}"
-        shift 1
+        if [ -e $config_file ] && [ -s $config_file ] ; then
+            source $(dirname $config_file)/$(basename $config_file)
+            shift 1
+        else
+            echo  "Error: ${config_file} does not appear to be a valid file."
+            usage
+            exit 1
+        fi
         ;;
     -r)
         RESTORE=true
@@ -485,12 +519,24 @@ while [ "$#" -gt 0 ]; do
         ;;
 
     -d)
-        backup_dir=$2
-        shift 2
+        if [ -d $2 ] && [ ! -z  $2 ] ;then
+            BACKUP_LOC=$2/image-cleanup-backup; shift 2
+        else
+            echo -e '\n' ${2} 'does not appear to be a valid backup dir\n'
+            usage
+            exit 1
+        fi
         ;;
     --backup-dir=*)
         backup_dir="${1#*=}"
-        shift 1
+        if [ -d $backup_dir ] && [ ! -z  $backup_dir ] ;then
+            BACKUP_LOC=$backup_dir/image-cleanup-backup
+            shift 1
+        else
+            echo -e '\n' $backup_dir 'does not appear to be a valid backup dir\n'
+            usage
+            exit 1
+        fi
         ;;
     -h | --help)
         usage
@@ -502,79 +548,50 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-
-if [ "$EUID" -ne 0 ]; then
-    echo "This script needs root privileges to execute."
-    exit 1
-fi
-
-if [ -n "${config_file}" ]
-then
-    if [ -e $config_file ] && [ -s $config_file ] ; then
-        source $(dirname $config_file)/$(basename $config_file)
-    else
-        echo  "Error: ${config_file} does not appear to be a valid file."
-        exit 1
-    fi
-fi
-
-if [ -n "${backup_dir}" ]
-then
-    if [ -d $backup_dir ] && [ ! -z  $backup_dir ] ;then
-        BACKUP_LOC=$backup_dir/image-cleanup-backup
-        shift 1
-    else
-        echo -e '\n' $backup_dir 'does not appear to be a valid backup dir\n'
-        usage
-        exit 1
-    fi
-fi
-
 mkdir -p $BASE_DIR
+mkdir -p $PLAN_BASE_DIR
 
 echo "#!/bin/bash" >$PLANFILE
 echo -e "oci image-cleanup $@ \n" > $LOGFILE
 [ ! -z "$SUDO_USER" ] && chown $SUDO_USER:$SUDO_USER $PLANFILE $LOGFILE
 
-if [[ $RESTORE = true ]]
-then
+go_on=0
+
+if [[ $RESTORE = true ]]; then
     restore $restore_dir
 else
-    cleanup
+    if [ $FORCE == false ]
+    then
+      print_warning_essage
+      confirm 'Perform cleanup'
+      if [ $? -eq 0 ]
+      then
+	go_on=1
+      fi
+    else
+	go_on=1
+    fi
+    if [ $go_on -eq 1 ]
+    then
+      cleanup
+      print_agreement |tee -a $LOGFILE $CONFLOG
+      warn
+    else
+	exit 0
+    fi
 fi
-
-if [[ $DRYRUN == true ]]
-then
+   
+if [[ $DRYRUN = true ]]; then
     print_plan |tee -a $LOGFILE
+    PLAN_PRINT=1
     echo -e "\n\nDRYRUN. Nothing get affected.
 Check $CONFLOG and $PLANFILE for consistence."
     exit 0
 fi
 
-if [ $FORCE == false ]
-then
-    print_warning_essage
-    confirm 'Perform cleanup'
-    if [ $? -ne 0 ]
-    then
-	  exit 0
-    fi
-    print_agreement |tee -a $LOGFILE $CONFLOG
-    if [[ $RESTORE == false ]]
-    then
-        warn
-        read -n 1 -s -r -p "Press 'R' to review plan or any other key to execute." input
-        if [[ "$input" == "R" ]]
-        then
-            print_plan |tee -a $LOGFILE
-            confirm || clean_and_abort
-        fi
-    fi
-fi
-
-
-chmod u+x $PLANFILE
+chmod a+x $PLANFILE
 $PLANFILE |tee -a $LOGFILE
 print_and_exit | tee -a $LOGFILE
+rm -f $PLANFILE
 
 #end
