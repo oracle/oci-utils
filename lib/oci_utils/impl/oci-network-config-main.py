@@ -60,127 +60,197 @@ def get_arg_parser():
     -------
         The argparse namespace.
     """
-    parser = argparse.ArgumentParser(description='Utility for configuring '
-                                                 'network interfaces on an '
-                                                 'instance running in the '
-                                                 'Oracle Cloud '
-                                                 'Infrastructure.')
+    parser = argparse.ArgumentParser(description='Utility for configuring network interfaces on an instance running '
+                                                 'in the Oracle Cloud Infrastructure.')
     parser.add_argument('--quiet', '-q', action='store_true',
-                        help='Suppress information messages')
+                        help='Suppress information messages.')
 
     subparser = parser.add_subparsers(dest='command')
+    #
+    # usage
     subparser.add_parser('usage',
                          description='Displays usage')
+    #
+    # show
     show_parser = subparser.add_parser('show',
-                                       description="shows the current Virtual interface Cards provisioned in the Oracle Cloud Infrastructure and configured on this instance. This is the default action if no options are given")
-
-    show_parser.add_argument('-I', '--include', metavar='ITEM', action='append',
-                             type=uniq_item_validator, dest='include',
-                             help='Include an ITEM that was previously excluded '
-                             'using the --exclude option in automatic '
-                             'configuration/deconfiguration.')
-    show_parser.add_argument('-X', '--exclude', metavar='ITEM', action='append',
-                             type=uniq_item_validator, dest='exclude',
-                             help='Persistently exclude ITEM from automatic '
-                             'configuration/deconfiguration.  Use the '
-                             '--include option to include the ITEM again.')
-    show_parser.add_argument('--details', action='store_true', default=False,
-                             help='Display detailed information')
-    show_parser.add_argument('--output-mode', choices=('parsable', 'table', 'json', 'text'),
-                             help='Set output mode', default='table')
+                                       description="Shows the current Virtual Interface Cards provisioned in the "
+                                                   "Oracle Cloud Infrastructure and configured on this instance. "
+                                                   "This is the default action if no options are given.")
+    show_parser.add_argument('-I', '--include',
+                             metavar='ITEM',
+                             action='append',
+                             type=uniq_item_validator,
+                             dest='include',
+                             help='Include an ITEM that was previously excluded using the --exclude option in '
+                                  'automatic configuration/deconfiguration.')
+    show_parser.add_argument('-X', '--exclude',
+                             metavar='ITEM',
+                             action='append',
+                             type=uniq_item_validator,
+                             dest='exclude',
+                             help='Persistently exclude ITEM from automatic configuration/deconfiguration. Use '
+                                  'the --include option to include the ITEM again.')
+    show_parser.add_argument('--details',
+                             action='store_true',
+                             default=False,
+                             help='Display detailed information.')
+    show_parser.add_argument('--output-mode',
+                             choices=('parsable', 'table', 'json', 'text'),
+                             help='Set output mode.',
+                             default='table')
     # Display information the way previous version used to do (backward compatibility mode)
-    show_parser.add_argument('--compat-output', action='store_true', default=False, help=argparse.SUPPRESS)
-
-    show_vnics_parser = subparser.add_parser('show-vnics', description="shows VNICs information of this instance")
-    show_vnics_parser.add_argument('--output-mode', choices=('parsable', 'table', 'json', 'text'),
-                                   help='Set output mode', default='table')
-    show_vnics_parser.add_argument('--details', action='store_true', default=False,
+    show_parser.add_argument('--compat-output',
+                             action='store_true',
+                             default=False,
+                             help=argparse.SUPPRESS)
+    #
+    # show-vnics
+    show_vnics_parser = subparser.add_parser('show-vnics',
+                                             description="Shows VNICs information of this instance.")
+    show_vnics_parser.add_argument('--output-mode',
+                                   choices=('parsable', 'table', 'json', 'text'),
+                                   help='Set output mode.',
+                                   default='table')
+    show_vnics_parser.add_argument('--details',
+                                   action='store_true',
+                                   default=False,
                                    help='Display detailed information')
-    show_vnics_parser.add_argument('--ocid', type=vnic_oci_validator, action='store',
-                                   metavar='VNIC_OCID', help='Show information of vNIC matching ocid')
-    show_vnics_parser.add_argument('--name', type=str, action='store', metavar='VNIC_NAME',
-                                   help='Show information of vNIC matching name')
-    show_vnics_parser.add_argument('--ip-address', type=str, action='store',
-                                   metavar='PRIMARY_IP', help='Show information of vNIC matching IP as primary IP')
-
+    show_vnics_parser.add_argument('--ocid',
+                                   type=vnic_oci_validator,
+                                   action='store',
+                                   metavar='VNIC_OCID',
+                                   help='Show information of VNIC matching ocid.')
+    show_vnics_parser.add_argument('--name',
+                                   type=str,
+                                   action='store',
+                                   metavar='VNIC_NAME',
+                                   help='Show information of VNIC matching name.')
+    show_vnics_parser.add_argument('--ip-address',
+                                   type=str,
+                                   action='store',
+                                   metavar='PRIMARY_IP',
+                                   help='Show information of VNIC matching IP as primary IP')
+    #
+    # configure
     configure_parser = subparser.add_parser('configure',
-                                            description='Add IP configuration for VNICs that are not '
-                                            'configured and delete for VNICs that are no '
-                                            'longer provisioned.')
-    configure_parser.add_argument('-n', '--namespace', action='store', metavar='FORMAT',
-                                  help='When configuring, place interfaces in namespace '
-                                  'identified by the given format. Format can '
-                                  'include $nic and $vltag variables.')
-    configure_parser.add_argument('-r', '--start-sshd', action='store_true',
-                                  help='Start sshd in namespace (if -n is present)')
+                                            description='Add IP configuration for VNICs that are not configured and '
+                                                        'delete for VNICs that are no longer provisioned.')
+    configure_parser.add_argument('-n', '--namespace',
+                                  action='store',
+                                  metavar='FORMAT',
+                                  help='When configuring, place interfaces in namespace identified by the given '
+                                       'format. Format can include $nic and $vltag variables.')
+    configure_parser.add_argument('-r', '--start-sshd',
+                                  action='store_true',
+                                  help='Start sshd in namespace (if -n is present).')
     # Secondary private IP address to use in conjunction configure or deconfigure.'
     # deprecated as redundant with add-secondary-addr and remove-secondary-addr
-    configure_parser.add_argument('-S', '--secondary-ip', nargs=2, metavar=('IP_ADDR', 'VNIC_OCID'),
-                                  dest='sec_ip', action='append',
+    configure_parser.add_argument('-S', '--secondary-ip',
+                                  nargs=2,
+                                  metavar=('IP_ADDR', 'VNIC_OCID'),
+                                  dest='sec_ip',
+                                  action='append',
                                   help=argparse.SUPPRESS)
-    configure_parser.add_argument('-I', '--include', metavar='ITEM', action='append',
-                                  type=str, dest='include',
-                                  help='Include an ITEM that was previously excluded '
-                                  'using the --exclude option in automatic '
-                                  'configuration/deconfiguration.')
-    configure_parser.add_argument('-X', '--exclude', metavar='ITEM', action='append',
-                                  type=str, dest='exclude',
-                                  help='Persistently exclude ITEM from automatic '
-                                  'configuration/deconfiguration.  Use the '
-                                  '--include option to include the ITEM again.')
-
+    configure_parser.add_argument('-I', '--include',
+                                  metavar='ITEM',
+                                  action='append',
+                                  type=str,
+                                  dest='include',
+                                  help='Include an ITEM that was previously excluded using the --exclude option in '
+                                       'automatic configuration/deconfiguration.')
+    configure_parser.add_argument('-X', '--exclude',
+                                  metavar='ITEM',
+                                  action='append',
+                                  type=str,
+                                  dest='exclude',
+                                  help='Persistently exclude ITEM from automatic configuration/deconfiguration. Use '
+                                       'the --include option to include the ITEM again.')
+    #
+    # unconfigure
     unconfigure_parser = subparser.add_parser('unconfigure',
                                               description='Unconfigure all VNICs (except the primary).')
     # Secondary private IP address to use in conjunction configure or unconfigure.'
     # deprecated as redundant with add-secondary-addr and remove-secondary-addr
-    unconfigure_parser.add_argument('-S', '--secondary-ip', nargs=2, metavar=('IP_ADDR', 'VNIC_OCID'),
-                                    dest='sec_ip', action='append',
+    unconfigure_parser.add_argument('-S', '--secondary-ip',
+                                    nargs=2,
+                                    metavar=('IP_ADDR', 'VNIC_OCID'),
+                                    dest='sec_ip',
+                                    action='append',
                                     help=argparse.SUPPRESS)
-    unconfigure_parser.add_argument('-I', '--include', metavar='ITEM', action='append',
+    unconfigure_parser.add_argument('-I', '--include',
+                                    metavar='ITEM',
+                                    action='append',
                                     type=str, dest='include',
-                                    help='Include an ITEM that was previously excluded '
-                                    'using the --exclude option in automatic '
-                                    'configuration/deconfiguration.')
-    unconfigure_parser.add_argument('-X', '--exclude', metavar='ITEM', action='append',
-                                    type=str, dest='exclude',
-                                    help='Persistently exclude ITEM from automatic '
-                                    'configuration/deconfiguration.  Use the '
-                                    '--include option to include the ITEM again.')
-
+                                    help='Include an ITEM that was previously excluded using the --exclude option '
+                                         'in automatic configuration/deconfiguration.')
+    unconfigure_parser.add_argument('-X', '--exclude',
+                                    metavar='ITEM',
+                                    action='append',
+                                    type=str,
+                                    dest='exclude',
+                                    help='Persistently exclude ITEM from automatic configuration/deconfiguration.  '
+                                         'Use the --include option to include the ITEM again.')
+    #
+    # attach vnic
     attach_vnic = subparser.add_parser('attach-vnic',
                                        description='Create a new VNIC and attach it to this instance.')
-    attach_vnic.add_argument('-I', '--ip-address', action='store', metavar='IP_ADDR',
-                             help="Private Ip to be assigned to the new vNIC")
-    attach_vnic.add_argument('-i', '--nic-index', action='store', metavar='INDEX',
-                             type=int, default=0,
-                             help='Physical NIC card index. When used with '
-                             'the --create-vnic option, assign the new VNIC '
-                             'to the specified physical NIC card.')
-    attach_vnic.add_argument('--subnet', action='store',
-                             help='When used with the --create-vnic option, '
-                             'connect the new VNIC to the given subnet.')
-    attach_vnic.add_argument('-n', '--name', action='store', metavar='NAME',
-                             help='use NAME as the display name of the new VNIC')
-    attach_vnic.add_argument('--assign-public-ip', action='store_true',
+    attach_vnic.add_argument('-I', '--ip-address',
+                             action='store',
+                             metavar='IP_ADDR',
+                             help="Private IP to be assigned to the new VNIC.")
+    attach_vnic.add_argument('-i', '--nic-index',
+                             action='store',
+                             metavar='INDEX',
+                             type=int,
+                             default=0,
+                             help='Physical NIC card index.')
+    attach_vnic.add_argument('--subnet',
+                             action='store',
+                             help='Connect the new VNIC to the given subnet.')
+    attach_vnic.add_argument('-n', '--name',
+                             action='store',
+                             metavar='NAME',
+                             help='Use NAME as the display name of the new VNIC.')
+    attach_vnic.add_argument('--assign-public-ip',
+                             action='store_true',
                              help='assign a public IP address to the new VNIC.')
-
-    detach_vnic = subparser.add_parser('detach-vnic', description='Detach and delete the VNIC with the given OCID'
-                                       ' or primary IP address')
+    #
+    # detach vnic
+    detach_vnic = subparser.add_parser('detach-vnic',
+                                       description='Detach and delete the VNIC with the given '
+                                                   'OCID or  primary IP address.')
     dg = detach_vnic.add_mutually_exclusive_group(required=True)
-    dg.add_argument('--ocid', action='store', metavar='OCID',
-                    help='Detach the vNIC with the given OCID')
-    dg.add_argument('-I', '--ip-address', action='store', metavar='IP_ADDR',
-                    help='Detach the vNIC with the given ip address configured on it')
-
-    add_sec_addr = subparser.add_parser('add-secondary-addr', description="Adds the given secondary private IP.")
-    add_sec_addr.add_argument('-I', '--ip-address', action='store', metavar='IP_ADDR',
-                              help='Secondary private IP to to be added', required=True)
-    add_sec_addr.add_argument('--ocid', action='store', metavar='OCID',
-                              help='Uses vNIC with the given VNIC', required=True)
-
-    rem_sec_addr = subparser.add_parser('remove-secondary-addr', description="Removes the given secondary private IP.")
-    rem_sec_addr.add_argument('-I', '--ip-address', action='store', metavar='IP_ADDR',
-                              help='Secondary private IP to to be removed', required=True)
+    dg.add_argument('--ocid',
+                    action='store',
+                    metavar='OCID',
+                    help='Detach the VNIC with the given OCID.')
+    dg.add_argument('-I', '--ip-address',
+                    action='store',
+                    metavar='IP_ADDR',
+                    help='Detach the VNIC with the given ip address configured on it.')
+    #
+    #  add secondary address
+    add_sec_addr = subparser.add_parser('add-secondary-addr',
+                                        description="Adds the given secondary private IP.")
+    add_sec_addr.add_argument('-I', '--ip-address',
+                              action='store',
+                              metavar='IP_ADDR',
+                              help='Secondary private IP to to be added.',
+                              required=True)
+    add_sec_addr.add_argument('--ocid',
+                              action='store',
+                              metavar='OCID',
+                              help='Uses VNIC with the given VNIC.',
+                              required=True)
+    #
+    # remove secondary address
+    rem_sec_addr = subparser.add_parser('remove-secondary-addr',
+                                        description="Removes the given secondary private IP.")
+    rem_sec_addr.add_argument('-I', '--ip-address',
+                              action='store',
+                              metavar='IP_ADDR',
+                              help='Secondary private IP to to be removed.',
+                              required=True)
 
     return parser
 
@@ -238,7 +308,7 @@ class IndentPrinter(object):
 
 def do_show_vnics_information(vnics, mode, details=False):
     """
-    Show given vNIC information
+    Show given VNIC information
     parameter
     ---------
         vnics : OCIVNIC instances
@@ -250,23 +320,28 @@ def do_show_vnics_information(vnics, mode, details=False):
         _sn = privip.get_subnet()
         return '%s (%s)' % (_sn.get_display_name(), _sn.get_cidr_block())
 
-    _title = 'VNIs Information'
+    def _display_subnet(_, subnet):
+        """ return network subnet information."""
+        return '%s/%s' % (vnic.get_subnet().get_cidr_block(), vnic.get_subnet().get_display_name())
+
+    _title = 'VNICs Information'
     _columns = [['Name', 32, 'get_display_name']]
     _columns.append(['Private IP', 15, 'get_private_ip'])
     _columns.append(['OCID', 90, 'get_ocid'])
     _columns.append(['MAC', 17, 'get_mac_address'])
     printerKlass = get_row_printer_impl(mode)
     if details:
-        printerKlass = get_row_printer_impl('text')
+        # printerKlass = get_row_printer_impl('text')
         _columns.append(['Primary', 7, 'is_primary'])
-        _columns.append(['Subnet', 25, 'get_subnet'])
+        # _columns.append(['Subnet', 25, 'get_subnet'])
+        _columns.append(['Subnet', 30, _display_subnet])
         _columns.append(['NIC', 3, 'get_nic_index'])
         _columns.append(['Public IP', 15, 'get_public_ip'])
         _columns.append(['Availability domain', 20, 'get_availability_domain_name'])
 
         ips_printer = TextPrinter(title='Private IP addresses:',
                                   columns=(['IP address', 15, 'get_address'], ['OCID', '90', 'get_ocid'], ['Hostname', 25, 'get_hostname'],
-                                           ['Subnet', 24, _display_secondary_ip_subnet]), printer=IndentPrinter(3))
+                                           ['Subnet', 30, _display_secondary_ip_subnet]), printer=IndentPrinter(3))
 
     printer = printerKlass(title=_title, columns=_columns)
     printer.printHeader()
@@ -329,7 +404,7 @@ def do_show_information(vnic_utils, mode, details=False):
     _columns.append(['State', 6, 'CONFSTATE'])
     _columns.append(['Link', 15, 'IFACE'])
     _columns.append(['Status', 6, 'STATE'])
-    _columns.append(['Ip address', 15, 'ADDR'])
+    _columns.append(['IP address', 15, 'ADDR'])
     _columns.append(['VNIC', 30, _get_vnic_name])
     _columns.append(['MAC', 17, 'MAC'])
     if details:
@@ -354,7 +429,7 @@ def do_show_information(vnic_utils, mode, details=False):
 
 def compat_show_vnics_information():
     """
-    Show the current vNIC configuration of the instance based on
+    Show the current VNIC configuration of the instance based on
 
 
     parameters
@@ -428,7 +503,7 @@ def compat_show_vnics_information():
 
 def compat_show_network_config(vnic_utils):
     """
-    Display the currect network interface configuration as well as the
+    Display the current network interface configuration as well as the
     VNIC configuration from OCI.
 
     Parameters
@@ -532,20 +607,25 @@ def do_create_vnic(create_options):
             if len(subnets) == 0:
                 raise Exception("No subnet matching %s found" % create_options.subnet)
             if len(subnets) > 1:
-                _logger.error("More than one subnet matching %s found:\n"
-                              % create_options.subnet)
+                _logger.error("More than one subnet matching %s found:\n" % create_options.subnet)
                 for sn in subnets:
                     _logger.error("   %s\n" % sn.get_display_name())
                 raise Exception("More than one subnet matching")
             subnet_id = subnets[0].get_ocid()
+        else:
+            subnet_id = create_options.subnet
+        #
     else:
-        # if private ip provided, pick up subnet whihc match IP
+        # if private ip provided, pick up subnet with matching IP
         # else pick the subnet of the primary vnic
         if create_options.ip_address:
             _all_subnets = [v.get_subnet() for v in _this_instance.all_vnics()]
             for subn in _all_subnets:
-                if subn.is_suitable_for_ip(create_options.ip_addres):
-                    subnet_id = subn.get_subnet_id()
+                if subn.is_suitable_for_ip(create_options.ip_address):
+                    #
+                    # GT
+                    # subnet_id = subn.get_subnet_id()
+                    subnet_id = subn.get_ocid()
                 if subnet_id is None:
                     raise Exception('cannot find suitable subnet for ip %s' % create_options.ip_address)
         else:
@@ -648,25 +728,19 @@ def do_del_private_ip(vnic_utils, delete_options):
     if sess is None:
         raise Exception("Failed to get API session.")
     # find the private IP
-    priv_ip = sess.this_instance().find_private_ip(
-        delete_options.ip_address)
+    priv_ip = sess.this_instance().find_private_ip(delete_options.ip_address)
     if priv_ip is None:
-        raise Exception(
-            "Secondary private IP not found: %s" %
-            delete_options.ip_address)
+        raise Exception( "Secondary private IP not found: %s" % delete_options.ip_address)
 
     if priv_ip.is_primary():
-        raise Exception("Cannot delete IP %s, it is the primary private "
-                        "address of the VNIC." % delete_options.ip_address)
+        raise Exception("Cannot delete IP %s, it is the primary private address of the VNIC." % delete_options.ip_address)
 
     vnic_id = priv_ip.get_vnic_ocid()
 
     if not priv_ip.delete():
-        raise Exception('failed to delete secondary private IP %s' %
-                        delete_options.ip_address)
+        raise Exception('Failed to delete secondary private IP %s' % delete_options.ip_address)
 
-    _logger.info('deconfigure secondary private IP %s' %
-                 delete_options.ip_address)
+    _logger.info('Deconfigure secondary private IP %s' % delete_options.ip_address)
     # delete from vnic_info and de-configure the interface
     return vnic_utils.del_private_ip(delete_options.ip_address, vnic_id)
 
@@ -767,7 +841,7 @@ def main():
             do_detach_vnic(args)
         except Exception as e:
             _logger.debug('cannot detach VNIC', exc_info=True)
-            _logger.error('cannot detach vNIC: %s' % str(e))
+            _logger.error('cannot detach VNIC: %s' % str(e))
             return 1
         # if we are here session is alive: no check
         if get_oci_api_session().this_shape().startswith("BM"):
@@ -779,16 +853,16 @@ def main():
             (ip, vnic_id) = do_add_private_ip(vnic_utils, args)
             _logger.info("IP %s has been assigned to vnic %s." % (ip, vnic_id))
         except Exception as e:
-            _logger.error('failed to add private ip: %s' % str(e))
+            _logger.error('Failed to add private IP: %s' % str(e))
             return 1
 
     if args.command == "remove-secondary-addr":
         try:
             (ret, out) = do_del_private_ip(vnic_utils, args)
             if ret != 0:
-                raise Exception('cannot deleet ip: %s' % out)
+                raise Exception('Cannot delete ip: %s' % out)
         except Exception as e:
-            _logger.error('failed to delete private ip: %s' % str(e))
+            _logger.error('Failed to delete private IP: %s' % str(e), stack_info=True)
             return 1
 
     if 'namespace' in args and args.namespace:

@@ -240,6 +240,7 @@ class OCIMetadata(dict):
     def _name_convert_underscore(self, meta):
         """
         Convert name format from nameXyz into name_xyz.
+
         Parameters
         ----------
         meta : list or dict

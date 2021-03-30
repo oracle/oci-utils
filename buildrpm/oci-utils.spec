@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.12.1
+Version: 0.12.2
 Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -108,7 +108,7 @@ Utilities migrate unit tests
 %{__cp} -r setup.cfg %{buildroot}/opt/oci-utils
 %{__cp} -r setup.py %{buildroot}/opt/oci-utils
 %{__cp} -r requirements.txt %{buildroot}/opt/oci-utils
-%{__cp} -r README %{buildroot}/opt/oci-utils
+%{__cp} -r README.md %{buildroot}/opt/oci-utils
 
 %clean
 rm -rf %{buildroot}
@@ -173,7 +173,7 @@ rm -rf %{buildroot}
 /opt/oci-utils/lib
 /opt/oci-utils/tools
 /opt/oci-utils/tests/data
-/opt/oci-utils/README
+/opt/oci-utils/README.md
 /opt/oci-utils/requirements.txt
 /opt/oci-utils/setup*
 /opt/oci-utils/tests/test_mig*

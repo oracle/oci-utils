@@ -1,4 +1,4 @@
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -11,6 +11,7 @@ import uuid
 from tools.oci_test_case import OciTestCase
 from tools.decorators import (skipUnlessOCI, skipUnlessRoot)
 
+os.environ['LC_ALL'] = 'en_US.UTF8'
 
 def _get_volume_data(volume_data):
     """
@@ -30,12 +31,12 @@ def _get_volume_data(volume_data):
     ind = 0
     for y in volume_data:
         if y.startswith('Currently attached iSCSI'):
-             break
+            break
         ind += 1
     while ind < len(volume_data) - 1:
         ind += 1
         v = volume_data[ind]
-        if v.startswith('Target iqn'):
+        if v.startswith('Target: '):
             iqn = singlespace.sub(' ', v.split(' ')[1]).strip()
             cnt = 0
             ind += 1
@@ -49,9 +50,8 @@ def _get_volume_data(volume_data):
                 if cnt == 2:
                     volume_data_dict[display_name] = {'target': iqn, 'ocid': ocid}
                     break
-                else:
-                    ind += 1
-        if v.startswith('Volume '):
+                ind += 1
+        if v.startswith('Name: '):
             display_name = v.split(' ')[1]
             ind += 1
             for y in volume_data[ind:]:
@@ -61,6 +61,25 @@ def _get_volume_data(volume_data):
                     break
                 ind += 1
     return volume_data_dict
+
+
+def _show_res(head, msg):
+    """
+    Prints a list line by line.
+
+    Parameters
+    ----------
+    head: str
+        Title
+    msg: list
+        The data
+    Returns
+    -------
+        No return value.
+    """
+    print('%s' % head)
+    print('-'*len(head))
+    print('\n'.join(msg))
 
 
 class TestCliOciIscsiConfig(OciTestCase):
@@ -84,19 +103,33 @@ class TestCliOciIscsiConfig(OciTestCase):
         self.iscsi_config_path = self.properties.get_property('oci-iscsi-config-path')
         if not os.path.exists(self.iscsi_config_path):
             raise unittest.SkipTest("%s not present" % self.iscsi_config_path)
-        self.volume_name = uuid.uuid4().hex
+        try:
+            self.vol_name_prefix = self.properties.get_property('volume-name-prefix')
+        except Exception:
+            self.vol_name_prefix = 'auto-'
+        self.volume_name = self.vol_name_prefix + uuid.uuid4().hex
         try:
             self.waittime = int(self.properties.get_property('waittime'))
         except Exception:
-            self.waittime = 10
+            self.waittime = 20
         try:
             self.volume_size = self.properties.get_property('volume-size')
         except Exception:
-            self.volume_size = '60'
+            self.volume_size = '57'
         try:
             self.compartment_name = self.properties.get_property('compartment-name')
         except Exception as e:
             self.compartment_name = 'ImageDev'
+
+    def _get_iscsi_show(self):
+        """
+        Get the iscsi vol data.
+
+        Returns
+        -------
+            dict: the volname with ocid and iqn.
+        """
+        return subprocess.check_output([self.iscsi_config_path, 'show', '--detail', '--no-truncate', '--output-mode', 'text']).decode('utf-8').splitlines()
 
     @staticmethod
     def _get_ocid(create_data, display_name):
@@ -181,8 +214,34 @@ class TestCliOciIscsiConfig(OciTestCase):
         try:
             _ = subprocess.check_output([self.iscsi_config_path, '--show', '--all'])
             _ = subprocess.check_output([self.iscsi_config_path, 'show', '--all'])
+            _ = subprocess.check_output([self.iscsi_config_path, 'show', '--all', '--output-mode', 'parsable'])
+            _ = subprocess.check_output([self.iscsi_config_path, 'show', '--all', '--output-mode', 'table'])
+            _ = subprocess.check_output([self.iscsi_config_path, 'show', '--all', '--output-mode', 'text'])
+            _ = subprocess.check_output([self.iscsi_config_path, 'show', '--all', '--output-mode', 'json'])
         except Exception as e:
             self.fail('oci-iscsi-config show --all has failed: %s' % str(e))
+
+    @skipUnlessOCI()
+    @skipUnlessRoot()
+    def test_show_compartment(self):
+        """
+        Test show block volumes in given compartment. The output is not checked.
+
+        Returns
+        -------
+            No return value.
+        """
+        try:
+            vol_data = subprocess.check_output([self.iscsi_config_path, 'show', '--compartment', self.compartment_name]).decode('utf-8').splitlines()
+            vol_data = subprocess.check_output([self.iscsi_config_path, 'show', '--compartment', self.compartment_name, '--details']).decode('utf-8').splitlines()
+            vol_data = subprocess.check_output([self.iscsi_config_path, 'show', '--compartment', self.compartment_name, '--details', '--no-truncate']).decode('utf-8').splitlines()
+            vol_data = subprocess.check_output([self.iscsi_config_path, 'show', '--compartment', self.compartment_name, '--details', '--no-truncate', '--output-mode', 'parsable']).decode('utf-8').splitlines()
+            vol_data = subprocess.check_output([self.iscsi_config_path, 'show', '--compartment', self.compartment_name, '--details', '--no-truncate', '--output-mode', 'json']).decode('utf-8').splitlines()
+            vol_data = subprocess.check_output([self.iscsi_config_path, 'show', '--compartment', self.compartment_name, '--details', '--no-truncate', '--output-mode', 'text']).decode('utf-8').splitlines()
+            vol_data = subprocess.check_output([self.iscsi_config_path, 'show', '--compartment', self.compartment_name, '--details', '--no-truncate', '--output-mode', 'table']).decode('utf-8').splitlines()
+            _show_res('iscsi volumes in %s' % self.compartment_name, vol_data)
+        except Exception as e:
+            self.fail('oci-iscsi-config show --compartment <name> has failed: %s' % str(e))
 
     @skipUnlessOCI()
     @skipUnlessRoot()
@@ -195,18 +254,20 @@ class TestCliOciIscsiConfig(OciTestCase):
             No return value.
         """
         try:
-            create_volume_data = subprocess.check_output([self.iscsi_config_path,
-                                                          'create',
-                                                          '--size', self.volume_size,
-                                                          '--volume-name', self.volume_name]).decode('utf-8').splitlines()
-            # print('\nvolume created: %s' % create_volume_data)
+            #
+            # create
+            volume_name_a = self.vol_name_prefix + uuid.uuid4().hex
+            create_volume_data = subprocess.check_output([self.iscsi_config_path, 'create', '--size', self.volume_size, '--volume-name', volume_name_a]).decode('utf-8').splitlines()
+            _show_res('Create Volume', create_volume_data)
             time.sleep(self.waittime)
-            new_ocid = self._get_ocid(create_volume_data, self.volume_name)
-            destroy_volume_data = subprocess.check_output([self.iscsi_config_path,
-                                                           'destroy',
-                                                           '--ocids', new_ocid,
-                                                           '--yes']).decode('utf-8').splitlines()
-            # print('\nvolume %s destroyed: %s' % (self.volume_name, destroy_volume_data))
+            #
+            # destroy
+            volume_data = self._get_iscsi_show()
+            _show_res('Volume data', volume_data)
+            new_ocid = self._get_ocid(volume_data, volume_name_a)
+            destroy_volume_data = subprocess.check_output([self.iscsi_config_path, 'destroy', '--ocids', new_ocid, '--yes']).decode('utf-8').splitlines()
+            _show_res('Destroy volume', destroy_volume_data)
+            time.sleep(self.waittime)
         except Exception as e:
             self.fail('oci-iscsi-config create/destroy has failed: %s' % str(e))
 
@@ -221,33 +282,80 @@ class TestCliOciIscsiConfig(OciTestCase):
             No return value
         """
         try:
-            create_volume_data = subprocess.check_output([self.iscsi_config_path,
-                                                          'create',
-                                                          '--size', self.volume_size,
-                                                          '--volume-name', self.volume_name]).decode('utf-8').splitlines()
-            # print('\nvolume created: %s' % create_volume_data)
+            #
+            # create
+            volume_name = self.vol_name_prefix + uuid.uuid4().hex
+            create_volume_data = subprocess.check_output([self.iscsi_config_path, 'create', '--size', self.volume_size, '--volume-name', volume_name]).decode('utf-8').splitlines()
+            _show_res('Volume created', create_volume_data)
             time.sleep(self.waittime)
-            new_ocid = self._get_ocid(create_volume_data, self.volume_name)
-            attach_volume_data = subprocess.check_output([self.iscsi_config_path,
-                                                          'attach',
-                                                          '--iqns', new_ocid]).decode('utf-8').splitlines()
-            attach_volume_data_show = subprocess.check_output([self.iscsi_config_path,
-                                                               'show']).decode('utf-8').splitlines()
-            # print('\nvolume attached: %s' % attach_volume_data_show)
+            #
+            # attach
+            volume_data = self._get_iscsi_show()
+            new_ocid = self._get_ocid(volume_data, volume_name)
+            attach_volume_data = subprocess.check_output([self.iscsi_config_path, 'attach', '--iqns', new_ocid]).decode('utf-8').splitlines()
+            _show_res('Volume attached', attach_volume_data)
             time.sleep(self.waittime)
-            new_iqn = self._get_iqn(attach_volume_data_show, self.volume_name)
-            detach_volume_data = subprocess.check_output([self.iscsi_config_path,
-                                                          'detach',
-                                                          '--iqns', new_iqn]).decode('utf-8').splitlines()
-            # print('\nvolume detached: %s' % detach_volume_data)
+            #
+            # collect the info of the attached volume
+            attach_volume_data_show = subprocess.check_output([self.iscsi_config_path, 'show']).decode('utf-8').splitlines()
+            _show_res('Volumes attached', attach_volume_data_show)
             time.sleep(self.waittime)
-            destroy_volume_data = subprocess.check_output([self.iscsi_config_path,
-                                                           'destroy',
-                                                           '--ocids', new_ocid,
-                                                           '--yes']).decode('utf-8').splitlines()
-            # print('\nvolume %s destroyed: %s' % (self.volume_name, destroy_volume_data))
+            #
+            # detach
+            volume_data_show = self._get_iscsi_show()
+            new_iqn = self._get_iqn(volume_data_show, volume_name)
+            detach_volume_data = subprocess.check_output([self.iscsi_config_path, 'detach', '--iqns', new_iqn]).decode('utf-8').splitlines()
+            _show_res('Volume detached', detach_volume_data)
+            time.sleep(self.waittime)
+            #
+            # destroy
+            destroy_volume_data = subprocess.check_output([self.iscsi_config_path, 'destroy', '--ocids', new_ocid, '--yes']).decode('utf-8').splitlines()
+            _show_res('Volume destroyed', destroy_volume_data)
+            time.sleep(self.waittime)
         except Exception as e:
             self.fail('oci-iscsi-config attach/detach has failed: %s' % str(e))
+
+    @skipUnlessOCI()
+    @skipUnlessRoot()
+    def test_multiple_create_destroy(self):
+        """
+        Test multiple block device detach, attache, destroy
+
+        Returns
+        -------
+            No return value
+        """
+        try:
+            vol_list = [self.vol_name_prefix + uuid.uuid4().hex, self.vol_name_prefix + uuid.uuid4().hex, self.vol_name_prefix + uuid.uuid4().hex]
+            #
+            # create
+            for vol in vol_list:
+                create_volume_data = subprocess.check_output([self.iscsi_config_path, 'create', '--size', self.volume_size, '--volume-name', vol, '--attach-volume']).decode('utf-8').splitlines()
+                _show_res('Volume created', create_volume_data)
+                time.sleep(self.waittime)
+            time.sleep(self.waittime)
+            #
+            # detach
+            time.sleep(self.waittime)
+            volume_data = self._get_iscsi_show()
+            _show_res('Volumes', volume_data)
+            detach_volume_data = ''
+            for vol in vol_list:
+                detach_volume_data += self._get_iqn(volume_data, vol) + ','
+            _show_res('IQN list', [detach_volume_data])
+            detach_volume_data = subprocess.check_output([self.iscsi_config_path, 'detach', '--iqns', detach_volume_data[:-1]]).decode('utf-8').splitlines()
+            _show_res('Volumes detached', detach_volume_data)
+            time.sleep(self.waittime)
+            #
+            # destroy
+            detach_volume_data = ''
+            for vol in vol_list:
+                detach_volume_data += self._get_ocid(volume_data, vol) + ','
+            _show_res('OCID list', [detach_volume_data])
+            destroy_volume_data = subprocess.check_output([self.iscsi_config_path, 'destroy', '--ocids', detach_volume_data[:-1], '--yes']).decode('utf-8').splitlines()
+            _show_res('Volumes destroyed', destroy_volume_data)
+        except Exception as e:
+            self.fail('oci-iscsi-config multiple create/attach/detach/destroy has failed: %s' % str(e))
 
     @skipUnlessOCI()
     @skipUnlessRoot()
@@ -260,31 +368,76 @@ class TestCliOciIscsiConfig(OciTestCase):
             No return value.
         """
         try:
-            sync_data = subprocess.check_output([self.iscsi_config_path,
-                                                 'sync',
-                                                 '--apply',
-                                                 '--yes']).decode('utf-8').splitlines()
-            # print('\nvolumes synced.')
+            sync_data = subprocess.check_output([self.iscsi_config_path, 'sync', '--apply', '--yes']).decode('utf-8').splitlines()
+            _show_res('Volume sync', sync_data)
         except Exception as e:
             self.fail('oci-iscsi-config sync has failed: %s' % str(e))
 
-    @skipUnlessOCI()
-    @skipUnlessRoot()
-    def test_show_compartment(self):
+    #
+    # compatibility tests
+    def test_comp_show_compartment(self):
         """
-        Test show block volumes in given compartment. The output is not checked.
+        Test show compartment in compatibility mode.
 
         Returns
         -------
             No return value.
         """
         try:
-            vol_data = subprocess.check_output([self.iscsi_config_path,
-                                                'show',
-                                                '--compartment', self.compartment_name]).decode('utf-8').splitlines()
-            print('\niScsi volumes in %s:\n%s' % (self.compartment_name, vol_data))
+            help_data = subprocess.check_output([self.iscsi_config_path, '--show']).decode('utf-8').splitlines()
+            _show_res('Show compartment compatibility', help_data)
+            help_data = subprocess.check_output([self.iscsi_config_path, '--show', '--all']).decode('utf-8').splitlines()
+            _show_res('Show compartment compatibility', help_data)
+            help_data = subprocess.check_output([self.iscsi_config_path, '--show', '--compartment', self.compartment_name]).decode('utf-8').splitlines()
+            _show_res('Show compartment compatibility', help_data)
         except Exception as e:
-            self.fail('oci-iscsi-config show --compartment <name> has failed: %s' % str(e))
+            self.fail('oci-iscsi-config --show --compartment <name> has failed: %s' % str(e))
+
+    def test_comp_create_destroy(self):
+        """
+        Test block volume creation and destruction in compatibility mode.
+
+        Returns
+        -------
+            No return value.
+        """
+        try:
+            # 
+            # create
+            volume_name = self.vol_name_prefix + uuid.uuid4().hex
+            create_volume_data = subprocess.check_output([self.iscsi_config_path, '--create-volume', self.volume_size, '--volume-name', volume_name]).decode('utf-8').splitlines()
+            _show_res('Volume created', create_volume_data)
+            time.sleep(self.waittime)
+            #
+            # detach
+            volume_data = self._get_iscsi_show()
+            new_iqn = self._get_iqn(volume_data, volume_name)
+            detach_volume_data = subprocess.check_output([self.iscsi_config_path, '--detach', new_iqn]).decode('utf-8').splitlines()
+            _show_res('Volume detached', detach_volume_data)
+            time.sleep(self.waittime)
+            #
+            # reattach
+            volume_data = self._get_iscsi_show()
+            new_ocid = self._get_ocid(volume_data, volume_name)
+            attach_volume_data = subprocess.check_output([self.iscsi_config_path, '--attach', new_ocid]).decode('utf-8').splitlines()
+            _show_res('Volume re-attached', attach_volume_data)
+            time.sleep(self.waittime)
+            #
+            # detach
+            volume_data = self._get_iscsi_show()
+            new_iqn = self._get_iqn(volume_data, volume_name)
+            detach_volume_data = subprocess.check_output([self.iscsi_config_path, '--detach', new_iqn]).decode('utf-8').splitlines()
+            _show_res('Volume detached again', detach_volume_data)
+            time.sleep(self.waittime)
+            #
+            # destroy
+            volume_data = self._get_iscsi_show()
+            new_ocid = self._get_ocid(volume_data, volume_name)
+            destroy_volume_data = subprocess.check_output([self.iscsi_config_path, '--destroy-volume', new_ocid, '--yes']).decode('utf-8').splitlines()
+            _show_res('Volume destroyed', destroy_volume_data)
+            time.sleep(self.waittime)
+        except Exception as e:
+             self.fail('oci-iscsi-config create/destroy has failed: %s' % str(e))
 
 
 if __name__ == '__main__':

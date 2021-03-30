@@ -13,7 +13,7 @@ dummy_format_key : '01234567'
 #
 # encoding; Click suffers from the Unicode text model in Python 3, oci cli
 # commands will fail if the encoding is not set correctly.
-lc_all: en_US.utf8
+lc_all: en_US.UTF8
 #
 # log file path, without .log extension, timestamp and extension added runtime.
 # logfilepath : /var/tmp/oci-image-migrate

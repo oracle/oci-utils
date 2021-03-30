@@ -1,8 +1,9 @@
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
 
+import os
 import socket
 import unittest
 
@@ -10,6 +11,8 @@ import oci_utils
 import oci_utils.oci_api
 from tools.decorators import skipUnlessOCI, skipUnlessOCISDKInstalled, skipUnlessRoot, skipItAsUnresolved
 from tools.oci_test_case import OciTestCase
+
+os.environ['LC_ALL'] = 'en_US.UTF8'
 
 
 def cmp(a, b):
@@ -291,3 +294,8 @@ class TestOCISession(OciTestCase):
         _all_wildcard = sorted(self.setUpSession().find_instances('.*'))
         _all = sorted(self.setUpSession().all_instances())
         self.assertFalse(cmp(_all_wildcard, _all))
+
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestOCISession)
+    unittest.TextTestRunner().run(suite)

@@ -29,8 +29,8 @@ class VNICUtils():
     def __init__(self):
         """ Class VNICUtils initialisation.
         """
-        self.vnic_info = {
-            'exclude': []}
+        self.vnic_info = self.get_vnic_info()
+        _logger.debug('_GT_ vnic_info %s', self.vnic_info)
         self._metadata = None
         try:
             self._metadata = InstanceMetadata().refresh()
@@ -70,6 +70,21 @@ class VNICUtils():
         gets excluded interface from auto configuration/deconfiguration
         """
         return self.vnic_info['exclude']
+
+    def get_vnic_info(self):
+        """
+        Load the vnic_info file. If the file is missing , a new one is created.
+
+        Returns
+        -------
+        tuple (int, dict)
+            (vnic info timestamp: datetime, vnic info: dict)
+        """
+        self.vnic_info_ts, self.vnic_info = cache.load_cache(VNICUtils.__vnic_info_file)
+        if self.vnic_info is None:
+             self.vnic_info = { 'exclude': []}
+
+        return self.vnic_info
 
     def save_vnic_info(self):
         """
@@ -193,7 +208,7 @@ class VNICUtils():
 
     def exclude(self, item):
         """
-        Add item to the "exclude" list. IP addresses or interfaces that are
+        Remove item from the "exclude" list. IP addresses or interfaces that are
         excluded from automatic configuration.
 
         Parameters
@@ -211,7 +226,7 @@ class VNICUtils():
 
     def include(self, item):
         """
-        Remove item from the "exclude" list, IP addresses or interfaces that
+        Add item to the "exclude" list, IP addresses or interfaces that
         are excluded from automatic configuration.
 
         Parameters

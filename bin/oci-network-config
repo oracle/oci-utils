@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -17,7 +17,7 @@ declare -i post_operation_show=0
 declare -A INCLUDED_ITEMS
 # excluded items. Can be a VNIC OCID, an IP address or a VLAN interface name.
 declare -A EXCLUDED_ITEMS
-# second IP address map indexed by vNIC ocid
+# second IP address map indexed by VNIC ocid
 declare -a SECONDARY_PRIVATE_IPS
 declare -a SECONDARY_PRIVATE_VNICS
 declare -i COUNT=0
@@ -29,7 +29,7 @@ declare OCID_OR_IP
 # former implementation of oci-network-config was mixing options and sub-commands.
 # oci-network-config-main.py now expect proper command line like '<sub-command> <options>'
 # translate the command line accordingly (as expected by new implemetation)
-# if first token do not start by '-' we consider that command line is following the new format
+# if first token does not start by '-' we consider that command line is following the new format
 
 if [ "${1:0:1}" != '-' ]
 then
@@ -65,8 +65,24 @@ do
         --detach-vnic)            COMMAND="detach-vnic" ; OCID_OR_IP=$2                                    ; shift 2 ;;
         --add-private-ip)         COMMAND="add-secondary-addr"                                             ; shift   ;;
         --del-private-ip)         COMMAND="remove-secondary-addr" ; cmd_line="${cmd_line} --ip-address=$2" ; shift 2 ;;
-        -X|--exclude)             EXCLUDED_ITEMS[${COMMAND}]+="$2 "                                        ; shift 2 ;;
-        -I|--include)             INCLUDED_ITEMS[${COMMAND}]+="$2 "                                        ; shift 2 ;;
+        -X|--exclude)             if [ -z ${COMMAND} ]
+                                  then
+                                    COMMAND="show --compat-output"; 
+                                    cmd_line="${cmd_line} --exclude $2"
+                                  else
+                                    EXCLUDED_ITEMS[${COMMAND}]+="$2"
+                                  fi
+                                  shift 2
+                                  ;;
+        -I|--include)             if [ -z ${COMMAND} ]
+                                  then
+                                    COMMAND="show --compat-output"; 
+                                    cmd_line="${cmd_line} --include $2"
+                                  else
+                                    EXCLUDED_ITEMS[${COMMAND}]+="$2"
+                                  fi
+                                  shift 2
+                                  ;;
         -q|--quiet)               cmd_line="${cmd_line} --quiet"                                           ; shift   ;;
         -e)                       SECONDARY_PRIVATE_IPS[$COUNT]+="$2"; COUNT=COUNT+1                       ; shift 2 ;;
         -n|--ns)                  cmd_line="${cmd_line} --namespace=$2"                                    ; shift 2 ;;

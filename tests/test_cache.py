@@ -1,4 +1,4 @@
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -12,6 +12,8 @@ from datetime import timedelta
 
 from oci_utils.cache import get_newer, get_timestamp, load_cache, write_cache
 from tools.oci_test_case import OciTestCase
+
+os.environ['LC_ALL'] = 'en_US.UTF8'
 
 
 class testOciCache(OciTestCase):
@@ -132,7 +134,7 @@ class testOciCache(OciTestCase):
         ts0 = write_cache(cache_fname=self.file3,
                           cache_content={'hello': 'world'})
         self.assertNotEqual(ts0, None,
-                            "New cache write return None as timesteamp")
+                            "New cache write return None as timestamp")
         ts = get_timestamp(self.file3)
         self.assertEqual(ts0, ts,
                          "timestamp returned from get_timestamp differ form "

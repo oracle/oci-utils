@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 
 
 #
 #  KVM networks service command script
-#  script run by KVM network systemd unit created whiel creating a virtual nework
-#  This script handle the start, stop and status method
+#  script run by KVM network systemd unit created while creating a virtual network
+#  This script handles the start, stop and status method
 #
 
 start() {

@@ -44,6 +44,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+
 def _print_security_list(sec_list, indent):
     """
     Print the security list.
@@ -107,7 +108,7 @@ def _print_security_list(sec_list, indent):
         print("%s  Ingress: %-5s %20s:%-6s %20s:%s" % (
             indent, prot, src, srcport, des, desport))
 
-    for rule in self.get_egress_rules():
+    for rule in sec_list.get_egress_rules():
         prot = OCISecurityList.protocol.get(rule.protocol, rule.protocol)
         des = rule.destination
         src = "---"
@@ -224,22 +225,21 @@ def main():
     for vcn in vcns:
         _compartment = vcn.get_compartment()
         if _compartment is None:
-            _logger.error("no compartment returned for VCN %s\n" % str(vcn))
+            _logger.error("No compartment returned for VCN %s\n" % str(vcn), stack_info=True)
             continue
         if _compartment.get_ocid() != comp_ocid:
             print("")
-            print("Compartment: %s (%s)" %
-                  (_compartment.get_display_name(), _compartment.get_ocid()))
+            print("Compartment: %s (%s)" % (_compartment.get_display_name(), _compartment.get_ocid()))
             comp_ocid = _compartment.get_ocid()
         print("")
         print("  vcn: %s (%s)" % (vcn.get_display_name(), vcn.get_ocid()))
         sll = vcn.all_security_lists()
         for _, value in list(sll.items()):
-            _print_security_list(value,"    ")
+            _print_security_list(value, "    ")
 
         for subnet in vcn.all_subnets():
             print("")
-            print("     Subnet: %s (%s)" % (subnet.get_display_name(), subnet.get_ocid(1)))
+            print("     Subnet: %s (%s)" % (subnet.get_display_name(), subnet.get_ocid()))
             print("                Availibility domain: %s" % subnet.get_availability_domain_name())
             print("                Cidr_block: %s" % subnet.get_cidr_block())
             print("                DNS Domain Name: %s" % subnet.get_domain_name())
@@ -273,15 +273,15 @@ def main():
                       (ip.get_address(), primary, ip.get_hostname()))
                 vnic = ip.get_vnic()
                 if vnic:
-                    print("         Vnic: %s (%s)" %
-                          (vnic.get_ocid(), vnic.get_state()))
+                    print("         Vnic: %s (%s)" % (vnic.get_ocid(), vnic.get_state()))
                     if subnet.is_public_ip_on_vnic_allowed():
-                        print("         Vnic PublicIP: %s" %
-                              vnic.get_public_ip())
+                        print("         Vnic PublicIP: %s" % vnic.get_public_ip())
                     instance = vnic.get_instance()
-                    print("         Instance: %s(%s)" %
-                          (instance.get_hostname(), instance.get_state()))
-                    print("         Instance ocid: %s" % (instance.get_ocid()))
+                    print("         Instance: %s" % instance.get_hostname())
+                    print("         Instance: %s" % instance.get_state())
+                    # GT for now
+                    # print("         Instance: %s(%s)" % (instance.get_hostname(), instance.get_state()))
+                    # print("         Instance ocid: %s" % (instance.get_ocid()))
                 else:
                     vnic_id = ip.get_vnic_ocid()
                     print("         Vnic: %s(%s)" % (vnic_id, "NotFound"))

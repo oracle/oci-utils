@@ -30,7 +30,7 @@ _logger = logging.getLogger('oci-utils.oci_api')
 __all__ = ['OCISession']
 
 
-class OCISession():
+class OCISession:
     """
     High level OCI Cloud API operations
     """
@@ -64,15 +64,11 @@ class OCISession():
         self._network_client = None
         self._block_storage_client = None
         self._object_storage_client = None
-
-
         self._metadata = metadata.InstanceMetadata().refresh().get().get()
-
         self.oci_config = {}
         self.signer = None
         self.auth_method = NONE
-
-
+        #
         # get auth method from oci-utils conf. default is auto (to find one)
         self.auth_method = self._get_auth_method(authentication_method)
 
@@ -185,7 +181,7 @@ class OCISession():
                 _logger.debug('%s auth ok' , method)
                 return method
             except Exception as e:
-                _logger.debug(' %s auth has failed: %s' % (method, str(e)))
+                _logger.debug('%s auth has failed: %s' % (method, str(e)))
 
         # no options left
         return NONE
@@ -277,8 +273,9 @@ class OCISession():
             return _compartments
 
         for c_data in compartments_data:
-            _compartments.append(
-                OCICompartment(session=self, compartment_data=oci_sdk.util.to_dict(c_data)))
+            # __GT
+            # _compartments.append(OCICompartment(session=self, compartment_data=oci_sdk.util.to_dict(c_data)))
+            _compartments.append(OCICompartment(session=self, compartment_data=c_data))
         return _compartments
 
     def find_compartments(self, display_name):
@@ -420,9 +417,9 @@ class OCISession():
         if instance_id is None:
             try:
                 instance_id = self._metadata['instance']['id']
-            except Exception:
+            except Exception as e:
                 _logger.error('No instance id. Please run inside an instance '
-                              'or provide instance-id.\n')
+                              'or provide instance-id. - %s\n', str(e))
                 return None
         if not kwargs:
             _logger.error('No set parameters are provided.\n')
@@ -442,7 +439,7 @@ class OCISession():
         try:
             result = cc.update_instance(instance_id=instance_id, update_instance_details=details,).data
         except Exception as e:
-            _logger.error('Failed to set metadata: %s. ' , str(e))
+            _logger.error('Failed to set metadata: %s. ', str(e))
             return None
 
         return OCIInstance(self, result).get_metadata()
@@ -687,7 +684,10 @@ class OCISession():
         try:
             cc = self.get_compute_client()
             instance_data = cc.get_instance(instance_id=instance_id).data
-            return OCIInstance(self, oci_sdk.util.to_dict(instance_data))
+            #
+            # GT 
+            # return OCIInstance(self, oci_sdk.util.to_dict(instance_data))
+            return OCIInstance(self, instance_data)
         except Exception as e:
             _logger.debug('Failed to fetch instance: %s. Check your connection and settings.', e)
             raise Exception('Failed to fetch instance [%s]' % instance_id) from e
@@ -710,7 +710,10 @@ class OCISession():
         nc = self.get_network_client()
         try:
             sn_data = nc.get_subnet(subnet_id=subnet_id).data
-            return OCISubnet(self, subnet_data=oci_sdk.util.to_dict(sn_data))
+            #
+            # GT
+            # return OCISubnet(self, subnet_data=oci_sdk.util.to_dict(sn_data))
+            return OCISubnet(self, subnet_data=sn_data)
         except oci_sdk.exceptions.ServiceError:
             _logger.debug('failed to get subnet', exc_info=True)
             # return None
@@ -752,7 +755,10 @@ class OCISession():
                 volume_id=vol_data.id).data
         except Exception:
             _logger.debug('cannot find any attachments for this volume', exc_info=True)
-            return OCIVolume(self, volume_data=oci_sdk.util.to_dict(vol_data))
+            #
+            #
+            # return OCIVolume(self, volume_data=oci_sdk.util.to_dict(vol_data))
+            return OCIVolume(self, volume_data=vol_data)
 
         # find the latest attachment entry for this volume
         v_att_data = None
@@ -763,9 +769,10 @@ class OCISession():
             if v_att.time_created > v_att_data.time_created:
                 v_att_data = v_att
 
-        return OCIVolume(self,
-                         volume_data=oci_sdk.util.to_dict(vol_data),
-                         attachment_data=oci_sdk.util.to_dict(v_att_data))
+        #
+        # GT
+        # return OCIVolume(self, volume_data=oci_sdk.util.to_dict(vol_data), attachment_data=oci_sdk.util.to_dict(v_att_data))
+        return OCIVolume(self, volume_data=vol_data, attachment_data=v_att_data)
 
     def get_compartment(self, **kargs):
         if 'ocid' not in kargs:
@@ -775,7 +782,11 @@ class OCISession():
         try:
             c_data = \
                 self._identity_client.get_compartment(compartment_id=kargs['ocid']).data
-            return OCICompartment(session=self, compartment_data=oci_sdk.util.to_dict(c_data))
+            #
+            # GT
+            # return OCICompartment(session=self, compartment_data=oci_sdk.util.to_dict(c_data))
+            _logger.debug('__GT__ type c_data: %s', type(c_data))
+            return OCICompartment(session=self, compartment_data=c_data)
         except Exception as e:
             _logger.error('error getting compartment: %s' % e)
             return None
@@ -813,15 +824,24 @@ class OCISession():
         -------
         OCIVNIC
             The OCI VNIC  or None if it is not found.
-            The returned VNIC do not have any attachemnet information
+            The returned VNIC does not have any attachment information
         """
-        try:
-            nc = self.get_network_client()
-            vnic_data = nc.get_vnic(vnic_id).data
-            return OCIVNIC(self, oci_sdk.util.to_dict(vnic_data),{})
-        except Exception as e:
-            _logger.debug('Failed to fetch vnic: %s', e)
-            raise Exception('Failed to fetch VNIC [%s]' % vnic_id) from e
+        nc = self.get_network_client()
+        cc = self.get_compute_client()
+        all_comps = self.all_compartments()
+        for comp in all_comps:
+            try:
+                comp_id = comp.get_compartment_id()
+                vnic_atts = oci_sdk.pagination.list_call_get_all_results(cc.list_vnic_attachments, compartment_id=comp_id)
+                for vnic_att in vnic_atts.data:
+                    vnic_dat = nc.get_vnic(vnic_att.vnic_id).data
+                    if vnic_id == vnic_dat.id:
+                        return OCIVNIC(self, vnic_data=vnic_dat, attachment_data = vnic_att)
+            except Exception as e:
+                if hasattr(e, 'code'): 
+                    pass
+        _logger.debug('Failed to fetch vnic: %s', vnic_id)
+        raise Exception('Failed to fetch VNIC [%s]' % vnic_id)
 
     def create_volume(self, compartment_id, availability_domain,
                       size, display_name=None, wait=True):
@@ -863,6 +883,12 @@ class OCISession():
             if wait:
                 get_vol_state = bsc.get_volume(volume_id=vol_data.id)
                 oci_sdk.wait_until(bsc, get_vol_state, 'lifecycle_state', 'AVAILABLE')
-            return OCIVolume(self, oci_sdk.util.to_dict(vol_data))
+                _logger.debug('_GT_ wait till available')
+            #
+            # GT
+            # return OCIVolume(self, oci_sdk.util.to_dict(vol_data))
+            # ocivol = OCIVolume(self, oci_sdk.util.to_dict(vol_data))
+            ocivol = OCIVolume(self, vol_data)
+            return ocivol
         except oci_sdk.exceptions.ServiceError as e:
             raise Exception('Failed to create volume') from e

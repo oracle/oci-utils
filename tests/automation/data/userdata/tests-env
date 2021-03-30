@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Copyright (c) 2020, 2021 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+
+
+# This file contains environement variables and script commands
+# to be push on remote instance within /etc/profile.d
+
+export http_proxy=${http_proxy_url}
+export https_proxy=${https_proxy_url}
+export no_proxy=169.254.169.254,.oraclecloud.com,.oraclecorp.com,.us.oracle.com

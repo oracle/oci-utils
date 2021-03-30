@@ -1,4 +1,4 @@
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -8,11 +8,12 @@ import subprocess
 import unittest
 from tools.oci_test_case import OciTestCase
 
+os.environ['LC_ALL'] = 'en_US.UTF8'
+
 
 class TestExecConfigHelper(OciTestCase):
     """ oci-utils-config-helper tests.
     """
-
 
     def setUp(self):
         """
@@ -45,3 +46,8 @@ class TestExecConfigHelper(OciTestCase):
         except subprocess.CalledProcessError as e:
             if e.returncode != 1:
                 self.fail('Execution has failed: %s' % str(e))
+
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestExecConfigHelper)
+    unittest.TextTestRunner().run(suite)

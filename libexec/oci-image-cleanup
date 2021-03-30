@@ -114,7 +114,7 @@ print_and_exit()
     exit 0
 }
 
-BACKUP_CMD="rsync -vaxAXRC "
+BACKUP_CMD="rsync -vaxAXRC --ignore-missing-args "
 backup_and_delete()
 {
     if [ $# -lt 1 ]; then
@@ -285,7 +285,7 @@ cleanup()
       plan "passwd -l root && sed -i 's/^root:[^:]*:/root:*:/I' /etc/shadow"
   else
       CLEAN_ROOT_PASSWD=NO
-  fi 
+  fi
   echo -e "\n\nThe next steps will clean up the following files if they exist:
       /etc/udev/rules.d/70*,
       /etc/machine-id,
@@ -374,9 +374,9 @@ cleanup()
   if [ -f "/etc/sysconfig/rhn/systemid" ]; then
       plan 'echo -e "\nClearing ULN data..."'
       backup_and_delete "/etc/sysconfig/rhn/systemid"
-      backup_and_delete /etc/sysconfig/rhn/up2date -c 2 
+      backup_and_delete /etc/sysconfig/rhn/up2date -c 2
       plan "sed -i  \"s/^uuid.*/#&/\" /etc/sysconfig/rhn/up2date"
-  fi     
+  fi
 
   # Clear bash history for opc and root users
   plan 'echo -e "\nCleaning bash history..."'
@@ -389,7 +389,7 @@ cleanup()
   done
   plan "echo \"$BACKUP_LOC\" >$LAST_BACKUP_LOC_FILE"
 }
-    
+
 update_bashrc_history() {
     hist_file=$1/.bash_history
 
@@ -491,7 +491,7 @@ while [ "$#" -gt 0 ]; do
             source $(dirname $2)/$(basename $2)
             shift 2
         else
-            log "Error: ${config_file} does not appear to be a valid file." 
+            log "Error: ${config_file} does not appear to be a valid file."
             usage
             exit 1
         fi

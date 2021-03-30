@@ -55,7 +55,7 @@ def print_choices(header, choices, sep="\n  "):
 
 
 def _oci_utils_exception_hook(exctype, value ,tb):
-    logging.getLogger('oci-utils').critical('An unexpected error occured: %s' , str(value))
+    logging.getLogger('oci-utils').critical('An unexpected error occured: %s' , str(value), stack_info=True)
     logging.getLogger('oci-utils').debug('An unexpected error occured',exc_info=value)
 sys.excepthook = _oci_utils_exception_hook
 

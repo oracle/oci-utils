@@ -1,4 +1,4 @@
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -6,6 +6,9 @@ import os
 import subprocess
 import unittest
 from tools.oci_test_case import OciTestCase
+
+
+os.environ['LC_ALL'] = 'en_US.UTF8'
 
 
 class TestCliOciMetadata(OciTestCase):
@@ -80,6 +83,71 @@ class TestCliOciMetadata(OciTestCase):
         """
         try:
             _ = subprocess.check_output([self.oci_metadata_path, '--get', 'instance'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/availabilityDomain'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/faultDomain'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/compartmentId'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/displayName'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/hostname'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/id'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/image'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/metadata'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/metadata/ssh_authorized_keys'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/region'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/canonicalRegionName'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/ociAdName'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo/realmKey'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo/realmDomainComponent'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo/regionKey'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo/regionIdentifier'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/shape'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/state'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/timeCreated'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/agentConfig'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/definedTags'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/0'])
+        except Exception as e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_metadata_this_instance(self):
+        """
+        Test displaying 'instance' metadata
+
+        Returns
+        -------
+        No return value.
+        """
+        try:
+            this_instance_id = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/id', '--value-only', '--trim']).decode('utf-8')
+
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', 'instance', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/availabilityDomain', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/faultDomain', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/compartmentId', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/displayName', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/hostname', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/id', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/image', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/metadata', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/metadata/ssh_authorized_keys', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/region', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/canonicalRegionName', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/ociAdName', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo/realmKey', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo/realmDomainComponent', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo/regionKey', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo/regionIdentifier', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/shape', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/state', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/timeCreated', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/agentConfig', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/definedTags', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics', '--instance-id', this_instance_id])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/0', '--instance-id', this_instance_id])
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
@@ -111,7 +179,7 @@ class TestCliOciMetadata(OciTestCase):
 
     def test_get_single_key(self):
         """
-        Test displaying data fro single key
+        Test displaying data for single key
 
         Returns
         -------
@@ -119,10 +187,11 @@ class TestCliOciMetadata(OciTestCase):
         """
         try:
             _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/privateip', '--trim'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/privateip',
-                                         '--get', '/instance/id', '--trim'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/privateip',
-                                         '--trim', '--value-only'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/0/privateip', '--trim'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/privateip', '--get', '/instance/id', '--trim'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/0/privateip', '--get', '/instance/id', '--trim'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/privateip', '--trim', '--value-only'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/0/privateip', '--trim', '--value-only'])
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
@@ -152,3 +221,22 @@ class TestCliOciMetadata(OciTestCase):
             _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics', '--instance-id', instance_ocid])
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_vnic_data(self):
+        """
+        Test metadata display cidr block
+        """
+        try:
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/vnicid'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/vlantag'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/privateip'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/macaddr'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/subnetcidrblock'])
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/virtualrouterip'])
+        except Exception as e:
+            self.fail('Execution has failed: %s' % str(e))
+
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestCliOciMetadata)
+    unittest.TextTestRunner().run(suite)

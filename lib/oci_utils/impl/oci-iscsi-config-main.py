@@ -28,6 +28,7 @@ from oci_utils.impl.row_printer import get_row_printer_impl
 
 _logger = logging.getLogger("oci-utils.oci-iscsi-config")
 
+oci_volume_tag = 'ocid1.volume.'
 
 def volume_size_validator(value):
     """
@@ -50,7 +51,7 @@ def attachable_iqn_list_validator(value):
     """
     _iqns = [iqn.strip() for iqn in value.split(',') if iqn]
     for iqn in _iqns:
-        if not iqn.startswith("iqn.") and not iqn.startswith('ocid1.volume.oc'):
+        if not iqn.startswith("iqn.") and not iqn.startswith(oci_volume_tag):
             raise argparse.ArgumentTypeError('Invalid IQN %s' % iqn)
     return _iqns
 
@@ -74,7 +75,7 @@ def volume_oci_list_validator(value):
     """
     _ocids = [ocid.strip() for ocid in value.split(',') if ocid]
     for ocid in _ocids:
-        if not ocid.startswith('ocid1.volume.oc'):
+        if not ocid.startswith(oci_volume_tag):
             raise argparse.ArgumentTypeError('Invalid volume OCID %s' % ocid)
     return _ocids
 
@@ -88,100 +89,116 @@ def get_args_parser():
     -------
         The commandline argparse namespace.
     """
-    parser = argparse.ArgumentParser(description='Utility for listing or '
-                                                 'configuring iSCSI devices '
-                                                 'on an OCI '
+    parser = argparse.ArgumentParser(description='Utility for listing or configuring iSCSI devices on an OCI '
                                                  'instance.')
     subparser = parser.add_subparsers(dest='command')
-
+    #
+    # sync
     sync_parser = subparser.add_parser('sync',
-                                       description='try to attach available block devices')
+                                       description='Try to attach available block devices.')
     sync_parser.add_argument('-a', '--apply',
                              action='store_true',
-                             help='Perform sync  operations')
+                             help='Perform sync operations.')
     sync_parser.add_argument('-y', '--yes',
                              action='store_true',
-                             help='assume yes')
+                             help='Assume yes.')
     # kept for compatibility reason. keep it hidden
     sync_parser.add_argument('-i', '--interactive',
                              action='store_true',
                              help=argparse.SUPPRESS)
-
+    #
+    # usage
     subparser.add_parser('usage',
-                         description='Displays usage')
+                         description='Displays usage.')
+    #
+    # show
     show_parser = subparser.add_parser('show',
-                                       description='Show block volumes and iSCSI information')
+                                       description='Show block volumes and iSCSI information.')
     show_parser.add_argument('-C', '--compartments',
                              metavar='COMP',
                              default=(),
                              type=lambda s: [ocid.strip() for ocid in s.split(',') if ocid],
-                             help='Display iSCSI devices in the given comparment(s) '
-                                  'or all compartments if COMP is  "all".')
+                             help='Display iSCSI devices in the given comparment(s) or all compartments '
+                                  'if COMP is  "all".')
     show_parser.add_argument('-A', '--all',
                              action='store_true',
                              default=False,
-                             help='Display all iSCSI devices. By default only devices that are '
-                                  'not attached to an instance are listed.')
-    show_parser.add_argument('--output-mode', choices=('parsable', 'table', 'json', 'text'),
-                             help='Set output mode', default='table')
-    show_parser.add_argument('--details', action='store_true', default=False,
-                             help='Display detailed information')
-    show_parser.add_argument('--no-truncate', action='store_true', default=False,
+                             help='Display all iSCSI devices. By default only devices that are not attached '
+                                  'to an instance are listed.')
+    show_parser.add_argument('--output-mode',
+                             choices=('parsable', 'table', 'json', 'text'),
+                             help='Set output mode.',
+                             default='table')
+    show_parser.add_argument('--details',
+                             action='store_true',
+                             default=False,
+                             help='Display detailed information.')
+    show_parser.add_argument('--no-truncate',
+                             action='store_true',
+                             default=False,
                              help='Do not truncate value during output ')
-    show_parser.add_argument('--compat', action='store_true', default=False,
+    show_parser.add_argument('--compat',
+                             action='store_true',
+                             default=False,
                              help=argparse.SUPPRESS)
+    #
+    # create
     create_parser = subparser.add_parser('create',
-                                         description='Creates a block volume')
+                                         description='Creates a block volume.')
     create_parser.add_argument('-S', '--size',
                                type=volume_size_validator,
                                required=True,
-                               help='Size of the block volume to create in GB')
+                               help='Size of the block volume to create in GB, mandatory.')
     create_parser.add_argument('-v', '--volume-name',
-                               help='Name of the block volume to create')
+                               help='Name of the block volume to create.')
     create_parser.add_argument('--attach-volume',
                                action='store_true',
-                               help='Once created, should the volume be attached ?')
-
+                               help='Once created, should the volume be attached?')
+    #
+    # attach
     attach_parser = subparser.add_parser('attach',
-                                         description='Attach a block volume to this instance '
-                                                     'and make it available to the system')
+                                         description='Attach a block volume to this instance and make it '
+                                                     'available to the system.')
     # kept for compatibility reason. keep it hidden
     attach_parser.add_argument('-I', '--iqns',
                                required=True,
                                type=attachable_iqn_list_validator,
-                               help='Comma separated list of IQN(s) of the iSCSI devices to be attached')
+                               help='Comma separated list of IQN(s) of the iSCSI devices to be attached.')
     attach_parser.add_argument('-u', '--username',
                                metavar='USER',
                                action='store',
-                               help='Use USER as the user name when attaching a device that '
-                                    'requires CHAP authentication')
+                               help='Use USER as the user name when attaching a device that requires CHAP '
+                                    'authentication.')
     attach_parser.add_argument('-p', '--password',
                                metavar='PASSWD',
                                action='store',
-                               help='Use PASSWD as the password when attaching a device that '
-                                    'requires CHAP authentication')
+                               help='Use PASSWD as the password when attaching a device that requires CHAP '
+                                    'authentication.')
+    #
+    # detach
     detach_parser = subparser.add_parser('detach',
                                          description='Detach a block volume')
     detach_parser.add_argument('-I', '--iqns',
                                required=True,
                                type=detachable_iqn_list_validator,
-                               help='Comma separated list of IQN(s) of the iSCSI devices to be detached')
+                               help='Comma separated list of IQN(s) of the iSCSI devices to be detached.')
     detach_parser.add_argument('-f', '--force',
                                action='store_true',
-                               help='Continue detaching even if device cannot be unmounted')
+                               help='Continue detaching even if device cannot be unmounted.')
     detach_parser.add_argument('-i', '--interactive',
                                action='store_true',
                                help=argparse.SUPPRESS)
-
+    #
+    # destroy
     destroy_parser = subparser.add_parser('destroy',
-                                          description='Destroy a block volume')
+                                          description='Destroy a block volume.')
     destroy_parser.add_argument('-O', '--ocids',
                                 required=True,
                                 type=volume_oci_list_validator,
-                                help='OCID(s) of volumes to be destroyed')
+                                help='OCID(s) of volumes to be destroyed.')
     destroy_parser.add_argument('-y', '--yes',
                                 action='store_true',
-                                help='Assume yes, otherwise be interactive')
+                                help='Assume yes, otherwise be interactive.')
     # kept for compatibility reason. keep it hidden
     destroy_parser.add_argument('-i', '--interactive',
                                 action='store_true',
@@ -275,12 +292,10 @@ def _display_oci_volume_list(volumes, output_mode, details, truncate):
         _vol_instance_attach_to = volume.get_instance()
         if _vol_instance_attach_to.get_ocid() == _this_instance_ocid:
             return "this instance"
-        else:
-            pip = _vol_instance_attach_to.get_public_ip()
-            if pip:
-                return "%s (%s)" % (_vol_instance_attach_to.get_display_name(), _vol_instance_attach_to.get_public_ip())
-            return _vol_instance_attach_to.get_display_name()
-        return '-'
+        pip = _vol_instance_attach_to.get_public_ip()
+        if pip:
+            return "%s (%s)" % (_vol_instance_attach_to.get_display_name(), _vol_instance_attach_to.get_public_ip())
+        return _vol_instance_attach_to.get_display_name()
 
     def _get_comp_name(_, volume):
         """ keep track of compartment per ID as it may be expensive info to fetch """
@@ -297,7 +312,7 @@ def _display_oci_volume_list(volumes, output_mode, details, truncate):
                 ['OCID', 32, 'get_ocid']]
     if details:
         _columns.extend((['IQN', 14, 'get_iqn'],
-                         ['Compartement', 14, _get_comp_name],
+                         ['Compartment', 14, _get_comp_name],
                          ['Availability domain', 19, 'get_availability_domain_name']))
     if output_mode == 'compat':
         printerKlass = get_row_printer_impl('text')
@@ -315,7 +330,7 @@ def _display_oci_volume_list(volumes, output_mode, details, truncate):
 
 def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, details, truncate):
     """
-    Display the attched iSCSI devices.
+    Display the attached iSCSI devices.
 
     Parameters
     ----------
@@ -328,6 +343,7 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
         as returned by lsblk.list()
     output_mode : the output mode as str (text,json,parsable)
     details : display detailed information ?
+    truncate: truncate text?
 
     Returns
     -------
@@ -360,8 +376,10 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
 
     # this is only used in compatibility mode i.e using 'text'
     partitionPrinter = get_row_printer_impl('text')(title='Partitions',
-                                                    columns=(['Device', 8, 'dev_name'], ['Size', 6, 'size'],
-                                                             ['Filesystem', 12, 'fstype'], ['Mountpoint', 12, 'mountpoint']))
+                                                    columns=(['Device', 8, 'dev_name'],
+                                                             ['Size', 6, 'size'],
+                                                             ['Filesystem', 12, 'fstype'],
+                                                             ['Mountpoint', 12, 'mountpoint']))
     _items = []
     for iqn in list(iscsiadm_session.keys()):
         _item = {}
@@ -480,6 +498,7 @@ def _do_iscsiadm_attach(iqn, targets, user=None, passwd=None, iscsi_portal_ip=No
     else:
         portal_ip = iscsi_portal_ip
 
+    _logger.debug('Portal: ip %s; iqn: %s', portal_ip, iqn)
     retval = iscsiadm.attach(portal_ip, 3260, iqn,
                              user, passwd,
                              auto_startup=True)
@@ -499,8 +518,8 @@ def do_detach_volume(oci_session, iscsiadm_session, iqn):
         The iscsiadm session.
     iscsiadm_session:
         iscsiadm.session()
-    ocid: str
-        The OCID.
+    iqn: str
+        The IQN.
 
     Returns
     -------
@@ -519,7 +538,7 @@ def do_detach_volume(oci_session, iscsiadm_session, iqn):
         _volume.detach()
     except Exception as e:
         _logger.debug("Failed to disconnect volume", exc_info=True)
-        raise Exception("Failed to disconnect volume %s: %s" % iqn) from e
+        raise Exception("Failed to disconnect volume %s" % iqn) from e
 
     _logger.debug('Volume detached, detaching it from iSCSI session')
     if not iscsiadm.detach(iscsiadm_session[iqn]['persistent_portal_ip'],
@@ -581,10 +600,12 @@ def api_display_available_block_volumes(sess, compartments, show_all, output_mod
         The OCISession instance.
     compartments: list of str
         compartement ocid(s)
-    all: bool
+    show_all: bool
         display all volumes. By default display only not-attached  ones
     output_mode : informtion display mode
-    details : display detailed informtion ?
+    details : display detailed information ?
+    truncate: truncate text?
+
     Returns
     -------
         No return value.
@@ -616,6 +637,7 @@ def api_display_available_block_volumes(sess, compartments, show_all, output_mod
                         cvols = comp.all_volumes()
                         vols += cvols
     else:
+        #
         # -C/--compartment option wasn't used, default to the instance's own
         # compartment
 
@@ -693,15 +715,19 @@ def get_volume_by_iqn(sess, iqn):
 
     Returns
     -------
-       OCIVOlume : the found volume or None
+       OCIVolume : the found volume or None
     """
     _logger.debug('Looking for volume with IQN == %s', iqn)
-    if not hasattr(get_volume_by_iqn, 'all_this_instance_volume'):
-        get_volume_by_iqn.all_this_instance_volume = sess.this_instance().all_volumes()
+    # if not hasattr(get_volume_by_iqn, 'all_this_instance_volume'):
+    #    _logger.debug('_GT_attr A %s', sess.this_instance().all_volumes())
+    #    get_volume_by_iqn.all_this_instance_volume = sess.this_instance().all_volumes()
+    #else:
+    #    _logger.debug('_GT_attr B %s', get_volume_by_iqn.all_this_instance_volume)
+    get_volume_by_iqn.all_this_instance_volume = sess.this_instance().all_volumes()
 
     for v in get_volume_by_iqn.all_this_instance_volume:
         if v.get_iqn() == iqn:
-            _logger.debug('found %s', str(v))
+            _logger.debug('Found %s', str(v))
             return v
     return None
 
@@ -961,6 +987,7 @@ def main():
     else:
         targets, attach_failed = ocid_cache
 
+    _logger.debug('iSCSI targets: %s', targets)
     detached_volume_iqns = load_cache(__ignore_file)[1]
     if detached_volume_iqns is None:
         detached_volume_iqns = []
@@ -1044,7 +1071,7 @@ def main():
         try:
             do_create_volume(oci_sess, size=args.size, display_name=args.volume_name, attach_it=args.attach_volume)
         except Exception as e:
-            _logger.error('volume creation has failed: %s', str(e))
+            _logger.error('Volume creation has failed: %s', str(e), stack_info=True, exc_info=True)
             return 1
         return 0
 
@@ -1088,14 +1115,14 @@ def main():
                     if not ask_yes_no("Failed to unmount volume, Continue detaching anyway?"):
                         continue
                 else:
-                    _logger.info('unmount failed, force option selected,continue anyway')
+                    _logger.info('Unmount failed, force option selected,continue anyway.')
             try:
                 _logger.debug('Detaching [%s]', iqn)
                 do_detach_volume(oci_sess, iscsiadm_session, iqn)
-                _logger.info("Volume [%s] is detached", iqn)
+                _logger.info("Volume [%s] is detached.", iqn)
                 detached_volume_iqns.append(iqn)
             except Exception as e:
-                _logger.error('volume [%s] detach has failed: %s', iqn, str(e))
+                _logger.error('Volume [%s] detach has failed: %s', iqn, str(e), exc_info=True)
                 retval = 1
 
         _logger.info("Updating detached volume cache file: %s", detached_volume_iqns)
@@ -1119,8 +1146,10 @@ def main():
                 _logger.info("Target %s is already attached.", iqn)
                 continue
 
-            if _iqn_to_use.startswith('ocid1.volume.oc'):
-                _logger.debug('given IQN [%s] is an ocid, attaching it', _iqn_to_use)
+            if _iqn_to_use.startswith(oci_volume_tag):
+                #
+                # ocid
+                _logger.debug('Given IQN [%s] is probably an ocid, attaching it', _iqn_to_use)
                 bs_volume = None
                 try:
                     bs_volume = _do_attach_oci_block_volume(oci_sess, _iqn_to_use)
@@ -1128,13 +1157,17 @@ def main():
                     # user/pass coming from volume itself
                     _attachment_username = bs_volume.get_user()
                     _attachment_password = bs_volume.get_password()
+                    _iscsi_portal_ip = bs_volume.get_portal_ip()
                     _iqn_to_use = bs_volume.get_iqn()
                 except Exception as e:
                     _logger.error('Failed to attach volume [%s]: %s', _iqn_to_use, str(e))
                     retval = 1
                     continue
-            else:
-                _logger.debug('given IQN [%s] is not an ocid', _iqn_to_use)
+            elif _iqn_to_use.startswith('iqn.'):
+                #
+                # iqn
+                _logger.debug('Given IQN [%s] is probably an iqn, attaching it', _iqn_to_use)
+
                 if args.username is not None and args.password is not None:
                     _attachment_username = args.username
                     _attachment_password = args.password
@@ -1142,13 +1175,27 @@ def main():
                     # user/pass not provided , asking for it
                     (_attachment_username, _attachment_password) = get_chap_secret(iqn)
                     _save_chap_cred = True
+                if _iqn_to_use in iscsiadm_session:
+                    _iscsi_portal_ip = iscsiadm_session[_iqn_to_use]['current_portal_ip']
+                    _logger.debug('Portal ip for %s is %s', _iqn_to_use, _iscsi_portal_ip)
+                else:
+                    _logger.info('Invalid argument, iqn %s not found', _iqn_to_use)
+                    retval = 1
+                    continue
+            else:
+                #
+                # invalid parameter
+                _logger.info('Invalid argument, given IQN [%s] is not an iqn nor an ocid.', _iqn_to_use)
+                retval = 1
+                continue
 
-            _logger.debug('attaching [%s] to iSCSI session', _iqn_to_use)
+            _logger.debug('Attaching [%s] to iSCSI session', _iqn_to_use)
             try:
-                _do_iscsiadm_attach(_iqn_to_use, targets,
+                _do_iscsiadm_attach(_iqn_to_use,
+                                    targets,
                                     user=_attachment_username,
                                     passwd=_attachment_password,
-                                    iscsi_portal_ip=bs_volume.get_portal_ip())
+                                    iscsi_portal_ip=_iscsi_portal_ip)
                 _logger.debug('attach ok')
                 if _iqn_to_use in detached_volume_iqns:
                     detached_volume_iqns.remove(_iqn_to_use)

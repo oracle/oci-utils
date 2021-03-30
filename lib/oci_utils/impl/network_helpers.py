@@ -22,7 +22,10 @@ from netaddr import IPNetwork
 from . import sudo_utils
 
 
-__all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route_table',
+__all__ = ['get_interfaces',
+           'is_ip_reachable',
+           'add_route_table',
+           'delete_route_table',
            'network_prefix_to_mask',
            'add_static_ip_route',
            'add_static_ip_rule',
@@ -36,6 +39,7 @@ _CLASS_NET_DIR = '/sys/class/net'
 _NM_CONF_DIR = "/etc/NetworkManager/conf.d/"
 _logger = logging.getLogger('oci-utils.net-helper')
 
+
 def is_network_namespace_exists(name):
     """
     Checks that a namespace exist or not
@@ -48,6 +52,7 @@ def is_network_namespace_exists(name):
        True if exists False otherwise
     """
     return os.path.exists('/var/run/netns/%s'%name)
+
 
 def create_network_namespace(name):
     """

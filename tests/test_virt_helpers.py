@@ -1,13 +1,16 @@
 
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
+import os
 import unittest
 
 from tools.decorators import skipUnlessOCI
 from tools.decorators import skipUnlessVirSHInstalled
 from tools.oci_test_case import OciTestCase
+
+os.environ['LC_ALL'] = 'en_US.UTF8'
 
 
 class TestVirtHelpers(OciTestCase):
@@ -190,3 +193,8 @@ class TestVirtHelpers(OciTestCase):
         if len(_all) > 0:
             oci_utils.impl.virt.virt_utils.get_disks_from_domain(
                 oci_utils.impl.virt.virt_utils.get_domain_xml(_all[0]))
+
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestVirtHelpers)
+    unittest.TextTestRunner().run(suite)

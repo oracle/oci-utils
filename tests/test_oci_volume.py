@@ -1,7 +1,8 @@
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
+import os
 import time
 import unittest
 
@@ -9,6 +10,8 @@ import oci_utils
 import oci_utils.oci_api
 from tools.decorators import needsOCICLI
 from tools.oci_test_case import OciTestCase
+
+os.environ['LC_ALL'] = 'en_US.UTF8'
 
 
 class TestOCIVolume(OciTestCase):

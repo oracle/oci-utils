@@ -29,7 +29,7 @@ def get_row_printer_impl(mode):
     raise Exception('unknown mode [%s]' % mode)
 
 
-class ColumnsPrinter():
+class ColumnsPrinter:
     """
     base class fo array printer
     """
@@ -41,7 +41,7 @@ class ColumnsPrinter():
 
     def __init__(self, **kargs):
         """
-        Instanciate a new columnsPrinter
+        Instantiate a new columnsPrinter
         keywords:
             'column_separator' : character used to mark filed separation (default = '|')
             'printer' : file object used to output data, default sys.stdout
@@ -50,14 +50,14 @@ class ColumnsPrinter():
                         each entry must have three elements:
                             - columns title
                             - columns width
-                            - attribute name to be called during printing. Or dictionnary key.
+                            - attribute name to be called during printing. Or dictionary key.
                               Or callback. callback signature is 'str _f(name,object)'
-                              callback must return a string to be printed. callbacl will
+                              callback must return a string to be printed. callback will
                               be called with columns name as first argument and object as passed to printRow()
                         ex: (['name',10,'getName'])
                            This will produce a columns of 10 characters width.
-                           'getName' method will be call on each objects passed to printRow()
-                        ex:  (['foo',10,bar])
+                           'getName' method will be called on each objects passed to printRow()
+                        ex:  (['foo',10, bar])
                             a call to printRow(o) produce a call to bar('foo',o)
         """
 
@@ -81,12 +81,9 @@ class ColumnsPrinter():
             raise AttributeError('Invalid value for columns: %s' % e.args[0]) from e
 
         self.tableWidth = sum(self.columnsWidths)
-
         self.columnsSeparator = kargs.get('column_separator', ColumnsPrinter._COLUMN_SEP)
         self.replacement = ColumnsPrinter._MISSING_ATTR
-
-
-        self.printer = kargs.get('printer',sys.stdout)
+        self.printer = kargs.get('printer', sys.stdout)
 
     def printHeader(self):
         """
@@ -235,7 +232,8 @@ class TablePrinter(ColumnsPrinter):
             try:
                 _elements.append(self._getValueForColumn(cidx, o))
             except LookupError:
-                _logger.debug('cannot get value', exc_info=True)
+                # _logger.debug('cannot get value', exc_info=True)
+                _logger.debug('cannot get value')
                 _elements.append(self.replacement)
         self._printElements(_elements)
 
@@ -300,7 +298,7 @@ class JSONPrinter(ColumnsPrinter):
             try:
                 _a[_name] = self._getValueForColumn(cidx, o)
             except LookupError:
-                _logger.debug('cannot get value', exc_info=True)
+                _logger.debug('Cannot get value', exc_info=True)
 
             cidx = cidx+1
 

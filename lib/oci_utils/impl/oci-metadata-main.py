@@ -647,8 +647,7 @@ def main():
 
     if args.setkeys:
         if args.keys:
-            _logger.error(
-                "-g or --get option conflicts with -u or --update.")
+            _logger.error("-g or --get option conflicts with -u or --update.")
             return 1
 
         k_v = parse_vars(args.setkeys)
@@ -658,11 +657,10 @@ def main():
         try:
             # meta = oci_utils.oci_api.OCISession().update_instance_metadata(
             # instance_id=inst_id, **k_v)
-            meta = OCISession().update_instance_metadata(instance_id=inst_id,
-                                                         **k_v)
+            meta = OCISession().update_instance_metadata(instance_id=inst_id, **k_v)
             metadata = meta.filter(list(k_v.keys()))
         except Exception as e:
-            _logger.error("%s" % str(e))
+            _logger.error("%s" % str(e), exc_info=True)
             return 1
     else:
         # get
@@ -674,13 +672,12 @@ def main():
         try:
             # if we have an ID, use the session.
             if inst_id is not None:
-                meta = OCISession().get_instance(
-                    instance_id=inst_id).get_metadata()
+                meta = OCISession().get_instance(instance_id=inst_id).get_metadata()
             else:
                 meta = InstanceMetadata().refresh()
             metadata = meta.filter(args.keys)
         except Exception as e:
-            _logger.error("%s" % str(e))
+            _logger.error("%s" % str(e), exc_info=True)
             return 1
 
     if metadata is None:

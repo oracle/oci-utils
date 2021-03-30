@@ -118,8 +118,7 @@ def discovery(ipaddr):
 
 
 _TARGET_PATTERN = re.compile(r'^Target: (\S+)')
-_PORTAL_PATTERN = re.compile(
-    r'(Current|Persistent) Portal: ([0-9.]+):([0-9]+),')
+_PORTAL_PATTERN = re.compile(r'(Current|Persistent) Portal: ([0-9.]+):([0-9]+),')
 _DISK_PATTERN = re.compile(r'Attached scsi disk (\S+)\s+State: (\S+)')
 _SESS_STATE_PATTERN = re.compile(r'iSCSI Session State: (\S+)')
 
