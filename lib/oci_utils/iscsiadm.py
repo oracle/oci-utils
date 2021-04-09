@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -34,7 +34,7 @@ def error_message_from_code(errorcode):
     -------
         The error message.
     """
-    assert isinstance(errorcode ,int), 'invalid error code type'
+    assert isinstance(errorcode, int), 'invalid error code type'
 
     if not hasattr(error_message_from_code, "ERROR_CODES"):
         error_message_from_code.ERROR_CODES = {
@@ -113,7 +113,7 @@ def discovery(ipaddr):
         return iqns
     except subprocess.CalledProcessError as e:
         # TODO : why this is not an error ?
-        _iscsi_logger.warning('error running /usr/sbin/iscsiadm [%s]' % str(e))
+        _iscsi_logger.warning('error running /usr/sbin/iscsiadm [%s]', str(e))
         return []
 
 
@@ -195,9 +195,9 @@ def session():
         if e.returncode in (15, 21):
             # non fatal error that we should not warn the user about
             # see ISCSIADM(8)
-            _iscsi_logger.debug('error running /usr/sbin/iscsiadm [%s]' % str(e))
+            _iscsi_logger.debug('error running /usr/sbin/iscsiadm [%s]', str(e))
         else:
-            _iscsi_logger.warning('error running /usr/sbin/iscsiadm [%s]' % str(e))
+            _iscsi_logger.warning('error running /usr/sbin/iscsiadm [%s]', str(e))
         return {}
 
 
@@ -235,7 +235,7 @@ def attach(ipaddr, port, iqn, username=None, password=None, auto_startup=True):
                                  '-p', "%s:%s" % (ipaddr, port)],
                                 stderr=subprocess.STDOUT)
     except OSError as e:
-        _iscsi_logger.error('failed to execute /usr/sbin/iscsiadm: %s' % str(e))
+        _iscsi_logger.error('failed to execute /usr/sbin/iscsiadm: %s', str(e))
         return 404
     except subprocess.CalledProcessError as e:
         _iscsi_logger.error('failed to register new iscsi volume')
@@ -252,8 +252,7 @@ def attach(ipaddr, port, iqn, username=None, password=None, auto_startup=True):
                                      '-v', 'automatic'],
                                     stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            logging.warning('failed to set automatic startup set for '
-                         'iscsi volume %s' % iqn)
+            logging.warning('failed to set automatic startup set for iscsi volume %s' % iqn)
             logging.warning('iscsiadm output: %s' % e.output)
             return e.returncode
 
@@ -296,9 +295,8 @@ def attach(ipaddr, port, iqn, username=None, password=None, auto_startup=True):
                                  '-l'],
                                 stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        _iscsi_logger.error('failed to log in to iscsi volume: %s' %
-                            error_message_from_code(e.returncode))
-        _iscsi_logger.error('iscsiadm output: %s' % e.output)
+        _iscsi_logger.error('failed to log in to iscsi volume: %s', error_message_from_code(e.returncode))
+        _iscsi_logger.error('iscsiadm output: %s', e.output)
         return e.returncode
 
     return 0
@@ -324,8 +322,7 @@ def detach(ipaddr, port, iqn):
     """
     if iqn.endswith('boot:uefi'):
         # refuse to detach the boot volume
-        _iscsi_logger.error('Stubbornly refusing to detach the boot volume: '
-                            '%s' % iqn)
+        _iscsi_logger.error('Stubbornly refusing to detach the boot volume: %s', iqn)
         return 403
     dev_null = open(os.devnull, 'w')
     try:
@@ -345,7 +342,7 @@ def detach(ipaddr, port, iqn):
                               stderr=dev_null,
                               stdout=dev_null)
     except subprocess.CalledProcessError as e:
-        _iscsi_logger.error('Error running iscsiadm command [%s]' % str(e))
+        _iscsi_logger.error('Error running iscsiadm command [%s]', str(e))
         return False
     finally:
         dev_null.close()

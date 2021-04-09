@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -106,7 +106,7 @@ class ColumnsPrinter:
         Row break, what to be display between rows
         """
 
-    def printKeyValue(self, attrName,attrValue):
+    def printKeyValue(self, attrName, attrValue):
         """
         static method to print a key value pair
         depend of the implementation
@@ -146,7 +146,8 @@ class ColumnsPrinter:
             try:
                 return _columnAttr(self.columnsNames[columnIdx], _object)
             except Exception as e:
-                raise LookupError("error calling callback [%s] in obj %s: %s" % (_columnAttr, _object, e.args[0])) from e
+                raise LookupError("error calling callback [%s] in obj %s: %s"
+                                  % (_columnAttr, _object, e.args[0])) from e
 
         if isinstance(_object, list) or isinstance(_object, tuple):
             """
@@ -163,8 +164,7 @@ class ColumnsPrinter:
             _key = self.columnsAttrs[columnIdx]
             if _key in _object:
                 return _object[self.columnsAttrs[columnIdx]]
-            else:
-                raise LookupError('missing key [%s] in dict' % _key)
+            raise LookupError('missing key [%s] in dict' % _key)
 
         # otherwise handle Object case.
         # if a callback is defined call and return its result
@@ -289,7 +289,7 @@ class JSONPrinter(ColumnsPrinter):
         self.encoder = json.JSONEncoder(skipkeys=False, sort_keys=False)
 
     def printKeyValue(self, name, value):
-        print(self.encoder.encode({name:value}), file=self.printer)
+        print(self.encoder.encode({name: value}), file=self.printer)
 
     def printRow(self, o):
         _a = dict()
@@ -298,7 +298,8 @@ class JSONPrinter(ColumnsPrinter):
             try:
                 _a[_name] = self._getValueForColumn(cidx, o)
             except LookupError:
-                _logger.debug('Cannot get value', exc_info=True)
+                # _logger.debug('Cannot get value', exc_info=True)
+                _logger.debug('Cannot get value')
 
             cidx = cidx+1
 
@@ -309,6 +310,7 @@ class JSONPrinter(ColumnsPrinter):
 
 
 class HtmlPrinter(ColumnsPrinter):
+
     def printHeader(self):
         _buffer = StringIO()
         _buffer.write('<HTML>\n')
@@ -379,7 +381,18 @@ class HtmlPrinter(ColumnsPrinter):
         self._printElements(vals)
 
     def _printElements(self, strlist):
+        """
+        Print
 
+        Parameters
+        ----------
+        strlist: list
+            to be printed
+
+        Returns
+        -------
+            None
+        """
         if not strlist:
             return
 
@@ -416,12 +429,12 @@ class TextPrinter(ColumnsPrinter):
                 else:
                     _value = self.replacement
             except LookupError:
-                _logger.debug('cannot get value', exc_info=True)
+                # _logger.debug('cannot get value', exc_info=True)
+                _logger.debug('cannot get value')
                 _value = self.replacement
 
-            print ('%s: %s' % (self.columnsNames[cidx],_value), file=self.printer)
+            print('%s: %s' % (self.columnsNames[cidx], _value), file=self.printer)
 
     def rowBreak(self):
         # print some space between rows (block of information)
-        print ('', file=self.printer)
-
+        print('', file=self.printer)

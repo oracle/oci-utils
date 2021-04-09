@@ -53,8 +53,7 @@ class TestCliOciNetworkInspector(OciTestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([
-                self.oci_net_inspector, '--help'])
+            _ = subprocess.check_output([self.oci_net_inspector, '--help'])
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
@@ -67,13 +66,12 @@ class TestCliOciNetworkInspector(OciTestCase):
             No return value.
         """
         try:
-            _ = subprocess.check_output([
-                self.oci_net_inspector])
+            _ = subprocess.check_output([self.oci_net_inspector])
         except subprocess.CalledProcessError as e:
             if e.returncode != 1:
                 self.fail('Execution has failed: %s' % str(e))
 
-    def test_display_info_compartment(self, compartment_id):
+    def test_display_info_compartment(self):
         """
         Test displaying network in this compartment.
 
@@ -92,6 +90,9 @@ class TestCliOciNetworkInspector(OciTestCase):
             if e.returncode != 1:
                 self.fail('Execution has failed: %s' % str(e))
 
+#
+# TODO
+# test network_inspector --vnc <vcn ocid>
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestCliOciNetworkInspector)

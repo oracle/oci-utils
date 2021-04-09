@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -259,11 +259,6 @@ def get_oci_api_session():
     """
     Ensure the OCI SDK is available if the option is not None.
 
-    Parameters
-    ----------
-    opt_name : str
-        Operation name currently been exceuted (used for logging).
-
     Returns
     -------
         OCISession
@@ -284,24 +279,24 @@ def get_oci_api_session():
         sess.this_instance()
         setattr(get_oci_api_session, "_session", sess)
     except Exception as e:
-        _logger.error("Failed to access OCI services: %s" % str(e))
+        _logger.error("Failed to access OCI services: %s", str(e))
     _logger.debug('Returning session')
     return sess
 
 
-class IndentPrinter(object):
+class IndentPrinter:
     """
     Printer used in ColumnsPrinter.
     Print rows with indentation to stdout
     """
 
     def __init__(self, howmany):
-        '''how many space indentation'''
+        """ How many spaces indentation
+        """
         self.hm = howmany
 
     def write(self, s):
-        """
-            write string to stdout
+        """ Write string to stdout
         """
         sys.stdout.write('  '*self.hm + s)
 
@@ -340,8 +335,11 @@ def do_show_vnics_information(vnics, mode, details=False):
         _columns.append(['Availability domain', 20, 'get_availability_domain_name'])
 
         ips_printer = TextPrinter(title='Private IP addresses:',
-                                  columns=(['IP address', 15, 'get_address'], ['OCID', '90', 'get_ocid'], ['Hostname', 25, 'get_hostname'],
-                                           ['Subnet', 30, _display_secondary_ip_subnet]), printer=IndentPrinter(3))
+                                  columns=(['IP address', 15, 'get_address'],
+                                           ['OCID', '90', 'get_ocid'],
+                                           ['Hostname', 25, 'get_hostname'],
+                                           ['Subnet', 30, _display_secondary_ip_subnet]),
+                                  printer=IndentPrinter(3))
 
     printer = printerKlass(title=_title, columns=_columns)
     printer.printHeader()
@@ -431,12 +429,6 @@ def compat_show_vnics_information():
     """
     Show the current VNIC configuration of the instance based on
 
-
-    parameters
-    ----------
-     mode : output mode as str 'json','test','table','parsable','json'
-     details : display details information ?
-
     Returns
     -------
        No return value.
@@ -480,8 +472,11 @@ def compat_show_vnics_information():
 
     printer = TextPrinter(title=_title, columns=_columns, column_separator='')
     ips_printer = TextPrinter(title='Private IP addresses:',
-                              columns=(['IP address', 15, 'get_address'], ['OCID', '90', 'get_ocid'], ['Hostname', 25, 'get_hostname'],
-                                       ['Subnet', 24, _display_secondary_ip_subnet]), printer=IndentPrinter(3))
+                              columns=(['IP address', 15, 'get_address'],
+                                       ['OCID', '90', 'get_ocid'],
+                                       ['Hostname', 25, 'get_hostname'],
+                                       ['Subnet', 24, _display_secondary_ip_subnet]),
+                              printer=IndentPrinter(3))
 
     printer.printHeader()
     for vnic in vnics:
@@ -607,9 +602,9 @@ def do_create_vnic(create_options):
             if len(subnets) == 0:
                 raise Exception("No subnet matching %s found" % create_options.subnet)
             if len(subnets) > 1:
-                _logger.error("More than one subnet matching %s found:\n" % create_options.subnet)
+                _logger.error("More than one subnet matching %s found:\n", create_options.subnet)
                 for sn in subnets:
-                    _logger.error("   %s\n" % sn.get_display_name())
+                    _logger.error("   %s\n", sn.get_display_name())
                 raise Exception("More than one subnet matching")
             subnet_id = subnets[0].get_ocid()
         else:
@@ -684,12 +679,9 @@ def do_add_private_ip(vnic_utils, add_options):
     else:
         vnics = sess.this_instance().all_vnics()
         if len(vnics) > 1:
-            _logger.error("More than one VNIC found."
-                          "Use the --vnic option to select the one to add "
-                          "a secondary IP for:")
+            _logger.error("More than one VNIC found.Use the --ocid option to select the one to add a secondary IP for:")
             for vnic in vnics:
-                _logger.error("   %s: %s" % (vnic.get_private_ip(),
-                                             vnic.get_ocid()))
+                _logger.error("   %s: %s", vnic.get_private_ip(), vnic.get_ocid())
             raise Exception("Too many VNICs found")
         vnic = vnics[0]
     try:
@@ -697,8 +689,7 @@ def do_add_private_ip(vnic_utils, add_options):
     except Exception as e:
         raise Exception('Failed to provision private IP: %s ' % str(e)) from e
 
-    _logger.info(
-        'provisioning secondary private IP: %s' % priv_ip.get_address())
+    _logger.info('provisioning secondary private IP: %s', priv_ip.get_address())
     vnic_utils.add_private_ip(priv_ip.get_address(), vnic.get_ocid())
     return priv_ip.get_address(), vnic.get_ocid()
 
@@ -730,17 +721,18 @@ def do_del_private_ip(vnic_utils, delete_options):
     # find the private IP
     priv_ip = sess.this_instance().find_private_ip(delete_options.ip_address)
     if priv_ip is None:
-        raise Exception( "Secondary private IP not found: %s" % delete_options.ip_address)
+        raise Exception("Secondary private IP not found: %s" % delete_options.ip_address)
 
     if priv_ip.is_primary():
-        raise Exception("Cannot delete IP %s, it is the primary private address of the VNIC." % delete_options.ip_address)
+        raise Exception("Cannot delete IP %s, it is the primary private address of the VNIC."
+                        % delete_options.ip_address)
 
     vnic_id = priv_ip.get_vnic_ocid()
 
     if not priv_ip.delete():
         raise Exception('Failed to delete secondary private IP %s' % delete_options.ip_address)
 
-    _logger.info('Deconfigure secondary private IP %s' % delete_options.ip_address)
+    _logger.info('Deconfigure secondary private IP %s', delete_options.ip_address)
     # delete from vnic_info and de-configure the interface
     return vnic_utils.del_private_ip(delete_options.ip_address, vnic_id)
 
@@ -791,8 +783,8 @@ def main():
             try:
                 do_show_information(vnic_utils, args.output_mode, args.details)
             except Exception as e:
-                _logger.debug('cannot show  information', exc_info=True)
-                _logger.error('cannot show information: %s' % str(e))
+                _logger.debug('cannot show information', exc_info=True)
+                _logger.error('cannot show information: %s', str(e))
                 return 1
         return 0
 
@@ -831,7 +823,7 @@ def main():
             do_create_vnic(args)
         except Exception as e:
             _logger.debug('cannot create the VNIC', exc_info=True)
-            _logger.error('cannot create the VNIC: %s' % str(e))
+            _logger.error('cannot create the VNIC: %s', str(e))
             return 1
         # apply config of newly created vnic
         vnic_utils.auto_config(None)
@@ -841,7 +833,7 @@ def main():
             do_detach_vnic(args)
         except Exception as e:
             _logger.debug('cannot detach VNIC', exc_info=True)
-            _logger.error('cannot detach VNIC: %s' % str(e))
+            _logger.error('cannot detach VNIC: %s', str(e))
             return 1
         # if we are here session is alive: no check
         if get_oci_api_session().this_shape().startswith("BM"):
@@ -851,9 +843,9 @@ def main():
     if args.command == "add-secondary-addr":
         try:
             (ip, vnic_id) = do_add_private_ip(vnic_utils, args)
-            _logger.info("IP %s has been assigned to vnic %s." % (ip, vnic_id))
+            _logger.info("IP %s has been assigned to vnic %s.", ip, vnic_id)
         except Exception as e:
-            _logger.error('Failed to add private IP: %s' % str(e))
+            _logger.error('Failed to add private IP: %s', str(e))
             return 1
 
     if args.command == "remove-secondary-addr":
@@ -862,7 +854,7 @@ def main():
             if ret != 0:
                 raise Exception('Cannot delete ip: %s' % out)
         except Exception as e:
-            _logger.error('Failed to delete private IP: %s' % str(e), stack_info=True)
+            _logger.error('Failed to delete private IP: %s', str(e), stack_info=True)
             return 1
 
     if 'namespace' in args and args.namespace:

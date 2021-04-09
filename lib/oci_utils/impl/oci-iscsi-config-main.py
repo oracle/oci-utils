@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019. 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -29,6 +29,7 @@ from oci_utils.impl.row_printer import get_row_printer_impl
 _logger = logging.getLogger("oci-utils.oci-iscsi-config")
 
 oci_volume_tag = 'ocid1.volume.'
+
 
 def volume_size_validator(value):
     """
@@ -163,7 +164,7 @@ def get_args_parser():
     attach_parser.add_argument('-I', '--iqns',
                                required=True,
                                type=attachable_iqn_list_validator,
-                               help='Comma separated list of IQN(s) of the iSCSI devices to be attached.')
+                               help='Comma separated list of IQN(s) or OCID(s) of the iSCSI devices to be attached.')
     attach_parser.add_argument('-u', '--username',
                                metavar='USER',
                                action='store',
@@ -719,10 +720,10 @@ def get_volume_by_iqn(sess, iqn):
     """
     _logger.debug('Looking for volume with IQN == %s', iqn)
     # if not hasattr(get_volume_by_iqn, 'all_this_instance_volume'):
-    #    _logger.debug('_GT_attr A %s', sess.this_instance().all_volumes())
+    #    _logger.debug('_GT_ attr A %s', sess.this_instance().all_volumes())
     #    get_volume_by_iqn.all_this_instance_volume = sess.this_instance().all_volumes()
-    #else:
-    #    _logger.debug('_GT_attr B %s', get_volume_by_iqn.all_this_instance_volume)
+    # else:
+    #    _logger.debug('_GT_ attr B %s', get_volume_by_iqn.all_this_instance_volume)
     get_volume_by_iqn.all_this_instance_volume = sess.this_instance().all_volumes()
 
     for v in get_volume_by_iqn.all_this_instance_volume:
@@ -821,7 +822,12 @@ def do_create_volume(sess, size, display_name, attach_it):
         inst = sess.this_instance()
         if inst is None:
             raise Exception("OCI SDK error: couldn't get instance info")
-        vol = sess.create_volume(inst.get_compartment_id(),
+        _logger.debug('\navailability_domain %s\ncompartment_id %s',
+                      inst.get_availability_domain_name(), inst.get_compartment_id())
+        #
+        # GT
+        # vol = sess.create_volume(inst.get_compartment_id(),
+        vol = sess.create_volume(sess.this_compartment().get_ocid(),
                                  inst.get_availability_domain_name(),
                                  size=size,
                                  display_name=display_name,
@@ -962,8 +968,9 @@ def main():
     if args.command == 'show':
         display_attached_volumes(oci_sess, iscsiadm_session, system_disks,
                                  args.output_mode, args.details, not args.no_truncate)
-        api_display_available_block_volumes(oci_sess, args.compartments, args.all,
-                                            args.output_mode, args.details, not args.no_truncate)
+        if args.all:
+            api_display_available_block_volumes(oci_sess, args.compartments, args.all,
+                                                args.output_mode, args.details, not args.no_truncate)
 
         return 0
 
@@ -1018,7 +1025,7 @@ def main():
                         ans = ask_yes_no("Would you like to attach this device?")
                     if ans:
                         try:
-                            _do_iscsiadm_attach(oci_sess, iqn, targets)
+                            _do_iscsiadm_attach(iqn, targets)
                             _did_something = True
                         except Exception as e:
                             _logger.error('[%s] attachment failed: %s', iqn, str(e))
@@ -1219,7 +1226,7 @@ def main():
 
     if not attach_failed and not detached_volume_iqns:
         print("All known devices are attached.")
-        print("Use the -s or --show option for details.")
+        print("Use the -s, --show or show option for details.")
 
     return 0
 

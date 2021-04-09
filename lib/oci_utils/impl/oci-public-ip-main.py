@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -36,32 +36,47 @@ def parse_args():
     group = parser.add_mutually_exclusive_group()
 
     # deprecated option
-    parser.add_argument('-h', '--human-readable', action='store_true',
+    parser.add_argument('-h', '--human-readable',
+                        action='store_true',
                         help=argparse.SUPPRESS)
     # deprecated option
-    parser.add_argument('-j', '--json', action='store_true',
+    parser.add_argument('-j', '--json',
+                        action='store_true',
                         help=argparse.SUPPRESS)
     # deprecated option
-    parser.add_argument('-g', '--get', action='store_true',
+    parser.add_argument('-g', '--get',
+                        action='store_true',
                         help=argparse.SUPPRESS)
-    parser.add_argument('--output-mode', choices=('parsable','table','json','text'), help='Set output mode',default='table')
-    parser.add_argument('-d', '--details', action='store_true',
+    parser.add_argument('--output-mode',
+                        choices=('parsable', 'table', 'json', 'text'),
+                        help='Set output mode',
+                        default='table')
+    parser.add_argument('-d', '--details',
+                        action='store_true',
                         help="display details information")
-    parser.add_argument('-a', '--all', action='store_true',
-                        help='list all of the public IP addresses for the '
-                             'instance.')
-    parser.add_argument('-s', '--sourceip', action='store', default="0.0.0.0",
+    parser.add_argument('-a', '--all',
+                        action='store_true',
+                        help='list all of the public IP addresses for the instance.')
+    parser.add_argument('-s', '--sourceip',
+                        action='store',
+                        default="0.0.0.0",
                         help='Specify the source IP address to use')
-    group.add_argument('-S', '--stun-server', action='store',
+    group.add_argument('-S', '--stun-server',
+                       action='store',
                        help='Specify the STUN server to use')
-    parser.add_argument('-L', '--list-servers', action='store_true',
+    parser.add_argument('-L', '--list-servers',
+                        action='store_true',
                         help='Print a list of known STUN servers and exit')
-    group.add_argument('--instance-id', metavar='OCID', action='store',
+    group.add_argument('--instance-id',
+                       metavar='OCID',
+                       action='store',
                        help='Display the public IP address of the given '
                        'instance instead of the current one.  Requires '
                        'the OCI Python SDK to be installed and '
                        'configured')
-    parser.add_argument('--help', action='help', help='Display this help')
+    parser.add_argument('--help',
+                        action='help',
+                        help='Display this help')
     args = parser.parse_args()
     return args
 
@@ -79,14 +94,14 @@ def _display_ip_list(ip_list, displayALL, outputMode, displayDetails):
     if displayALL:
         _ip_list_to_display = ip_list
     else:
-        #we assume that primary is the first one and we want ot display only it
+        # We assume that primary is the first one and we want ot display only it
         _ip_list_to_display = ip_list[:1]
 
     _title = 'Public IPs information (primary on top)'
-    _columns = [['IP Address',15,'ip']]
+    _columns = [['IP Address', 15, 'ip']]
     if displayDetails:
-        _columns.append(['vNIC name',15,'vnic_name'])
-        _columns.append(['vNIC OCID',90,'vnic_ocid'])
+        _columns.append(['vNIC name', 15, 'vnic_name'])
+        _columns.append(['vNIC OCID', 90, 'vnic_ocid'])
 
     printerKlass = get_row_printer_impl(outputMode)
 
@@ -135,8 +150,7 @@ def main():
         if args.instance_id is not None:
             # user specified a remote instance, there is no fallback to stun
             # we treat this as an error now
-            stun_log.error(
-                "Error getting information of instance [%s]: %s" % (args.instance_id, str(e)))
+            stun_log.error("Error getting information of instance [%s]: %s", args.instance_id, str(e))
             return 1
         # in that case, just issue a debug info
         stun_log.debug("Error getting information of current instance: %s", str(e))
@@ -146,21 +160,21 @@ def main():
     if _instance is None:
         if args.instance_id is not None:
             # user specified a remote instance, there is no fallback to stun
-            stun_log.error(
-                "Instance not found: %s" % args.instance_id)
+            stun_log.error("Instance not found: %s", args.instance_id)
             return 1
         # can we really end up here ?
         stun_log.debug("current Instance not found")
         # fall back to pystun
         stun_log.debug('No ip found , fallback to STUN')
-        _ip = get_ip_info(source_ip=args.sourceip,
-                          stun_host=args.stun_server)[1]
-        stun_log.debug('STUN gave us : %s' % _ip)
+        _ip = get_ip_info(source_ip=args.sourceip, stun_host=args.stun_server)[1]
+        stun_log.debug('STUN gave us : %s', _ip)
         if _ip:
-            _all_p_ips.append({'ip':_ip})
+            _all_p_ips.append({'ip': _ip})
     else:
-        _all_p_ips=[{'ip':v.get_public_ip(),'vnic_name':v.get_display_name(),'vnic_ocid':v.get_ocid()} for v in _instance.all_vnics() if v.get_public_ip()]
-        stun_log.debug('%s ips retreived from sdk information' % len(_all_p_ips))
+        _all_p_ips = [{'ip': v.get_public_ip(),
+                       'vnic_name': v.get_display_name(),
+                       'vnic_ocid': v.get_ocid()} for v in _instance.all_vnics() if v.get_public_ip()]
+        stun_log.debug('%s ips retreived from sdk information', len(_all_p_ips))
 
     if len(_all_p_ips) == 0:
         # none of the methods give us information

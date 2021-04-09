@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -39,8 +39,7 @@ class OCIAPIAbstractResource:
         # GT
         # self._ocid = self._data['id']
         self._ocid = getattr(self._data, 'id', None)
-        OCIAPIAbstractResource._logger.debug('_GT_ self._ocid %s', self._ocid, stack_info=True)
-        
+
     def __dict__(self):
         """
         Override __dict__ attribute.
@@ -116,7 +115,7 @@ class OCIAPIAbstractResource:
                     data_dict[key] = value
             return data_dict
         except Exception as e:
-            OCIAPIAbstractResource._logger.debug('error processing dict recursive: %s' % str(e), stack_info=True)
+            OCIAPIAbstractResource._logger.debug('error processing dict recursive: %s', str(e), stack_info=True)
             return None
 
     def get_display_name(self):
@@ -158,7 +157,7 @@ class OCIAPIAbstractResource:
         #
         # GT
         # return self._data['compartment_id']
-        return self._data.id
+        return self._data.compartment_id
 
     def get_compartment(self):
         """

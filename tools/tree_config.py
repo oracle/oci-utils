@@ -40,7 +40,7 @@ class TreeConfigParser(configparser.ConfigParser):
             entity from which the hierarchy will be built.
             obj.__name__
             obj.__class__.__name__
-            obj.__module__.plit('.')
+            obj.__module__.split('.')
         """
         assert isinstance(obj, object), 'Invalid object passed'
         configparser.ConfigParser.__init__(self)

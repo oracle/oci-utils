@@ -6,6 +6,7 @@
 RPM=$(which rpm)
 GREP=$(which grep)
 FIND=$(which find)
+SED=$(which sed)
 MKDIR=$(which mkdir)
 DNF=dnf
 SYSTEMCTL=$(which systemctl)
@@ -15,6 +16,9 @@ installrpm=$(which yum)
 else
 installrpm=$(which dnf)
 fi
+
+OSVERSION=$(${SED} -rn 's/.*([0-9])\.[0-9].*/\1/p' /etc/redhat-release)
+${SUDO} --login ${installrpm} config-manager --enable ol${OSVERSION}_developer
 
 ${SUDO} --login ${MKDIR} -p /root/test_data/test_rpms
 ${SUDO} --login ${MKDIR} -p /root/test_data/install_rpms

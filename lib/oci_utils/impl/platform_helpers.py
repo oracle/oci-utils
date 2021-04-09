@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -28,7 +28,7 @@ def get_phys_device():
         # TODO : it seesm that it is private_ip now
         private_ip = InstanceMetadata().refresh()['vnics'][0]['privateIp']
     except Exception as e:
-        _logger.debug('error checking metadata: %s' , str(e))
+        _logger.debug('error checking metadata: %s', str(e))
         return None
     phys_dev = None
     output = sudo_utils.call_output([IP_CMD, '-o', '-4', 'addr', 'show'])
@@ -37,7 +37,7 @@ def get_phys_device():
         _l = line.decode().strip()
         if private_ip in _l:
             phys_dev = _l.split()[1]
-    _logger.debug('%s physical devices found' % len(phys_dev))
+    _logger.debug('%s physical devices found', len(phys_dev))
     return phys_dev
 
 

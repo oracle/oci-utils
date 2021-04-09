@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -180,7 +180,7 @@ def pretty_print_section(metadata, indent):
             display_key = oci_metadata_detail[key]
         value = metadata[key]
 
-        if isinstance(metadata[key],dict):
+        if isinstance(metadata[key], dict):
             print("%s%s:" % (indent, display_key))
             pretty_print_section(value, indent + "  ")
             continue
@@ -209,7 +209,7 @@ def pretty_print_section(metadata, indent):
 
         value = metadata[key]
 
-        if isinstance(metadata[key],dict):
+        if isinstance(metadata[key], dict):
             print("%s%s:" % (indent, display_key))
             pretty_print_section(value, indent + "  ")
             continue
@@ -310,7 +310,7 @@ def parse_var(key_value):
                 tmp = json.loads(json_acceptable_string)
                 value = tmp
             except Exception as e:
-                _logger.error("Invalid value '%s': %s" % (value, e))
+                _logger.error("Invalid value '%s': %s", value, e)
                 sys.exit(1)
 
         elif value.startswith("file:"):
@@ -322,14 +322,13 @@ def parse_var(key_value):
                     value = d
                     fp.close()
                 else:
-                    _logger.error("Invalid file path: %s" % fname)
+                    _logger.error("Invalid file path: %s", fname)
                     sys.exit(1)
             except Exception as e:
-                _logger.error("Invalid file content (%s): %s" % (fname, e))
+                _logger.error("Invalid file content (%s): %s", fname, e)
                 sys.exit(1)
     else:
-        _logger.error(
-            " -u or --update expects key='value' format, not %s" % key_value)
+        _logger.error(" -u or --update expects key='value' format, not %s", key_value)
         sys.exit(1)
 
     return key, value
@@ -355,8 +354,7 @@ def parse_vars(items):
             for item in item_list:
                 key, value = parse_var(item)
                 if key.find('/') >= 0:
-                    _logger.error(
-                        "Key should be simple without path (%s)" % key)
+                    _logger.error("Key should be simple without path (%s)", key)
                     sys.exit(1)
                 d[key] = value
     return d
@@ -382,26 +380,23 @@ def verify_setkeys(set_keys):
     for k in keys:
         if k in OCIInstance.settable_field_type:
             v = set_keys[k]
-            if isinstance(v,OCIInstance.settable_field_type[k]):
+            if isinstance(v, OCIInstance.settable_field_type[k]):
                 continue
-            _logger.error(" Key %s expects value of %s, not %s." % (
-                k, human_readable_type[OCIInstance.settable_field_type[k]],
-                human_readable_type[type(v)]))
+            _logger.error(" Key %s expects value of %s, not %s.",
+                          k, human_readable_type[OCIInstance.settable_field_type[k]], human_readable_type[type(v)])
             return False
         if k.lower() in OCIInstance.lower_settable_fields:
             v = set_keys.pop(k)
             k = OCIInstance.lower_settable_fields.get(k.lower())
-            if isinstance(v,OCIInstance.settable_field_type[k]):
+            if isinstance(v, OCIInstance.settable_field_type[k]):
                 set_keys[k] = v
             else:
-                _logger.error(" Key %s expects value of %s, not %s." % (
-                    k, human_readable_type[OCIInstance.settable_field_type[k]],
-                    human_readable_type[type(v)]))
+                _logger.error(" Key %s expects value of %s, not %s.",
+                              k, human_readable_type[OCIInstance.settable_field_type[k]], human_readable_type[type(v)])
                 return False
 
-        if k.lower() in lower_metadata_fields or k.lower() in \
-                oci_utils.metadata._attribute_map:
-            _logger.error(" Key(%s) is one of the reserved names." % k)
+        if k.lower() in lower_metadata_fields or k.lower() in oci_utils.metadata. _attribute_map:
+            _logger.error(" Key(%s) is one of the reserved names.", k)
             return False
 
         if "extendedMetadata" in list(set_keys.keys()):
@@ -442,7 +437,7 @@ def get_values(key, metadata):
             elif v is not None:
                 values.append(v)
         return values
-    if isinstance(metadata,dict):
+    if isinstance(metadata, dict):
         return None
     if key in metadata:
         return metadata[key]
@@ -494,7 +489,7 @@ def get_trimed_key_values(keys, metadata):
                     exportKeys[ke].append(v)
             continue
         v = get_values(ke,  metadata)
-        if isinstance(v,list):
+        if isinstance(v, list):
             exportKeys[ke].extend(v)
         elif v is not None:
             exportKeys[ke].append(v)
@@ -516,7 +511,7 @@ def remove_list_for_single_item_list(dic):
     dic: the changed dictionary
     """
     for k, v in dic.items():
-        if isinstance(v,list):
+        if isinstance(v, list):
             if len(v) == 0:
                 dic[k] = None
             elif len(v) == 1:
@@ -537,7 +532,7 @@ def print_trimed_key_values(keys, metadata):
 
     kValues = get_trimed_key_values(keys, metadata)
     for k, v in kValues.items():
-        if isinstance(v,list):
+        if isinstance(v, list):
             for item in v:
                 print(k + ": " + str(item))
         else:
@@ -558,7 +553,7 @@ def print_value_only(keys, metadata):
 
     kValues = get_trimed_key_values(keys, metadata)
     for _, v in kValues.items():
-        if isinstance(v,list):
+        if isinstance(v, list):
             for item in v:
                 print(str(item))
         else:
@@ -585,7 +580,7 @@ def export_keys(keys, metadata):
     for k, v in kValues.items():
         x = 'export '
         x += k + '=\"'
-        if isinstance(v,list):
+        if isinstance(v, list):
             end = ""
             for item in v:
                 x += end + str(item)
@@ -609,8 +604,8 @@ def convert_key_values_to_string(this_dict):
     -------
         The string representation.
     """
-    #Recursively converts dictionary keys to strings.
-    if isinstance(this_dict,str):
+    # Recursively converts dictionary keys to strings.
+    if isinstance(this_dict, str):
         return str(this_dict)
     if isinstance(this_dict, collections.Mapping):
         nd = {}
@@ -660,7 +655,7 @@ def main():
             meta = OCISession().update_instance_metadata(instance_id=inst_id, **k_v)
             metadata = meta.filter(list(k_v.keys()))
         except Exception as e:
-            _logger.error("%s" % str(e), exc_info=True)
+            _logger.error("%s", str(e), exc_info=True)
             return 1
     else:
         # get
@@ -677,17 +672,16 @@ def main():
                 meta = InstanceMetadata().refresh()
             metadata = meta.filter(args.keys)
         except Exception as e:
-            _logger.error("%s" % str(e), exc_info=True)
+            _logger.error("%s", str(e), exc_info=True)
             return 1
 
     if metadata is None:
         if args.keys:
-            _logger.error(
-                "No matching metadata for '%s' found." % str(args.keys))
+            _logger.error("No matching metadata for '%s' found.", str(args.keys))
         elif args.setkeys:
-            _logger.error("No matching metadata for '%s' found." % str(args.setkeys))
+            _logger.error("No matching metadata for '%s' found.", str(args.setkeys))
         else:
-            _logger.error("No metadata found for instance (%s)." % inst_id)
+            _logger.error("No metadata found for instance (%s).", inst_id)
         return 1
 
     if args.value_only:

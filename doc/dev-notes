@@ -73,7 +73,7 @@ How to test oci-utils.
     Writting Unit tests
         All unit tests must be located under <wks>/tests. There is a special class OciTestCase all unit test must
         inherit from. Tis class is responsible to :
-            - instanciate a logger for the (child) test class
+            - instantiate a logger for the (child) test class
             - setup the TreeConfigParser instance to hold test configurations.
                     A TreeConfigParser maintains a set of key/value pair configuration items for tests. see
                     'Unit tests configuration' section for details
