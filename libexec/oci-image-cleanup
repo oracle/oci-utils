@@ -7,8 +7,11 @@
      
   
 # Globals
-FORCE=false
-DRYRUN=false
+TRUE=0
+FALSE=1
+#
+FORCE=${FALSE}
+DRYRUN=${FALSE}
 PLAN_PRINT=0
 BASE_DIR=/dev/shm/oci-utils
 PLAN_BASE_DIR=/tmp/oci-utils
@@ -29,7 +32,7 @@ CLEAN_HISTORY_DADA_LOG=
 # OS release
 OSRELEASE=$(uname -r | sed 's/^.*\(el[0-9]\+\).*$/\1/')
 
-print_warning_essage()
+print_warning_message()
 {
 cat <<EOF
 This script runs a set of cleanup steps to prepare OCI OL instances for CUSTOM images
@@ -75,11 +78,11 @@ confirm()
 {
     [ $# -eq 1 ] && input=$1 || input=
 
-    if [[ $FORCE = true ]]; then
+    if [[ $FORCE = ${TRUE} ]]; then
         [[ "$input" =~ ^[nN] ]] && return 1 || return 0
     fi
 
-    while true
+    while :
     do
         [ -z "$input" ] &&  read -r -p "Confirm? [y/n]: " input
         case $input in
@@ -108,7 +111,7 @@ clean_and_abort()
 print_and_exit()
 {
     echo -e '\n********************************************'
-    [[ $RESTORE = true ]] && echo "Restore is done from $restore_dir"  || echo "Cleanup is done. All deleted files are stored in $BACKUP_LOC"
+    [[ $RESTORE = ${TRUE} ]] && echo "Restore is done from $restore_dir"  || echo "Cleanup is done. All deleted files are stored in $BACKUP_LOC"
     echo "Please check $CONFLOG for what you want to do."
     echo "and check $LOGFILE for result."
     exit 0
@@ -160,7 +163,7 @@ backup_and_delete()
     plan $BACKUP_CMD  "$backup_item" $BACKUP_LOC $EXCLUDE_PATTERN
 
     if [ -d "$backup_item" -a  "$CLEANUP_LEVEL" == "0" ]; then
-        plan 'rm -rf $backup_item'
+        plan "rm -rf $backup_item"
     elif [ "$CLEANUP_LEVEL" != "2" ]; then
         for file in `find $backup_item $EXCLUDE_FIND 2>/dev/null`; do
            [ -d "$file" ] && continue
@@ -174,7 +177,10 @@ backup_and_delete()
     plan 'echo " Done!"'
 }
 
-print_agreement(){
+print_agreement()
+{
+    [[ $FORCE == ${TRUE} ]] || [[ $RESTORE == ${TRUE} ]] && return 0
+
     echo -e "#This is what you want me to do:
 #---------------------------------
 CLEAN_NET_CONFIG_FILES=$CLEAN_NET_CONFIG_FILES
@@ -189,7 +195,7 @@ CLEAN_HISTORY_DATA_LOG=$CLEAN_HISTORY_DATA_LOG
 
 warn()
 {
-    [[ $FORCE == true ]] || [[ $RESTORE == true ]] && return 0
+    [[ $FORCE == ${TRUE} ]] || [[ $RESTORE == ${TRUE} ]] && return 0
     
     if grep "=YES" $CONFLOG |grep -E "_SSH_|_ROOT_" &>/dev/null; then 
         echo -e "\n\nWARNING!!!
@@ -299,6 +305,8 @@ cleanup()
       /etc/lvm/cache/.cache,
       /var/lib/yum/uuid,
       /var/lib/cloud/*,
+      /var/lib/cloud/instance,
+      /var/lib/cloud/instances,
       /var/lib/iscsi/*,
       /etc/sysconfig/rhn/systemid,
       /etc/sysconfig/rhn/up2date,
@@ -363,6 +371,8 @@ cleanup()
   # Purge cloud-init data
   plan 'echo -e "\nClearing cloud-init data..."'
   backup_and_delete "/var/lib/cloud/*"
+  backup_and_delete "/var/lib/cloud/instance"
+  backup_and_delete "/var/lib/cloud/instances"
 
   # Remove stale iscsi configuration data
   plan 'echo -e "\nClearing stale iscsi configuration data..."'
@@ -472,18 +482,18 @@ fi
 #trap 'clean_and_abort' SIGINT 
 
 CMD=$0
-RESTORE=false
+RESTORE=${FALSE}
 config_file=""
 backup_dir=""
 while [ "$#" -gt 0 ]; do
     case "$1" in
     -f|--force)
-        FORCE=true
+        FORCE=${TRUE}
         F_VALUE=y
         shift 1
         ;;
     --dry-run)
-        DRYRUN=true
+        DRYRUN=${TRUE}
         shift 1
         ;;
     -c)
@@ -508,13 +518,13 @@ while [ "$#" -gt 0 ]; do
         fi
         ;;
     -r)
-        RESTORE=true
+        RESTORE=${TRUE}
         restore_dir=$2
         shift 2
         ;;
     --restore-dir=*)
         restore_dir="${1#*=}"
-        RESTORE=true
+        RESTORE=${TRUE}
         shift 1
         ;;
 
@@ -557,12 +567,12 @@ echo -e "oci image-cleanup $@ \n" > $LOGFILE
 
 go_on=0
 
-if [[ $RESTORE = true ]]; then
+if [[ $RESTORE = ${TRUE} ]]; then
     restore $restore_dir
 else
-    if [ $FORCE == false ]
+    if [ $FORCE == ${FALSE} ]
     then
-      print_warning_essage
+      print_warning_message
       confirm 'Perform cleanup'
       if [ $? -eq 0 ]
       then
@@ -581,7 +591,7 @@ else
     fi
 fi
    
-if [[ $DRYRUN = true ]]; then
+if [[ $DRYRUN = ${TRUE} ]]; then
     print_plan |tee -a $LOGFILE
     PLAN_PRINT=1
     echo -e "\n\nDRYRUN. Nothing get affected.
@@ -592,6 +602,6 @@ fi
 chmod a+x $PLANFILE
 $PLANFILE |tee -a $LOGFILE
 print_and_exit | tee -a $LOGFILE
-rm -f $PLANFILE
+rm -rf ${PLAN_BASE_DIR}
 
 #end

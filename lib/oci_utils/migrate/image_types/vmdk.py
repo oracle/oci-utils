@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -47,10 +47,8 @@ typedef struct SparseExtentHeader {
 format_data = {'4b444d56': {'name': 'vmdk',
                             'module': 'vmdk',
                             'clazz': 'VmdkHead',
-                            'prereq': {'MAX_IMG_SIZE_GB': 300.0,
-                                       'vmdk_supported_types':
-                                           ['monolithicSparse',
-                                            'streamOptimized']}}}
+                            'prereq': {'MAX_IMG_SIZE_GB': 400.0,
+                                       'vmdk_supported_types': ['monolithicSparse', 'streamOptimized']}}}
 
 _logger = logging.getLogger('oci-utils.vmdk')
 

@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -37,7 +37,7 @@ from oci_utils.migrate.migrate_data import gigabyte
 format_data = {'514649fb': {'name': 'qcow2',
                             'module': 'qcow2',
                             'clazz': 'Qcow2Head',
-                            'prereq': {'MAX_IMG_SIZE_GB': 300.0}}}
+                            'prereq': {'MAX_IMG_SIZE_GB': 400.0}}}
 
 _logger = logging.getLogger('oci-utils.qcow2')
 

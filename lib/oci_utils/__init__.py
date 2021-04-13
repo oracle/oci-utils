@@ -38,6 +38,7 @@ oci_regions = {
     'kix': 'kix - ap-osaka-1 (Osaka, Japan)',
     'mel': 'mel - ap-melbourne-1 (Melbourne, Australia)',
     'nrt': 'nrt - ap-tokyo-1 (Tokyo, Japan)',
+    'scl': 'scl - sa-santiago-1 (Santiago, Chile)',
     'sjc': 'sjc - us-sanjose-1 (San Jose, CA, USA)',
     'syd': 'syd - ap-sydney-1 (Sydney, Australia)',
     'yny': 'yny - ap-chuncheon-1 (Chuncheon, South Korea)',
