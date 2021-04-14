@@ -1,7 +1,7 @@
 # OCI Utilities
 
 Instances created using Oracle-Provided Images based on Oracle Linux include a pre-installed set of utilities that are designed
-to make it easier to work with Oracle Linux images.
+to make it easier to work with Oracle Linux images. 
 
 
 These utilities consist of a service component and related command line tools that can help with managing
@@ -21,3 +21,5 @@ The following list summarizes the components that are included in the OCI utilit
 - `oci-network-inspector`: Displays a detailed report for a given compartment or network.
 - `oci-public-ip`: Displays the public IP address of the current system in either human-readable or JSON format.
 - `oci-notify`: Sends a message to an OCI notification service.
+
+For usage details, see the [OCI Utilities section of the Oracle Cloud Infrastructure documentation](https://docs.oracle.com/en-us/iaas/Content/Compute/References/ociutilities.htm).
