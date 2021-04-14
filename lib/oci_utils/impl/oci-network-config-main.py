@@ -15,8 +15,9 @@ import sys
 
 import oci_utils
 import oci_utils.oci_api
-from oci_utils.vnicutils import VNICUtils
+from oci_utils.impl.oci_resources import OCIVNIC
 from oci_utils.impl.row_printer import (get_row_printer_impl, TablePrinter, TextPrinter)
+from oci_utils.vnicutils import VNICUtils
 
 _logger = logging.getLogger("oci-utils.oci-network-config")
 
@@ -628,14 +629,16 @@ def do_create_vnic(create_options):
             _primary_v = [v for v in _this_instance.all_vnics() if v.is_primary()][0]
             subnet_id = _primary_v.get_subnet_id()
     try:
-        vnic = _this_instance.attach_vnic(
-            private_ip=create_options.ip_address,
-            assign_public_ip=create_options.assign_public_ip,
-            subnet_id=subnet_id,
-            nic_index=create_options.nic_index,
-            display_name=create_options.name)
+        vnic = _this_instance.attach_vnic(private_ip=create_options.ip_address,
+                                          assign_public_ip=create_options.assign_public_ip,
+                                          subnet_id=subnet_id,
+                                          nic_index=create_options.nic_index,
+                                          display_name=create_options.name)
     except Exception as e:
         raise Exception('Failed to create VNIC: %s' % str(e)) from e
+
+    if not isinstance(vnic, OCIVNIC):
+        raise Exception('Failed to attach VNIC %s' % create_options.name)
 
     public_ip = vnic.get_public_ip()
     if public_ip is not None:

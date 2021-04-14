@@ -790,10 +790,10 @@ def _auto_config_intf(net_namespace_info, intf_infos):
     """
     # if interface is not up bring it up
     if intf_infos['STATE'] != 'up':
-        _logger.debug('bringing intf [%s] up ', intf_infos['IFACE'])
+        _logger.debug('Bringing intf [%s] up ', intf_infos['IFACE'])
         ret = sudo_utils.call(['/usr/sbin/ip', 'link', 'set', 'dev', intf_infos['IFACE'], 'up'])
         if ret != 0:
-            raise Exception('Cannot bring inerface up')
+            raise Exception('Cannot bring interface up')
 
     # create network namespace if needed
     if net_namespace_info is not None:
