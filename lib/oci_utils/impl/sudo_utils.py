@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -19,7 +19,7 @@ _logger = logging.getLogger('oci-utils.sudo')
 
 def _prepare_command(cmd):
     """
-    Prepare the command line to be executed prepend sudo if not alreary present.
+    Prepare the command line to be executed prepend sudo if not already present.
 
     Parameters
     ----------
@@ -42,12 +42,15 @@ def _prepare_command(cmd):
 
 def execute(cmd):
     """
-    execute a command return
+    Execute a command return.
+
     Parameters
     ----------
     cmd: list
         Command line as list of strings.
-    return
+
+    Returns
+    -------
     (exit code, stdout, stderr)
     """
     _c = _prepare_command(cmd)
@@ -56,7 +59,7 @@ def execute(cmd):
     cp = subprocess.run(_c, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
     if cp.returncode != 0 and _logger.isEnabledFor(logging.DEBUG):
         _logger.debug("execution failed: ec=%s, output=[%s], stderr=[%s] ", cp.returncode, cp.stdout, cp.stderr)
-    return (cp.returncode, cp.stdout.decode('utf-8'), cp.stderr.decode('utf-8'))
+    return cp.returncode, cp.stdout.decode('utf-8'), cp.stderr.decode('utf-8')
 
 
 def call(cmd, log_output=True):

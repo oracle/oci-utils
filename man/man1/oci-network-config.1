@@ -69,7 +69,7 @@ sub-commands allows creating a new VNIC for the instance, detaching a VNIC from 
 or adding/removing private IP addresses to/from an existing VNIC.
 
 The
-.B add-secondary-addrc
+.B add-secondary-addr
 and
 .B remove-secondary-addr
 sub-commands allows adding/removing private IP addresses to/from an existing VNIC.
@@ -187,10 +187,10 @@ can be a VNIC OCID, an IP address or a VLAN interface name.
 Include an
 .B ITEM
 that was previously excluded using the --exclude option in automatic configuration/deconfiguration.
-.IP "-n FORMAT, --ns FORMAT"
+.IP "-n FORMAT, --namespace FORMAT"
 When configuring, place interfaces in namespace identified by the given format. Format can include $nic and $vltag variables. The name defaults to '$DEF_NS_FORMAT_BM' for BMs and '$DEF_NS_FORMAT_VM' for VMs. When configuring multiple VNICs ensure the namespaces are unique.
 .IP "-r, --sshd"
-Start sshd in namespace (if -n or --ns is present)
+Start sshd in namespace (if -n or --namespace is present)
 .RE
 .TP
 oci-network-config unconfigure

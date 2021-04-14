@@ -1,0 +1,36 @@
+#
+# Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+#
+# makefile for oci-utils-automation
+#
+
+as user:
+
+update files, sources, spec, gpg keys
+run 
+ make help
+    shows help info
+ make showversion
+    shows spec versiondata
+ make distro
+    creates compressed tarball
+ make directorystructure
+    creates the directorystructure for building the rpms
+ make rpms
+    builds the rpms
+ make repos
+    creates the repo directories
+ make publish
+    copies the rpms to the destination, the default is /var/www/html/channel_rpms/$USER
+    the default destination is in the webserver area. 
+ make clean
+
+ make copyrpm RPM=[path|url to rpm] DISTRO=[OL7|OL8]
+     copies the rpm to the appropriate repository.
+ make cleanrepo
+
+current supported distributions:
+  .el7
+  .el8

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -7,7 +7,7 @@
 import logging
 
 
-class OCIAPIAbstractResource():
+class OCIAPIAbstractResource:
     """ Ancestor class for most OCI objects
     """
     _ignore_dict_items = ["swagger_types", "attribute_map"]
@@ -30,13 +30,15 @@ class OCIAPIAbstractResource():
         -------
             No return value.
         """
-        assert session.__class__.__name__ == 'OCISession', \
-            'Invalid type for session'
+        assert session.__class__.__name__ == 'OCISession', 'Invalid type for session'
         self._data = data
         self._oci_session = session
-        # While doing recursive things we may have to instanciate simple dict as OCIAPIAbstractResource
+        # While doing recursive things we may have to instantiate simple dict as OCIAPIAbstractResource
         # in that case we do not have 'id'.
-        self._ocid = self._data['id']
+        #
+        # GT
+        # self._ocid = self._data['id']
+        self._ocid = getattr(self._data, 'id', None)
 
     def __dict__(self):
         """
@@ -78,7 +80,10 @@ class OCIAPIAbstractResource():
                   TERMINATED,
                   UNKNOWN_ENUM_VALUE
         """
-        return self._data['lifecycle_state']
+        #
+        # GT
+        # return self._data['lifecycle_state']
+        return self._data.lifecycle_state
 
     def _get_dict_recursive(self):
         """
@@ -110,7 +115,7 @@ class OCIAPIAbstractResource():
                     data_dict[key] = value
             return data_dict
         except Exception as e:
-            OCIAPIAbstractResource._logger.debug('error calling __dict__: %s', str(e))
+            OCIAPIAbstractResource._logger.debug('error processing dict recursive: %s', str(e), stack_info=True)
             return None
 
     def get_display_name(self):
@@ -122,7 +127,9 @@ class OCIAPIAbstractResource():
             str
                 The display name.
         """
-        return self._data['display_name']
+        # GT
+        # return self._data['display_name']
+        return self._data.display_name
 
     def get_availability_domain_name(self):
         """
@@ -133,7 +140,10 @@ class OCIAPIAbstractResource():
             str
                 The domain name.
         """
-        return self._data['availability_domain']
+        #
+        # GT
+        # return self._data['availability_domain']
+        return self._data.availability_domain
 
     def get_compartment_id(self):
         """
@@ -144,7 +154,10 @@ class OCIAPIAbstractResource():
             str
                 The compartment id
         """
-        return self._data['compartment_id']
+        #
+        # GT
+        # return self._data['compartment_id']
+        return self._data.compartment_id
 
     def get_compartment(self):
         """
@@ -155,7 +168,10 @@ class OCIAPIAbstractResource():
             str
                 The compartment id.
         """
-        return self._oci_session.get_compartment(ocid=self._data['compartment_id'])
+        #
+        # GT
+        # return self._oci_session.get_compartment(ocid=self._data['compartment_id'])
+        return self._oci_session.get_compartment(ocid=self._data.compartment_id)
 
     def __str__(self):
         """
@@ -167,6 +183,7 @@ class OCIAPIAbstractResource():
                 The string representation of the instance.
         """
         return "'%s' (%s)" % (self.get_display_name(), self.get_ocid())
+
     def __repr__(self):
         """
         Override the string representation of the instance.
@@ -225,8 +242,7 @@ class OCIAPIAbstractResource():
             bool
                 True or False.
         """
-        assert isinstance(other, OCIAPIAbstractResource), \
-            'wrong type in comparison'
+        assert isinstance(other, OCIAPIAbstractResource), 'Wrong type in comparison'
         # at abstract level not much sense sorting: sort OCIDs then
         return self._ocid > other._ocid
 
@@ -244,8 +260,7 @@ class OCIAPIAbstractResource():
             bool
                 True or False.
         """
-        assert isinstance(other, OCIAPIAbstractResource), \
-            'wrong type in comparison'
+        assert isinstance(other, OCIAPIAbstractResource), 'Wrong type in comparison'
         # at abstract level not much sense sorting: sort OCIDs then
         return self._ocid < other._ocid
 

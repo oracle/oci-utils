@@ -1,13 +1,15 @@
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-
+import os
 import socket
 import unittest
 
 from oci_utils.impl.network_helpers import is_ip_reachable
 from tools.oci_test_case import OciTestCase
+
+os.environ['LC_ALL'] = 'en_US.UTF8'
 
 
 class TestNetworkHelpers(OciTestCase):
@@ -59,3 +61,8 @@ class TestNetworkHelpers(OciTestCase):
             str(self.properties.get_property('connect_remote')),
             int(self.properties.get_property('connect_remote_port'))))
         self.assertFalse(is_ip_reachable('blabber', 80))
+
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestNetworkHelpers)
+    unittest.TextTestRunner().run(suite)

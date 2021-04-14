@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2020, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 #
@@ -104,7 +104,7 @@ class NetworkInterfaceSetupHelper:
 
             _ip_cmd.extend(['link', 'add', 'link', self.info['IFACE'], 'name', _macvlan_name, 'address',
                             self.info['MAC'], 'type', 'macvlan'])
-            _logger.debug('creating macvlan [%s]' % _macvlan_name)
+            _logger.debug('creating macvlan [%s]', _macvlan_name)
             ret = sudo_utils.call(_ip_cmd)
             if ret != 0:
                 raise Exception("cannot create MAC VLAN interface %s for MAC address %s" %
@@ -132,13 +132,13 @@ class NetworkInterfaceSetupHelper:
         # move the iface(s) to the target namespace if requested
         if self.ns is not None:
             if _is_bm_shape and _macvlan_name:
-                _logger.debug("macvlan link move %s" % self.ns)
+                _logger.debug("macvlan link move %s", self.ns)
                 ret = sudo_utils.call(['/usr/sbin/ip', 'link', 'set', 'dev',
                                        _macvlan_name, 'netns', self.ns])
                 if ret != 0:
                     raise Exception("cannot move MAC VLAN $macvlan into namespace %s" % self.ns)
 
-            _logger.debug("%s link move %s" % (_intf_dev_to_use, self.ns))
+            _logger.debug("%s link move %s", _intf_dev_to_use, self.ns)
             ret = sudo_utils.call(['/usr/sbin/ip', 'link', 'set', 'dev',
                                    _intf_dev_to_use, 'netns', self.ns])
             if ret != 0:
@@ -147,12 +147,11 @@ class NetworkInterfaceSetupHelper:
 
         # add IP address to interface
         if self.ns:
-            _logger.debug("addr %s/%s add on %s ns '%s'" %
-                          (self.info['ADDR'], self.info['SBITS'], self.info['IFACE'], self.ns))
+            _logger.debug("addr %s/%s add on %s ns '%s'",
+                          self.info['ADDR'], self.info['SBITS'], self.info['IFACE'], self.ns)
         else:
-            _logger.debug("addr %s/%s add on %s" %
-                          (self.info['ADDR'], self.info['SBITS'], self.info['IFACE']))
-        _ip_cmd_prefix = ['/usr/sbin/ip']
+            _logger.debug("addr %s/%s add on %s", self.info['ADDR'], self.info['SBITS'], self.info['IFACE'])
+            _ip_cmd_prefix = ['/usr/sbin/ip']
         if self.ns is not None:
             _ip_cmd_prefix.extend(['netns', 'exec', self.ns, '/usr/sbin/ip'])
 
@@ -179,7 +178,7 @@ class NetworkInterfaceSetupHelper:
             if ret != 0:
                 raise Exception("cannot set VLAN %s up" % _vlan_name)
         else:
-            _logger.debug("%s set up" % self.info['IFACE'])
+            _logger.debug("%s set up", self.info['IFACE'])
             _ip_cmd = list(_ip_cmd_prefix)
             _ip_cmd.extend(['link', 'set', 'dev', self.info['IFACE'], 'mtu',
                             str(NetworkInterfaceSetupHelper._INTF_MTU), 'up'])
@@ -203,7 +202,7 @@ class NetworkInterfaceSetupHelper:
             # delete vlan and macvlan, removes the addrs (pri and sec) as well
             _macvlan_name = "%s.%s" % (self.info['IFACE'], self.info['VLTAG'])
             _ip_cmd.extend(['link', 'del', 'link', self.info['VLAN'], 'dev', _macvlan_name])
-            _logger.debug('deleting macvlan [%s]' % _macvlan_name)
+            _logger.debug('deleting macvlan [%s]', _macvlan_name)
             ret = sudo_utils.call(_ip_cmd)
             if ret != 0:
                 raise Exception("cannot remove VLAN %s" % self.info['VLTAG'])
@@ -214,7 +213,7 @@ class NetworkInterfaceSetupHelper:
                 # note that we may be deleting sec addr from a vlan here
                 _ip_cmd.extend(['addr', 'del', '%s/%s' % (self.info['ADDR'],
                                                           self.info['SBITS']), 'dev', self.info['IFACE']])
-                _logger.debug('deleting interface [%s]' % self.info['IFACE'])
+                _logger.debug('deleting interface [%s]', self.info['IFACE'])
                 ret = sudo_utils.call(_ip_cmd)
                 if ret != 0:
                     raise Exception("cannot remove ip address [%s] from %s" % (self.info['ADDR'], self.info['IFACE']))

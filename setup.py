@@ -363,7 +363,7 @@ if sys.version_info.major < 3:
 
 setup(
     name="oci-utils",
-    version="0.12.1",
+    version="0.12.3",
     author="Laszlo Peter, Qing Lin, Guido Tijskens, Emmanuel Jannetti",
     author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com, emmanuel.jannetti@oracle.com",
     description="Oracle Cloud Infrastructure utilities",
@@ -374,7 +374,7 @@ setup(
     package_dir={'': 'lib'},
     packages=find_packages('lib'),
     setup_requires=[],
-    long_description=read('README'),
+    long_description=read('README.md'),
     test_suite="tests",
     data_files=[(os.path.join(sys.prefix, 'libexec'),
                  ['libexec/ocid',

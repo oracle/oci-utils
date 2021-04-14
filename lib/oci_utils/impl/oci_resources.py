@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 #
@@ -61,7 +61,11 @@ class OCICompartment(OCIAPIAbstractResource):
                 Compartment.
         """
         OCIAPIAbstractResource.__init__(self, compartment_data, session)
-        self._tenancy_id = compartment_data['compartment_id']
+        #
+        # GT
+        # self._tenancy_id = compartment_data['compartment_id']
+        self._tenancy_id = compartment_data.compartment_id
+        self._compartment_id = compartment_data.id
         self._subnets = None
         self._instances = None
         self._vcns = None
@@ -86,7 +90,23 @@ class OCICompartment(OCIAPIAbstractResource):
             str
                 The display name.
         """
-        return self._data['name']
+        #
+        # GT
+        # return self._data['name']
+        return self._data.name
+
+    #
+    # overloaded to keep intended behaviour
+    def get_compartment_id(self):
+        """
+        Get the compartment id
+
+        Returns
+        -------
+            str
+                The compartment id
+        """
+        return self._compartment_id
 
     def all_instances(self):
         """
@@ -100,8 +120,10 @@ class OCICompartment(OCIAPIAbstractResource):
         """
         if self._instances is not None:
             return self._instances
-        if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] \
-                != OCI_COMPARTEMENT_STATE.ACTIVE:
+        #
+        # GT
+        # if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] != OCI_COMPARTEMENT_STATE.ACTIVE:
+        if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] != OCI_COMPARTEMENT_STATE.ACTIVE:
             OCICompartment._logger.debug('current state not active')
             return []
 
@@ -116,7 +138,10 @@ class OCICompartment(OCIAPIAbstractResource):
                 if OCI_INSTANCE_STATE[i_data.lifecycle_state] \
                         == OCI_INSTANCE_STATE.TERMINATED:
                     continue
-                instances.append(OCIInstance(self._oci_session, oci_sdk.util.to_dict(i_data)))
+                #
+                # GT
+                # instances.append(OCIInstance(self._oci_session, oci_sdk.util.to_dict(i_data)))
+                instances.append(OCIInstance(self._oci_session, i_data))
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
             # permission to list the instances in the compartment
@@ -137,8 +162,10 @@ class OCICompartment(OCIAPIAbstractResource):
         """
         if self._subnets is not None:
             return self._subnets
-        if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] \
-                != OCI_COMPARTEMENT_STATE.ACTIVE:
+        #
+        # GT
+        # if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] \
+        if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] != OCI_COMPARTEMENT_STATE.ACTIVE:
             OCICompartment._logger.debug('current state not active')
             return []
         nc = self._oci_session.get_network_client()
@@ -147,15 +174,27 @@ class OCICompartment(OCIAPIAbstractResource):
         # in this compartment, so ignoring ServiceError exceptions
         subnets = []
         try:
-            subnets_data = oci_sdk.pagination.list_call_get_all_results(
-                nc.list_subnets,
-                compartment_id=self._data['compartment_id'])
+            #
+            # GT
+            # subnets_data = oci_sdk.pagination.list_call_get_all_results(nc.list_subnets,
+            # compartment_id=self._data['compartment_id'])
+            #
+            # GT square
+            # subnets_data = oci_sdk.pagination.list_call_get_all_results(nc.list_subnets,
+            # compartment_id=self._data.compartment_id)
+            subnets_data = oci_sdk.pagination.list_call_get_all_results(nc.list_subnets,
+                                                                        compartment_id=self._data.id)
             for s_data in subnets_data.data:
-                subnets.append(OCISubnet(self._oci_session, oci_sdk.util.to_dict(s_data)))
+                #
+                # GT
+                # subnets.append(OCISubnet(self._oci_session, oci_sdk.util.to_dict(s_data)))
+                subnets.append(OCISubnet(self._oci_session, s_data))
         except oci_sdk.exceptions.ServiceError:
-            OCICompartment._logger.debug('service error', exc_info=True)
+            # OCICompartment._logger.debug('service error', exc_info=True)
             # ignore these, it means the current user has no
             # permission to list the instances in the compartment
+            OCICompartment._logger.debug('Service Error, current user has no permission to list instances '
+                                         'in this compartment.')
 
         return subnets
 
@@ -169,8 +208,10 @@ class OCICompartment(OCIAPIAbstractResource):
             list
                 List of VNICs as list of OCIVNIC objects, can be empty.
         """
-        if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] \
-                != OCI_COMPARTEMENT_STATE.ACTIVE:
+        #
+        # GT
+        # if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] != OCI_COMPARTEMENT_STATE.ACTIVE:
+        if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] != OCI_COMPARTEMENT_STATE.ACTIVE:
             OCICompartment._logger.debug('current state not active')
             return []
 
@@ -205,8 +246,10 @@ class OCICompartment(OCIAPIAbstractResource):
         """
         if self._vcns is not None:
             return self._vcns
-        if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] \
-                != OCI_COMPARTEMENT_STATE.ACTIVE:
+        #
+        # GT
+        # if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] != OCI_COMPARTEMENT_STATE.ACTIVE:
+        if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] != OCI_COMPARTEMENT_STATE.ACTIVE:
             OCICompartment._logger.debug('current state not active')
             return []
 
@@ -220,7 +263,10 @@ class OCICompartment(OCIAPIAbstractResource):
                                                                      compartment_id=self._ocid,
                                                                      lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
             for v_data in vcns_data.data:
-                vcns.append(OCIVCN(self._oci_session, oci_sdk.util.to_dict(v_data)))
+                #
+                # GT
+                # vcns.append(OCIVCN(self._oci_session, oci_sdk.util.to_dict(v_data)))
+                vcns.append(OCIVCN(self._oci_session, v_data))
         except oci_sdk.exceptions.ServiceError:
             # ignore these, it means the current user has no
             # permission to list the vcns in the compartment
@@ -242,8 +288,10 @@ class OCICompartment(OCIAPIAbstractResource):
                 List of volume as list of OCIVolume objects, can be empty.
         """
 
-        if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] \
-                != OCI_COMPARTEMENT_STATE.ACTIVE:
+        #
+        # GT
+        # if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] != OCI_COMPARTEMENT_STATE.ACTIVE:
+        if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] != OCI_COMPARTEMENT_STATE.ACTIVE:
             OCICompartment._logger.debug('current state not active')
             return []
 
@@ -261,9 +309,10 @@ class OCICompartment(OCIAPIAbstractResource):
                     compartment_id=self._ocid,
                     lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
             else:
-                bs_data = oci_sdk.pagination.list_call_get_all_results(bsc.list_volumes,
-                                                                       compartment_id=self._ocid,
-                                                                       lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
+                bs_data = oci_sdk.pagination.list_call_get_all_results(
+                    bsc.list_volumes,
+                    compartment_id=self._ocid,
+                    lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
         except oci_sdk.exceptions.ServiceError as e:
             raise Exception('Cannot list compartement volumes') from e
 
@@ -287,9 +336,13 @@ class OCICompartment(OCIAPIAbstractResource):
                         continue
                     if v_att.time_created > v_att_data.time_created:
                         v_att_data = v_att
+                #
+                # GT
+                # bs.append(OCIVolume(self._oci_session, volume_data=oci_sdk.util.to_dict(v_data),
+                # attachment_data=oci_sdk.util.to_dict(v_att_data)))
                 bs.append(OCIVolume(self._oci_session,
-                                    volume_data=oci_sdk.util.to_dict(v_data),
-                                    attachment_data=oci_sdk.util.to_dict(v_att_data)))
+                                    volume_data=v_data,
+                                    attachment_data=v_att_data))
             except oci_sdk.exceptions.ServiceError:
                 # ignore these, it means the current user has no
                 # permission to list the volumes in the compartment
@@ -388,7 +441,10 @@ class OCIInstance(OCIAPIAbstractResource):
             str
                 The hostname.
         """
-        return self._data['display_name']
+        #
+        # GT
+        # return self._data['display_name']
+        return self._data.display_name
 
     def get_public_ip(self):
         """
@@ -425,9 +481,12 @@ class OCIInstance(OCIAPIAbstractResource):
             vnic_att_data = cc.list_vnic_attachments(compartment_id=self.get_compartment_id(),
                                                      instance_id=self.get_ocid(),
                                                      vnic_id=vnic_data.id).data
-            return OCIVNIC(self._oci_session, oci_sdk.util.to_dict(vnic_data), oci_sdk.util.to_dict(vnic_att_data[0]))
+            #
+            # GT
+            # return OCIVNIC(self._oci_session, oci_sdk.util.to_dict(vnic_data), oci_sdk.util.to_dict(vnic_att_data[0]))
+            return OCIVNIC(self._oci_session, vnic_data, vnic_att_data[0])
         except Exception as e:
-            OCIInstance._logger.debug('Failed to fetch vnic: %s', e)
+            OCIInstance._logger.debug('Failed to fetch VNIC: %s', e)
             raise Exception('Failed to fetch VNIC [%s]' % vnic_id) from e
 
     def all_vnics(self):
@@ -445,19 +504,27 @@ class OCIInstance(OCIAPIAbstractResource):
         cc = self._oci_session.get_compute_client()
         nc = self._oci_session.get_network_client()
         try:
-            vnic_atts = oci_sdk.pagination.list_call_get_all_results(
-                cc.list_vnic_attachments,
-                compartment_id=self._data['compartment_id'],
-                instance_id=self._ocid)
+            vnic_atts = oci_sdk.pagination.list_call_get_all_results(cc.list_vnic_attachments,
+                                                                     compartment_id=self._data.compartment_id,
+                                                                     instance_id=self._ocid)
+            # GT
+            # vnic_atts = oci_sdk.pagination.list_call_get_all_results(cc.list_vnic_attachments,
+            # compartment_id=self._data['compartment_id'],
+            # instance_id=self._ocid)
         except oci_sdk.exceptions.ServiceError as e:
             OCIInstance._logger.debug('sdk call failed', exc_info=True)
-            OCIInstance._logger.warning('sdk call failed [%s]' % str(e))
+            OCIInstance._logger.warning('sdk call failed [%s]', str(e))
             return []
         for v_a_data in vnic_atts.data:
             try:
                 vnic_data = nc.get_vnic(v_a_data.vnic_id).data
-                vnics.append(OCIVNIC(self._oci_session, vnic_data=oci_sdk.util.to_dict(vnic_data),
-                                     attachment_data=oci_sdk.util.to_dict(v_a_data)))
+                # GT
+                # vnics.append(OCIVNIC(self._oci_session,
+                # vnic_data=oci_sdk.util.to_dict(vnic_data),
+                # attachment_data=oci_sdk.util.to_dict(v_a_data)))
+                vnics.append(OCIVNIC(self._oci_session,
+                                     vnic_data=vnic_data,
+                                     attachment_data=v_a_data))
             except oci_sdk.exceptions.ServiceError:
                 # ignore these, it means the current user has no
                 # permission to list the instances in the compartment
@@ -477,7 +544,7 @@ class OCIInstance(OCIAPIAbstractResource):
         Returns
         -------
             str
-                The private IP address if foune, None otherwise.
+                The private IP address if found, None otherwise.
         """
         for priv_ip in self.all_private_ips():
             if priv_ip.get_address() == ip_address:
@@ -516,10 +583,14 @@ class OCIInstance(OCIAPIAbstractResource):
         # Note: the user may not have permission to list volumes
         # so ignoring ServiceError exceptions
         try:
-            v_att_list = oci_sdk.pagination.list_call_get_all_results(
-                cc.list_volume_attachments,
-                compartment_id=self._data['compartment_id'],
-                instance_id=self._ocid).data
+            #
+            # GT
+            # v_att_list = oci_sdk.pagination.list_call_get_all_results(cc.list_volume_attachments,
+            # compartment_id=self._data['compartment_id'],
+            # instance_id=self._ocid).data
+            v_att_list = oci_sdk.pagination.list_call_get_all_results(cc.list_volume_attachments,
+                                                                      compartment_id=self._data.compartment_id,
+                                                                      instance_id=self._ocid).data
         except oci_sdk.exceptions.ServiceError:
             # the user has no permission to list volumes
             OCIInstance._logger.debug('the user has no permission to list volumes', exc_info=True)
@@ -551,9 +622,14 @@ class OCIInstance(OCIAPIAbstractResource):
             except oci_sdk.exceptions.ServiceError:
                 OCIInstance._logger.debug('exc getting volume', exc_info=True)
                 continue
+            #
+            # GT
+            # vols.append(OCIVolume(self._oci_session,
+            # volume_data=oci_sdk.util.to_dict(vol_data),
+            # attachment_data=oci_sdk.util.to_dict(v_att_data[vol_id])))
             vols.append(OCIVolume(self._oci_session,
-                                  volume_data=oci_sdk.util.to_dict(vol_data),
-                                  attachment_data=oci_sdk.util.to_dict(v_att_data[vol_id])))
+                                  volume_data=vol_data,
+                                  attachment_data=v_att_data[vol_id]))
 
         return vols
 
@@ -570,7 +646,8 @@ class OCIInstance(OCIAPIAbstractResource):
         """
         hostname_label = '%s-%s' % (socket.gethostname(), d_name)
         # list of acceptable chars in a host name
-        return ''.join([c for c in hostname_label if c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'])
+        return ''.join([c for c in hostname_label
+                        if c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'])
 
     def attach_vnic(self, **kargs):
         """
@@ -612,7 +689,6 @@ class OCIInstance(OCIAPIAbstractResource):
         subnet_id = kargs.get('subnet_id')
         private_ip = kargs.get('private_ip', None)
         nic_index = int(kargs.get('nic_index', 0))
-        display_name = kargs.get('display_name', None)
         assign_public_ip = kargs.get('assign_public_ip', False)
         hostname_label = kargs.get('hostname_label', None)
         skip_source_dest_check = kargs.get('skip_source_dest_check', False)
@@ -642,7 +718,10 @@ class OCIInstance(OCIAPIAbstractResource):
             if wait:
                 v_att = oci_sdk.wait_until(cc, v_att, 'lifecycle_state', 'ATTACHED')
             _new_vnic = self._oci_session.get_network_client().get_vnic(v_att.data.vnic_id)
-            return OCIVNIC(self._oci_session, oci_sdk.util.to_dict(_new_vnic.data), oci_sdk.util.to_dict(v_att.data))
+            #
+            # GT
+            # return OCIVNIC(self._oci_session, oci_sdk.util.to_dict(_new_vnic.data), oci_sdk.util.to_dict(v_att.data))
+            return OCIVNIC(self._oci_session, _new_vnic.data, v_att.data)
         except oci_sdk.exceptions.ServiceError as e:
             OCIInstance._logger.debug('Failed to attach new VNIC', exc_info=True)
             raise Exception('Failed to attach new VNIC: %s' % e.message) from e
@@ -673,7 +752,7 @@ class OCIInstance(OCIAPIAbstractResource):
         for vnic in vnics:
             vnic_i = vnic.__dict__()
             vnic_a = json.loads(vnic._att_data.__str__())
-            vnic_i['nic_index'] = vnic_a['nic_index']
+            # vnic_i['nic_index'] = vnic_a['nic_index']
             vnic_i['vlan_tag'] = vnic_a['vlan_tag']
             vnics_l.append(vnic_i)
         meta['vnics'] = vnics_l
@@ -776,12 +855,19 @@ class OCIVCN(OCIAPIAbstractResource):
         # in this compartment, so ignoring ServiceError exceptions
         subnets = []
         try:
-            subnets_data = oci_sdk.pagination.list_call_get_all_results(
-                nc.list_subnets,
-                compartment_id=self._data['compartment_id'],
-                vcn_id=self._ocid)
+            #
+            # GT
+            # subnets_data = oci_sdk.pagination.list_call_get_all_results( nc.list_subnets,
+            # compartment_id=self._data['compartment_id'],
+            # vcn_id=self._ocid)
+            subnets_data = oci_sdk.pagination.list_call_get_all_results(nc.list_subnets,
+                                                                        compartment_id=self._data.compartment_id,
+                                                                        vcn_id=self._ocid)
             for s_data in subnets_data.data:
-                subnets.append(OCISubnet(self._oci_session, oci_sdk.util.to_dict(s_data)))
+                #
+                # GT
+                # subnets.append(OCISubnet(self._oci_session, oci_sdk.util.to_dict(s_data)))
+                subnets.append(OCISubnet(self._oci_session, s_data))
         except oci_sdk.exceptions.ServiceError:
             OCIVCN._logger.debug('service error', exc_info=True)
             # ignore these, it means the current user has no
@@ -805,14 +891,19 @@ class OCIVCN(OCIAPIAbstractResource):
         # in this compartment, so ignoring ServiceError exceptions
         security_lists = dict()
         try:
-            security_list_data = oci_sdk.pagination.list_call_get_all_results(
-                nc.list_security_lists,
-                compartment_id=self._data['compartment_id'],
-                vcn_id=self._ocid)
+            #
+            # GT
+            # security_list_data = oci_sdk.pagination.list_call_get_all_results(nc.list_security_lists,
+            # compartment_id=self._data.compartment_id,
+            # vcn_id=self._ocid)
+            security_list_data = oci_sdk.pagination.list_call_get_all_results(nc.list_security_lists,
+                                                                              compartment_id=self._data.compartment_id,
+                                                                              vcn_id=self._ocid)
             for s_data in security_list_data.data:
-                security_lists.setdefault(s_data.id,
-                                          OCISecurityList(self._oci_session,
-                                                          oci_sdk.util.to_dict(s_data)))
+                #
+                # GT
+                # security_lists.setdefault(s_data.id, OCISecurityList(self._oci_session, oci_sdk.util.to_dict(s_data)))
+                security_lists.setdefault(s_data.id, OCISecurityList(self._oci_session, s_data))
         except oci_sdk.exceptions.ServiceError:
             OCIVCN._logger.debug('service error', exc_info=True)
             # ignore these, it means the current user has no
@@ -917,8 +1008,10 @@ class OCIVNIC(OCIAPIAbstractResource):
             str
                 The lifecycle state.
         """
-        return "%s-%s" % (self._data['lifecycle_state'],
-                          self._att_data['lifecycle_state'])
+        #
+        # GT
+        # return "%s-%s" % (self._data['lifecycle_state'], self._att_data['lifecycle_state'])
+        return "%s-%s" % (self._data.lifecycle_state, self._att_data.lifecycle_state)
 
     def get_instance(self):
         """
@@ -929,7 +1022,10 @@ class OCIVNIC(OCIAPIAbstractResource):
             OCIInstance
                 The associated instance.
         """
-        return self._oci_session.get_instance(self._att_data['instance_id'])
+        #
+        # GT
+        # return self._oci_session.get_instance(self._att_data['instance_id'])
+        return self._oci_session.get_instance(self._att_data.instance_id)
 
     def get_private_ip(self):
         """
@@ -940,13 +1036,19 @@ class OCIVNIC(OCIAPIAbstractResource):
             str
                 The private IP address.
         """
-        return self._data['private_ip']
+        #
+        # GT
+        # return self._data['private_ip']
+        return self._data.private_ip
 
     def get_nic_index(self):
         """
         Gets the NIC index of this vnic
         """
-        return self._att_data['nic_index']
+        #
+        # GT
+        # return self._att_data['nic_index']
+        return self._att_data.nic_index if bool(self._att_data) else None
 
     def get_public_ip(self):
         """
@@ -957,7 +1059,10 @@ class OCIVNIC(OCIAPIAbstractResource):
             str
                 The public IP address.
         """
-        return self._data['public_ip']
+        #
+        # GT
+        # return self._data['public_ip']
+        return self._data.public_ip
 
     def is_primary(self):
         """
@@ -968,7 +1073,10 @@ class OCIVNIC(OCIAPIAbstractResource):
             bool
                 True if the vnic is primay, False otherwise.
         """
-        return self._data['is_primary']
+        #
+        # GT
+        # return self._data['is_primary']
+        return self._data.is_primary
 
     def get_mac_address(self):
         """
@@ -979,7 +1087,10 @@ class OCIVNIC(OCIAPIAbstractResource):
             str
                 The MAC address.
         """
-        return self._data['mac_address']
+        #
+        # GT
+        # return self._data['mac_address']
+        return self._data.mac_address
 
     def get_subnet(self):
         """
@@ -990,7 +1101,10 @@ class OCIVNIC(OCIAPIAbstractResource):
             OCISubnet
                 The subnet obj.
         """
-        return self._oci_session.get_subnet(subnet_id=self._data['subnet_id'])
+        #
+        # GT
+        # return self._oci_session.get_subnet(subnet_id=self._data['subnet_id'])
+        return self._oci_session.get_subnet(subnet_id=self._data.subnet_id)
 
     def get_subnet_id(self):
         """
@@ -1001,7 +1115,10 @@ class OCIVNIC(OCIAPIAbstractResource):
             OCISubnet
                 The subnet obj.
         """
-        return self._data['subnet_id']
+        #
+        # GT
+        # return self._data['subnet_id']
+        return self._data.subnet_id
 
     def get_hostname(self):
         """
@@ -1012,7 +1129,10 @@ class OCIVNIC(OCIAPIAbstractResource):
             str
                 The hostname.
         """
-        return self._data['hostname_label']
+        #
+        # GT
+        # return self._data['hostname_label']
+        return self._data.hostname_label
 
     def add_private_ip(self, private_ip=None, display_name=None):
         """
@@ -1042,8 +1162,10 @@ class OCIVNIC(OCIAPIAbstractResource):
         nc = self._oci_session.get_network_client()
         try:
             private_ip = nc.create_private_ip(cpid)
-            return OCIPrivateIP(session=self._oci_session,
-                                private_ip_data=oci_sdk.util.to_dict(private_ip.data))
+        #
+        # GT
+            # return OCIPrivateIP(session=self._oci_session, private_ip_data=oci_sdk.util.to_dict(private_ip.data))
+            return OCIPrivateIP(session=self._oci_session, private_ip_data=private_ip.data)
         except oci_sdk.exceptions.ServiceError as e:
             OCIVNIC._logger.debug('Failed to add private IP', exc_info=True)
             raise Exception("Failed to add private IP: %s" % e.message) from e
@@ -1084,15 +1206,15 @@ class OCIVNIC(OCIAPIAbstractResource):
                 nc.list_private_ips,
                 vnic_id=self.get_ocid()).data
         except oci_sdk.exceptions.ServiceError as e:
-            OCIVNIC._logger.debug(
-                'sdk call failed for all_private_ips', exc_info=True)
-            OCIVNIC._logger.warning(
-                'sdk call failed for all_private_ips [%s]' % e.message)
+            OCIVNIC._logger.debug('sdk call failed for all_private_ips', exc_info=True)
+            OCIVNIC._logger.warning('sdk call failed for all_private_ips [%s]', e.message)
             return []
 
         for privip in privips:
-            all_privips.append(OCIPrivateIP(session=self._oci_session,
-                                            private_ip_data=oci_sdk.util.to_dict(privip)))
+            #
+            # GT
+            # all_privips.append(OCIPrivateIP(session=self._oci_session, private_ip_data=oci_sdk.util.to_dict(privip)))
+            all_privips.append(OCIPrivateIP(session=self._oci_session, private_ip_data=privip))
         return all_privips
 
     def detach(self, wait=True):
@@ -1119,19 +1241,23 @@ class OCIVNIC(OCIAPIAbstractResource):
 
         cc = self._oci_session.get_compute_client()
         try:
-            cc.detach_vnic(vnic_attachment_id=self._att_data['id'])
+            #
+            # GT
+            # cc.detach_vnic(vnic_attachment_id=self._att_data['id'])
+            cc.detach_vnic(vnic_attachment_id=self._att_data.id) if bool(self._att_data) else None
         except oci_sdk.exceptions.ServiceError as e:
-            OCIVNIC._logger.debug(
-                'Failed to detach VNIC', exc_info=True)
+            OCIVNIC._logger.debug('Failed to detach VNIC', exc_info=True)
             raise Exception("Failed to detach VNIC: %s" % e.message) from e
 
         if wait:
             try:
-                get_vnic_att = cc.get_vnic_attachment(self._att_data['id'])
+                #
+                # GT
+                # get_vnic_att = cc.get_vnic_attachment(self._att_data['id'])
+                get_vnic_att = cc.get_vnic_attachment(self._att_data.id) if bool(self._att_data) else None
                 oci_sdk.wait_until(cc, get_vnic_att, 'lifecycle_state', 'DETACHED')
             except oci_sdk.exceptions.ServiceError as e:
-                OCIVNIC._logger.debug(
-                    'sdk call failed for detach() [%s]' % e.message, exc_info=True)
+                OCIVNIC._logger.debug('sdk call failed for detach() [%s]', e.message, exc_info=True)
 
         return True
 
@@ -1218,7 +1344,7 @@ class OCIPrivateIP(OCIAPIAbstractResource):
             return True
         except oci_sdk.exceptions.ServiceError as e:
             OCIPrivateIP._logger.debug('delete failed', exc_info=True)
-            OCIPrivateIP._logger.warning('delete failed [%s]' % e.message)
+            OCIPrivateIP._logger.warning('delete failed [%s]', e.message)
             return False
 
     def get_vnic(self):
@@ -1230,7 +1356,10 @@ class OCIPrivateIP(OCIAPIAbstractResource):
             OCIVNIC
                 The VNIC instance.
         """
-        return self._oci_session.get_vnic(self._data['vnic_id'])
+        #
+        # GT
+        # return self._oci_session.get_vnic(self._data['vnic_id'])
+        return self._oci_session.get_vnic(self._data.vnic_id)
 
     def get_vnic_ocid(self):
         """
@@ -1241,7 +1370,10 @@ class OCIPrivateIP(OCIAPIAbstractResource):
         --------
             str : vnic ocid
         """
-        return self._data['vnic_id']
+        #
+        # GT
+        # return self._data['vnic_id']
+        return self._data.vnic_id
 
     def get_address(self):
         """
@@ -1252,7 +1384,10 @@ class OCIPrivateIP(OCIAPIAbstractResource):
             str
                 The IP address.
         """
-        return self._data['ip_address']
+        #
+        # GT
+        # return self._data['ip_address']
+        return self._data.ip_address
 
     def is_primary(self):
         """
@@ -1263,7 +1398,10 @@ class OCIPrivateIP(OCIAPIAbstractResource):
             bool
                 True if this the primary IP address, False otherwise.
         """
-        return self._data['is_primary']
+        #
+        # GT
+        # return self._data['is_primary']
+        return self._data.is_primary
 
     def get_hostname(self):
         """
@@ -1274,7 +1412,10 @@ class OCIPrivateIP(OCIAPIAbstractResource):
             str
                 THe hostname.
         """
-        return self._data['hostname_label']
+        #
+        # GT
+        # return self._data['hostname_label']
+        return self._data.hostname_label
 
     def get_subnet(self):
         """
@@ -1285,7 +1426,10 @@ class OCIPrivateIP(OCIAPIAbstractResource):
             str
                 The subnet id.
         """
-        return self._oci_session.get_subnet(subnet_id=self._data['subnet_id'])
+        #
+        # GT
+        # return self._oci_session.get_subnet(subnet_id=self._data['subnet_id'])
+        return self._oci_session.get_subnet(subnet_id=self._data.subnet_id)
 
 
 class OCISecurityList(OCIAPIAbstractResource):
@@ -1354,7 +1498,10 @@ class OCISecurityList(OCIAPIAbstractResource):
             list
                 The ingress rules.
         """
-        return self._data['ingress_security_rules']
+        #
+        # GT
+        # return self._data['ingress_security_rules']
+        return self._data.ingress_security_rules
 
     def get_egress_rules(self):
         """
@@ -1365,7 +1512,10 @@ class OCISecurityList(OCIAPIAbstractResource):
             list
                 The egress rules.
         """
-        return self._data['egress_security_rules']
+        #
+        # GT
+        # return self._data['egress_security_rules']
+        return self._data.egress_security_rules
 
 
 class OCISubnet(OCIAPIAbstractResource):
@@ -1454,7 +1604,10 @@ class OCISubnet(OCIAPIAbstractResource):
             str
                 The cidr block.
         """
-        return self._data['cidr_block']
+        #
+        # GT
+        # return self._data['cidr_block']
+        return self._data.cidr_block
 
     def is_public_ip_on_vnic_allowed(self):
         """
@@ -1464,7 +1617,10 @@ class OCISubnet(OCIAPIAbstractResource):
             bool
                 True if allowed
         """
-        return not self._data['prohibit_public_ip_on_vnic']
+        #
+        # GT
+        # return not self._data['prohibit_public_ip_on_vnic']
+        return not self._data.prohibit_public_ip_on_vnic
 
     def get_vcn_id(self):
         """
@@ -1475,7 +1631,10 @@ class OCISubnet(OCIAPIAbstractResource):
             str
                The virtual cn id.
         """
-        return self._data['vcn_id']
+        #
+        # GT
+        # return self._data['vcn_id']
+        return self._data.vcn_id
 
     def get_security_list_ids(self):
         """
@@ -1485,7 +1644,10 @@ class OCISubnet(OCIAPIAbstractResource):
         -------
             list of security list ids.
         """
-        return self._data['security_list_ids']
+        #
+        # GT
+        # return self._data['security_list_ids']
+        return self._data.security_list_ids
 
     def get_domain_name(self):
         """
@@ -1496,7 +1658,10 @@ class OCISubnet(OCIAPIAbstractResource):
             str
                 The domain name.
         """
-        return self._data['subnet_domain_name']
+        #
+        # GT
+        # return self._data['subnet_domain_name']
+        return self._data.subnet_domain_name
 
     def all_vnics(self):
         """
@@ -1508,9 +1673,10 @@ class OCISubnet(OCIAPIAbstractResource):
             list
                 List of all virtual network interfaces OCIVNIC's.
         """
-
-        compartment = self._oci_session.get_compartment(
-            ocid=self._data['compartment_id'])
+        #
+        # GT
+        # compartment = self._oci_session.get_compartment(ocid=self._data['compartment_id'])
+        compartment = self._oci_session.get_compartment(ocid=self._data.compartment_id)
         if compartment is None:
             OCISubnet._logger.warning('all_vnics() cannot get compartment')
             return []
@@ -1534,8 +1700,7 @@ class OCISubnet(OCIAPIAbstractResource):
         -------
             True of it does, False otherwise.
         """
-        match = re.match(r'([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)',
-                         ipaddr)
+        match = re.match(r'([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)', ipaddr)
         if match is None:
             raise Exception('Failed to parse IP address %s' % ipaddr)
         if int(match.group(1)) > 255 or \
@@ -1547,11 +1712,15 @@ class OCISubnet(OCIAPIAbstractResource):
         ipint = ((int(match.group(1)) * 256 +
                   int(match.group(2))) * 256 +
                  int(match.group(3))) * 256 + int(match.group(4))
-        match = re.match(r'([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)/([0-9]+)',
-                         self._data['cidr_block'])
+        #
+        # GT
+        # match = re.match(r'([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)/([0-9]+)', self._data['cidr_block'])
+        match = re.match(r'([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)/([0-9]+)', self._data.cidr_block)
         if match is None:
-            raise Exception('Failed to parse cidr block %s' %
-                            self._data['cidr_block'])
+            #
+            # GT
+            # raise Exception('Failed to parse cidr block %s' % self._data['cidr_block'])
+            raise Exception('Failed to parse cidr block %s' % self._data.cidr_block)
 
         cidripint = ((int(match.group(1)) * 256 +
                       int(match.group(2))) * 256 +
@@ -1581,12 +1750,13 @@ class OCISubnet(OCIAPIAbstractResource):
         except oci_sdk.exceptions.ServiceError as e:
             OCISubnet._logger.debug(
                 'all_private_ips() sdk call failed', exc_info=True)
-            OCISubnet._logger.warning(
-                'all_private_ips() sdk call failed [%s]' % e.message)
+            OCISubnet._logger.warning('all_private_ips() sdk call failed [%s]', e.message)
             return []
         for privip in privips:
-            all_privips.append(OCIPrivateIP(session=self._oci_session,
-                                            private_ip_data=oci_sdk.util.to_dict(privip)))
+            #
+            # GT
+            # all_privips.append(OCIPrivateIP(session=self._oci_session, private_ip_data=oci_sdk.util.to_dict(privip)))
+            all_privips.append(OCIPrivateIP(session=self._oci_session, private_ip_data=privip))
         return all_privips
 
 
@@ -1676,10 +1846,12 @@ class OCIVolume(OCIAPIAbstractResource):
         self.volume_lifecycle = OCI_ATTACHMENT_STATE.NOT_ATTACHED
         # few sanity
         if self.att_data:
-            assert self.att_data['lifecycle_state'] in \
-                OCI_ATTACHMENT_STATE.__members__, 'unknown state returned'
-            self.volume_lifecycle = \
-                OCI_ATTACHMENT_STATE[self.att_data['lifecycle_state']]
+            #
+            # GT
+            # assert self.att_data['lifecycle_state'] in  OCI_ATTACHMENT_STATE.__members__, 'unknown state returned'
+            assert self.att_data.lifecycle_state in OCI_ATTACHMENT_STATE.__members__, 'unknown state returned'
+            # self.volume_lifecycle = OCI_ATTACHMENT_STATE[self.att_data['lifecycle_state']]
+            self.volume_lifecycle = OCI_ATTACHMENT_STATE[self.att_data.lifecycle_state]
 
     def __str__(self):
         """
@@ -1736,10 +1908,19 @@ class OCIVolume(OCIAPIAbstractResource):
                               OCI_VOLUME_SIZE_FMT.GB.name, OCI_VOLUME_SIZE_FMT.MB.name], 'wrong format'
 
         if (format_str is None) or (format_str == OCI_VOLUME_SIZE_FMT.GB.name):
-            return self._data['size_in_gbs']
+            #
+            # GT
+            # return self._data['size_in_gbs']
+            return self._data.size_in_gbs
         if format_str == OCI_VOLUME_SIZE_FMT.MB.name:
-            return self._data['size_in_mbs']
-        return str(self._data['size_in_gbs']) + "GB"
+            #
+            # GT
+            # return self._data['size_in_mbs']
+            return self._data.size_in_mbs
+        #
+        # GT
+        # return str(self._data['size_in_gbs']) + "GB"
+        return str(self._data.size_in_gbs) + "GB"
 
     def get_user(self):
         """
@@ -1750,7 +1931,10 @@ class OCIVolume(OCIAPIAbstractResource):
             str
                 The username on success, None otherwise.
         """
-        return self.att_data['chap_username']
+        #
+        # GT
+        # return self.att_data['chap_username']
+        return self.att_data.chap_username
 
     def get_password(self):
         """
@@ -1761,7 +1945,10 @@ class OCIVolume(OCIAPIAbstractResource):
             str
                The chap secret on success, None otherwise.
         """
-        return self.att_data['chap_secret']
+        #
+        # GT
+        # return self.att_data['chap_secret']
+        return self.att_data.chap_secret
 
     def get_portal_ip(self):
         """
@@ -1772,7 +1959,10 @@ class OCIVolume(OCIAPIAbstractResource):
             str
                 The IPv4 address on success, None otherwise.
         """
-        return self.att_data['ipv4']
+        #
+        # GT
+        # return self.att_data['ipv4']
+        return self.att_data.ipv4
 
     def get_portal_port(self):
         """
@@ -1783,7 +1973,10 @@ class OCIVolume(OCIAPIAbstractResource):
             int
                 The port number on success, None otherwise.
         """
-        return self.att_data['port']
+        #
+        # GT
+        # return self.att_data['port']
+        return self.att_data.port
 
     def get_instance(self):
         """
@@ -1794,7 +1987,10 @@ class OCIVolume(OCIAPIAbstractResource):
             OCIInstance
                 The instance data on success, None otherwise.
         """
-        return self._oci_session.get_instance(self.att_data['instance_id'])
+        #
+        # GT
+        # return self._oci_session.get_instance(self.att_data['instance_id'])
+        return self._oci_session.get_instance(self.att_data.instance_id)
 
     def get_iqn(self):
         """
@@ -1805,7 +2001,10 @@ class OCIVolume(OCIAPIAbstractResource):
             str
                 The iSCSI qualified name on succes, None on failure.
         """
-        return self.att_data['iqn']
+        #
+        # GT
+        # return self.att_data['iqn']
+        return self.att_data.iqn
 
     def attach_to(self, instance_id, use_chap=False,
                   display_name=None, wait=True):
@@ -1882,16 +2081,21 @@ class OCIVolume(OCIAPIAbstractResource):
         cc = self._oci_session.get_compute_client()
 
         try:
-            cc.detach_volume(volume_attachment_id=self.att_data['id'])
+            #
+            # GT
+            # cc.detach_volume(volume_attachment_id=self.att_data['id'])
+            cc.detach_volume(volume_attachment_id=self.att_data.id)
         except oci_sdk.exceptions.ServiceError as e:
-            OCIVolume._logger.debug(
-                'Failed to detach volume', exc_info=True)
+            OCIVolume._logger.debug('Failed to detach volume', exc_info=True)
             raise Exception('Failed to detach volume: %s' % e.message) from e
 
         _tries = 3
 
         if wait:
-            get_vol_attachment = cc.get_volume_attachment(self.att_data['id'])
+            #
+            # GT
+            # get_vol_attachment = cc.get_volume_attachment(self.att_data['id'])
+            get_vol_attachment = cc.get_volume_attachment(self.att_data.id)
             oci_sdk.wait_until(cc, get_vol_attachment, 'lifecycle_state', 'DETACHED')
 
         self.att_data = None

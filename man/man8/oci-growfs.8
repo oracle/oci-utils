@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tascii oci-growfs.8
 .\"
-.\" Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+.\" Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 .\"
 .TH OCI-GROWFS 8 "AUG 2018" Linux "User Manuals"
 .SH NAME
@@ -13,7 +13,7 @@
 .SH DESCRIPTION
 When a compute instance is created with a boot volume >= 50GB (default minimum size), or is resized to a larger size, the instance does not automatically use the entire volume.  By default, the boot volume will only extend to the minimum size (50GB).
 
-The purpuse of the
+The purpose of the
 .B oci-growfs
 script is to expand the root partition to fully utilize the allocated boot volume size.
 When the partition already extends to the entire volume, no changes are made to the system.

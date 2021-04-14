@@ -233,8 +233,7 @@ def reconfigure_netplan(rootdir):
                     #
                     # recreate netplan config
                     #
-                    # __GT__ commenting out this one to avoid conflicts,
-                    #  cloud-init recreates it from scratch.
+                    # GT commenting out this one to avoid conflicts, cloud-init recreates it from scratch.
                     #
                     # netplan_config = get_config_data('default_netplan_config')
                     # netplan_config['network']['ethernets'][nicname] \

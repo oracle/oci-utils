@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.12.1
+Version: 0.12.3
 Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -108,7 +108,7 @@ Utilities migrate unit tests
 %{__cp} -r setup.cfg %{buildroot}/opt/oci-utils
 %{__cp} -r setup.py %{buildroot}/opt/oci-utils
 %{__cp} -r requirements.txt %{buildroot}/opt/oci-utils
-%{__cp} -r README %{buildroot}/opt/oci-utils
+%{__cp} -r README.md %{buildroot}/opt/oci-utils
 
 %clean
 rm -rf %{buildroot}
@@ -173,13 +173,35 @@ rm -rf %{buildroot}
 /opt/oci-utils/lib
 /opt/oci-utils/tools
 /opt/oci-utils/tests/data
-/opt/oci-utils/README
+/opt/oci-utils/README.md
 /opt/oci-utils/requirements.txt
 /opt/oci-utils/setup*
 /opt/oci-utils/tests/test_mig*
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Fri Apr 9 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.3
+- LINUX-8692  oci-image-cleanup: line 588: /dev/shm/oci-utils/image-cleanup.plan: Permission denied
+- LINUX-10007 oci-metadata autotest fails on several locations
+- LINUX-10048 oci-network-inspector autotest fails
+- LINUX-10050 oci-iscsi-config autotest fails
+- LINUX 10105 oci-iscsi-config attach -i <iqn...> fails
+- LINUX-10121 oci-iscsi detach "multiple iqns" fails with 'NoneType' object is not subscriptable
+- LINUX-10142 oci-network-config show-vnics --details inhibits output mode
+- LINUX-10149 oci-network-config attach-vnic -I 100.110.5.99 fails
+- LINUX-10316 oci-network-config attach-vnic --name <name> --subnet <subnetid> fails
+- LINUX-10323 <>.get_compartment_id returns tenancy ocid iso compartment ocid
+- LINUX-10345 OCIVNIC cannot handle empty/absent attachement data
+- LINUX-10360 ocid service configures unconfigured vnics
+- LINUX-10363 oci-network-config --create-vnic --private-ip <ipv4> fails
+- LINUX-10373 oci-network-cofnig -X <vnic..> fails (as does -I)
+- LINUX-10382 oci-image-cleanup: add tests for source exist before running rsync
+- LINUX-10426 oci-iscsi-config fails to attach/destroy volumes on r1 tenancy
+- LINUX-10428 oci-metadata --get /vnics/privateip fail
+- LINUX-10535 oci-iscsi-config -s shows all the unattached volumes that exist in the compartment, man page needs an update to.
+- LINUX-10667 oci-iscsi-config sync --apply fails: str obj has not attr keys
+- LINUX-10686 oci-network-config compatibility issue: --add-private-ip -e <ip> <ocid>
+
 * Thu Dec 10 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.12.1
 - LINUX-9315: reduce use of sleep calls
 - LINUX-9806: OCISession.get_vnic not optimised

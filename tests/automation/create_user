@@ -1,0 +1,88 @@
+#!/bin/bash
+#
+# Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown
+# at http://oss.oracle.com/licenses/upl.
+#
+# creates a user with given name and id, create the structure to run automated tests.
+#
+USERADD=$(which useradd)
+GETENT=$(which getent)
+PASSWD=$(which passwd)
+SU=$(which su)
+MKDIR=$(which mkdir)
+GROUPID=1000
+USERSHELL="/bin/bash"
+WORKDIR="oci_operations/tests/automation/configuration"
+GIT=$(which git)
+GITHUBURL="some github link"
+
+Usage() {
+  echo ""
+  echo "Usage:"
+  echo ""
+  echo "${0} <username> <userid>"
+  echo ""
+  echo "  <username>   : the name of the user to be created."
+  echo "  <userid>     : the userid for the user."
+  echo ""
+  echo " Creates a user with name <username> and userid <userid>"
+  echo " with groupid 1000 and in group wheel with home"
+  echo " directory /home/<username>"
+  echo ""
+}
+
+MessageStd() {
+ local MSGNOW=`date '+%d-%b-%Y %H:%M:%S'`
+ echo "${MSGNOW} --- MSG --- ${1}"
+}
+
+NBPAR="${#}"
+if [ ${NBPAR} -ne 2 ]; then
+  MessageStd "*** ERROR *** username or userid missing"
+  Usage
+  exit 1
+fi
+
+USERNAME=${1}
+USERID=${2}
+MessageStd "Username is ${USERNAME}"
+MessageStd "UserID is $USERID"
+
+${GETENT} passwd "${USERNAME}" > /dev/null 2>&1
+RETVAL=${?}
+if [ ${RETVAL} -eq 0 ]; then
+  MessageStd "*** ERROR *** ${USERNAME} already exists"
+  Usage
+  exit 1 
+fi
+HOMEDIR="/home/${USERNAME}"
+
+${USERADD} -c "user ${USERNAME}" -d "${HOMEDIR}" -g ${GROUPID} -G wheel -m -s "${USERSHELL}" -u ${USERID} "${USERNAME}"
+
+RETVAL=${?}
+if [ ${RETVAL} -ne 0 ]; then
+    MessageStd "*** ERROR *** Failed to create user ${USERNAME}: ${RETVAL}"
+    Usage
+    exit 1
+else
+    ${PASSWD} ${USERNAME}
+fi
+
+${SU} -l ${USERNAME} -c "${MKDIR} .oci"
+RETVAL=${?}
+if [ ${RETVAL} -ne 0 ]; then
+    MessageStd "*** ERROR *** Failed to create .oci: ${RETVAL}"
+    Usage
+    exit 1
+fi
+
+${SU} -l ${USERNAME} -c "${MKDIR} -p ${WORKDIR}"
+RETVAL=${?}
+if [ ${RETVAL} -ne 0 ]; then
+    MessageStd "*** ERROR *** Failed to create ${WORKDIR}: ${RETVAL}"
+    Usage
+    exit 1
+fi
+
+

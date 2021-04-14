@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -29,7 +29,7 @@ def get_row_printer_impl(mode):
     raise Exception('unknown mode [%s]' % mode)
 
 
-class ColumnsPrinter():
+class ColumnsPrinter:
     """
     base class fo array printer
     """
@@ -41,7 +41,7 @@ class ColumnsPrinter():
 
     def __init__(self, **kargs):
         """
-        Instanciate a new columnsPrinter
+        Instantiate a new columnsPrinter
         keywords:
             'column_separator' : character used to mark filed separation (default = '|')
             'printer' : file object used to output data, default sys.stdout
@@ -50,14 +50,14 @@ class ColumnsPrinter():
                         each entry must have three elements:
                             - columns title
                             - columns width
-                            - attribute name to be called during printing. Or dictionnary key.
+                            - attribute name to be called during printing. Or dictionary key.
                               Or callback. callback signature is 'str _f(name,object)'
-                              callback must return a string to be printed. callbacl will
+                              callback must return a string to be printed. callback will
                               be called with columns name as first argument and object as passed to printRow()
                         ex: (['name',10,'getName'])
                            This will produce a columns of 10 characters width.
-                           'getName' method will be call on each objects passed to printRow()
-                        ex:  (['foo',10,bar])
+                           'getName' method will be called on each objects passed to printRow()
+                        ex:  (['foo',10, bar])
                             a call to printRow(o) produce a call to bar('foo',o)
         """
 
@@ -81,12 +81,9 @@ class ColumnsPrinter():
             raise AttributeError('Invalid value for columns: %s' % e.args[0]) from e
 
         self.tableWidth = sum(self.columnsWidths)
-
         self.columnsSeparator = kargs.get('column_separator', ColumnsPrinter._COLUMN_SEP)
         self.replacement = ColumnsPrinter._MISSING_ATTR
-
-
-        self.printer = kargs.get('printer',sys.stdout)
+        self.printer = kargs.get('printer', sys.stdout)
 
     def printHeader(self):
         """
@@ -109,7 +106,7 @@ class ColumnsPrinter():
         Row break, what to be display between rows
         """
 
-    def printKeyValue(self, attrName,attrValue):
+    def printKeyValue(self, attrName, attrValue):
         """
         static method to print a key value pair
         depend of the implementation
@@ -149,7 +146,8 @@ class ColumnsPrinter():
             try:
                 return _columnAttr(self.columnsNames[columnIdx], _object)
             except Exception as e:
-                raise LookupError("error calling callback [%s] in obj %s: %s" % (_columnAttr, _object, e.args[0])) from e
+                raise LookupError("error calling callback [%s] in obj %s: %s"
+                                  % (_columnAttr, _object, e.args[0])) from e
 
         if isinstance(_object, list) or isinstance(_object, tuple):
             """
@@ -166,8 +164,7 @@ class ColumnsPrinter():
             _key = self.columnsAttrs[columnIdx]
             if _key in _object:
                 return _object[self.columnsAttrs[columnIdx]]
-            else:
-                raise LookupError('missing key [%s] in dict' % _key)
+            raise LookupError('missing key [%s] in dict' % _key)
 
         # otherwise handle Object case.
         # if a callback is defined call and return its result
@@ -235,7 +232,8 @@ class TablePrinter(ColumnsPrinter):
             try:
                 _elements.append(self._getValueForColumn(cidx, o))
             except LookupError:
-                _logger.debug('cannot get value', exc_info=True)
+                # _logger.debug('cannot get value', exc_info=True)
+                _logger.debug('cannot get value')
                 _elements.append(self.replacement)
         self._printElements(_elements)
 
@@ -291,7 +289,7 @@ class JSONPrinter(ColumnsPrinter):
         self.encoder = json.JSONEncoder(skipkeys=False, sort_keys=False)
 
     def printKeyValue(self, name, value):
-        print(self.encoder.encode({name:value}), file=self.printer)
+        print(self.encoder.encode({name: value}), file=self.printer)
 
     def printRow(self, o):
         _a = dict()
@@ -300,7 +298,8 @@ class JSONPrinter(ColumnsPrinter):
             try:
                 _a[_name] = self._getValueForColumn(cidx, o)
             except LookupError:
-                _logger.debug('cannot get value', exc_info=True)
+                # _logger.debug('Cannot get value', exc_info=True)
+                _logger.debug('Cannot get value')
 
             cidx = cidx+1
 
@@ -311,6 +310,7 @@ class JSONPrinter(ColumnsPrinter):
 
 
 class HtmlPrinter(ColumnsPrinter):
+
     def printHeader(self):
         _buffer = StringIO()
         _buffer.write('<HTML>\n')
@@ -381,7 +381,18 @@ class HtmlPrinter(ColumnsPrinter):
         self._printElements(vals)
 
     def _printElements(self, strlist):
+        """
+        Print
 
+        Parameters
+        ----------
+        strlist: list
+            to be printed
+
+        Returns
+        -------
+            None
+        """
         if not strlist:
             return
 
@@ -418,12 +429,12 @@ class TextPrinter(ColumnsPrinter):
                 else:
                     _value = self.replacement
             except LookupError:
-                _logger.debug('cannot get value', exc_info=True)
+                # _logger.debug('cannot get value', exc_info=True)
+                _logger.debug('cannot get value')
                 _value = self.replacement
 
-            print ('%s: %s' % (self.columnsNames[cidx],_value), file=self.printer)
+            print('%s: %s' % (self.columnsNames[cidx], _value), file=self.printer)
 
     def rowBreak(self):
         # print some space between rows (block of information)
-        print ('', file=self.printer)
-
+        print('', file=self.printer)

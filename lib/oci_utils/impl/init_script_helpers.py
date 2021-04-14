@@ -25,7 +25,7 @@ class InitScriptBase():
 class ServiceManager():
     def __init__(self, name):
         """
-        Instanciate a new manger for named service
+        Instantiate a new manager for named service
         parameter:
             name : service name
         """
@@ -33,7 +33,7 @@ class ServiceManager():
 
     def start(self):
         """
-        start the init script
+        Start the init script
         raise
           Exception if start has failed
         """
@@ -41,7 +41,7 @@ class ServiceManager():
 
     def stop(self):
         """
-        stop the init script
+        Stop the init script
         raise
           Exception if stop has failed
         """
@@ -49,7 +49,7 @@ class ServiceManager():
 
     def remove(self):
         """
-        removes the init script from the system
+        Removes the init script from the system
         """
         raise Exception('not implemented')
 

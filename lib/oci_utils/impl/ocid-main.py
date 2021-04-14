@@ -1,7 +1,6 @@
-
 # oci-utils
 #
-# Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -43,18 +42,20 @@ def parse_args():
     Returns
     -------
     namespace
-        The commnad line namespace.
+        The command line namespace.
     """
     parser = argparse.ArgumentParser(description='oci-utils daemon')
-    parser.add_argument('--refresh', nargs='?', action='store',
-                        metavar='FUNC', default=False,
-                        help='refresh cached data for the given function, '
-                        'or all functions if FUNC is not specified, and exit. '
-                        'Possible values for FUNC: vnic, iscsi, '
-                        'public_ip')
-    parser.add_argument('--no-daemon', action='store_true',
+    parser.add_argument('--refresh', nargs='?',
+                        action='store',
+                        metavar='FUNC',
+                        default=False,
+                        help='refresh cached data for the given function, or all functions if FUNC is not '
+                             'specified, and exit. Possible values for FUNC: vnic, iscsi, public_ip')
+    parser.add_argument('--no-daemon',
+                        action='store_true',
                         help='run ocid in the foreground, useful for debugging')
-    parser.add_argument('--stop-all', action='store_true',
+    parser.add_argument('--stop-all',
+                        action='store_true',
                         help='gracefull stop running ocid daemon')
 
     args = parser.parse_args()
@@ -171,10 +172,9 @@ class OcidThread(threading.Thread):
             No return value.
         """
         self.active = True
-        self.thr_logger.info("Starting ocid thread '%s'" % self.thread_name)
+        self.thr_logger.info("Starting ocid thread '%s'", self.thread_name)
         while True:
-            self.thr_logger.debug("Running thread func for "
-                                  "thread %s" % self.thread_name)
+            self.thr_logger.debug("Running thread func for thread %s", self.thread_name)
             self.thread_lock.acquire()
             if not self.active:
                 # shutting down.
@@ -184,8 +184,7 @@ class OcidThread(threading.Thread):
             try:
                 self.context = self.ocidfunc(self.context, self.thr_logger)
             except Exception as e:
-                self.thr_logger.error("Error running ocid "
-                                      "thread '%s': %s" % (self.thread_name, e))
+                self.thr_logger.error("Error running ocid thread '%s': %s", self.thread_name, e)
                 self.thr_logger.exception(e)
             self.thread_lock.release()
             # ocidfunc completed at least once
@@ -193,7 +192,7 @@ class OcidThread(threading.Thread):
             if not self.repeat:
                 # run the main function once only
                 break
-            self.thr_logger.debug('Waiting on evt, tm = %d' % self.sleeptime)
+            self.thr_logger.debug('Waiting on evt, tm = %d', self.sleeptime)
             self.blocking_evt.wait(self.sleeptime)
 
 
@@ -205,7 +204,8 @@ def public_ip_func(context, func_logger):
     ----------
     context: dict
         THe thread context.
-        # --GT-- not used, kept to avoid to break the function call.
+        # GT not used, kept to avoid to break the function call.
+    func_logger: logger
 
     Returns
     -------
@@ -237,6 +237,7 @@ def iscsi_func(context, func_logger):
     ----------
     context: dict
         The thread context.
+    func_logger: logger
 
     Returns
     -------
@@ -367,8 +368,7 @@ def iscsi_func(context, func_logger):
                 continue
             cache_changed = True
             # configure and attach the device
-            __ocid_logger.info("Attaching iscsi device: %s:%s (%s)" %
-                               (vol['ipaddr'], "3260", vol['iqn']))
+            __ocid_logger.info("Attaching iscsi device: %s:%s (%s)", vol['ipaddr'], "3260", vol['iqn'])
             if vol['user'] is not None:
                 attach_result = \
                     oci_utils.iscsiadm.attach(vol['ipaddr'], 3260,
@@ -533,8 +533,10 @@ def vnic_func(context, func_logger):
         _vnic_utils = vnicutils.VNICUtils()
     else:
         _vnic_utils = context['vnic_utils']
-
-    _vnic_utils.auto_config([])
+    #
+    # GT
+    # LINUX-10360 ocid service configures unconfigured vnics; commented out in case of side effects.
+    # _vnic_utils.auto_config([])
 
     return context
 
@@ -597,7 +599,7 @@ def start_thread(name, repeat):
         if is_enabled not in true_list:
             return None
         scan_interval = OCIUtilsConfiguration.get('vnic', 'scan_interval')
-        __ocid_logger.debug('scan interval for vnics: %s' % str(scan_interval))
+        __ocid_logger.debug('scan interval for vnics: %s', str(scan_interval))
         vf_net = OCIUtilsConfiguration.get('vnic', 'vf_net') in true_list
         th = OcidThread(name=name,
                         ocidfunc=vnic_func,
@@ -606,7 +608,7 @@ def start_thread(name, repeat):
                         sleeptime=int(scan_interval),
                         repeat=repeat)
     else:
-        __ocid_logger.error('Internal error: unknown thread: %s' % name)
+        __ocid_logger.error('Internal error: unknown thread: %s', name)
         return None
 
     th.start()
@@ -674,9 +676,9 @@ def wait_for_threads(threads):
     """
     __ocid_logger.debug('Waiting for threads...')
     for th in list(threads.keys()):
-        __ocid_logger.debug('Waiting for %s...' % th)
+        __ocid_logger.debug('Waiting for %s...', th)
         threads[th].join()
-        __ocid_logger.debug('Thread %s finished.' % th)
+        __ocid_logger.debug('Thread %s finished.', th)
     return 0
 
 
@@ -704,7 +706,7 @@ def daemon_main(arguments):
     __ocid_logger.debug('threads started')
     # wait for every thread to complete the ocid func at least once
     for th in list(threads.keys()):
-        __ocid_logger.debug('waiting for first iteration of %s to complete' % threads[th].getName())
+        __ocid_logger.debug('waiting for first iteration of %s to complete', threads[th].getName())
         threads[th].wait_first_iteration()
 
     __ocid_logger.debug('all threads finished the first iteration')
@@ -722,9 +724,9 @@ def daemon_main(arguments):
     try:
         __ocid_logger.debug('selecting on signal...')
         r, _, _ = select.select([os.open('/var/run/ocid.fifo', os.O_RDONLY | os.O_NONBLOCK)], [], [])
-        __ocid_logger.debug('out of selecting for [%s]' % str(r))
+        __ocid_logger.debug('out of selecting for [%s]', str(r))
     except Exception as e:
-        __ocid_logger.debug('error selecting: %s' % str(e))
+        __ocid_logger.debug('error selecting: %s', str(e))
 
     for th in list(threads.keys()):
         threads[th].request_stop()
@@ -763,7 +765,8 @@ def main():
 
         daemon_context = daemon.DaemonContext(pidfile=pidlock, umask=0o033, detach_process=(not args.no_daemon))
         daemon_context.files_preserve = [fn.stream.fileno()
-                                         for fn in __ocid_logger.parent.handlers if issubclass(fn.__class__, logging.StreamHandler)]
+                                         for fn in __ocid_logger.parent.handlers
+                                         if issubclass(fn.__class__, logging.StreamHandler)]
         with daemon_context:
             daemon_main(args)
 

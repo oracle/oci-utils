@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 #
@@ -55,8 +55,10 @@ def print_choices(header, choices, sep="\n  "):
 
 
 def _oci_utils_exception_hook(exctype, value ,tb):
-    logging.getLogger('oci-utils').critical('An unexpected error occured: %s' , str(value))
-    logging.getLogger('oci-utils').debug('An unexpected error occured',exc_info=value)
+    logging.getLogger('oci-utils').critical('An unexpected error occurred: %s', str(value), stack_info=True)
+    logging.getLogger('oci-utils').debug('An unexpected error occurred', exc_info=value)
+
+
 sys.excepthook = _oci_utils_exception_hook
 
 # oci-utils config file
@@ -75,7 +77,7 @@ def read_config():
         [ConfigParser]
             The oci_utils configuration.
     """
-    _config = getattr(read_config,"oci_utils_config",None)
+    _config = getattr(read_config, "oci_utils_config", None)
     if _config is not None:
         return _config
 
@@ -108,8 +110,7 @@ def read_config():
         return oci_utils_config
 
     conffiles = [os.path.join(__oci_utils_conf_d, f)
-                 for f in os.listdir(__oci_utils_conf_d)
-                 if os.path.isfile(os.path.join(__oci_utils_conf_d, f))]
+                 for f in os.listdir(__oci_utils_conf_d) if os.path.isfile(os.path.join(__oci_utils_conf_d, f))]
     oci_utils_config.read(conffiles)
     return oci_utils_config
 

@@ -1,14 +1,17 @@
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
+import os
 import time
 import unittest
 
 import oci_utils
 import oci_utils.oci_api
-from tools.decorators import needsOCICLI
+from tools.decorators import needsOCICLI, skipItAsUnresolved
 from tools.oci_test_case import OciTestCase
+
+os.environ['LC_ALL'] = 'en_US.UTF8'
 
 
 class TestOCIVolume(OciTestCase):
@@ -59,14 +62,20 @@ class TestOCIVolume(OciTestCase):
 
         for n in range(10):
             # verify that it's gone
-            vol = self.sess.get_volume(volume_id=vol_id, refresh=True)
+            vol = self.sess.get_volume(volume_id=vol_id)
             if vol is None:
                 break
             else:
                 time.sleep(2)
         self.assertIsNone(vol, 'Cannot get volume with ID [%s]' % vol_id)
 
+    @skipItAsUnresolved()
     @needsOCICLI()
+    #
+    # attach_volume was removed from instance object
+    #
+    # GT
+    # this test is obsolete since refactoring, 0.12
     def test__oci_instance__attach_volume(self):
         """
         Tests block volume attach.

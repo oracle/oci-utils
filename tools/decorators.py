@@ -1,11 +1,12 @@
 
-# Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
 # Common decorator functions for oci-utils unit tests
 
 
+import os
 import os.path
 from oci_utils.impl.network_helpers import is_ip_reachable
 from oci_utils.impl import VIRSH_CMD
@@ -27,6 +28,8 @@ __all__ = ['skipUnlessRecorder',
 __can_connect_to_oci_sap = None
 
 _run_under_recorder = False
+
+os.environ['LC_ALL'] = 'en_US.UTF8'
 
 
 def skipUnlessRecorder():
@@ -110,7 +113,7 @@ def skipUnlessOCISDKInstalled():
     global __sdk_installed
     if __sdk_installed is None:
         try:
-            # --GT-- not used
+            # GT not used
             # import oci
             __sdk_installed = True
         except ImportError:

@@ -1,7 +1,8 @@
-# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
+import os
 import re
 import unittest
 
@@ -9,6 +10,8 @@ from oci_utils import oci_regions
 from oci_utils.metadata import InstanceMetadata as InstanceMetadata
 from tools.decorators import skipUnlessOCI
 from tools.oci_test_case import OciTestCase
+
+os.environ['LC_ALL'] = 'en_US.UTF8'
 
 
 class TestOciMetadata(OciTestCase):
@@ -66,21 +69,13 @@ class TestOciMetadata(OciTestCase):
         """
         metadata = InstanceMetadata().filter(['macaddr', 'instance'])
         self.assertTrue(metadata, 'empty filtered metadata returned')
-        self.assertIn('instance', metadata,
-                      '\'instance\' not part of filtered metadata')
-        self.assertIn('compartmentId', metadata['instance'],
-                      '\'compartmentId\' not part of filtered instance '
-                      'metadata')
-        self.assertIn('ocid1.compartment.oc1..',
-                      metadata['instance']['compartmentId'],
-                      'Not expected value of \'compartmentId\'  of filtered '
-                      'instance metadata')
-        self.assertIn('vnics', metadata,
-                      '\vnics\' not part of filtered instance metadata')
-        self.assertIn('macAddr', metadata['vnics'][0],
-                      'first VNIC of metatada do nto contain \'macAddr\' key')
-        self.assertNotIn('vnicId', metadata['vnics'][0],
-                         'first VNIC of metatada do nto contain \'vnicId\' key')
+        self.assertIn('instance', metadata, '\'instance\' not part of filtered metadata')
+        self.assertIn('compartmentId', metadata['instance'], '\'compartmentId\' not part of filtered instance metadata')
+        self.assertIn('ocid1.compartment.oc1..', metadata['instance']['compartmentId'],
+                      'Not expected value of \'compartmentId\'  of filtered instance metadata')
+        self.assertIn('vnics', metadata, '\vnics\' not part of filtered instance metadata')
+        self.assertIn('macAddr', metadata['vnics'][0], 'first VNIC of metatada do nto contain \'macAddr\' key')
+        self.assertNotIn('vnicId', metadata['vnics'][0], 'first VNIC of metatada do nto contain \'vnicId\' key')
 
 
 if __name__ == '__main__':

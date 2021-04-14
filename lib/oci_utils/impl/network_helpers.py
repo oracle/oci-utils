@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -22,7 +22,10 @@ from netaddr import IPNetwork
 from . import sudo_utils
 
 
-__all__ = ['get_interfaces', 'is_ip_reachable', 'add_route_table', 'delete_route_table',
+__all__ = ['get_interfaces',
+           'is_ip_reachable',
+           'add_route_table',
+           'delete_route_table',
            'network_prefix_to_mask',
            'add_static_ip_route',
            'add_static_ip_rule',
@@ -36,10 +39,11 @@ _CLASS_NET_DIR = '/sys/class/net'
 _NM_CONF_DIR = "/etc/NetworkManager/conf.d/"
 _logger = logging.getLogger('oci-utils.net-helper')
 
+
 def is_network_namespace_exists(name):
     """
     Checks that a namespace exist or not
-    
+
     Parameter
     ---------
       name : namespace name as str
@@ -47,21 +51,22 @@ def is_network_namespace_exists(name):
     -------
        True if exists False otherwise
     """
-    return os.path.exists('/var/run/netns/%s'%name)
+    return os.path.exists('/var/run/netns/%s' % name)
+
 
 def create_network_namespace(name):
     """
     Creates network namespace
-    
+
     Parameter
     ---------
       name : namespace name as str
-      
+
     raise
     ------
       exception :in case of error
     """
-    _logger.debug('Creating network namespace [%s]',name)
+    _logger.debug('Creating network namespace [%s]', name)
     ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'add', name])
     if ret != 0:
         raise Exception('Cannot create network namespace')
@@ -76,7 +81,7 @@ def destroy_network_namespace(name):
       exception :in case of error
     return none
     """
-    _logger.debug('Deleting network namespace [%s]',name)
+    _logger.debug('Deleting network namespace [%s]', name)
     ret = sudo_utils.call(['/usr/sbin/ip', 'netns', 'delete', name])
     if ret != 0:
         raise Exception('Cannot delete network namespace')
@@ -136,7 +141,7 @@ def _get_link_infos(namespace):
     _infos = []
     for obj in link_info_j:
         _addr_info = {'addresses': []}
-        if 'addr_info'in obj:
+        if 'addr_info' in obj:
             for a_info in obj['addr_info']:
                 if a_info['family'] != 'inet':
                     continue
@@ -625,7 +630,8 @@ def remove_static_ip_rules(link_name):
 
         _command = ['/sbin/ip', 'rule', 'del']
         # all line listed are like '<rule number>:\t<rule as string> '
-        # when underlying device is down (i.e virtual network is down) the command append '[detached]' we have to remove this
+        # when underlying device is down (i.e virtual network is down)
+        # the command append '[detached]' we have to remove this
         _command.extend(re.compile("\d:\t").split(_line.decode().strip())[1].replace('[detached] ', '').split(' '))
         _out = sudo_utils.call_output(_command)
         if _out is not None and len(_out) > 0:

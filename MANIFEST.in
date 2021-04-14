@@ -7,7 +7,6 @@ include libexec/oci-image-cleanup
 include libexec/oci-utils-config-helper
 include libexec/oci-kvm-upgrade
 include libexec/oci-kvm-config.sh
-include libexec/secondary_vnic_all_configure.sh
 include libexec/oci-kvm-network-script
 include tests/*.py
 include data/*.service

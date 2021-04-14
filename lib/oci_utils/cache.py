@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -104,7 +104,7 @@ def load_cache(global_file, user_file=None, max_age=None):
         tuple
             (timestamp, file_contents)
     """
-    _logger.debug('loading cache %s' % global_file)
+    _logger.debug('loading cache %s', global_file)
 
     cache_fname = get_newer(global_file, user_file)
     if cache_fname is None:
