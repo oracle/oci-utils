@@ -4,15 +4,11 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-
-# utility assists with configuring iscsi storage on Oracle Cloud
-# Infrastructure instances.  See the manual page for more information.
-
+# utility verifies if instance principal authentication with OCI is
+# configured correctly to create a working oci session.
 
 _PY3=/usr/bin/python3
 s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
 
-
-exec ${_PY3}  ${s_dir}/virt/oci-kvm-main.py $@
-
+exec ${_PY3}  ${s_dir}/oci-test-ip-auth-main.py 
 

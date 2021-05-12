@@ -31,9 +31,24 @@ class TestOCISession(OciTestCase):
         if self._session is None:
             self._session = oci_utils.oci_api.OCISession(
                 authentication_method=oci_utils.oci_api.IP)
+        #
+        # session is not enough
+        if self._session.this_instance() is None:
+            self._session = oci_utils.oci_api.OCISession(
+                authentication_method=oci_utils.oci_api.DIRECT)
+        #
+        # session is not enough
+        if self._session.this_instance() is None:
+            self._session = oci_utils.oci_api.OCISession(
+                authentication_method=oci_utils.oci_api.PROXY)
+        #
+        # session is not enough
+        if self._session.this_instance() is None:
+            #
+            # no way to create a correct session, all tests will fail.
+            pass
         return self._session
 
-    @skipItAsUnresolved()
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
     def test_config_file_auth(self):
@@ -45,18 +60,15 @@ class TestOCISession(OciTestCase):
             No return value.
         """
         s = oci_utils.oci_api.OCISession(authentication_method=oci_utils.oci_api.DIRECT)
-        self.assertIsNotNone(s, 'fail to get session using DIRECT mode')
-        self.assertEqual(s.auth_method, oci_utils.oci_api.DIRECT,
-                         'auth mode of returned session is not DIRECT')
-        self.assertIsNone(s.signer,
-                          'expected signer for DIRECT auth mode to be None')
+        self.assertIsNotNone(s, 'fail to get session using DIRECT mode.')
+        self.assertEqual(s.auth_method, oci_utils.oci_api.DIRECT, 'Auth mode of returned session is not DIRECT.')
+        self.assertIsNone(s.signer, 'Expected signer for DIRECT auth mode to be None.')
         i = s.this_instance()
-        self.assertIsNotNone(i, 'DIRECT session\'s OCI instance is None')
-        self.assertEqual(i.get_display_name(), socket.gethostname(),
-                         'Not expeceted instance hostname [%s <> %s]' % (
-                         i.get_display_name(), socket.gethostname()))
+        self.assertIsNotNone(i, 'DIRECT session\'s OCI instance is None.')
+        self.assertEqual(i.get_display_name().replace('_', '-').lower(), socket.gethostname(),
+                         'Not expected instance hostname [%s <> %s].'
+                         % (i.get_display_name().replace('_', '-').lower(), socket.gethostname()))
 
-    @skipItAsUnresolved()
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
     def test_instance_principal_auth(self):
@@ -68,18 +80,15 @@ class TestOCISession(OciTestCase):
             No return value.
         """
         s = oci_utils.oci_api.OCISession(authentication_method=oci_utils.oci_api.IP)
-        self.assertIsNotNone(s, 'fail to get session using IP mode')
-        self.assertEqual(s.auth_method, oci_utils.oci_api.IP,
-                         'auth mode of returned session is not IP')
-        self.assertIsNotNone(s.signer,
-                             'expected signer for IP auth mode to be None')
+        self.assertIsNotNone(s, 'Fail to get session using IP mode')
+        self.assertEqual(s.auth_method, oci_utils.oci_api.IP, 'Auth mode of returned session is not IP.')
+        self.assertIsNotNone(s.signer, 'Expected signer for IP auth mode to be None.')
         i = s.this_instance()
-        self.assertIsNotNone(i, 'IP session\'s OCI instance is None ')
-        self.assertEqual(i.get_display_name(), socket.gethostname(),
-                         'Not expeceted instance hostname [%s <> %s]' % (
-                         i.get_display_name(), socket.gethostname()))
+        self.assertIsNotNone(i, 'IP session\'s OCI instance is None.')
+        self.assertEqual(i.get_display_name().replace('_', '-').lower(), socket.gethostname(),
+                         'Not expected instance hostname [%s <> %s].'
+                         % (i.get_display_name().replace('_', '-').lower(), socket.gethostname()))
 
-    @skipItAsUnresolved()
     @skipUnlessOCI()
     @skipUnlessRoot()
     @skipUnlessOCISDKInstalled()
@@ -92,28 +101,26 @@ class TestOCISession(OciTestCase):
             No return value.
         """
         s = oci_utils.oci_api.OCISession(authentication_method=oci_utils.oci_api.PROXY)
-        self.assertIsNotNone(s, 'fail to get session using PROXY mode')
+        self.assertIsNotNone(s, 'Fail to get session using PROXY mode.')
         self.assertEqual(s.auth_method, oci_utils.oci_api.PROXY,
-                         'auth mode of returned session is not PROXY [%s]' % str(s.auth_method))
+                         'Auth mode of returned session is not PROXY [%s].' % str(s.auth_method))
         i = s.this_instance()
-        self.assertIsNotNone(i, 'PROXY session\'s OCI instance is None ')
-        self.assertEqual(i.get_display_name(), socket.gethostname(),
-                         'Not expeceted instance hostname [%s <> %s]' % (
-                         i.get_display_name(), socket.gethostname()))
+        self.assertIsNotNone(i, 'PROXY session\'s OCI instance is None.')
+        self.assertEqual(i.get_display_name().replace('_','-'), socket.gethostname(),
+                         'Not expected instance hostname [%s <> %s].' % (i.get_display_name().replace('_','-'), socket.gethostname()))
 
-    @skipItAsUnresolved()
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
     def test_oci_session(self):
         """
-        Test OCI sessoin with wrong configuration.
+        Test OCI session with wrong configuration.
 
         Returns
         -------
             No return value.
         """
         # invalid config file -> should fail
-        with self.assertRaisesRegex(Exception, 'Failed to authenticate'):
+        with self.assertRaisesRegex(Exception, 'Failed to authenticate.'):
             s = oci_utils.oci_api.OCISession(
                 config_file='/dev/null',
                 authentication_method=oci_utils.oci_api.DIRECT)
@@ -123,7 +130,7 @@ class TestOCISession(OciTestCase):
         self.assertIsNotNone(s)
         i = s.this_instance()
         self.assertIsNotNone(i)
-        self.assertEqual(i.data.display_name, socket.gethostname())
+        self.assertEqual(i.get_display_name().replace('_','-'), socket.gethostname())
 
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
@@ -136,19 +143,18 @@ class TestOCISession(OciTestCase):
             No return value.
         """
         _all = self.setUpSession().all_compartments()
-        self.assertIsNotNone(_all, 'None list of compartment returned')
-        _this_compartement = self.setUpSession().this_compartment()
-        self.assertIsNotNone(_this_compartement, 'Cannot fetch our compartment')
-        _my_compartment_ocid = _this_compartement.get_ocid()
+        self.assertIsNotNone(_all, 'None list of compartment returned.')
+        _this_compartment = self.setUpSession().this_compartment()
+        self.assertIsNotNone(_this_compartment, 'Cannot fetch our compartment.')
+        _my_compartment_ocid = _this_compartment.get_ocid()
         _found = False
         for _c in _all:
-            self.assertTrue(
-                isinstance(_c, oci_utils.impl.oci_resources.OCICompartment),
-                'wrong type returned as part of compartment list')
+            self.assertTrue(isinstance(_c, oci_utils.impl.oci_resources.OCICompartment),
+                            'Wrong type returned as part of compartment list.')
             if _c.get_ocid() == _my_compartment_ocid:
                 _found = True
 
-        self.assertTrue(_found, 'Did not find our compartment in the list')
+        self.assertTrue(_found, 'Did not find our compartment in the list.')
 
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
@@ -161,10 +167,10 @@ class TestOCISession(OciTestCase):
             No return value.
         """
         _c = self.setUpSession().this_compartment()
-        self.assertIsNotNone(_c, 'Cannot fetch our compartment')
+        self.assertIsNotNone(_c, 'Cannot fetch our compartment.')
         _c_list = self.setUpSession().find_compartments(_c.get_display_name())
-        self.assertTrue(len(_c_list) == 1, 'wrong list length returned')
-        self.assertTrue(_c_list[0] == _c, 'wrong self compartment returned')
+        self.assertTrue(len(_c_list) == 1, 'Wrong list length returned.')
+        self.assertTrue(_c_list[0] == _c, 'Wrong self compartment returned.')
 
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
@@ -177,8 +183,7 @@ class TestOCISession(OciTestCase):
             No return value.
         """
         _c_list = self.setUpSession().find_compartments('_do_not_exits__')
-        self.assertTrue(len(_c_list) == 0,
-                        'wrong list length returned, shoudl be empty')
+        self.assertTrue(len(_c_list) == 0, 'Wrong list length returned, should be empty.')
 
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
@@ -191,10 +196,10 @@ class TestOCISession(OciTestCase):
             No return value.
         """
         _all = self.setUpSession().all_vcns()
-        self.assertIsNotNone(_all, 'None list of VCNS returned')
+        self.assertIsNotNone(_all, 'None list of VCNS returned.')
         for _c in _all:
             self.assertTrue(isinstance(_c, oci_utils.impl.oci_resources.OCIVCN),
-                            'wrong type returned as part of compartment list')
+                            'Wrong type returned as part of compartment list.')
 
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
@@ -209,9 +214,8 @@ class TestOCISession(OciTestCase):
         _all = self.setUpSession().all_vcns()
         if len(_all) > 0:
             _c_list = self.setUpSession().find_vcns(_all[0].get_display_name())
-            self.assertTrue(len(_c_list) == 1, 'wrong list length returned')
-            self.assertTrue(_c_list[0] == _all[0],
-                            'wrong self compartment returned')
+            self.assertTrue(len(_c_list) == 1, 'Wrong list length returned.')
+            self.assertTrue(_c_list[0] == _all[0], 'Wrong self compartment returned.')
 
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
@@ -225,8 +229,7 @@ class TestOCISession(OciTestCase):
         """
 
         _c_list = self.setUpSession().find_vcns('_do_not_exits__')
-        self.assertTrue(len(_c_list) == 0,
-                        'wrong list length returned, shoudl be empty')
+        self.assertTrue(len(_c_list) == 0, 'Wrong list length returned, should be empty.')
 
 
 
@@ -243,7 +246,7 @@ class TestOCISession(OciTestCase):
         _all = self.setUpSession().all_subnets()
         if len(_all) > 0:
             _s = self.setUpSession().find_subnets('%s*' % _all[0].get_display_name())
-            self.assertEqual(_s[0], _all[0], 'Wrong subnet returned by search')
+            self.assertEqual(_s[0], _all[0], 'Wrong subnet returned by search.')
 
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
@@ -256,9 +259,8 @@ class TestOCISession(OciTestCase):
             No return value.
         """
         _s = self.setUpSession().find_subnets('__do_not_exits__')
-        self.assertIsNotNone(_s, 'None returned empty list expected')
-        self.assertTrue(len(_s) == 0,
-                        'not empty list returned empty list expected')
+        self.assertIsNotNone(_s, 'None returned empty list expected.')
+        self.assertTrue(len(_s) == 0, 'Not empty list returned empty list expected.')
 
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
@@ -271,10 +273,10 @@ class TestOCISession(OciTestCase):
             No return value.
         """
         _all = self.setUpSession().all_instances()
-        self.assertIsNotNone(_all, 'None list of instances returned')
-        self.assertTrue(len(_all) >= 1, 'empy list of instances returned')
+        self.assertIsNotNone(_all, 'None list of instances returned.')
+        self.assertTrue(len(_all) >= 1, 'zempyy list of instances returned.')
         self.assertTrue(self.setUpSession().this_instance() in _all,
-                        'our instance not returned as part of all instances')
+                        'Our instance not returned as part of all instances.')
 
     @skipUnlessOCI()
     @skipUnlessOCISDKInstalled()
@@ -286,9 +288,8 @@ class TestOCISession(OciTestCase):
         -------
             No return value.
         """
-        _f = self.setUpSession().find_instances(
-            self.setUpSession().this_instance().get_display_name())
-        self.assertIsNotNone(_f, 'None list of instances returned')
+        _f = self.setUpSession().find_instances(self.setUpSession().this_instance().get_display_name())
+        self.assertIsNotNone(_f, 'None list of instances returned.')
         self.assertTrue(_f[0] == self.setUpSession().this_instance())
 
         _all_wildcard = sorted(self.setUpSession().find_instances('.*'))

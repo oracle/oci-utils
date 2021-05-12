@@ -48,7 +48,7 @@ class TestIScsiAdm(OciTestCase):
         """
         iqns = oci_utils.iscsiadm.session()
         self.assertIn(self.properties.get_property('lun_iqn'), iqns,
-                      'boot diks lun [%s] not found in IQN discovered [%s]' %
+                      'boot disk lun [%s] not found in IQN discovered [%s]' %
                       (self.properties.get_property('lun_iqn'), iqns))
         self.assertEqual(iqns['iqn.2015-02.oracle.boot:uefi']
                          ['current_portal_ip'], '169.254.0.2')

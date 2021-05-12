@@ -43,7 +43,6 @@ class TestCliOciNetworkInspector(OciTestCase):
         """
         return subprocess.check_output([self.oci_metadata_path, '--get', '/instance/compartmentId', '--value-only', '--trim']).decode('utf-8')
 
-
     def test_display_help(self):
         """
         Test displaying help. Dummy test to check that the CLI at least runs.
@@ -93,6 +92,7 @@ class TestCliOciNetworkInspector(OciTestCase):
 #
 # TODO
 # test network_inspector --vnc <vcn ocid>
+
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestCliOciNetworkInspector)

@@ -134,7 +134,7 @@ def _set_proxy():
 
 def _setup_env():
     """
-    protect ourself for sub process executions
+    Protect ourself for sub process executions
     """
     os.environ['LC_ALL'] = 'C'
 

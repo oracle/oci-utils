@@ -106,9 +106,21 @@ class TestCliOciMetadata(OciTestCase):
             _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/state'])
             _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/timeCreated'])
             _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/agentConfig'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/definedTags'])
             _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics'])
             _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/0'])
+        except Exception as e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_definedtags(self):
+        """
+        Test get instance defined tags
+
+        Returns
+        -------
+        No return value
+        """
+        try:
+            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/definedTags'])
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 

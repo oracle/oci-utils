@@ -54,7 +54,7 @@ def print_choices(header, choices, sep="\n  "):
     sys.stderr.write('\n')
 
 
-def _oci_utils_exception_hook(exctype, value ,tb):
+def _oci_utils_exception_hook(exctype, value, tb):
     logging.getLogger('oci-utils').critical('An unexpected error occurred: %s', str(value), stack_info=True)
     logging.getLogger('oci-utils').debug('An unexpected error occurred', exc_info=value)
 
@@ -104,7 +104,7 @@ def read_config():
     oci_utils_config.set('ocid', 'sdk_lock_timeout', '60') # not used anymore
     oci_utils_config.set('ocid', 'debug', 'False')
 
-    setattr(read_config,"oci_utils_config",oci_utils_config)
+    setattr(read_config,"oci_utils_config", oci_utils_config)
 
     if not os.path.exists(__oci_utils_conf_d):
         return oci_utils_config

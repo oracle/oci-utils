@@ -219,7 +219,7 @@ class TestCliOciNetworkConfig(OciTestCase):
             No return value.
         """
         try:
-            self.assertIn('creating', subprocess.check_output(
+            self.assertIn('Creating', subprocess.check_output(
                 [self.oci_net_config, 'attach-vnic', '--name', self.vnic_name]).decode('utf-8'),
                           'attach vnic failed')
             time.sleep(self.waittime)
@@ -239,21 +239,24 @@ class TestCliOciNetworkConfig(OciTestCase):
             No return value.
         """
         try:
-            self.assertIn('creating',
+            self.assertIn('Creating',
                           subprocess.check_output([self.oci_net_config, 'attach-vnic',
-                                                   '--name', self.vnic_name]).decode('utf-8'), 'attach vnic failed')
+                                                   '--name', self.vnic_name]).decode('utf-8'),
+                                                   'attach vnic failed')
             time.sleep(self.waittime)
             vn_ocid = self._get_vnic_ocid(self.vnic_name)
             vn_pip = self._get_vnic_private_ip(self.vnic_name)
             new_ip = str(ip_address(vn_pip) + 1)
-            self.assertIn('provisioning secondary private IP',
+            self.assertIn('Provisioning secondary private IP',
                           subprocess.check_output([self.oci_net_config, 'add-secondary-addr',
                                                    '--ocid', vn_ocid,
-                                                   '--ip-address', new_ip]).decode('utf-8'), 'adding secondary ip failed')
+                                                   '--ip-address', new_ip]).decode('utf-8'),
+                                                   'adding secondary ip failed')
             time.sleep(self.waittime)
-            self.assertIn('deconfigure secondary private IP',
+            self.assertIn('Deconfigure secondary private IP',
                           subprocess.check_output([self.oci_net_config, 'remove-secondary-addr',
-                                                   '--ip-address', new_ip]).decode('utf-8'), 'remove secondary ip failed')
+                                                   '--ip-address', new_ip]).decode('utf-8'),
+                                                   'remove secondary ip failed')
             time.sleep(self.waittime)
             self.assertEqual(subprocess.check_output([self.oci_net_config, 'detach-vnic',
                                                       '--ocid', vn_ocid]).decode('utf-8'), '')
@@ -271,8 +274,8 @@ class TestCliOciNetworkConfig(OciTestCase):
         """
         try:
             create_data = subprocess.check_output([self.oci_net_config, '--create-vnic']).decode('utf-8')
-            self.assertIn('creating', create_data, 'attach vnic failed')
-            new_ipv4 = _get_ip_from_response(create_data)
+            self.assertIn('Creating', create_data, 'attach vnic failed')
+            new_ipv4 = _get_ip_from_response(create_data)[0]
             time.sleep(self.waittime)
             self.assertEqual(subprocess.check_output(
                 [self.oci_net_config, '--detach-vnic', new_ipv4[0]]).decode('utf-8'), '')
@@ -291,20 +294,18 @@ class TestCliOciNetworkConfig(OciTestCase):
         try:
             create_data = subprocess.check_output(
                 [self.oci_net_config, '--create-vnic', '--private-ip', self.new_ip, '--vnic-name', self.vnic_name]).decode('utf-8')
-            self.assertIn('creating', create_data, 'attach vnic failed')
-            new_ipv4 = _get_ip_from_response(create_data)
+            self.assertIn('Creating', create_data, 'attach vnic failed')
+            new_ipv4 = _get_ip_from_response(create_data)[0]
             time.sleep(self.waittime)
             new_oci = self._get_vnic_ocid(self.vnic_name)
             add_ip_data = subprocess.check_output(
                 [self.oci_net_config, '--add-private-ip', '--private-ip', self.extra_ip, '--vnic', new_oci]).decode('utf-8')
-            self.assertIn('provisioning secondary private IP', add_ip_data, 'add private ip failed.')
+            self.assertIn('Provisioning secondary private IP', add_ip_data, 'add private ip failed.')
             time.sleep(self.waittime)
-            del_ip_data = subprocess.check_output(
-                [self.oci_net_config, '--del-private-ip', self.extra_ip]).decode('utf-8')
-            self.assertIn('deconfigure secondary private IP', del_ip_data, 'remove private ip failed')
+            del_ip_data = subprocess.check_output([self.oci_net_config, '--del-private-ip', self.extra_ip]).decode('utf-8')
+            self.assertIn('Deconfigure secondary private IP', del_ip_data, 'remove private ip failed')
             time.sleep(self.waittime)
-            self.assertEqual(subprocess.check_output(
-                [self.oci_net_config, '--detach-vnic', new_ipv4]).decode('utf-8'), '')
+            self.assertEqual(subprocess.check_output([self.oci_net_config, '--detach-vnic', new_ipv4]).decode('utf-8'), '')
             time.sleep(self.waittime)
         except Exception as e:
             self.fail('Execution oci-network-config attach detach in 0.11 compatibility mode has failed: %s' % str(e))

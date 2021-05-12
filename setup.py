@@ -437,6 +437,7 @@ setup(
              'bin/oci-image-migrate-import',
              'bin/oci-image-migrate-upload',
              'bin/oci-notify',
+             'bin/oci-test-ip-auth',
              ],
     classifiers=[
         "Development Status :: 3 - Alpha",
