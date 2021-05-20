@@ -277,7 +277,9 @@ def get_oci_api_session():
         # it seems that having a client is not enough, we may not be able to query anything on it
         # workaround :
         # try a dummy call to be sure that we can use this session
-        sess.this_instance()
+        if not bool(sess.this_instance()):
+            _logger.debug('Returning None session')
+            return None
         setattr(get_oci_api_session, "_session", sess)
     except Exception as e:
         _logger.error("Failed to access OCI services: %s", str(e))
@@ -392,12 +394,14 @@ def do_show_information(vnic_utils, mode, details=False):
         if interface['VNIC']:
             vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
             return vnic.get_display_name()
+        return ' '
 
     def _get_hostname(_, interface):
         """ if interface match a vnic return its hostname """
         if interface['VNIC']:
             vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
             return vnic.get_hostname()
+        return ' '
 
     _columns = []
     _columns.append(['State', 6, 'CONFSTATE'])
@@ -497,7 +501,7 @@ def compat_show_vnics_information():
     printer.finish()
 
 
-def compat_show_network_config(vnic_utils):
+def show_network_config(vnic_utils):
     """
     Display the current network interface configuration as well as the
     VNIC configuration from OCI.
@@ -623,7 +627,7 @@ def do_create_vnic(create_options):
                     # subnet_id = subn.get_subnet_id()
                     subnet_id = subn.get_ocid()
                 if subnet_id is None:
-                    raise Exception('cannot find suitable subnet for ip %s' % create_options.ip_address)
+                    raise Exception('Cannot find suitable subnet for ip %s' % create_options.ip_address)
         else:
             # We have a primary vnic for sure
             _primary_v = [v for v in _this_instance.all_vnics() if v.is_primary()][0]
@@ -642,10 +646,9 @@ def do_create_vnic(create_options):
 
     public_ip = vnic.get_public_ip()
     if public_ip is not None:
-        _logger.info(
-            'creating VNIC: %s (public IP %s)', vnic.get_private_ip(), public_ip)
+        _logger.info('Creating VNIC: %s (public IP %s)', vnic.get_private_ip(), public_ip)
     else:
-        _logger.info('creating VNIC: %s', vnic.get_private_ip())
+        _logger.info('Creating VNIC: %s', vnic.get_private_ip())
 
 
 def do_add_private_ip(vnic_utils, add_options):
@@ -692,7 +695,7 @@ def do_add_private_ip(vnic_utils, add_options):
     except Exception as e:
         raise Exception('Failed to provision private IP: %s ' % str(e)) from e
 
-    _logger.info('provisioning secondary private IP: %s', priv_ip.get_address())
+    _logger.info('Provisioning secondary private IP: %s', priv_ip.get_address())
     vnic_utils.add_private_ip(priv_ip.get_address(), vnic.get_ocid())
     return priv_ip.get_address(), vnic.get_ocid()
 
@@ -779,17 +782,22 @@ def main():
             vnic_utils.include(inc)
 
     if args.command == 'show':
+        #
+        # for compatibility mode, oci-network-config show should provide the same output as oci-network-config --show;
+        # if output-mode is specified, compatiblity requirement is dropped.
+        showerror = False
         if args.compat_output:
             compat_show_vnics_information()
-            compat_show_network_config(vnic_utils)
         else:
             try:
                 do_show_information(vnic_utils, args.output_mode, args.details)
             except Exception as e:
-                _logger.debug('cannot show information', exc_info=True)
-                _logger.error('cannot show information: %s', str(e))
-                return 1
-        return 0
+                _logger.debug('Cannot show information', exc_info=True)
+                _logger.error('Cannot show information: %s', str(e))
+                showerror = True
+        if args.output_mode == 'table':
+            show_network_config(vnic_utils)
+        return 1 if showerror else 0
 
     if args.command == 'show-vnics':
         sess = get_oci_api_session()
@@ -825,8 +833,8 @@ def main():
         try:
             do_create_vnic(args)
         except Exception as e:
-            _logger.debug('cannot create the VNIC', exc_info=True)
-            _logger.error('cannot create the VNIC: %s', str(e))
+            _logger.debug('Cannot create the VNIC', exc_info=True)
+            _logger.error('Cannot create the VNIC: %s', str(e))
             return 1
         # apply config of newly created vnic
         vnic_utils.auto_config(None)
@@ -835,8 +843,8 @@ def main():
         try:
             do_detach_vnic(args)
         except Exception as e:
-            _logger.debug('cannot detach VNIC', exc_info=True)
-            _logger.error('cannot detach VNIC: %s', str(e))
+            _logger.debug('Cannot detach VNIC', exc_info=True)
+            _logger.error('Cannot detach VNIC: %s', str(e))
             return 1
         # if we are here session is alive: no check
         if get_oci_api_session().this_shape().startswith("BM"):

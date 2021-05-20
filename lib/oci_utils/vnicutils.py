@@ -30,7 +30,6 @@ class VNICUtils:
         """ Class VNICUtils initialisation.
         """
         self.vnic_info = self.get_vnic_info()
-        _logger.debug('_GT_ vnic_info %s', self.vnic_info)
         self._metadata = None
         try:
             self._metadata = InstanceMetadata().refresh()
@@ -468,16 +467,18 @@ class VNICUtils:
         oci_sess = None
         try:
             oci_sess = OCISession()
+            my_instance = oci_sess.this_instance()
         except Exception as e:
-            _logger.debug('Cannot get OCI session: %s', str(e))
+            _logger.debug('Cannot get OCI session: %s', str(e), stack_info=True)
 
-        p_ips = oci_sess.this_instance().all_private_ips()
-        for p_ip in p_ips:
-            _ocid = p_ip.get_vnic_ocid()
-            _addr = p_ip.get_address()
-            if _ocid not in res:
-                res[_ocid] = []
-            res[_ocid].append(_addr)
+        if bool(my_instance):
+            p_ips = my_instance.all_private_ips()
+            for p_ip in p_ips:
+                _ocid = p_ip.get_vnic_ocid()
+                _addr = p_ip.get_address()
+                if _ocid not in res:
+                    res[_ocid] = []
+                res[_ocid].append(_addr)
 
         return res
 

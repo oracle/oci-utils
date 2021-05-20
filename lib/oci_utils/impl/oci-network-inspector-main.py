@@ -65,42 +65,45 @@ def _print_security_list(sec_list, indent):
         des = "---"
         desport = "-"
         srcport = "-"
+        _logger.debug('rule protocol: %s', rule.protocol)
         if rule.protocol == "6" or rule.protocol == "17":
             if rule.protocol == "6":
                 option = rule.tcp_options
             else:
                 option = rule.udp_options
-            if bool(option.destination_port_range):
-                try:
-                    if option.destination_port_range.min != option.destination_port_range.max:
-                        desport = "%s-%s" % (option.destination_port_range.min, option.destination_port_range.max)
-                    else:
-                        desport = option.destination_port_range.min
-                except Exception:
-                    _logger.debug('error during print', exc_info=True)
+            if bool(option):
+                if bool(option.destination_port_range):
+                    try:
+                        if option.destination_port_range.min != option.destination_port_range.max:
+                            desport = "%s-%s" % (option.destination_port_range.min, option.destination_port_range.max)
+                        else:
+                            desport = option.destination_port_range.min
+                    except Exception as e:
+                        _logger.debug('Error during print: %s', str(e), exc_info=True)
 
-            if bool(option.source_port_range):
-                try:
-                    if option.source_port_range.min != option.source_port_range.max:
-                        srcport = "%s-%s" % (option.source_port_range.min, option.source_port_range.max)
-                    else:
-                        srcport = option.source_port_range.min
-                except Exception:
-                    _logger.debug('error during print', exc_info=True)
+                if bool(option.source_port_range):
+                    try:
+                        if option.source_port_range.min != option.source_port_range.max:
+                            srcport = "%s-%s" % (option.source_port_range.min, option.source_port_range.max)
+                        else:
+                            srcport = option.source_port_range.min
+                    except Exception as e:
+                        _logger.debug('Error during print: %s', str(e), exc_info=True)
 
         elif rule.protocol == "1":
             srcport = "-"
             option = rule.icmp_options
             desport = "type--"
-            try:
-                desport = "type-%s" % option.type
-            except Exception:
-                _logger.debug('error during print', exc_info=True)
+            if bool(option):
+                try:
+                    desport = "type-%s" % option.type
+                except Exception as e:
+                    _logger.debug('Error during print: %s', str(e), exc_info=True)
 
-            try:
-                des = "code-%s" % option.code
-            except Exception:
-                des = "code--"
+                try:
+                    des = "code-%s" % option.code
+                except Exception as e:
+                    des = "code--"
         print("%s  Ingress: %-5s %20s:%-6s %20s:%s" % (indent, prot, src, srcport, des, desport))
 
     for rule in sec_list.get_egress_rules():
@@ -115,33 +118,35 @@ def _print_security_list(sec_list, indent):
             else:
                 option = rule.udp_options
 
-            try:
-                if option.destination_port_range.min != option.destination_port_range.max:
-                    desport = "%s-%s" % (option.destination_port_range.min, option.destination_port_range.max)
-                else:
-                    desport = option.destination_port_range.min
-            except Exception:
-                desport = "-"
+            if bool(option):
+                try:
+                    if option.destination_port_range.min != option.destination_port_range.max:
+                        desport = "%s-%s" % (option.destination_port_range.min, option.destination_port_range.max)
+                    else:
+                        desport = option.destination_port_range.min
+                except Exception:
+                    desport = "-"
 
-            try:
-                if option.source_port_range.min != option.source_port_range.max:
-                    srcport = "%s-%s" % (option.source_port_range.min, option.source_port_range.max)
-                else:
-                    srcport = option.source_port_range.min
+                try:
+                    if option.source_port_range.min != option.source_port_range.max:
+                        srcport = "%s-%s" % (option.source_port_range.min, option.source_port_range.max)
+                    else:
+                        srcport = option.source_port_range.min
 
-            except Exception:
-                srcport = "-"
+                except Exception:
+                    srcport = "-"
         elif rule.protocol == "1":
             srcport = "-"
             option = rule.icmp_options
-            try:
-                desport = "type-%s" % option.type
-            except Exception:
-                desport = "type--"
-            try:
-                des = "code-%s" % option.code
-            except Exception:
-                des = "code--"
+            if bool(option):
+                try:
+                    desport = "type-%s" % option.type
+                except Exception:
+                    desport = "type--"
+                try:
+                    des = "code-%s" % option.code
+                except Exception:
+                    des = "code--"
         print("%s  Egress : %-5s %20s:%-6s %20s:%s" % (indent, prot, src, srcport, des, desport))
 
 
@@ -260,19 +265,23 @@ def main():
                 if ip.is_primary():
                     primary = "primary"
                 print("       Private IP: %s(%s) Host: %s" % (ip.get_address(), primary, ip.get_hostname()))
-                vnic = ip.get_vnic()
-                if vnic:
-                    print("         Vnic: %s (%s)" % (vnic.get_ocid(), vnic.get_state()))
-                    if subnet.is_public_ip_on_vnic_allowed():
-                        print("         Vnic PublicIP: %s" % vnic.get_public_ip())
-                    instance = vnic.get_instance()
-                    print("         Instance: %s" % instance.get_hostname())
-                    print("   Instance State: %s" % instance.get_state())
-                    print("         Instance ocid: %s" % (instance.get_ocid()))
-                else:
-                    vnic_id = ip.get_vnic_ocid()
-                    print("         Vnic: %s(%s)" % (vnic_id, "NotFound"))
-                    print("         Instance: (maybe)%s(%s)" % (ip.get_display_name(), "NotFound"))
+                try:
+                    vnic = ip.get_vnic()
+                    if vnic:
+                        print("         Vnic: %s (%s)" % (vnic.get_ocid(), vnic.get_state()))
+                        if subnet.is_public_ip_on_vnic_allowed():
+                            print("         Vnic PublicIP: %s" % vnic.get_public_ip())
+                        instance = vnic.get_instance()
+                        print("         Instance: %s" % instance.get_hostname())
+                        print("   Instance State: %s" % instance.get_state())
+                        print("         Instance ocid: %s" % (instance.get_ocid()))
+                    else:
+                        vnic_id = ip.get_vnic_ocid()
+                        print("         Vnic: %s(%s)" % (vnic_id, "NotFound"))
+                        print("         Instance: (maybe)%s(%s)" % (ip.get_display_name(), "NotFound"))
+                except Exception as e:
+                    _logger.error('%s.', str(e))
+                    _logger.debug('Failed to collect data on vnic: %s', str(e), stack_info=True)
     return 0
 
 

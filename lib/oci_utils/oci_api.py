@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2018, 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -34,7 +34,6 @@ class OCISession:
     """
     High level OCI Cloud API operations
     """
-
     def __init__(self, config_file='~/.oci/config', config_profile='DEFAULT', authentication_method=None):
         """
         OCISession initialisation.
@@ -74,17 +73,36 @@ class OCISession:
         if self.auth_method == NONE:
             raise Exception('Failed to authenticate with the Oracle Cloud Infrastructure service')
 
-        self.tenancy_ocid = None
-        if 'tenancy' in self.oci_config:
-            # DIRECT or PROXY auth
-            self.tenancy_ocid = self.oci_config['tenancy']
-        elif self.signer is not None:
-            # IP auth
-            self.tenancy_ocid = self.signer.tenancy_id
-        elif 'instance' in self._metadata:
-            # fall back to the instance's own compartment_id
-            # We will only see the current compartment, but better than nothing
-            self.tenancy_ocid = self._metadata['instance']['compartmentId']
+        self.tenancy_ocid = self._get_tenancy_ocid()
+        _logger.debug('Tenancy id used: %s', self.tenancy_ocid)
+
+    def _get_tenancy_ocid(self):
+        """
+        Get the tenancy ocid, use compartment ocid if this fails.
+
+        Returns
+        -------
+            str: the tenancy ocid
+        """
+        #
+        # try the oci sdk config file
+        if bool(self.oci_config):
+            if 'tenancy' in self.oci_config:
+                return self.oci_config['tenancy']
+            _logger.debug('SDK config file exists but tenancy is missing')
+        #
+        # if oci sdk config file fails. try IP data
+        if self.signer is not None:
+            return self.signer.tenancy_id
+        _logger.debug('signer is missing tenancy')
+        #
+        # fall back to the instance's own compartment_id
+        # We will only see the current compartment, but better than nothing
+        if 'instance' in self._metadata:
+            return self._metadata['instance']['compartmentId']
+        # this means trouble
+        _logger.debug('Failed to get tenancy and compartment ocid.')
+        return None
 
     @staticmethod
     def _read_oci_config(fname, profile='DEFAULT'):
@@ -110,14 +128,12 @@ class OCISession:
             If the configuration file does not exist or is not readable.
         """
         full_fname = os.path.expanduser(fname)
-        if os.path.exists(full_fname):
-            try:
-                oci_config = oci_sdk.config.from_file(full_fname, profile)
-                return oci_config
-            except oci_sdk.exceptions.ConfigFileNotFound as e:
-                raise Exception("Unable to read OCI config file") from e
-        else:
-            raise Exception("Config file %s not found" % full_fname)
+        try:
+            oci_config = oci_sdk.config.from_file(full_fname, profile)
+            return oci_config
+        except oci_sdk.exceptions.ConfigFileNotFound as e:
+            _logger.debug("Unable to read OCI config file: %s", str(e))
+            raise Exception('Unable to read OCI config file') from e
 
     def this_shape(self):
         """
@@ -146,7 +162,6 @@ class OCISession:
         the authentication method which passed or NONE.
             [NONE | DIRECT | PROXY | AUTO | IP]
         """
-
         if authentication_method is None:
             auth_method = OCIUtilsConfiguration.get('auth', 'auth_method')
         else:
@@ -179,7 +194,7 @@ class OCISession:
                 _logger.debug('%s auth ok', method)
                 return method
             except Exception as e:
-                _logger.debug('%s auth has failed: %s', (method, str(e)))
+                _logger.debug('%s auth has failed: %s', method, str(e))
 
         # no options left
         return NONE
@@ -223,12 +238,11 @@ class OCISession:
         Exception
             The authentication using direct mode is not possible
         """
-
         try:
             self.oci_config = self._read_oci_config(fname=self.config_file, profile=self.config_profile)
             self._identity_client = oci_sdk.identity.IdentityClient(self.oci_config)
         except Exception as e:
-            _logger.debug("Direct authentication failed: %s", str(e))
+            _logger.debug('Direct authentication failed: %s', str(e))
             raise Exception("Direct authentication failed") from e
 
     def _ip_authenticate(self):
@@ -260,7 +274,6 @@ class OCISession:
         list
             List of compartements.
         """
-
         _compartments = []
         try:
             compartments_data = oci_sdk.pagination.list_call_get_all_results(
@@ -332,7 +345,7 @@ class OCISession:
         if self._compute_client is None:
             if self.signer is not None:
                 self._compute_client = \
-                    oci_sdk.core.compute_client.ComputeClient(config=self.oci_config, signer=self.signer)
+                    oci_sdk.core.compute_client.ComputeClient(config={}, signer=self.signer)
             else:
                 self._compute_client = \
                     oci_sdk.core.compute_client.ComputeClient(config=self.oci_config)
@@ -349,7 +362,7 @@ class OCISession:
         if self._network_client is None:
             if self.signer is not None:
                 self._network_client = \
-                    oci_sdk.core.virtual_network_client.VirtualNetworkClient(config=self.oci_config, signer=self.signer)
+                    oci_sdk.core.virtual_network_client.VirtualNetworkClient(config={}, signer=self.signer)
             else:
                 self._network_client = \
                     oci_sdk.core.virtual_network_client.VirtualNetworkClient(config=self.oci_config)
@@ -366,16 +379,15 @@ class OCISession:
         if self._block_storage_client is None:
             if self.signer is not None:
                 self._block_storage_client = \
-                    oci_sdk.core.blockstorage_client.BlockstorageClient(
-                        config=self.oci_config, signer=self.signer)
+                    oci_sdk.core.blockstorage_client.BlockstorageClient(config={}, signer=self.signer)
             else:
                 self._block_storage_client = \
-                    oci_sdk.core.blockstorage_client.BlockstorageClient(
-                        config=self.oci_config)
+                    oci_sdk.core.blockstorage_client.BlockstorageClient(config=self.oci_config)
         return self._block_storage_client
 
     def all_instances(self):
-        """Get all compartements intances across all compartments.
+        """
+        Get all compartments instances across all compartments.
 
         Returns
         -------
@@ -504,7 +516,6 @@ class OCISession:
         list
             A list of subnets.
         """
-
         subnets = []
         for compartment in self.all_compartments():
             comp_subnets = compartment.all_subnets()
@@ -535,7 +546,8 @@ class OCISession:
         return subnets
 
     def all_vcns(self):
-        """Get all VCNs intances across all compartments
+        """
+        Get all VCNs instances across all compartments
 
         Returns
         -------
@@ -550,8 +562,7 @@ class OCISession:
 
     def all_volumes(self):
         """
-        Get all volume intances across all compartments
-
+        Get all volume instances across all compartments
 
         Returns
         -------
@@ -569,7 +580,6 @@ class OCISession:
         """
         Get the current instance
 
-
         Returns
         -------
         OCIInstance
@@ -579,19 +589,21 @@ class OCISession:
         ------
         Exception : fetching instance has failed
         """
-
         try:
             my_instance_id = self._metadata['instance']['id']
         except Exception as e:
             _logger.error('Cannot find my instance ID: %s', e)
             return None
-
-        return self.get_instance(instance_id=my_instance_id)
+        try:
+            my_instance = self.get_instance(instance_id=my_instance_id)
+            return my_instance
+        except Exception as e:
+            _logger.debug('Failed to get this instance data: %s', str(e))
+            return None
 
     def this_compartment(self):
         """
         Get the current compartment
-
 
         Returns
         -------
@@ -599,15 +611,14 @@ class OCISession:
             A OCICompartment instance or None if no compartement
             information is found.
         """
-
         if self._metadata is None:
-            _logger.warning('metadata is None !')
+            _logger.warning('Metadata is None !')
             # TODO: should it severe error case instead ??
             return None
         try:
             my_compartment_id = self._metadata['instance']['compartmentId']
-        except Exception:
-            _logger.error('no compartement ID information in metadata')
+        except Exception as e:
+            _logger.error('No compartment ID information in metadata: %s', str(e))
             return None
 
         return self.get_compartment(ocid=my_compartment_id)
@@ -653,8 +664,8 @@ class OCISession:
             return None
         try:
             return self._metadata['instance']['region']
-        except Exception:
-            _logger.warning('no region information in metadata')
+        except Exception as e:
+            _logger.warning('No region information in metadata: %s', str(e))
             return None
 
     def get_instance(self, instance_id):
@@ -726,7 +737,6 @@ class OCISession:
         dict
             The volume object or None if not found.
         """
-
         bsc = self.get_block_storage_client()
         cc = self.get_compute_client()
 
@@ -768,19 +778,29 @@ class OCISession:
         return OCIVolume(self, volume_data=vol_data, attachment_data=v_att_data)
 
     def get_compartment(self, **kargs):
+        """
+        Get compartment data.
+
+        Parameters
+        ----------
+        kargs: argument dictionary, only ocid for now.
+
+        Returns
+        -------
+            OCICompartment
+        """
         if 'ocid' not in kargs:
             # for now make it mandatory
             raise Exception('ocid must be provided')
 
         try:
-            c_data = \
-                self._identity_client.get_compartment(compartment_id=kargs['ocid']).data
+            c_data = self._identity_client.get_compartment(compartment_id=kargs['ocid']).data
             #
             # GT
             # return OCICompartment(session=self, compartment_data=oci_sdk.util.to_dict(c_data))
             return OCICompartment(session=self, compartment_data=c_data)
         except Exception as e:
-            _logger.error('error getting compartment: %s', e)
+            _logger.error('Error getting compartment: %s', e)
             return None
 
     def get_vcn(self, vcn_id):
@@ -797,7 +817,6 @@ class OCISession:
         OCIVCN
             The OCI VCN  or None if it is not found.
         """
-
         for c in self.all_vcns():
             if c.get_ocid() == vcn_id:
                 return c
@@ -824,20 +843,24 @@ class OCISession:
         for comp in all_comps:
             try:
                 comp_id = comp.get_compartment_id()
-                vnic_atts = oci_sdk.pagination.list_call_get_all_results(cc.list_vnic_attachments,
-                                                                         compartment_id=comp_id)
+                vnic_atts = oci_sdk.pagination.list_call_get_all_results(cc.list_vnic_attachments, compartment_id=comp_id)
                 for vnic_att in vnic_atts.data:
-                    vnic_dat = nc.get_vnic(vnic_att.vnic_id).data
-                    if vnic_id == vnic_dat.id:
-                        return OCIVNIC(self, vnic_data=vnic_dat, attachment_data=vnic_att)
+                    try:
+                        vnic_dat = nc.get_vnic(vnic_att.vnic_id).data
+                        if vnic_id == vnic_dat.id:
+                            return OCIVNIC(self, vnic_data=vnic_dat, attachment_data=vnic_att)
+                    except Exception as e:
+                        if hasattr(e, 'code'):
+                            _logger.debug('Failed to collect vnic data for %s: %s', vnic_att.vnic_id, getattr(e, 'code'))
+                            pass
             except Exception as e:
-                if hasattr(e, 'code'): 
+                if hasattr(e, 'code'):
+                    _logger.debug('Failed to collect compartment data for %s: %s', comp_id, getattr(e, 'code'))
                     pass
         _logger.debug('Failed to fetch vnic: %s', vnic_id)
         raise Exception('Failed to fetch VNIC [%s]' % vnic_id)
 
-    def create_volume(self, compartment_id, availability_domain,
-                      size, display_name=None, wait=True):
+    def create_volume(self, compartment_id, availability_domain, size, display_name=None, wait=True):
         """
         Create a new OCI Storage Volume in the given compartment and
         availability_domain, of the given size (GBs, >=50), and with

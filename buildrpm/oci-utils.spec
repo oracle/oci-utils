@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.3
-Release: 0%{?dist}
+Release: 9%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -180,7 +180,12 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
-* Fri Apr 9 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.3
+* Wed May 12 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.4
+- LINUX-10886 oci-network-config/oci-iscsi-config failures: __init__.py, line 58 in _oci_utils_exception_hook
+- LINUX-10964 oci-network-inspector test fails
+- LINUX-10214 convert README.md to md format
+
+* Fri Apr 9 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.2
 - LINUX-8692  oci-image-cleanup: line 588: /dev/shm/oci-utils/image-cleanup.plan: Permission denied
 - LINUX-10007 oci-metadata autotest fails on several locations
 - LINUX-10048 oci-network-inspector autotest fails

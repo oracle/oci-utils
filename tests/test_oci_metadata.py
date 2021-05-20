@@ -42,10 +42,10 @@ class TestOciMetadata(OciTestCase):
                          'execute state of OCI instance should  be running. [%s]'
                          % metadata['instance']['state'])
         self.assertIn('displayName' , metadata['instance'], 'displayname key should be in metadata')
-        self.assertIn('availabilityDomain' , metadata['instance'],
+        self.assertIn('availabilityDomain', metadata['instance'],
                         'availability domain key should be in metadata')
         self.assertIn('id' , metadata['instance'], 'OCID key should be in metadata')
-        self.assertIn('compartmentId' , metadata['instance'], 'compartment OCID key should be in metadata')
+        self.assertIn('compartmentId', metadata['instance'], 'compartment OCID key should be in metadata')
 
     @skipUnlessOCI()
     def test_oci_metadata_refresh(self):

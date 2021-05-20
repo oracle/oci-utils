@@ -1709,9 +1709,13 @@ class OCISubnet(OCIAPIAbstractResource):
            int(match.group(4)) > 255:
             raise Exception('Invalid IP address: %s' % ipaddr)
 
-        ipint = ((int(match.group(1)) * 256 +
-                  int(match.group(2))) * 256 +
-                 int(match.group(3))) * 256 + int(match.group(4))
+        ipint = ((int(match.group(1)
+                      ) * 256
+                  + int(match.group(2))
+                  ) * 256
+                 + int(match.group(3))
+                 ) * 256 \
+                + int(match.group(4))
         #
         # GT
         # match = re.match(r'([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)/([0-9]+)', self._data['cidr_block'])

@@ -646,10 +646,9 @@ def api_display_available_block_volumes(sess, compartments, show_all, output_mod
         avail_domain = sess.this_availability_domain()
         if comp is not None:
             vols = comp.all_volumes(availability_domain=avail_domain)
+            _title = "Other available storage volumes %s/%s" % (comp.get_display_name(), avail_domain)
         else:
             _logger.error("Compartment for this instance not found")
-
-        _title = "Other available storage volumes %s/%s" % (comp.get_display_name(), avail_domain)
 
     if len(vols) == 0:
         _logger.info("No additional storage volumes found.")
@@ -859,7 +858,7 @@ def do_create_volume(sess, size, display_name, attach_it):
                              auto_startup=True)
     _logger.info("iscsiadm attach Result: %s", iscsiadm.error_message_from_code(retval))
     if retval == 0:
-        _logger.debug('Creation succesful')
+        _logger.debug('Creation successful')
         return
 
     # here because of error case
@@ -954,7 +953,10 @@ def main():
         _logger.debug('Cannot get OCI session: %s', str(e))
 
     # we need this at many places, grab it once
-    _this_instance_ocid = oci_sess.this_instance().get_ocid()
+    if bool(oci_sess.this_instance()):
+        _this_instance_ocid = oci_sess.this_instance().get_ocid()
+    else:
+        _this_instance_ocid = get_instance_ocid
 
     if 'compat' in args and args.compat is True:
         # display information as previous version for compatibility reason
@@ -1078,7 +1080,8 @@ def main():
         try:
             do_create_volume(oci_sess, size=args.size, display_name=args.volume_name, attach_it=args.attach_volume)
         except Exception as e:
-            _logger.error('Volume creation has failed: %s', str(e), stack_info=True, exc_info=True)
+            _logger.debug('Volume creation has failed: %s', str(e), stack_info=True, exc_info=True)
+            _logger.error('Volume creation has failed: %s', str(e))
             return 1
         return 0
 
@@ -1089,7 +1092,7 @@ def main():
         retval = 0
         if not args.yes:
             for ocid in args.ocids:
-                _logger.info("volume : %s", ocid)
+                _logger.info("Volume : %s", ocid)
             if not ask_yes_no("WARNING: the volume(s) will be destroyed.  This is irreversible.  Continue?"):
                 return 0
         for ocid in args.ocids:
@@ -1098,7 +1101,8 @@ def main():
                 do_destroy_volume(oci_sess, ocid)
                 _logger.info("Volume [%s] is destroyed", ocid)
             except Exception as e:
-                _logger.error('volume [%s] deletion has failed: %s', ocid, str(e))
+                _logger.debug('Volume [%s] deletion has failed: %s', ocid, str(e), stack_info=True, exc_info=True)
+                _logger.error('Volume [%s] deletion has failed: %s', ocid, str(e))
                 retval = 1
 
         return retval
@@ -1129,7 +1133,8 @@ def main():
                 _logger.info("Volume [%s] is detached.", iqn)
                 detached_volume_iqns.append(iqn)
             except Exception as e:
-                _logger.error('Volume [%s] detach has failed: %s', iqn, str(e), exc_info=True)
+                _logger.debug('Volume [%s] detach has failed: %s', iqn, str(e), stack_info=True, exc_info=True)
+                _logger.error('Volume [%s] detach has failed: %s', iqn, str(e))
                 retval = 1
 
         _logger.info("Updating detached volume cache file: %s", detached_volume_iqns)
@@ -1167,6 +1172,7 @@ def main():
                     _iscsi_portal_ip = bs_volume.get_portal_ip()
                     _iqn_to_use = bs_volume.get_iqn()
                 except Exception as e:
+                    _logger.debug('Failed to attach volume [%s]: %s', _iqn_to_use, str(e), stack_info=True, exc_info=True)
                     _logger.error('Failed to attach volume [%s]: %s', _iqn_to_use, str(e))
                     retval = 1
                     continue
@@ -1207,6 +1213,7 @@ def main():
                 if _iqn_to_use in detached_volume_iqns:
                     detached_volume_iqns.remove(_iqn_to_use)
             except Exception as e:
+                _logger.debug("Failed to attach target %s: %s", _iqn_to_use, str(e), exc_info=True, stack_info=True)
                 _logger.error("Failed to attach target %s: %s", _iqn_to_use, str(e))
                 _save_chap_cred = False
                 retval = 1

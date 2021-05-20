@@ -189,8 +189,7 @@ def pretty_print_section(metadata, indent):
             if value in oci_regions:
                 value = oci_regions[value]
         elif key == 'timeCreated':
-            # value = time.strftime('%Y-%m-%d %H:%M:%S UTC',
-            #                       time.gmtime(metadata['timeCreated']/1000))
+            # value = time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(metadata['timeCreated']/1000))
             pass
         print("%s%s: %s" % (indent, display_key, value))
 
@@ -672,7 +671,8 @@ def main():
                 meta = InstanceMetadata().refresh()
             metadata = meta.filter(args.keys)
         except Exception as e:
-            _logger.error("%s", str(e), exc_info=True)
+            _logger.debug('Failed to get metadata for %s', inst_id, exc_info=True)
+            _logger.error("%s", str(e))
             return 1
 
     if metadata is None:
