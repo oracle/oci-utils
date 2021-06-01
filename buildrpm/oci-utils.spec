@@ -69,7 +69,7 @@ Requires: parted
 Requires: bind-utils
 Requires: qemu-img >= 15:2.12
 # for upload and import
-Requires: python36-ocioci-cli
+Requires: python36-oci-cli
 %if 0%{?rhel} == 7
 Requires: python36-pyyaml
 %else
