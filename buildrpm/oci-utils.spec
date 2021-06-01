@@ -178,6 +178,11 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Tue Jun 1 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.4-3
+- LINUX-11099 compatibility issue: oci-iscsi-config --destroy-volume has new prompt to confirm deletion (-y option)
+- LINUX-11093 oci-network-config man pages contains incorrect command line format
+- LINUX-11085 remove requirement for python3-requests package
+
 * Wed May 12 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.4
 - LINUX-10886 oci-network-config/oci-iscsi-config failures: __init__.py, line 58 in _oci_utils_exception_hook
 - LINUX-10964 oci-network-inspector test fails

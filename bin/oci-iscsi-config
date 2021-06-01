@@ -40,24 +40,24 @@ do
                                 cmd_line="${cmd_line} --compat"
                               else
                                 # display information after operation. Used to be an option
-                                # change thiso to call ourself again with the show command
+                                # change this to call ourself again with the show command
                                 post_operation_show=1
                               fi
                               shift
                               ;;
-        -C | --compartment)   COMMAND="show"     ; COMPS[${COMMAND}]+="$2,"         ; shift 2 ;;
-        -i | --interactive)   cmd_line="${cmd_line} --interactive"                  ; shift   ;;
-        -A | --all)           cmd_line="${cmd_line} --all"                          ; shift   ;;
-        -f | --force)         cmd_line="${cmd_line} --force"                        ; shift   ;;
-        -y | --yes)           cmd_line="${cmd_line} --yes"                          ; shift   ;;
-        --attach-volume)      cmd_line="${cmd_line} --attach-volume"                ; shift   ;;
-        -d | --detach)        COMMAND="detach"   ; IQNS[${COMMAND}]+="$2,"          ; shift 2 ;;
-        -a | --attach)        COMMAND="attach"   ; IQNS[${COMMAND}]+="$2,"          ; shift 2 ;;
-        -c | --create-volume) COMMAND="create"   ; cmd_line="${cmd_line} --size=$2" ; shift 2 ;;
-        --destroy-volume)     COMMAND="destroy"  ; OCIDS[${COMMAND}]+="$2,"         ; shift 2 ;;
-        --volume-name)        cmd_line="${cmd_line} --volume-name=$2"               ; shift 2 ;;
-        --username)           cmd_line="${cmd_line} --username=$2"                  ; shift 2 ;;
-        --password)           cmd_line="${cmd_line} --password=$2"                  ; shift 2 ;;
+        -C | --compartment)   COMMAND="show"     ; COMPS[${COMMAND}]+="$2,"                  ; shift 2 ;;
+        -i | --interactive)   cmd_line="${cmd_line} --interactive"                           ; shift   ;;
+        -A | --all)           cmd_line="${cmd_line} --all"                                   ; shift   ;;
+        -f | --force)         cmd_line="${cmd_line} --force"                                 ; shift   ;;
+        -y | --yes)           cmd_line="${cmd_line} --yes"                                   ; shift   ;;
+        --attach-volume)      cmd_line="${cmd_line} --attach-volume"                         ; shift   ;;
+        -d | --detach)        COMMAND="detach"   ; IQNS[${COMMAND}]+="$2,"                   ; shift 2 ;;
+        -a | --attach)        COMMAND="attach"   ; IQNS[${COMMAND}]+="$2,"                   ; shift 2 ;;
+        -c | --create-volume) COMMAND="create"   ; cmd_line="${cmd_line} --size=$2"          ; shift 2 ;;
+        --destroy-volume)     COMMAND="destroy"  ; OCIDS[${COMMAND}]+="$2,"; ASSUMEYES=True  ; shift 2 ;;
+        --volume-name)        cmd_line="${cmd_line} --volume-name=$2"                        ; shift 2 ;;
+        --username)           cmd_line="${cmd_line} --username=$2"                           ; shift 2 ;;
+        --password)           cmd_line="${cmd_line} --password=$2"                           ; shift 2 ;;
         --help)
                               if [ -z ${COMMAND} ]
                               then
@@ -68,7 +68,7 @@ do
                               fi
                               break
                               ;;
-        # end of parsing , everything getopt did not understood is after that , we do not care in our case
+        # end of parsing , everything getopt did not understood is after that, we do not care in our case
         --) shift; break ;;
         *)                    COMMAND="usage"                                       ; break   ;;
     esac
@@ -96,8 +96,14 @@ then
     for i in "${COMPS[${COMMAND}]}"; do cmd_line="${cmd_line}$i,"; done
 fi
 
+# add assumeyes to old destroy-volume command
+if [ ${ASSUMEYES} ]
+then
+   cmd_line="${cmd_line} --yes"
+fi
+
 # apply defaults to have the same behavior as before
-if [ ${COMMAND} == "create" ]
+if [ ${COMMAND} = "create" ]
 then
   cmd_line="${cmd_line} --attach-volume"
 fi
