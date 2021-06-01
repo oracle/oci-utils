@@ -28,20 +28,18 @@ class TestOCIVolume(OciTestCase):
             No return value.
         """
         super(TestOCIVolume, self).setUp()
-        self.logger.info('creating test volume')
+        self.logger.info('Creating test volume.')
         self.testVol = None
         try:
             self.sess = oci_utils.oci_api.OCISession()
         except Exception:
-            self.fail("Failed to start OCI API session")
-        self.testVol = self.sess.create_volume(
-            availability_domain=self.sess.this_availability_domain(),
-            compartment_id=self.sess.this_compartment().get_ocid(),
-            size=53,
-            display_name="oci-utils-unittest-vol")
-        self.assertIsNotNone(self.testVol,
-                             "Failed to create Volume for testing")
-        print('new volume created [%s]' % self.testVol.get_ocid())
+            self.fail('Failed to start OCI API session.')
+        self.testVol = self.sess.create_volume(availability_domain=self.sess.this_availability_domain(),
+                                               compartment_id=self.sess.this_compartment().get_ocid(),
+                                               size=53,
+                                               display_name="oci-utils-unittest-vol")
+        self.assertIsNotNone(self.testVol, 'Failed to create Volume for testing.')
+        print('New volume created [%s].' % self.testVol.get_ocid())
 
     @needsOCICLI()
     def tearDown(self):
@@ -54,9 +52,9 @@ class TestOCIVolume(OciTestCase):
         """
         vol_id = self.testVol.get_ocid()
         if self.volume_attached:
-            print('have to detach volume')
+            print('Have to detach volume.')
             self.testVol.detach(wait=True)
-            print('volume detached')
+            print('Volume detached.')
 
         self.testVol.destroy()
 
@@ -67,7 +65,7 @@ class TestOCIVolume(OciTestCase):
                 break
             else:
                 time.sleep(2)
-        self.assertIsNone(vol, 'Cannot get volume with ID [%s]' % vol_id)
+        self.assertIsNone(vol, 'Cannot get volume with ID [%s].' % vol_id)
 
     @skipItAsUnresolved()
     @needsOCICLI()
@@ -91,7 +89,7 @@ class TestOCIVolume(OciTestCase):
             self.testVol = inst.attach_volume(volume_id=self.testVol.get_ocid())
             self.volume_attached = True
         except Exception as e:
-            self.fail('attach of volume failed: %s' % str(e))
+            self.fail('Attach of volume failed: %s.' % str(e))
 
 
 if __name__ == '__main__':

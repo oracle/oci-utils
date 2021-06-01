@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -15,16 +15,15 @@ import pkgutil
 import re
 import sys
 import time
-import urllib.request
-from datetime import datetime
+from urllib.request import urlopen, urlretrieve, Request
 
-import requests
 import yaml
+
 from oci_utils.migrate import OciMigrateConfParam
 from oci_utils.migrate import ProgressBar
-from oci_utils.migrate import error_msg
 from oci_utils.migrate import bytes_to_hex
 from oci_utils.migrate import console_msg
+from oci_utils.migrate import error_msg
 from oci_utils.migrate import migrate_data
 from oci_utils.migrate import pause_msg
 from oci_utils.migrate import read_yn
@@ -97,7 +96,7 @@ def exec_search(file_name, rootdir='/', dirnames=False):
                 _logger.debug('Found %s as directory.', os.path.join(rootdir, path_name, file_name))
                 return os.path.join(rootdir, path_name, file_name)
     except Exception as e:
-        _logger.error('  Error while looking for %s: %s',  file_name, str(e))
+        _logger.error('  Error while looking for %s: %s', file_name, str(e))
         raise OciMigrateException('Error while looking for %s:' % file_name) from e
     return None
 
@@ -169,39 +168,33 @@ def get_cloud_agent_if_relevant(root_part, os_type, major_release):
         bool: always True
     """
     _logger.debug('__ Collecting the oracle_cloud_agent package if relevant.')
-    _logger.debug('root partition: %s' % root_part)
+    _logger.debug('root partition: %s', root_part)
     _logger.debug('os type: %s' % os_type)
-    _logger.debug('major release: %s' % major_release)
+    _logger.debug('major release: %s', major_release)
     pause_msg('cloud agent', pause_flag='_OCI_AGENT')
     try:
         if os_type in get_config_data('ol_os_for_cloud_agent'):
             _logger.debug('OS is OL-type os.')
             el_tag = get_config_data('ol_version_id_dict')[major_release]
-            _logger.debug('el tag: %s' % el_tag)
+            _logger.debug('el tag: %s', el_tag)
             cloud_agent_url = get_url_data_from_base(el_tag)
-            _logger.debug('cloud agent url: %s' % cloud_agent_url)
+            _logger.debug('cloud agent url: %s', cloud_agent_url)
             if cloud_agent_url is None:
                 _logger.debug('URL with oracle cloud agent package not found.')
             else:
                 package_name = os.path.basename(cloud_agent_url)
                 destination_dir = get_config_data('ol_os_oracle_cloud_agent_store')
-                destination = os.path.join(root_part,
-                                           destination_dir.lstrip('/'),
-                                           package_name.lstrip('/'))
-                _logger.debug('Destination for oracle cloud agent package: %s'
-                              % destination)
-                _ = get_file_from_url(cloud_agent_url, destination)
-                migrate_data.oracle_cloud_agent_location = \
-                    os.path.join('/',
-                                 destination_dir.lstrip('/'),
-                                 package_name.lstrip('/'))
-                _logger.debug('cloud agent location: %s'
-                              % migrate_data.oracle_cloud_agent_location)
+                destination = os.path.join(root_part, destination_dir.lstrip('/'), package_name.lstrip('/'))
+                _logger.debug('Destination for oracle cloud agent package: %s', destination)
+                get_file_from_url(cloud_agent_url, destination)
+                migrate_data.oracle_cloud_agent_location \
+                    = os.path.join('/', destination_dir.lstrip('/'), package_name.lstrip('/'))
+                _logger.debug('cloud agent location: %s', migrate_data.oracle_cloud_agent_location)
         else:
             _logger.debug('This operation is not relevant here.')
             return True
     except Exception as e:
-        _logger.debug('Installation of the oracle cloud agent failed: %s' % str(e))
+        _logger.debug('Installation of the oracle cloud agent failed: %s', str(e))
 
     pause_msg('cloud agent', pause_flag='_OCI_AGENT')
     return True
@@ -225,7 +218,7 @@ def get_config_data(key):
         with OciMigrateConfParam(migrate_data.oci_migrate_conf_file, key) as config:
             return config.get_values()
     except FileNotFoundError as fnf:
-        _logger.debug('File %s not found: %s, using data structure.',  migrate_data.oci_migrate_conf_file, str(fnf))
+        _logger.debug('File %s not found: %s, using data structure.', migrate_data.oci_migrate_conf_file, str(fnf))
         if key in migrate_data.oci_image_migrate_config:
             return migrate_data.oci_image_migrate_config[key]
 
@@ -249,15 +242,15 @@ def get_file_from_url(url, dest):
         str: the full path of the destination on success, raises an exception
              otherwise.
     """
-    _logger.debug('__ Get file from url %s.' % url)
+    _logger.debug('__ Get file from url %s.', url)
     _, nbcols = terminal_dimension()
     packname = os.path.basename(url)
     try:
         downloadwait = ProgressBar(nbcols, 0.2, progress_chars=['pulling oracle-cloud-agent'])
         downloadwait.start()
-        _ = urllib.request.urlretrieve(url, dest)
+        _ = urlretrieve(url, dest)
     except Exception as e:
-        _logger.warning('Failed to retrieve %s int %s: %s' % (url, dest, str(e)))
+        _logger.warning('Failed to retrieve %s int %s: %s', url, dest, str(e))
         raise ('Failed to retrieve %s int %s: %s' % (url, dest, str(e)))
     finally:
         if system_tools.is_thread_running(downloadwait):
@@ -465,8 +458,7 @@ def mount_lvm2(devname):
     _logger.debug('__ Running mount lvm2 %s', devname)
     try:
         _, nbcols = terminal_dimension()
-        mountwait = ProgressBar(int(nbcols), 0.2,
-                                progress_chars=['mounting lvm'])
+        mountwait = ProgressBar(int(nbcols), 0.2, progress_chars=['mounting lvm'])
         mountwait.start()
         #
         # physical volumes
@@ -563,8 +555,7 @@ def mount_partition(devname, mountpoint=None):
     pause_msg(cmd, pause_flag='_OCI_MOUNT')
     _, nbcols = terminal_dimension()
     try:
-        mountpart = ProgressBar(nbcols, 0.2,
-                                progress_chars=['mount %s' % devname])
+        mountpart = ProgressBar(nbcols, 0.2, progress_chars=['mount %s' % devname])
         mountpart.start()
         _logger.debug('command: %s', cmd)
         cmdret = system_tools.run_call_cmd(cmd)
@@ -682,53 +673,15 @@ def read_from_url(url):
     # to keep the encodings import in place
     _ = dir(encodings.idna)
     try:
-        url_ref = requests.get(url)
-        if url_ref.status_code != 200:
-            raise Exception('url get status: %s while looking for %s'
-                            % (str(url_ref.status_code), url))
-        url_contents = url_ref.content
-        url_ref.close()
+        url_request = Request(url=url, headers={'Authorization': 'Bearer Oracle'})
+        with urlopen(url_request) as url_ref:
+            if url_ref.status != 200:
+                raise Exception('url get status: %s while looking for %s' % (str(url_ref.status), url))
+            url_contents = url_ref.read()
         return url_contents
     except Exception as e:
         _logger.warning('Failed to read from %s: %s', url, str(e))
-        raise OciMigrateException('Failed to read from %s: %s' % (url, str(e)))
-
-
-def result_msg(msg, flags='a', result=False):
-    """
-    Write information to the log file, the result file and the console if the
-    result flag is set.
-
-    Parameters
-    ----------
-    msg: str
-        The message.
-    flags: str
-        The flags for the open file command.
-    result: bool
-        Flag, write to console if True.
-
-    Returns
-    -------
-        No return value.
-    """
-    msg = '  Just mentioning I am here.' if msg is None else msg
-    _logger.debug('%s' % msg)
-    try:
-        with open(migrate_data.result_filename, flags) as f:
-            f.write('  %s: %s\n' % (datetime.now().strftime('%H:%M:%S'), msg))
-    except IOError as e:
-        errornb, strerror = e.args
-        #
-        # trap permission denied errors if running as non root.
-        if errornb != 13:
-            _logger.error('   Failed to write to %s: %s'
-                          % (migrate_data.result_filename, strerror))
-    except Exception as e:
-        _logger.error('   Failed to write to %s: %s'
-                      % (migrate_data.result_filename, str(e)))
-    if result:
-        sys.stdout.write('  %s\n' % msg)
+        raise OciMigrateException('Failed to read from %s' % url) from e
 
 
 def set_default_user(cfgfile, username):
@@ -797,9 +750,7 @@ def show_fstab(fstabdata):
         No return value.
     """
     for line in fstabdata:
-        result_msg(msg='%60s %20s %8s %20s %2s %2s'
-                       % (line[0], line[1], line[2], line[3], line[4], line[5]),
-                   result=True)
+        result_msg(msg='%60s %20s %8s %20s %2s %2s' % (line[0], line[1], line[2], line[3], line[4], line[5]), result=True)
 
 
 def show_grub_data(grublist):
@@ -1105,10 +1056,7 @@ def show_partition_table(table):
             bootflag = 'YES'
         else:
             bootflag = ' NO'
-        result_msg(msg='  %02d %5s %16s %32s'
-                       % (i, bootflag, table[i]['type'],
-                          table[i]['entry']),
-                   result=True)
+        result_msg(msg='  %02d %5s %16s %32s' % (i, bootflag, table[i]['type'], table[i]['entry']), result=True)
 
 
 @state_loop(3)
@@ -1224,8 +1172,7 @@ def unmount_part(devname):
                 raise OciMigrateException('Failed to remove mountpoint %s' % mntpoint)
 
             _logger.critical('   Failed to unmount %s: %d', devname, cmdret)
-            console_msg('Failed to unmount %s, error code %d.\n '
-                        'Please verify before continuing.' % (devname, cmdret))
+            console_msg('Failed to unmount %s, error code %d.\n Please verify before continuing.' % (devname, cmdret))
             retry = read_yn('Something prevented to complete %s, please verify and correct if possible. '
                             'Press Y to retry, N to ignore.', waitenter=True)
             if not retry:
@@ -1268,13 +1215,13 @@ def update_cloudconfig_runcmd(runcommand):
         #
         #
         runcmd_definition = False
-        if type(cloudcfg) is dict:
+        if isinstance(cloudcfg, dict):
             if 'runcmd' in list(cloudcfg.keys()):
                 #
                 # runcmd present in cloud config file
                 run_cmd = cloudcfg['runcmd']
                 for yaml_key in run_cmd:
-                    if type(yaml_key) is list:
+                    if isinstance(yaml_key, list):
                         for yamlval in yaml_key:
                             if runcommand in yamlval:
                                 _logger.debug('%s already in cloud_init', runcommand)
@@ -1298,8 +1245,7 @@ def update_cloudconfig_runcmd(runcommand):
 
             with open(cloudconfig, 'w') as f:
                 yaml.dump(cloudcfg, f, width=50)
-                _logger.debug('Cloud configuration file %s '
-                              'successfully updated.', cloudconfig)
+                _logger.debug('Cloud configuration file %s successfully updated.', cloudconfig)
             return True
         else:
             _logger.error('Invalid cloud config file.')

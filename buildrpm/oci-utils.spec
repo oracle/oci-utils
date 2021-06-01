@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.12.3
-Release: 9%{?dist}
+Version: 0.12.4
+Release: 2%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -72,10 +72,8 @@ Requires: qemu-img >= 15:2.12
 Requires: python36-oci-cli
 %if 0%{?rhel} == 7
 Requires: python36-pyyaml
-Requires: python36-requests
 %else
 Requires: python3-pyyaml
-Requires: python3-requests
 Requires: python36
 %endif
 %description migrate

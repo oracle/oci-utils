@@ -121,7 +121,7 @@ def get_lifecycle_state(display_name, compartment_id):
             if object_x['display-name'] == display_name:
                 return object_x['lifecycle-state']
 
-            _logger.debug('object %s not found.',  display_name)
+            _logger.debug('object %s not found.', display_name)
             return None
     except Exception as e:
         raise OciMigrateException('Failed to collect the compute image list:') from e
