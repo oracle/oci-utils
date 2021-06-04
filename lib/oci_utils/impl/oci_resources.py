@@ -486,7 +486,7 @@ class OCIInstance(OCIAPIAbstractResource):
             # return OCIVNIC(self._oci_session, oci_sdk.util.to_dict(vnic_data), oci_sdk.util.to_dict(vnic_att_data[0]))
             return OCIVNIC(self._oci_session, vnic_data, vnic_att_data[0])
         except Exception as e:
-            OCIInstance._logger.debug('Failed to fetch VNIC: %s', e)
+            OCIInstance._logger.debug('Failed to fetch VNIC: %s', str(e), stack_info=True, exc_info=True)
             raise Exception('Failed to fetch VNIC [%s]' % vnic_id) from e
 
     def all_vnics(self):

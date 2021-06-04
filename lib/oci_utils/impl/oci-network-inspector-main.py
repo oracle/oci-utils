@@ -179,7 +179,7 @@ def main():
         comps.append(comp)
     else:
         comp = sess.all_compartments()
-        _logger.debug('no compartment specified, requesting all, got (%d)', len(comp))
+        _logger.debug('No compartment specified, requesting all, got (%d)', len(comp))
         comps.extend(comp)
 
     if len(comps) == 0:
@@ -221,7 +221,7 @@ def main():
         _compartment = vcn.get_compartment()
         if _compartment is None:
             #
-            _logger.error("No compartment returned for VCN %s\n", str(vcn))
+            _logger.error("No compartment returned for VCN %s [%s]\n", vcn.get_display_name(), vcn.get_ocid())
             continue
         if _compartment.get_ocid() != comp_ocid:
             print("")

@@ -37,7 +37,7 @@ do
         -s | --show)          if [ -z ${COMMAND} ]
                               then
                                 COMMAND="show"
-                                cmd_line="${cmd_line} --compat"
+                                cmd_line="${cmd_line} --compat --all"
                               else
                                 # display information after operation. Used to be an option
                                 # change this to call ourself again with the show command
@@ -80,20 +80,20 @@ then
     cmd_line=""
 fi
 
-if [ ${IQNS[${COMMAND}]+_} ] &&  [ -n ${IQNS[${COMMAND}]} ]
+if [ ${IQNS[${COMMAND}]+_} ] &&  [ -n "${IQNS[${COMMAND}]}" ]
 then
     cmd_line="${cmd_line} --iqns="
-    for i in "${IQNS[${COMMAND}]}"; do cmd_line="${cmd_line}$i,"; done
+    for i in ${IQNS[${COMMAND}]}; do cmd_line="${cmd_line}$i,"; done
 fi
-if [ ${OCIDS[${COMMAND}]+_} ] &&  [ -n ${OCIDS[${COMMAND}]} ]
+if [ ${OCIDS[${COMMAND}]+_} ] &&  [ -n "${OCIDS[${COMMAND}]}" ]
 then
     cmd_line="${cmd_line} --ocids="
-    for i in "${OCIDS[${COMMAND}]}"; do cmd_line="${cmd_line}$i,"; done
+    for i in ${OCIDS[${COMMAND}]}; do cmd_line="${cmd_line}$i,"; done
 fi
-if [ ${COMPS[${COMMAND}]+_} ] &&  [ -n ${COMPS[${COMMAND}]} ]
+if [ ${COMPS[${COMMAND}]+_} ] &&  [ -n "${COMPS[${COMMAND}]}" ]
 then
     cmd_line="${cmd_line} --compartments="
-    for i in "${COMPS[${COMMAND}]}"; do cmd_line="${cmd_line}$i,"; done
+    for i in ${COMPS[${COMMAND}]}; do cmd_line="${cmd_line}$i,"; done
 fi
 
 # add assumeyes to old destroy-volume command

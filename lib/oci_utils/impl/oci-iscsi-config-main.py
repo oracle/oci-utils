@@ -306,27 +306,61 @@ def _display_oci_volume_list(volumes, output_mode, details, truncate):
         setattr(_get_comp_name, 'c_id_to_name', _map)
         return _map[volume.get_compartment_id()]
 
-    _title = 'Block volumes information'
-    _columns = [['Name', 32, 'get_display_name'],
-                ['Size', 6, _get_displayable_size],
-                ['Attached to', 32, _get_attached_instance_name],
-                ['OCID', 32, 'get_ocid']]
-    if details:
-        _columns.extend((['IQN', 14, 'get_iqn'],
-                         ['Compartment', 14, _get_comp_name],
-                         ['Availability domain', 19, 'get_availability_domain_name']))
-    if output_mode == 'compat':
-        printerKlass = get_row_printer_impl('text')
+    if len(volumes) == 0:
+        print('No other volumes found.')
     else:
-        printerKlass = get_row_printer_impl(output_mode)
+        _title = 'Block volumes information'
+        _columns = [['Name', 32, 'get_display_name'],
+                    ['Size', 6, _get_displayable_size],
+                    ['Attached to', 32, _get_attached_instance_name],
+                    ['OCID', 32, 'get_ocid']]
+        if details:
+            _columns.extend((['IQN', 14, 'get_iqn'],
+                             ['Compartment', 14, _get_comp_name],
+                             ['Availability domain', 19, 'get_availability_domain_name']))
+        if output_mode == 'compat':
+            printerKlass = get_row_printer_impl('text')
+        else:
+            printerKlass = get_row_printer_impl(output_mode)
 
-    printer = printerKlass(title=_title, columns=_columns, text_truncate=truncate)
-    printer.printHeader()
-    for vol in volumes:
-        printer.printRow(vol)
-        printer.rowBreak()
-    printer.printFooter()
-    printer.finish()
+        printer = printerKlass(title=_title, columns=_columns, text_truncate=truncate)
+        printer.printHeader()
+        for vol in volumes:
+            printer.printRow(vol)
+            printer.rowBreak()
+        printer.printFooter()
+        printer.finish()
+
+
+def get_oci_api_session():
+    """
+    Ensure the OCI SDK is available if the option is not None.
+
+    Returns
+    -------
+        OCISession
+            The session or None if cannot get one
+    """
+    session_cache = getattr(get_oci_api_session, "_session", None)
+    if session_cache:
+        return session_cache
+
+    sess = None
+
+    try:
+        _logger.debug('Creating session')
+        sess = oci_utils.oci_api.OCISession()
+        # it seems that having a client is not enough, we may not be able to query anything on it
+        # workaround :
+        # try a dummy call to be sure that we can use this session
+        if not bool(sess.this_instance()):
+            _logger.debug('Returning None session')
+            return None
+        setattr(get_oci_api_session, "_session", sess)
+    except Exception as e:
+        _logger.error("Failed to access OCI services: %s", str(e))
+    _logger.debug('Returning session')
+    return sess
 
 
 def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, details, truncate):
@@ -404,32 +438,34 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
 
         _items.append(_item)
 
-    if output_mode == 'compat':
+    if len(_items) == 0:
+        print('No iSCSI devices attached.')
+    elif output_mode == 'compat':
         iscsi_dev_printer = get_row_printer_impl('text')(
             title='Currently attached iSCSI devices', columns=_columns, text_truncate=truncate)
     else:
         iscsi_dev_printer = get_row_printer_impl(output_mode)(
             title='Currently attached iSCSI devices', columns=_columns, text_truncate=truncate)
-    iscsi_dev_printer.printHeader()
-    for _item in _items:
-        iscsi_dev_printer.printRow(_item)
-        if output_mode == 'compat':
-            if 'partitions' not in disks[_item['dev']]:
-                iscsi_dev_printer.printKeyValue('File system type', disks[_item['dev']]['fstype'])
-                iscsi_dev_printer.printKeyValue('Mountpoint', disks[_item['dev']]['mountpoint'])
-            else:
-                partitions = disks[device]['partitions']
-                partitionPrinter.printHeader()
-                for part in sorted(list(partitions.keys())):
-                    # add it as we need it during the print
-                    partitions[part]['dev_name'] = part
-                    partitionPrinter.printRow(partitions[part])
-                    partitionPrinter.rowBreak()
-                partitionPrinter.printFooter()
-                partitionPrinter.finish()
-        iscsi_dev_printer.rowBreak()
-    iscsi_dev_printer.printFooter()
-    iscsi_dev_printer.finish()
+        iscsi_dev_printer.printHeader()
+        for _item in _items:
+            iscsi_dev_printer.printRow(_item)
+            if output_mode == 'compat':
+                if 'partitions' not in disks[_item['dev']]:
+                    iscsi_dev_printer.printKeyValue('File system type', disks[_item['dev']]['fstype'])
+                    iscsi_dev_printer.printKeyValue('Mountpoint', disks[_item['dev']]['mountpoint'])
+                else:
+                    partitions = disks[device]['partitions']
+                    partitionPrinter.printHeader()
+                    for part in sorted(list(partitions.keys())):
+                        # add it as we need it during the print
+                        partitions[part]['dev_name'] = part
+                        partitionPrinter.printRow(partitions[part])
+                        partitionPrinter.rowBreak()
+                    partitionPrinter.printFooter()
+                    partitionPrinter.finish()
+            iscsi_dev_printer.rowBreak()
+        iscsi_dev_printer.printFooter()
+        iscsi_dev_printer.finish()
 
 
 def display_detached_iscsi_device(iqn, targets, attach_failed=()):
@@ -613,6 +649,9 @@ def api_display_available_block_volumes(sess, compartments, show_all, output_mod
     """
 
     _title = "Other available storage volumes"
+    if sess is None:
+        _logger.error("Failed to create session.")
+        return
 
     vols = []
     if len(compartments) > 0:
@@ -723,12 +762,16 @@ def get_volume_by_iqn(sess, iqn):
     #    get_volume_by_iqn.all_this_instance_volume = sess.this_instance().all_volumes()
     # else:
     #    _logger.debug('_GT_ attr B %s', get_volume_by_iqn.all_this_instance_volume)
-    get_volume_by_iqn.all_this_instance_volume = sess.this_instance().all_volumes()
+    try:
+        get_volume_by_iqn.all_this_instance_volume = sess.this_instance().all_volumes()
 
-    for v in get_volume_by_iqn.all_this_instance_volume:
-        if v.get_iqn() == iqn:
-            _logger.debug('Found %s', str(v))
-            return v
+        for v in get_volume_by_iqn.all_this_instance_volume:
+            if v.get_iqn() == iqn:
+                _logger.debug('Found %s', str(v))
+                return v
+    except Exception as e:
+        _logger.debug('Failed to get volume data for iqn %s: %s', iqn, str(e), stack_info=True, exc_info=True)
+        _logger.error('Failed to get volume data for iqn %s', iqn)
     return None
 
 
@@ -946,15 +989,18 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    oci_sess = None
-    try:
-        oci_sess = oci_utils.oci_api.OCISession()
-    except Exception as e:
-        _logger.debug('Cannot get OCI session: %s', str(e))
+    oci_sess = get_oci_api_session()
+
+    # oci_sess = None
+    # try:
+    #     oci_sess = oci_utils.oci_api.OCISession()
+    # except Exception as e:
+    #     _logger.debug('Cannot get OCI session: %s', str(e))
 
     # we need this at many places, grab it once
-    if bool(oci_sess.this_instance()):
-        _this_instance_ocid = oci_sess.this_instance().get_ocid()
+    if bool(oci_sess):
+        if bool(oci_sess.this_instance()):
+            _this_instance_ocid = oci_sess.this_instance().get_ocid()
     else:
         _this_instance_ocid = get_instance_ocid
 
@@ -1172,7 +1218,8 @@ def main():
                     _iscsi_portal_ip = bs_volume.get_portal_ip()
                     _iqn_to_use = bs_volume.get_iqn()
                 except Exception as e:
-                    _logger.debug('Failed to attach volume [%s]: %s', _iqn_to_use, str(e), stack_info=True, exc_info=True)
+                    _logger.debug('Failed to attach volume [%s]: %s', _iqn_to_use, str(e), stack_info=True,
+                                  exc_info=True)
                     _logger.error('Failed to attach volume [%s]: %s', _iqn_to_use, str(e))
                     retval = 1
                     continue

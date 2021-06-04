@@ -236,13 +236,11 @@ def get_arg_parser():
     add_sec_addr.add_argument('-I', '--ip-address',
                               action='store',
                               metavar='IP_ADDR',
-                              help='Secondary private IP to to be added.',
-                              required=True)
+                              help='Secondary private IP to to be added.')
     add_sec_addr.add_argument('--ocid',
                               action='store',
                               metavar='OCID',
-                              help='Uses VNIC with the given VNIC.',
-                              required=True)
+                              help='Uses VNIC with the given VNIC.')
     #
     # remove secondary address
     rem_sec_addr = subparser.add_parser('remove-secondary-addr',
@@ -567,10 +565,13 @@ def do_detach_vnic(detach_options):
         raise Exception("Failed to get API session.")
     vnics = sess.this_instance().all_vnics()
     for vnic in vnics:
-        if vnic.get_ocid() == detach_options.ocid or \
-           vnic.get_private_ip() == detach_options.ip_address:
+        v_ocid = vnic.get_ocid()
+        v_ip = vnic.get_private_ip()
+        if v_ocid == detach_options.ocid or v_ip == detach_options.ip_address:
             if not vnic.is_primary():
+                _logger.info('Detaching VNIC %s [%s]', v_ip, v_ocid)
                 vnic.detach()
+                _logger.info('VNIC [%s] is detached.', v_ocid)
                 break
             raise Exception("The primary VNIC cannot be detached.")
 
@@ -843,7 +844,7 @@ def main():
         try:
             do_detach_vnic(args)
         except Exception as e:
-            _logger.debug('Cannot detach VNIC', exc_info=True)
+            _logger.debug('Cannot detach VNIC', exc_info=True, stack_info=True)
             _logger.error('Cannot detach VNIC: %s', str(e))
             return 1
         # if we are here session is alive: no check

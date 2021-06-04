@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.4
-Release: 2%{?dist}
+Release: 3%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -178,7 +178,13 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
-* Tue Jun 1 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.4-3
+* Fri Jun 4 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.4-3
+- LINUX-11094 oci-network-config --add-private-ip error
+- LINUX-11102 oci-network-config --add-secondary-addr should be able to assign a free IP automatically
+- LINUX-11113 oci-network-config show messages when detaching vnic
+- LINUX-11114 oci-iscsi-config change messages when no volumes found
+
+* Tue Jun 1 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.4-2
 - LINUX-11099 compatibility issue: oci-iscsi-config --destroy-volume has new prompt to confirm deletion (-y option)
 - LINUX-11093 oci-network-config man pages contains incorrect command line format
 - LINUX-11085 remove requirement for python3-requests package

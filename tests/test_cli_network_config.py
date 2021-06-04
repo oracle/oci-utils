@@ -209,6 +209,7 @@ class TestCliOciNetworkConfig(OciTestCase):
             _ = subprocess.check_output([self.oci_net_config, 'configure'])
         except Exception as e:
             self.fail('Execution oci-network-config configure has failed: %s' % str(e))
+    
 
     def test_attach_detach_vnic(self):
         """
@@ -229,8 +230,40 @@ class TestCliOciNetworkConfig(OciTestCase):
             time.sleep(self.waittime)
         except Exception as e:
             self.fail('Execution oci-network-config attach detach has failed: %s' % str(e))
+    
+    
+    def test_add_remove_secondary_ip_0(self):
+        """
+        Test add secondary ip to a vnic with mininal options.
+        
+        Returns
+        -------
+            No return value.
+        """
+        try:
+            self.assertIn('Creating',
+                          subprocess.check_output([self.oci_net_config, 'attach-vnic',
+                                                   '--name', self.vnic_name]).decode('utf-8'),
+                                                   'attach vnic failed')
+            time.sleep(self.waittime)
+            vn_ocid = self._get_vnic_ocid(self.vnic_name)
+            response = subprocess.check_output([self.oci_net_config, 'add-secondary-addr, '
+                                                                     '--ocid', vn_ocid]).decode('utf-8'),
+            self.assertIn('Provisioning secondary private IP', response, 'adding secondary ip failed')
+            new_ip = _get_ip_from_response(response)[0]
+            time.sleep(self.waittime)
+            self.assertIn('Deconfigure secondary private IP',
+                          subprocess.check_output([self.oci_net_config, 'remove-secondary-addr',
+                                                   '--ip-address', new_ip]).decode('utf-8'),
+                                                   'remove secondary ip failed')
+            time.sleep(self.waittime)
+            self.assertEqual(subprocess.check_output([self.oci_net_config, 'detach-vnic',
+                                                      '--ocid', vn_ocid]).decode('utf-8'), '')
+            time.sleep(self.waittime)
+        except Exception as e:
+            self.fail('Execution oci-network-config attach detach has failed: %s' % str(e))
 
-    def test_add_remove_secondary_ip(self):
+    def test_add_remove_secondary_ip_1(self):
         """
         Test adding and removing secondary ip address to vnic.
 

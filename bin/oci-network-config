@@ -132,7 +132,7 @@ then
   if [ ${OCID_OR_IP:0:6} == 'ocid1.' ]
   then
     cmd_line="${cmd_line} --ocid=${OCID_OR_IP}"
-    else
+  else
     cmd_line="${cmd_line} --ip-address=${OCID_OR_IP}"
   fi
 fi
@@ -153,25 +153,41 @@ then
   then
     cmd_line="$cmd_line --ip-address=${PRIVATE_IP}"
   fi
-else
-  # if we have found --private-ip and --vnic we gonna add an ip to a vnic
-  if [ -n "${VNIC_OCID}" ] && [ -n "${PRIVATE_IP}" ]
-  then
-    # force command to be
-    COMMAND="add-secondary-addr"
-    cmd_line="$cmd_line --ip-address=${PRIVATE_IP} --ocid=${VNIC_OCID}"
-  fi
-fi
-if [ ${EXCLUDED_ITEMS[${COMMAND}]+_} ] &&  [ -n ${EXCLUDED_ITEMS[${COMMAND}]} ]
+# else
+#   obsolete comment # if we have found --private-ip and --vnic we gonne add an ip to a vnic
+#   if [ -n "${VNIC_OCID}" ] && [ -n "${PRIVATE_IP}" ]
+#   then
+#     force command to be
+#    COMMAND="add-secondary-addr"
+#    cmd_line="$cmd_line --ip-address=${PRIVATE_IP} --ocid=${VNIC_OCID}"
+#   fi
+elif [ "${COMMAND}" == "add-secondary-addr" ]
 then
-  for i in "${EXCLUDED_ITEMS[${COMMAND}]}"
+  # --vnic is an option for --add-private-ip only, the requirement for --private-ip is not necessary
+  # and the --vnic option should only be required if there is more than 1 vnic.
+  # if --vnic option specified, translate to --ocid optione
+  if [ -n "${VNIC_OCID}" ]
+  then
+    cmd_line="$cmd_line --ocid=${VNIC_OCID}"
+  fi
+  if [ -n "${PRIVATE_IP}" ]
+  then
+    cmd_line="$cmd_line --ip-address=${PRIVATE_IP}"
+  fi
+# else
+#  echo "_GT_ ${COMMAND} handled elsewhere"
+fi
+
+if [ ${EXCLUDED_ITEMS[${COMMAND}]+_} ] &&  [ -n "${EXCLUDED_ITEMS[${COMMAND}]}" ]
+then
+  for i in ${EXCLUDED_ITEMS[${COMMAND}]}
   do
     cmd_line="${cmd_line} --exclude ${i}"
   done
 fi
-if [ ${INCLUDED_ITEMS[${COMMAND}]+_} ] &&  [ -n ${INCLUDED_ITEMS[${COMMAND}]} ]
+if [ ${INCLUDED_ITEMS[${COMMAND}]+_} ] &&  [ -n "${INCLUDED_ITEMS[${COMMAND}]}" ]
 then
-  for i in "${INCLUDED_ITEMS[${COMMAND}]}"
+  for i in ${INCLUDED_ITEMS[${COMMAND}]}
   do
     cmd_line="${cmd_line} --include ${i}"
   done
