@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2021 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -1040,7 +1040,7 @@ def leave_chroot(root2return, dir2return):
         return True
     except Exception as e:
         _logger.error('  Failed to return from chroot: %s', str(e))
-        OciMigrateException('Failed to return from chroot: %s' % str(e))
+        raise OciMigrateException('Failed to return from chroot: %s' % str(e))
 
 
 def mount_fs(mountpoint):

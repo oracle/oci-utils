@@ -273,7 +273,7 @@ class OciMigrateConfParam():
         OciMigrateConfParam exit
         """
         if exc_value is not None:
-            _logger.error('Failed to read config file:%s - %s: %s',exc_type, exc_value, exc_traceback)
+            _logger.error('Failed to read config file:%s - %s: %s', exc_type, exc_value, exc_traceback)
 
     def get_values(self):
         """

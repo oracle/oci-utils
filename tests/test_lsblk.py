@@ -24,8 +24,8 @@ class TestLsBlk(OciTestCase):
             No return value.
         """
         dev_list = oci_utils.lsblk.list()
-        self.assertIsNotNone(dev_list, 'None returned as device list')
-        self.assertTrue(len(dev_list), 'empty device list returned ')
+        self.assertIsNotNone(dev_list, 'None returned as device list.')
+        self.assertTrue(len(dev_list), 'Empty device list returned.')
 
 
 if __name__ == '__main__':
