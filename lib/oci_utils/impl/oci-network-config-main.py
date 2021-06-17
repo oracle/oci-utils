@@ -12,6 +12,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 
 import oci_utils
 import oci_utils.oci_api
@@ -574,6 +575,8 @@ def do_detach_vnic(detach_options):
                 _logger.info('VNIC [%s] is detached.', v_ocid)
                 break
             raise Exception("The primary VNIC cannot be detached.")
+        else:
+            _logger.error('VNIC %s [%s] is not attached to this instance.', v_ip, v_ocid)
 
 
 def do_create_vnic(create_options):
@@ -838,6 +841,8 @@ def main():
             _logger.error('Cannot create the VNIC: %s', str(e))
             return 1
         # apply config of newly created vnic
+        time.sleep(25)
+        vnic_utils = VNICUtils()
         vnic_utils.auto_config(None)
 
     if args.command == 'detach-vnic':
@@ -877,6 +882,7 @@ def main():
 
     if args.command == 'configure':
         vnic_utils.auto_config(args.sec_ip)
+        _logger.info('Configured ')
 
     if args.command == 'unconfigure':
         vnic_utils.auto_deconfig(args.sec_ip)

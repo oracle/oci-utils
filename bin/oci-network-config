@@ -28,7 +28,7 @@ declare OCID_OR_IP
 
 # former implementation of oci-network-config was mixing options and sub-commands.
 # oci-network-config-main.py now expect proper command line like '<sub-command> <options>'
-# translate the command line accordingly (as expected by new implemetation)
+# translate the command line accordingly (as expected by new implementation)
 # if first token does not start by '-' we consider that command line is following the new format
 
 if [ "${1:0:1}" != '-' ]
@@ -54,17 +54,17 @@ do
                                     COMMAND="show --compat-output"
                                   else
                                     # display information after operation. Used to be an option
-                                    # change thiso to call ourself again with the show command
+                                    # change this to call ourself again with the show command
                                     post_operation_show=1
                                   fi
                                   shift
                                   ;;
-        -a|--auto|-c|--configure) COMMAND="configure"                                                      ; shift   ;;
-        -d|--deconfigure)         COMMAND="unconfigure"                                                    ; shift   ;;
-        --create-vnic)            COMMAND="attach-vnic"                                                    ; shift   ;;
-        --detach-vnic)            COMMAND="detach-vnic" ; OCID_OR_IP=$2                                    ; shift 2 ;;
-        --add-private-ip)         COMMAND="add-secondary-addr"                                             ; shift   ;;
-        --del-private-ip)         COMMAND="remove-secondary-addr" ; cmd_line="${cmd_line} --ip-address=$2" ; shift 2 ;;
+        -a|--auto|-c|--configure) COMMAND="configure"; post_operation_show=1                                                      ; shift   ;;
+        -d|--deconfigure)         COMMAND="unconfigure"; post_operation_show=1                                                    ; shift   ;;
+        --create-vnic)            COMMAND="attach-vnic"; post_operation_show=1                                                    ; shift   ;;
+        --detach-vnic)            COMMAND="detach-vnic"; OCID_OR_IP=$2 ; post_operation_show=1                                    ; shift 2 ;;
+        --add-private-ip)         COMMAND="add-secondary-addr"; post_operation_show=1                                             ; shift   ;;
+        --del-private-ip)         COMMAND="remove-secondary-addr" ; cmd_line="${cmd_line} --ip-address=$2"; post_operation_show=1 ; shift 2 ;;
         -X|--exclude)             if [ -z ${COMMAND} ]
                                   then
                                     COMMAND="show --compat-output"; 
@@ -196,7 +196,7 @@ fi
 if [ $post_operation_show -eq 1  ]
 then
   ${_PY3} ${s_dir}/oci-network-config-main.py $COMMAND ${cmd_line}
-  # print things as we used to do : incolude systme interface as table , vnic as list etc..
+  # print things as we used to do : include system interface as table , vnic as list etc..
   if [ $? -eq 0 ]
   then
      exec ${_PY3} ${s_dir}/oci-network-config-main.py show --compat-output

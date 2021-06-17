@@ -109,8 +109,13 @@ def get_args_parser():
                              help=argparse.SUPPRESS)
     #
     # usage
-    subparser.add_parser('usage',
+    usage_parser = subparser.add_parser('usage',
                          description='Displays usage.')
+    # for compatibility mode
+    usage_parser.add_argument('--compat',
+                             action='store_true',
+                             default=False,
+                             help=argparse.SUPPRESS)
     #
     # show
     show_parser = subparser.add_parser('show',
@@ -119,8 +124,8 @@ def get_args_parser():
                              metavar='COMP',
                              default=(),
                              type=lambda s: [ocid.strip() for ocid in s.split(',') if ocid],
-                             help='Display iSCSI devices in the given comparment(s) or all compartments '
-                                  'if COMP is  "all".')
+                             help='Display iSCSI devices in the given comparment(s) '
+                                  'or all compartments if COMP is  "all".')
     show_parser.add_argument('-A', '--all',
                              action='store_true',
                              default=False,
@@ -155,6 +160,10 @@ def get_args_parser():
     create_parser.add_argument('--attach-volume',
                                action='store_true',
                                help='Once created, should the volume be attached?')
+    create_parser.add_argument('--compat',
+                               action='store_true',
+                               default=False,
+                               help=argparse.SUPPRESS)
     #
     # attach
     attach_parser = subparser.add_parser('attach',
@@ -175,6 +184,10 @@ def get_args_parser():
                                action='store',
                                help='Use PASSWD as the password when attaching a device that requires CHAP '
                                     'authentication.')
+    attach_parser.add_argument('--compat',
+                               action='store_true',
+                               default=False,
+                               help=argparse.SUPPRESS)
     #
     # detach
     detach_parser = subparser.add_parser('detach',
@@ -188,6 +201,10 @@ def get_args_parser():
                                help='Continue detaching even if device cannot be unmounted.')
     detach_parser.add_argument('-i', '--interactive',
                                action='store_true',
+                               help=argparse.SUPPRESS)
+    detach_parser.add_argument('--compat',
+                               action='store_true',
+                               default=False,
                                help=argparse.SUPPRESS)
     #
     # destroy
@@ -204,7 +221,10 @@ def get_args_parser():
     destroy_parser.add_argument('-i', '--interactive',
                                 action='store_true',
                                 help=argparse.SUPPRESS)
-
+    destroy_parser.add_argument('--compat',
+                               action='store_true',
+                               default=False,
+                               help=argparse.SUPPRESS)
     return parser
 
 
@@ -230,6 +250,29 @@ def ask_yes_no(question):
         if ans in ['n', 'no']:
             return False
         print("Invalid answer, please answer with yes or no")
+
+
+def compat_info_message(compat_msg=None, gen_msg=None, mode='gen'):
+    """
+    Differentiate message for compat and generic mode.
+
+    Parameters:
+    ----------
+        compat_msg: str
+            Message for mode 'compat'.
+        gen_msg: str
+            Message for other modes.
+
+    Returns:
+    -------
+        No return value.
+    """
+    if bool(compat_msg):
+        if mode == 'compat':
+            _logger.info(compat_msg)
+    if bool(gen_msg):
+        if mode != 'compat':
+            _logger.info(gen_msg)
 
 
 def get_instance_ocid():
@@ -384,11 +427,13 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
     -------
        No return value.
     """
-    oci_vols = []
+    #
+    # todo: handle the None ocisession more elegantly.
+    oci_vols = list()
     try:
-        oci_vols = sorted(oci_sess.this_instance().all_volumes())
+        if bool(oci_sess):
+            oci_vols = sorted(oci_sess.this_instance().all_volumes())
     except Exception as e:
-        oci_vols = []
         _logger.debug('Cannot get all volumes of this instance : %s', str(e))
 
     if not iscsiadm_session and len(oci_vols) > 0:
@@ -438,6 +483,7 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
 
         _items.append(_item)
 
+    iscsi_dev_printer = None
     if len(_items) == 0:
         print('No iSCSI devices attached.')
     elif output_mode == 'compat':
@@ -446,6 +492,7 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
     else:
         iscsi_dev_printer = get_row_printer_impl(output_mode)(
             title='Currently attached iSCSI devices', columns=_columns, text_truncate=truncate)
+    if bool(iscsi_dev_printer):
         iscsi_dev_printer.printHeader()
         for _item in _items:
             iscsi_dev_printer.printRow(_item)
@@ -545,7 +592,7 @@ def _do_iscsiadm_attach(iqn, targets, user=None, passwd=None, iscsi_portal_ip=No
         raise Exception('iSCSI attachment failed: %s' % iscsiadm.error_message_from_code(retval))
 
 
-def do_detach_volume(oci_session, iscsiadm_session, iqn):
+def do_detach_volume(oci_session, iscsiadm_session, iqn, mode):
     """
     Detach the volume with given IQN
 
@@ -557,6 +604,8 @@ def do_detach_volume(oci_session, iscsiadm_session, iqn):
         iscsiadm.session()
     iqn: str
         The IQN.
+    mode: str
+        Show output in 0.11 compatibility mode is set to 'compat'
 
     Returns
     -------
@@ -571,7 +620,9 @@ def do_detach_volume(oci_session, iscsiadm_session, iqn):
         raise Exception("Volume with IQN [%s] not found" % iqn)
 
     try:
-        _logger.info("Detaching volume %s (%s)", _volume.get_display_name(), _volume.get_iqn())
+        compat_info_message(compat_msg="Detaching volume",
+                            gen_msg="Detaching volume %s (%s)"
+                                    % (_volume.get_display_name(), _volume.get_iqn()), mode=mode)
         _volume.detach()
     except Exception as e:
         _logger.debug("Failed to disconnect volume", exc_info=True)
@@ -650,44 +701,49 @@ def api_display_available_block_volumes(sess, compartments, show_all, output_mod
 
     _title = "Other available storage volumes"
     if sess is None:
-        _logger.error("Failed to create session.")
+        _logger.info("Failed to create session, unable to show available volumes.")
         return
 
     vols = []
     if len(compartments) > 0:
         for cspec in compartments:
-            if cspec == 'all':
-                vols = sess.all_volumes()
-                break
-            if cspec.startswith('ocid1.compartment.oc1..'):
-                # compartment specified with its ocid
-                comp = sess.get_compartment(ocid=cspec)
-                if comp is None:
-                    _logger.error("Compartment not found: %s", cspec)
-                else:
-                    cvols = comp.all_volumes()
-                    vols += cvols
-            else:
-                # compartment specified with display name regexp
-                comps = sess.find_compartments(display_name=cspec)
-                if len(comps) == 0:
-                    _logger.error("No compartments matching '%s' found", cspec)
-                else:
-                    for comp in comps:
+            try:
+                if cspec == 'all':
+                    vols = sess.all_volumes()
+                    break
+                if cspec.startswith('ocid1.compartment.oc1..'):
+                    # compartment specified with its ocid
+                    comp = sess.get_compartment(ocid=cspec)
+                    if comp is None:
+                        _logger.error("Compartment not found: %s", cspec)
+                    else:
                         cvols = comp.all_volumes()
                         vols += cvols
+                else:
+                    # compartment specified with display name regexp
+                    comps = sess.find_compartments(display_name=cspec)
+                    if len(comps) == 0:
+                        _logger.error("No compartments matching '%s' found", cspec)
+                    else:
+                        for comp in comps:
+                            cvols = comp.all_volumes()
+                            vols += cvols
+            except Exception as e:
+                _logger.error('Failed to get data for compartment %s: %s', cspec, str(e))
     else:
         #
         # -C/--compartment option wasn't used, default to the instance's own
         # compartment
-
-        comp = sess.this_compartment()
-        avail_domain = sess.this_availability_domain()
-        if comp is not None:
-            vols = comp.all_volumes(availability_domain=avail_domain)
-            _title = "Other available storage volumes %s/%s" % (comp.get_display_name(), avail_domain)
-        else:
-            _logger.error("Compartment for this instance not found")
+        try:
+            comp = sess.this_compartment()
+            avail_domain = sess.this_availability_domain()
+            if comp is not None:
+                vols = comp.all_volumes(availability_domain=avail_domain)
+                _title = "Other available storage volumes %s/%s" % (comp.get_display_name(), avail_domain)
+            else:
+                _logger.error("Compartment for this instance not found")
+        except Exception as e:
+            _logger.error('Failed to get data for this compartment: %s', str(e))
 
     if len(vols) == 0:
         _logger.info("No additional storage volumes found.")
@@ -713,6 +769,8 @@ def _do_attach_oci_block_volume(sess, ocid):
         An OCISession instance
     ocid : str
         The volume OCID
+    mode: str
+        mode to distinguish between 0.11 compatibility and later.
     Returns
     -------
         OCIVolume
@@ -731,7 +789,7 @@ def _do_attach_oci_block_volume(sess, ocid):
         else:
             _msg = "Volume %s already attached to instance %s (%s)" % (ocid,
                                                                        vol.get_instance().get_ocid(),
-                                                                       vol.get_instance.get_display_name())
+                                                                       vol.get_instance().get_display_name())
         raise Exception(_msg)
 
     _logger.info("Attaching OCI Volume to this instance.")
@@ -763,12 +821,14 @@ def get_volume_by_iqn(sess, iqn):
     # else:
     #    _logger.debug('_GT_ attr B %s', get_volume_by_iqn.all_this_instance_volume)
     try:
-        get_volume_by_iqn.all_this_instance_volume = sess.this_instance().all_volumes()
-
-        for v in get_volume_by_iqn.all_this_instance_volume:
-            if v.get_iqn() == iqn:
-                _logger.debug('Found %s', str(v))
-                return v
+        if bool(sess):
+            get_volume_by_iqn.all_this_instance_volume = sess.this_instance().all_volumes()
+            for v in get_volume_by_iqn.all_this_instance_volume:
+                if v.get_iqn() == iqn:
+                    _logger.debug('Found %s', str(v))
+                    return v
+        else:
+            _logger.info('Unable to get volume ocid and display name for iqn %s, ', iqn)
     except Exception as e:
         _logger.debug('Failed to get volume data for iqn %s: %s', iqn, str(e), stack_info=True, exc_info=True)
         _logger.error('Failed to get volume data for iqn %s', iqn)
@@ -837,7 +897,7 @@ def unmount_device(session, iqn, disks):
     return retval
 
 
-def do_create_volume(sess, size, display_name, attach_it):
+def do_create_volume(sess, size, display_name, attach_it, mode):
     """
     Create a new OCI volume and attach it to this instance.
 
@@ -850,7 +910,10 @@ def do_create_volume(sess, size, display_name, attach_it):
     display_name: str
         The volume display name.
     attach_it: boolean
-        Do we attach the newly created volume
+        Do we attach the newly created volume.
+    mode: str
+        Show output in 0.11 compatibility mode is set to 'compat'
+
     Returns
     -------
        nothing
@@ -883,30 +946,33 @@ def do_create_volume(sess, size, display_name, attach_it):
     if not attach_it:
         return
 
-    _logger.info("Attaching the volume to this instance")
+    compat_info_message(gen_msg="Attaching the volume to this instance", mode=mode)
+
     try:
         vol = vol.attach_to(instance_id=inst.get_ocid())
     except Exception as e:
-        _logger.debug('cannot attach BV', exc_info=True)
+        _logger.debug('Cannot attach BV', exc_info=True)
         vol.destroy()
-        raise Exception('cannot attach BV') from e
+        raise Exception('Cannot attach BV') from e
     #
     # attach using iscsiadm commands
-    _logger.info("Attaching iSCSI device")
+    compat_info_message(gen_msg="Attaching iSCSI device", mode=mode)
+
     retval = iscsiadm.attach(ipaddr=vol.get_portal_ip(),
                              port=vol.get_portal_port(),
                              iqn=vol.get_iqn(),
                              username=vol.get_user(),
                              password=vol.get_password(),
                              auto_startup=True)
-    _logger.info("iscsiadm attach Result: %s", iscsiadm.error_message_from_code(retval))
+    compat_info_message(compat_msg="iscsiadm attach Result: %s" % iscsiadm.error_message_from_code(retval),
+                        gen_msg="Volume %s is ATTACHED" % vol.get_display_name(), mode=mode)
     if retval == 0:
         _logger.debug('Creation successful')
         return
 
     # here because of error case
     try:
-        _logger.debug('destroying the volume')
+        _logger.debug('Destroying the volume')
         vol.destroy()
     except Exception as e:
         _logger.debug("Failed to destroy volume", exc_info=True)
@@ -991,12 +1057,6 @@ def main():
 
     oci_sess = get_oci_api_session()
 
-    # oci_sess = None
-    # try:
-    #     oci_sess = oci_utils.oci_api.OCISession()
-    # except Exception as e:
-    #     _logger.debug('Cannot get OCI session: %s', str(e))
-
     # we need this at many places, grab it once
     if bool(oci_sess):
         if bool(oci_sess.this_instance()):
@@ -1005,10 +1065,12 @@ def main():
         _this_instance_ocid = get_instance_ocid
 
     if 'compat' in args and args.compat is True:
-        # display information as previous version for compatibility reason
-        # for few settings
+        # Display information as version 0.11 for compatibility reasons for few settings.
         args.output_mode = 'compat'
         args.details = True
+        compat_mode = 'compat'
+    else:
+        compat_mode = 'gen'
 
     system_disks = lsblk.list()
     iscsiadm_session = iscsiadm.session()
@@ -1016,7 +1078,7 @@ def main():
     if args.command == 'show':
         display_attached_volumes(oci_sess, iscsiadm_session, system_disks,
                                  args.output_mode, args.details, not args.no_truncate)
-        if args.all:
+        if len(args.compartments) > 0 or args.all:
             api_display_available_block_volumes(oci_sess, args.compartments, args.all,
                                                 args.output_mode, args.details, not args.no_truncate)
 
@@ -1028,8 +1090,7 @@ def main():
                       max_volumes, oci_utils._MAX_VOLUMES_LIMIT)
         max_volumes = oci_utils._MAX_VOLUMES_LIMIT
 
-    ocid_cache = load_cache(iscsiadm.ISCSIADM_CACHE,
-                            max_age=timedelta(minutes=2))[1]
+    ocid_cache = load_cache(iscsiadm.ISCSIADM_CACHE, max_age=timedelta(minutes=2))[1]
     if ocid_cache is None:
         _logger.debug('updating the cache')
         # run ocid once, to update the cache
@@ -1124,7 +1185,15 @@ def main():
             _logger.error("This instance reached the max_volumes(%s)", max_volumes)
             return 1
         try:
-            do_create_volume(oci_sess, size=args.size, display_name=args.volume_name, attach_it=args.attach_volume)
+            if bool(oci_sess):
+                do_create_volume(oci_sess,
+                                 size=args.size,
+                                 display_name=args.volume_name,
+                                 attach_it=args.attach_volume,
+                                 mode=compat_mode)
+            else:
+                _logger.info('Unable to create volume, failed to create a session.')
+                return 1
         except Exception as e:
             _logger.debug('Volume creation has failed: %s', str(e), stack_info=True, exc_info=True)
             _logger.error('Volume creation has failed: %s', str(e))
@@ -1143,9 +1212,13 @@ def main():
                 return 0
         for ocid in args.ocids:
             try:
-                _logger.debug('Destroying [%s]', ocid)
-                do_destroy_volume(oci_sess, ocid)
-                _logger.info("Volume [%s] is destroyed", ocid)
+                if bool(oci_sess):
+                    _logger.debug('Destroying [%s]', ocid)
+                    do_destroy_volume(oci_sess, ocid)
+                    _logger.info("Volume [%s] is destroyed", ocid)
+                else:
+                    _logger.info('Unable to destroy volume, failed to create a session.')
+                    retval = 1
             except Exception as e:
                 _logger.debug('Volume [%s] deletion has failed: %s', ocid, str(e), stack_info=True, exc_info=True)
                 _logger.error('Volume [%s] deletion has failed: %s', ocid, str(e))
@@ -1174,16 +1247,20 @@ def main():
                 else:
                     _logger.info('Unmount failed, force option selected,continue anyway.')
             try:
-                _logger.debug('Detaching [%s]', iqn)
-                do_detach_volume(oci_sess, iscsiadm_session, iqn)
-                _logger.info("Volume [%s] is detached.", iqn)
-                detached_volume_iqns.append(iqn)
+                if bool(oci_sess):
+                    _logger.debug('Detaching [%s]', iqn)
+                    do_detach_volume(oci_sess, iscsiadm_session, iqn, mode=compat_mode)
+                    compat_info_message(gen_msg="Volume [%s] is detached." % iqn, mode=compat_mode)
+                    detached_volume_iqns.append(iqn)
+                else:
+                    _logger.info('Unable to detach volume, failed to create a session.')
+                    retval = 1
             except Exception as e:
                 _logger.debug('Volume [%s] detach has failed: %s', iqn, str(e), stack_info=True, exc_info=True)
                 _logger.error('Volume [%s] detach has failed: %s', iqn, str(e))
                 retval = 1
 
-        _logger.info("Updating detached volume cache file: %s", detached_volume_iqns)
+        compat_info_message(gen_msg="Updating detached volume cache file: %s" % detached_volume_iqns, mode=compat_mode)
         write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
         _logger.debug('trigger ocid refresh')
         ocid_refresh()
@@ -1210,16 +1287,20 @@ def main():
                 _logger.debug('Given IQN [%s] is probably an ocid, attaching it', _iqn_to_use)
                 bs_volume = None
                 try:
-                    bs_volume = _do_attach_oci_block_volume(oci_sess, _iqn_to_use)
-                    _logger.info("Volume [%s] is attached", _iqn_to_use)
-                    # user/pass coming from volume itself
-                    _attachment_username = bs_volume.get_user()
-                    _attachment_password = bs_volume.get_password()
-                    _iscsi_portal_ip = bs_volume.get_portal_ip()
-                    _iqn_to_use = bs_volume.get_iqn()
+                    if bool(oci_sess):
+                        compat_info_message(compat_msg="Attaching iSCSI device.", mode=compat_mode)
+                        bs_volume = _do_attach_oci_block_volume(oci_sess, _iqn_to_use)
+                        compat_info_message(gen_msg="Volume [%s] is attached" % _iqn_to_use, mode=compat_mode)
+                        # user/pass coming from volume itself
+                        _attachment_username = bs_volume.get_user()
+                        _attachment_password = bs_volume.get_password()
+                        _iscsi_portal_ip = bs_volume.get_portal_ip()
+                        _iqn_to_use = bs_volume.get_iqn()
+                    else:
+                        _logger.info('Unable to attach volume, failed to create a session.')
+                        retval = 1
                 except Exception as e:
-                    _logger.debug('Failed to attach volume [%s]: %s', _iqn_to_use, str(e), stack_info=True,
-                                  exc_info=True)
+                    _logger.debug('Failed to attach volume [%s]: %s', _iqn_to_use, str(e), stack_info=True, exc_info=True)
                     _logger.error('Failed to attach volume [%s]: %s', _iqn_to_use, str(e))
                     retval = 1
                     continue
@@ -1271,9 +1352,10 @@ def main():
                 save_chap_secret(_iqn_to_use, _attachment_username, _attachment_password)
 
         if retval == 0:
-            _logger.info("Updating detached volume cache file: %s", detached_volume_iqns)
+            compat_info_message(gen_msg="Updating detached volume cache file: %s" % detached_volume_iqns,
+                                mode=compat_mode)
             write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
-            _logger.debug('trigger ocid refresh')
+            _logger.debug('Trigger ocid refresh.')
             ocid_refresh()
 
         return retval

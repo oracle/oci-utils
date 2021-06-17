@@ -20,7 +20,7 @@ declare -i post_operation_show=0
 
 # former implementation of oci-iscsi-config was mixing options and sub-commands.
 # oci-iscsi-config-main.py now expect proper command line like '<sub-command> <options>'
-# translate the command line accordingly (as expected by new implemetation)
+# translate the command line accordingly (as expected by new implementation)
 # if first token do not start by '-' we consider that command line is following the new format
 
 if [ "${1:0:1}" != '-' ]
@@ -109,11 +109,11 @@ then
 fi
 if [ $post_operation_show -eq 1  ]
 then
-    ${_PY3} ${s_dir}/oci-iscsi-config-main.py $COMMAND ${cmd_line}
+    ${_PY3} ${s_dir}/oci-iscsi-config-main.py $COMMAND ${cmd_line} --compat
     if [ $? -eq 0 ]
     then
         exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py show --compat
     fi
 else
-  exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $COMMAND ${cmd_line}
+  exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $COMMAND ${cmd_line} --compat
 fi

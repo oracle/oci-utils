@@ -465,6 +465,7 @@ class VNICUtils:
         """
         res = {}
         oci_sess = None
+        my_instance = None
         try:
             oci_sess = OCISession()
             my_instance = oci_sess.this_instance()

@@ -292,7 +292,7 @@ class OCICompartment(OCIAPIAbstractResource):
         # GT
         # if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] != OCI_COMPARTEMENT_STATE.ACTIVE:
         if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] != OCI_COMPARTEMENT_STATE.ACTIVE:
-            OCICompartment._logger.debug('current state not active')
+            OCICompartment._logger.debug('Current state not active.')
             return []
 
         bsc = self._oci_session.get_block_storage_client()
@@ -314,7 +314,7 @@ class OCICompartment(OCIAPIAbstractResource):
                     compartment_id=self._ocid,
                     lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
         except oci_sdk.exceptions.ServiceError as e:
-            raise Exception('Cannot list compartement volumes') from e
+            raise Exception('Cannot list compartement volumes.') from e
 
         for v_data in bs_data.data:
             try:
