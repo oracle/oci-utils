@@ -292,7 +292,7 @@ class OCICompartment(OCIAPIAbstractResource):
         # GT
         # if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] != OCI_COMPARTEMENT_STATE.ACTIVE:
         if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] != OCI_COMPARTEMENT_STATE.ACTIVE:
-            OCICompartment._logger.debug('current state not active')
+            OCICompartment._logger.debug('Current state not active.')
             return []
 
         bsc = self._oci_session.get_block_storage_client()
@@ -314,7 +314,7 @@ class OCICompartment(OCIAPIAbstractResource):
                     compartment_id=self._ocid,
                     lifecycle_state=OCI_RESOURCE_STATE.AVAILABLE.name)
         except oci_sdk.exceptions.ServiceError as e:
-            raise Exception('Cannot list compartement volumes') from e
+            raise Exception('Cannot list compartement volumes.') from e
 
         for v_data in bs_data.data:
             try:
@@ -486,7 +486,7 @@ class OCIInstance(OCIAPIAbstractResource):
             # return OCIVNIC(self._oci_session, oci_sdk.util.to_dict(vnic_data), oci_sdk.util.to_dict(vnic_att_data[0]))
             return OCIVNIC(self._oci_session, vnic_data, vnic_att_data[0])
         except Exception as e:
-            OCIInstance._logger.debug('Failed to fetch VNIC: %s', e)
+            OCIInstance._logger.debug('Failed to fetch VNIC: %s', str(e), stack_info=True, exc_info=True)
             raise Exception('Failed to fetch VNIC [%s]' % vnic_id) from e
 
     def all_vnics(self):

@@ -800,7 +800,10 @@ class OCISession:
             # return OCICompartment(session=self, compartment_data=oci_sdk.util.to_dict(c_data))
             return OCICompartment(session=self, compartment_data=c_data)
         except Exception as e:
-            _logger.error('Error getting compartment: %s', e)
+            if hasattr(e, 'code'):
+                _logger.error('Error getting compartment %s: %s', kargs['ocid'], getattr(e, 'code'))
+            else:
+                _logger.error('Failed to get compartment %s: %s', kargs['ocid'], str(e))
             return None
 
     def get_vcn(self, vcn_id):
