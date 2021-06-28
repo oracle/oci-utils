@@ -20,8 +20,8 @@ from distutils import log
 
 def get_reloc_path(path):
     """
-    for relative path get the absolute path computed
-    against the current nodule path
+    For relative path get the absolute path computed
+    against the current nodule path.
 
     Parameters
     ----------
@@ -31,9 +31,7 @@ def get_reloc_path(path):
     Returns
     -------
         The absolute path
-
     """
-
     if os.path.isabs(path):
         return path
     return os.path.join(os.path.dirname(__file__), path)
@@ -71,19 +69,21 @@ install_requirements = read('requirements.txt').splitlines()
 
 
 def get_content(base, pattern, recursive=True):
-    '''
-    get all python files in dir and subdir
-    parameter
-        base str
+    """
+    Get all python files in dir and subdir.
+
+    Parameters
+    ----------
+        base: str
            basedirectory
-        pattern str
+        pattern: str
             filename pattern like *.py
-        recursive boolean
+        recursive: boolean
             do search down to subdirs
     return
     -------
-      list of files
-    '''
+        List of files
+    """
     tools_l = []
     if recursive:
         for (dirpath, dirnames, filenames) in os.walk(base):
@@ -99,6 +99,8 @@ def get_content(base, pattern, recursive=True):
 
 
 class oci_tests(TestCommand):
+    """ Test class.
+    """
     description = 'run OCI unittest'
 
     TestCommand.user_options.extend([
@@ -130,8 +132,7 @@ class oci_tests(TestCommand):
 
 
 class oci_validation_tests(Command):
-    """
-    Runs all OCI tests on newly provisionned instance
+    """ Runs all OCI tests on newly provisionned instance
     """
     description = 'run OCI production tests'
     user_options = [('rpm-dir=', None, 'directory where to find oci-utils rpms, of not provided, rpmn are created automatically'),
@@ -175,7 +176,7 @@ class oci_validation_tests(Command):
             DistutilsExecError
                 On any error.
         """
-        log.info("runnig oci_validation_tests command now...")
+        log.info("Runnig oci_validation_tests command now...")
 
         if self.rpm_dir is None:
             log.info("Creating RPMs now...")
@@ -291,11 +292,11 @@ class create_rpm(Command):
             DistutilsExecError
                 On any error.
         """
-        log.info("running sdist command now...")
+        log.info("Running sdist command now...")
         self.run_command('sdist')
-        log.info("tarball created, building the RPM now...")
+        log.info("Tarball created, building the RPM now...")
         _cwd = os.path.dirname(os.path.abspath(__file__))
-        log.info('current wd [%s]' % _cwd)
+        log.info('Current wd [%s]' % _cwd)
         redefined_top_dir = os.path.join(_cwd, self.rpm_top_dir)
         spec_file_abs_path = os.path.join(_cwd, self.spec_file_path)
         v_opt = '--quiet'
@@ -363,7 +364,7 @@ if sys.version_info.major < 3:
 
 setup(
     name="oci-utils",
-    version="0.12.4",
+    version="0.12.5",
     author="Laszlo Peter, Qing Lin, Guido Tijskens, Emmanuel Jannetti",
     author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com, emmanuel.jannetti@oracle.com",
     description="Oracle Cloud Infrastructure utilities",

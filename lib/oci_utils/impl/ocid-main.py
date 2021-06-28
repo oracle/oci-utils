@@ -153,7 +153,7 @@ class OcidThread(threading.Thread):
         trigger a stop phase of the daemon
         set the event triggering the stop
         """
-        self.thr_logger.debug('been requested to stop')
+        self.thr_logger.debug('Recieved a request to stop.')
         self.active = False
         self.blocking_evt.set()
 
@@ -179,7 +179,7 @@ class OcidThread(threading.Thread):
             if not self.active:
                 # shutting down.
                 self.thread_lock.release()
-                self.thr_logger.debug('shutting down')
+                self.thr_logger.debug('Shutting down.')
                 break
             try:
                 self.context = self.ocidfunc(self.context, self.thr_logger)
@@ -284,11 +284,9 @@ def iscsi_func(context, func_logger):
 
     # Load the saved passwords
     chap_passwords = context['chap_pws']
-    if context['chap_pw_ts'] == 0 or \
-            get_timestamp(oci_utils.__chap_password_file) > context['chap_pw_ts']:
+    if context['chap_pw_ts'] == 0 or get_timestamp(oci_utils.__chap_password_file) > context['chap_pw_ts']:
         # the password file has changed or was never loaded
-        context['chap_pw_ts'], chap_passwords = \
-            load_cache(oci_utils.__chap_password_file)
+        context['chap_pw_ts'], chap_passwords = load_cache(oci_utils.__chap_password_file)
     if chap_passwords is None:
         chap_passwords = {}
     # save for the next iteration
@@ -302,10 +300,11 @@ def iscsi_func(context, func_logger):
     # volumes connected to this instance
     inst_volumes = []
     if context['oci_sess'] is not None:
+        #
         # get a list of volumes attached to the instance
         instance = context['oci_sess'].this_instance()
         if instance is None:
-            func_logger.debug('Cannot get current instance')
+            func_logger.debug('Cannot get current instance.')
         else:
             volumes = instance.all_volumes()
             for v in volumes:
@@ -319,7 +318,9 @@ def iscsi_func(context, func_logger):
                 else:
                     all_iqns[v.get_portal_ip()] = [v.get_iqn()]
     else:
+        #
         # fall back to scanning
+        func_logger.debug('Scan for volumes.')
         for r in range(context['max_volumes'] + 1):
             ipaddr = "169.254.2.%d" % (r + 1)
             iqns = oci_utils.iscsiadm.discovery(ipaddr)
@@ -334,28 +335,28 @@ def iscsi_func(context, func_logger):
                     vol['user'] = chap_passwords[iqn][0]
                     vol['password'] = chap_passwords[iqn][1]
                 inst_volumes.append(vol)
-
+    #
     # Load the list of volumes that were detached using oci-iscsi-config.
     # ocid shouldn't attach these automatically.
     ignore_iqns = context['ignore_iqns']
-    if context['ignore_file_ts'] == 0 or \
-            get_timestamp(oci_utils.__ignore_file) > context['ignore_file_ts']:
+    if context['ignore_file_ts'] == 0 or get_timestamp(oci_utils.__ignore_file) > context['ignore_file_ts']:
+        #
         # the list of detached volumes changed since last reading the file
-        context['ignore_file_ts'], ignore_iqns = \
-            load_cache(oci_utils.__ignore_file)
+        context['ignore_file_ts'], ignore_iqns = load_cache(oci_utils.__ignore_file)
     if ignore_iqns is None:
         ignore_iqns = []
+    #
     # save for next iteration
     context['ignore_iqns'] = ignore_iqns
-
+    #
     # volumes that failed to attach in an earlier iteration
     attach_failed = context['attach_failed']
-
+    #
     # do we need to cache files?
     cache_changed = False
     ign_changed = False
     chap_changed = False
-
+    #
     # check if all discovered iscsi devices are configured and attached
     for vol in inst_volumes:
         if vol['iqn'] in ignore_iqns:

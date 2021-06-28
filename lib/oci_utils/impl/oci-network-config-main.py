@@ -530,7 +530,9 @@ def show_network_config(vnic_utils):
                 ['IFACE', 15, 'IFACE'],
                 ['VLTAG', 5, 'VLTAG'],
                 ['VLAN', 11, 'VLAN'],
-                ['STATE', 5, 'STATE'], ['MAC', 17, 'MAC'], ['VNIC', 90, 'VNIC'])
+                ['STATE', 5, 'STATE'],
+                ['MAC', 17, 'MAC'],
+                ['VNIC ID', 90, 'VNIC'])
     printer = TablePrinter(title=_title, columns=_columns, column_separator='', text_truncate=False)
 
     printer.printHeader()

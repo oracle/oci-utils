@@ -12,8 +12,15 @@ import logging
 import logging.handlers
 
 
-__all__ = ['read_config', 'SUDO_CMD',
-           'CAT_CMD', 'SH_CMD', 'CP_CMD', 'TOUCH_CMD', 'CHMOD_CMD', 'LSBLK_CMD', 'MKDIR_CMD']
+__all__ = ['read_config',
+           'SUDO_CMD',
+           'CAT_CMD',
+           'SH_CMD',
+           'CP_CMD',
+           'TOUCH_CMD',
+           'CHMOD_CMD',
+           'LSBLK_CMD',
+           'MKDIR_CMD']
 
 
 CAT_CMD = '/usr/bin/cat'

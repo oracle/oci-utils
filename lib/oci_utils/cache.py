@@ -164,8 +164,7 @@ def write_cache(cache_content, cache_fname, fallback_fname=None, mode=None):
         if not os.path.exists(cachedir):
             os.makedirs(cachedir)
         if mode is not None:
-            cache_fd = os.open(cache_fname, os.O_WRONLY | os.O_CREAT,
-                               mode)
+            cache_fd = os.open(cache_fname, os.O_WRONLY | os.O_CREAT, mode)
         else:
             cache_fd = os.open(cache_fname, os.O_WRONLY | os.O_CREAT)
         cache_file = os.fdopen(cache_fd, 'w')
@@ -178,11 +177,9 @@ def write_cache(cache_content, cache_fname, fallback_fname=None, mode=None):
             if not os.path.exists(cachedir):
                 os.makedirs(cachedir)
             if mode is not None:
-                cache_fd = os.open(fallback_fname,
-                                   os.O_WRONLY | os.O_CREAT, mode)
+                cache_fd = os.open(fallback_fname, os.O_WRONLY | os.O_CREAT, mode)
             else:
-                cache_fd = os.open(fallback_fname,
-                                   os.O_WRONLY | os.O_CREAT)
+                cache_fd = os.open(fallback_fname, os.O_WRONLY | os.O_CREAT)
             cache_file = os.fdopen(cache_fd, 'w')
             fname = fallback_fname
         except (OSError, IOError):

@@ -801,9 +801,11 @@ class OCISession:
             return OCICompartment(session=self, compartment_data=c_data)
         except Exception as e:
             if hasattr(e, 'code'):
-                _logger.error('Error getting compartment %s: %s', kargs['ocid'], getattr(e, 'code'))
+                _logger.debug('Error getting compartment %s: %s', kargs['ocid'], getattr(e, 'code'))
+                _logger.error('Error getting compartment: %s', getattr(e, 'code'))
             else:
-                _logger.error('Failed to get compartment %s: %s', kargs['ocid'], str(e))
+                _logger.debug('Failed to get compartment %s: %s', kargs['ocid'], str(e))
+                _logger.error('Failed to get compartment: %s', str(e))
             return None
 
     def get_vcn(self, vcn_id):

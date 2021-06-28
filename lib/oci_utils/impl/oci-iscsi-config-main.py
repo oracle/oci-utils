@@ -90,8 +90,7 @@ def get_args_parser():
     -------
         The commandline argparse namespace.
     """
-    parser = argparse.ArgumentParser(description='Utility for listing or configuring iSCSI devices on an OCI '
-                                                 'instance.')
+    parser = argparse.ArgumentParser(description='Utility for listing or configuring iSCSI devices on an OCI instance.')
     subparser = parser.add_subparsers(dest='command')
     #
     # sync
@@ -428,7 +427,7 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
        No return value.
     """
     #
-    # todo: handle the None ocisession more elegantly.
+    # todo: handle the None oci_sess more elegantly.
     oci_vols = list()
     try:
         if bool(oci_sess):
@@ -498,8 +497,13 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
             iscsi_dev_printer.printRow(_item)
             if output_mode == 'compat':
                 if 'partitions' not in disks[_item['dev']]:
-                    iscsi_dev_printer.printKeyValue('File system type', disks[_item['dev']]['fstype'])
-                    iscsi_dev_printer.printKeyValue('Mountpoint', disks[_item['dev']]['mountpoint'])
+                    #
+                    # iscsi_dev_printer.printKeyValue('File system type', disks[_item['dev']]['fstype'])
+                    # iscsi_dev_printer.printKeyValue('Mountpoint', disks[_item['dev']]['mountpoint'])
+                    fstype = disks[_item['dev']]['fstype'] if bool(disks[_item['dev']]['fstype']) else 'Unknown'
+                    iscsi_dev_printer.printKeyValue('File system type', fstype)
+                    mntpoint = disks[_item['dev']]['mountpoint'] if bool(disks[_item['dev']]['mountpoint']) else 'Not mounted'
+                    iscsi_dev_printer.printKeyValue('Mountpoint', mntpoint)
                 else:
                     partitions = disks[device]['partitions']
                     partitionPrinter.printHeader()
@@ -530,7 +534,7 @@ def display_detached_iscsi_device(iqn, targets, attach_failed=()):
     """
     devicePrinter = get_row_printer_impl('table')(title="Target %s" % iqn,
                                                   text_truncate=False,
-                                                  columns=(['Portal', 12, 'portal'], ['State', 12, 'state']))
+                                                  columns=(['Portal', 20, 'portal'], ['State', 65, 'state']))
     devicePrinter.printHeader()
     _item = {}
     for ipaddr in list(targets.keys()):
@@ -577,6 +581,7 @@ def _do_iscsiadm_attach(iqn, targets, user=None, passwd=None, iscsi_portal_ip=No
             if iqn in targets[ipaddr]:
                 portal_ip = ipaddr
         if portal_ip is None:
+            #
             # this shouldn't really happen, but just in case
             raise Exception("Can't find portal IP address")
     else:
@@ -1062,7 +1067,7 @@ def main():
         if bool(oci_sess.this_instance()):
             _this_instance_ocid = oci_sess.this_instance().get_ocid()
     else:
-        _this_instance_ocid = get_instance_ocid
+        _this_instance_ocid = get_instance_ocid()
 
     if 'compat' in args and args.compat is True:
         # Display information as version 0.11 for compatibility reasons for few settings.
@@ -1092,7 +1097,7 @@ def main():
 
     ocid_cache = load_cache(iscsiadm.ISCSIADM_CACHE, max_age=timedelta(minutes=2))[1]
     if ocid_cache is None:
-        _logger.debug('updating the cache')
+        _logger.debug('Updating the cache')
         # run ocid once, to update the cache
         ocid_refresh(wait=True)
         # now try to load again
@@ -1273,7 +1278,6 @@ def main():
             return 1
 
         retval = 0
-
         for iqn in args.iqns:
             _iqn_to_use = iqn
             _save_chap_cred = False

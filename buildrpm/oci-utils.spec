@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.12.4
-Release: 4%{?dist}
+Version: 0.12.5
+Release: 2%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -178,6 +178,15 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Mon Jun 28 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-2
+- OLUEK-5005 oci-metadata (oci-utils) value-only flag broken
+
+* Wed Jun 23 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-1
+- modified oci-iscsi-config output in compat mode
+- corrected oci-iscsi-config behaviour on invalid compat syntax
+- some small changes
+- changed log and error messages
+
 * Thu Jun 17 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.4-4
 - LINUX-11136 compatibility: oci-network-config --(de)configure does not show results
 - LINUX-11163 compatibility: oci-network-config differences in output
@@ -237,7 +246,7 @@ rm -rf %{buildroot}
 
 
 * Tue Dec 1 2020 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.0-1
- - update migrate
+- update migrate
 
 * Tue Nov 10 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.12.0
  - LINUX-9546 - oci-image-cleanup --dry-run do not print the plan directly

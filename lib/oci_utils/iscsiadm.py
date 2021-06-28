@@ -283,7 +283,7 @@ def attach(ipaddr, port, iqn, username=None, password=None, auto_startup=True):
                                      '-v', password],
                                     stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            _iscsi_logger.error('failed to update authentication settings')
+            _iscsi_logger.error('Failed to update authentication settings')
             _iscsi_logger.info(e.output)
             return e.returncode
 
@@ -295,7 +295,7 @@ def attach(ipaddr, port, iqn, username=None, password=None, auto_startup=True):
                                  '-l'],
                                 stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        _iscsi_logger.error('failed to log in to iscsi volume: %s', error_message_from_code(e.returncode))
+        _iscsi_logger.error('Failed to log in to iscsi volume: %s', error_message_from_code(e.returncode))
         _iscsi_logger.error('iscsiadm output: %s', e.output)
         return e.returncode
 

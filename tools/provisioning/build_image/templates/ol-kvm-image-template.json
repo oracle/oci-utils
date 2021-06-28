@@ -6,7 +6,8 @@
         "user_subnet_ocid": "",
         "user_image_name": "",
         "user_AL_version": "",
-        "user_OL_flavour": "NonAutonomous"
+        "user_OL_flavour": "NonAutonomous",
+        "user_script_dir": ""
     },
     "builders": [
         {
@@ -29,18 +30,25 @@
     ],
     "provisioners": [
         {
+            "type": "file",
+            "source": "{{user_script_dir}}/custom_post_install_task.sh",
+            "destination": "/tmp"
+        },
+        {
+            "type": "file",
+            "source": "{{user_script_dir}}/custom_firstboot.sh",
+            "destination": "/tmp"
+        },
+        {
             "type": "shell",
             "inline": [
                 "sudo yum install -y python36-libvirt",
-                "sudo rpm -Uv https://ca-artifacts.us.oracle.com/auto-build/x86_64-build-output-7/oci-utils-0.11.6-9.el7.noarch.rpm",
-                "sudo rpm -Uv https://ca-artifacts.us.oracle.com/auto-build/x86_64-build-output-7/oci-utils-kvm-0.11.6-9.el7.noarch.rpm"
             ]
         },
         {
             "type": "shell",
             "inline": [
                 "sudo yum -y install git",
-                "git  clone  https://gitlab+deploy-token-47:fa9KGVrxZG4oVMpbSiX9@linux-git.us.oracle.com:/oci-ol/oci-kvm-image-build.git /tmp/oci-kvm-image-build/",
                 "sudo -u root /bin/bash /tmp/oci-kvm-image-build/custom_post_install_task.sh",
                 "sudo -u root /bin/bash /tmp/oci-kvm-image-build/custom_firstboot.sh"
             ]

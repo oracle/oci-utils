@@ -69,8 +69,14 @@ do
                               break
                               ;;
         # end of parsing , everything getopt did not understood is after that, we do not care in our case
-        --) shift; break ;;
-        *)                    COMMAND="usage"                                       ; break   ;;
+        --)
+                              if [ -z ${COMMAND} ]
+                              then
+                                COMMAND="usage"
+                              fi
+                              shift; break
+                              ;;
+        *)                    COMMAND="usage"                                                ; break   ;;
     esac
 done
 
