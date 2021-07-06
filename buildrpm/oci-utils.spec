@@ -178,7 +178,13 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
-* Mon Jun 28 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-2
+* Fri Jul 2 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-3
+- LINUX-11255 output of oci-public-ip -g has a # at then end
+- LINUX-11261 ocid does not enable vnics at reboot/ocid configures unconfigured vnics
+- LINUX-9680 move KVM image scripts to github
+- image build scripts
+
+* Mon Jun 28 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-2
 - OLUEK-5005 oci-metadata (oci-utils) value-only flag broken
 
 * Wed Jun 23 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-1

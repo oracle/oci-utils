@@ -94,7 +94,7 @@ def _display_ip_list(ip_list, displayALL, outputMode, displayDetails):
     if displayALL:
         _ip_list_to_display = ip_list
     else:
-        # We assume that primary is the first one and we want ot display only it
+        # We assume that primary is the first one and we want to display only it
         _ip_list_to_display = ip_list[:1]
 
     _title = 'Public IPs information (primary on top)'
@@ -181,7 +181,15 @@ def main():
         stun_log.info("No public IP address found.\n")
         return 1
 
-    _display_ip_list(_all_p_ips, args.all, args.output_mode, args.details)
+    if args.get:
+        #
+        # for compatibility mode, the parsable output mode is not really appropriate
+        # LINUX-11255
+        for ip in _all_p_ips:
+            print('%16s' % ip['ip'])
+    else:
+        _display_ip_list(_all_p_ips, args.all, args.output_mode, args.details)
+
     return 0
 
 

@@ -81,7 +81,12 @@ class VNICUtils:
         """
         self.vnic_info_ts, self.vnic_info = cache.load_cache(VNICUtils.__vnic_info_file)
         if self.vnic_info is None:
-            self.vnic_info = {'exclude': []}
+            # _GT_ 
+            self.vnic_info = {'exclude': [], 'deconfig': []}
+            # self.vnic_info = {'exclude': []}
+        # _GT_
+        if 'deconfig' not in self.vnic_info:
+            self.vnic_info['deconfig'] = []
 
         return self.vnic_info
 
@@ -143,6 +148,7 @@ class VNICUtils:
             if _interface.get('VNIC') == vnic_id:
                 _intf = _interface
                 break
+        _logger.debug('_GT_ interface %s', _intf)
         if _intf is None:
             # cannot happen
             _logger.debug('WARNING : cannot find vnic with id [%s]: caller did not check ?')
@@ -237,7 +243,7 @@ class VNICUtils:
             self.vnic_info['exclude'].remove(item)
             self.save_vnic_info()
 
-    def auto_config(self, sec_ip):
+    def auto_config(self, sec_ip, deconfigured=True):
         """
         Auto configure VNICs.
 
@@ -245,6 +251,8 @@ class VNICUtils:
         ----------
         sec_ip: list of tuple (<ip adress>,<vnic ocid>)
             secondary IPs to ad to vnics. can be None or empty
+        deconfigured: bool
+            if True, does configure manually unconfigured interfaces.
 
         Returns
         -------
@@ -252,6 +260,7 @@ class VNICUtils:
         """
 
         _all_intf = self.get_network_config()
+        _logger.debug('GT in auto config')
 
         # we may need a mapping of intf by physical NIC index
         # for BMs secondary VNIC are not plumbed
@@ -287,14 +296,27 @@ class VNICUtils:
                             if ip not in _intf['MISSING_SECONDARY_IPS']:
                                 _intf['MISSING_SECONDARY_IPS'].append(ip)
 
+            # GT
+            _logger.debug('_GT_ auto config interface %s %s', _intf['ADDR'], _intf['CONFSTATE'])
             if _intf['CONFSTATE'] == 'ADD':
-                _all_to_be_configured.append(_intf)
-                # take care of secondary addresses.
-                # at this point we cannot rely on MISSING_SECONDARY_IPS as we are configured "new" interface
-                # in order to use the same code path, set MISSING_SECONDARY_IPS here so _all_to_be_modified set
-                # will also contain this one. Need better refactoring: enough for now.
-                if len(_intf.get('SECONDARY_ADDRS', ())) > 0:
-                    _intf['MISSING_SECONDARY_IPS'] = _intf['SECONDARY_ADDRS']
+                _logger.debug('_GT_ found ADD %s', _intf['ADDR'])
+                if deconfigured:
+                    _logger.debug('_GT_ auto config configure True')
+                else:
+                    _logger.debug('_GT_ auto config configure False')
+                if _intf['ADDR'] in self.vnic_info['deconfig']:
+                    _logger.debug('_GT_ auto config %s in deconfig',  _intf['ADDR'])
+                else:
+                    _logger.debug('_GT_ auto config %s not in deconfig',  _intf['ADDR'])
+
+                if deconfigured or not _intf['ADDR'] in self.vnic_info['deconfig']:
+                    _all_to_be_configured.append(_intf)
+                    # take care of secondary addresses.
+                    # at this point we cannot rely on MISSING_SECONDARY_IPS as we are configured "new" interface
+                    # in order to use the same code path, set MISSING_SECONDARY_IPS here so _all_to_be_modified set
+                    # will also contain this one. Need better refactoring: enough for now.
+                    if len(_intf.get('SECONDARY_ADDRS', ())) > 0:
+                        _intf['MISSING_SECONDARY_IPS'] = _intf['SECONDARY_ADDRS']
             if _intf['CONFSTATE'] == 'DELETE':
                 _all_to_be_deconfigured.append(_intf)
             if 'MISSING_SECONDARY_IPS' in _intf:
@@ -311,7 +333,7 @@ class VNICUtils:
             for _in in _all_to_be_modified:
                 _logger.debug("MODIFY %s", _in)
 
-        # 2 configure the one which need it
+        # 2 configure the ones which need it
         for _intf in _all_to_be_configured:
             ns_i = None
             if 'ns' in self.vnic_info:
@@ -346,6 +368,11 @@ class VNICUtils:
 
                 # setup routes
                 self._auto_config_intf_routing(ns_i, _intf_to_use)
+                
+                #
+                # GT
+                _logger.debug('_GT_ trying to config')
+                self.config(_intf['ADDR'])
 
             except Exception as e:
                 # best effort , just issue warning
@@ -405,6 +432,7 @@ class VNICUtils:
         """
 
         _all_intf = self.get_network_config()
+        _logger.debug('_GT_ all intf %s', _all_intf)
 
         # if we have secondary addrs specified, just take care of these
         #  vnic OCID give us the mac address then select the right interface which has the ip
@@ -442,24 +470,60 @@ class VNICUtils:
             for intf in _all_intf:
                 # Is this intf the primary  ?
                 if intf.has('IS_PRIMARY'):
+                    _logger.debug('_GT_ intf is primary: %s', intf['ADDR'])
                     continue
                 # Is this intf has a configuration to be removed ?
                 if intf['CONFSTATE'] == 'ADD':
+                    _logger.debug('_GT_ intf is ADD: %s', intf['ADDR'])
                     continue
                 # Is this intf excluded ?
                 if self._is_intf_excluded(intf):
+                    _logger.debug('_GT_ intf is exclude: %s', intf['ADDR'])
                     continue
+                _logger.debug('_GT_ intf to unconfig: %s', intf['ADDR'])
                 for secondary_addr in intf.get('SECONDARY_ADDRS', ()):
                     self._deconfig_secondary_addr(intf, secondary_addr)
                 self._auto_deconfig_intf_routing(intf)
                 _auto_deconfig_intf(intf)
+                #
+                # GT
+                self.unconfig(intf['ADDR'])
 
         return 0, ''
+
+    def unconfig(self, item):
+        """
+        Add item to the deconfig list.
+
+        Parameters
+        ----------
+        item: str
+            Item (IP or interface) to be unconfigured.
+        """
+        if item not in self.vnic_info['deconfig']:
+            _logger.debug('Adding %s to "deconfig" list', item)
+            self.vnic_info['deconfig'].append(item)
+            self.save_vnic_info()
+
+    def config(self, item):
+        """
+        Remove item to the "deconfig" list.
+
+        Parameters
+        ----------
+        item: str
+            Item (IP or interface) to be (re)configured.
+        """
+        if item in self.vnic_info['deconfig']:
+            _logger.debug('Removing %s from "deconfig" list', item)
+            self.vnic_info['deconfig'].remove(item)
+            self.save_vnic_info()
 
     def _get_priv_addrs(self):
         """
         Gets all vnic private addrs
-        returns:
+
+        Returns:
         --------
           dict : a vnic ocid indexed dict of list of IPs
         """
@@ -514,6 +578,7 @@ class VNICUtils:
         interfaces = []
 
         _all_intfs = NetworkHelpers.get_network_namespace_infos()
+        _logger.debug('_GT_ all_intfs %s', _all_intfs)
 
         # for BM cases (using macvlan/vlan) when using namespace , some interfaces (the macvlan ones within namespace)
         # do not have the 'link' property but the 'link_idx'
@@ -565,6 +630,8 @@ class VNICUtils:
 
                 _all_from_system.append(_intf)
 
+        _logger.debug('_GT_ all from system %s', _all_from_system)
+
         _all_from_metadata = []
         _first_loop = True
         if self._metadata is None:
@@ -594,25 +661,29 @@ class VNICUtils:
                         [_ip for _ip in _ip_per_id[md_vnic['vnicId']] if _ip != md_vnic['privateIp']]
 
                 _all_from_metadata.append(_intf)
+        _logger.debug('_GT_ all from metadata %s', _all_from_metadata)
 
         # now we correlate informations
         # precedence is given to metadata
         for interface in _all_from_metadata:
+            _logger.debug('_GT_ interface %s', interface)
             try:
                 # locate the one with same ether address
                 _candidates = [_i for _i in _all_from_system if _i['MAC'] == interface['MAC']]
+                _logger.debug('_GT_ candidates %s', _candidates)
                 _state = 'ADD'
                 _have_to_be_added = set()
                 if len(_candidates) == 1:
                     # only one found , no ambiguity
                     # treat secondary addrs: if have some in metadata not present on system , we have to plumb them
-                    _have_to_be_added = set(interface.get('SECONDARY_ADDRS', [])).difference(
-                        _candidates[0].get('SECONDARY_ADDRS', []))
+                    _have_to_be_added = set(interface.get('SECONDARY_ADDRS', [])).difference(_candidates[0].get('SECONDARY_ADDRS', []))
                     interface.update(_candidates[0])
                     if _candidates[0].has('ADDR'):
+                        _logger.debug('_GT_ candidates 0 %s has ADDR', _candidates[0])
                         # an addr on the correlated system intf -> state is '-'
                         _state = '-'
                 elif len(_candidates) >= 2:
+                    _logger.debug('_GT_ len candidates >=2')
                     # we do not expect to have more than 2 anyway
                     # surely macvlan/vlans involved (BM case)
                     #  the macvlan interface give us the addr and the actual link
@@ -753,11 +824,14 @@ class VNICUtils:
             Exception. if configuration failed
         """
 
+        _logger.debug('_GT_ intf_infos: %s', intf_infos)
         _route_table_name = self._compute_routing_table_name(intf_infos)
 
         _sec_addrs = []
         if intf_infos.has('SECONDARY_ADDRS'):
             _sec_addrs = intf_infos.get('SECONDARY_ADDRS')
+
+        _logger.debug('_GT_ sec addrs: %s', _sec_addrs)
 
         for secondary_ip in intf_infos['MISSING_SECONDARY_IPS']:
             _logger.debug("adding secondary IP address %s to interface (or VLAN) %s",

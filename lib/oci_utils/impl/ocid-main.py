@@ -537,7 +537,7 @@ def vnic_func(context, func_logger):
     #
     # GT
     # LINUX-10360 ocid service configures unconfigured vnics; commented out in case of side effects.
-    # _vnic_utils.auto_config([])
+    _vnic_utils.auto_config([], deconfigured=False)
 
     return context
 

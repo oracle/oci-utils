@@ -1,9 +1,0 @@
-{
-    "user_availability_domain": "<change this>",
-    "user_base_image_ocid": "<change this>",
-    "user_compartment_ocid": "<change this>",
-    "user_subnet_ocid": "<change this>",
-    "user_image_name": "<change this>",
-    "user_OL_version": "<change this>",
-    "user_OL_flavour": "<change this>"
-}

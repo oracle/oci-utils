@@ -577,8 +577,8 @@ def do_detach_vnic(detach_options):
                 _logger.info('VNIC [%s] is detached.', v_ocid)
                 break
             raise Exception("The primary VNIC cannot be detached.")
-        else:
-            _logger.error('VNIC %s [%s] is not attached to this instance.', v_ip, v_ocid)
+    else:
+        _logger.error('VNIC %s [%s] is not attached to this instance.', detach_options.ip_address, detach_options.ocid)
 
 
 def do_create_vnic(create_options):

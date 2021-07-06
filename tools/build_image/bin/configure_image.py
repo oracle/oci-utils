@@ -22,7 +22,11 @@ import oci
 #
 # locale
 lc_all = 'en_US.UTF8'
-default_log = 'configure_image.log'
+#
+# logfile
+default_log = '/tmp/configure_image_%s.log' % datetime.now().strftime('%Y%m%d_%H%M')
+#
+# custom scripts
 custom_kvm_build_scripts = ['custom_firstboot.sh', 'custom_post_install_task.sh']
 
 _logger = logging.getLogger(__name__)
@@ -60,7 +64,7 @@ def parse_args():
     parser.add_argument('-f', '--var-file',
                         action='store',
                         dest='varfilename',
-                        default='image_vars.json',
+                        default='image_vars',
                         help='Filename to store the variables; the extension .tfvars.json is added automatically.')
     parser.add_argument('-t', '--type',
                         action='store',
@@ -172,7 +176,6 @@ def _read_yn(prompt, yn=True, waitenter=False, suppose_yes=False, default_yn=Fal
         resp_len = 0
         while resp_len == 0:
             resp = input(yn_prompt).lstrip()
-            resp_len = len(resp)
             resp_len = len(resp)
         yn_i = list(resp)[0].rstrip()
     #
@@ -333,13 +336,20 @@ def get_configdata(profile, configfile='~/.oci/config'):
             the path of the configfile.
     Returns
     -------
+        code: int 0 for success, 1 for failure
         dict: the config data.
     """
     sdkconfigfile = configfile
     if configfile.startswith('~/'):
         sdkconfigfile = os.path.expanduser('~') + configfile[1:]
-    config = oci.config.from_file(file_location=sdkconfigfile, profile_name=profile)
-    return config
+    if os.path.exists(sdkconfigfile):
+        try:
+            return 0, oci.config.from_file(file_location=sdkconfigfile, profile_name=profile)
+        except Exception as e:
+            exit_msg = str(e)
+    else:
+        exit_msg = '%s does not exist' % sdkconfigfile
+    return 1, exit_msg
 
 
 def select_compartment_id(config_dict, prompt):
@@ -581,6 +591,23 @@ def get_image_name_prefix():
             _logger.debug('Failed to read image name prefix, retry.')
 
 
+def get_OL_version():
+    """
+    Get the Oracle Linux version from prompt.
+
+    Returns
+    -------
+        str: the version.
+    """
+    while 1 == 1:
+        try:
+            ol_version = input('Provide Oracle Linux version used:> ').strip()
+            if len(ol_version) > 0:
+                return ol_version
+        except Exception as e:
+            _logger.debug('Failed to read Oracle Linux version.')
+
+
 def collect_build_parameters(config_data):
     """
     Callect the data from oci required by packer to build the image.
@@ -598,25 +625,44 @@ def collect_build_parameters(config_data):
     image_data = dict()
     #
     # Compartment ocid
+    print_g('Instance Compartment.\n')
     image_data['user_compartment_ocid'] = select_compartment_id(config_data, 'Select instance compartment.')
+    _clear_term()
     #
     # Network compartment ocid
+    print_g('Network Compartment.\n')
     image_data['user_network_compartment_ocid'] = select_compartment_id(config_data, 'Select network compartment.')
+    _clear_term()
     #
     # Virtual cloud network ocid
+    print_g('Virtual Cloud Network.\n')
     image_data['user_vcn_ocid'] = select_vcn_id(config_data, image_data['user_network_compartment_ocid'], 'Select virtual cloud network.')
+    _clear_term()
     #
     # Subnet ocid
+    print_g('Subnet.\n')
     image_data['user_subnet_ocid'] = select_subnet_id(config_data, image_data['user_network_compartment_ocid'], image_data['user_vcn_ocid'], 'Select subnet.')
+    _clear_term()
     #
     # Image ocid
+    print_g('Image.\n')
     image_data['user_base_image_ocid'] = select_image_id(config_data, image_data['user_compartment_ocid'], 'Select image.')
+    _clear_term()
     #
     # Availability domain
+    print_g('Availabiltiy Domain.\n')
     image_data['user_availability_domain'] = select_availability_domain_name(config_data, image_data['user_compartment_ocid'], 'Select availability domain.')
+    _clear_term()
     #
     # Shape
+    print_g('Shape.\n')
     image_data['user_shape_name'] = select_shape(config_data, image_data['user_base_image_ocid'], 'Select shape')
+    _clear_term()
+    #
+    # OL version
+    print_g('OL version.\n')
+    image_data['user_OL_version'] = get_OL_version()
+    _clear_term()
 
     return image_data
 
@@ -646,10 +692,12 @@ def collect_instance_parameters(image_data, ol_type):
     image_data['user_flavor'] = 'Autonomous' if ol_type == 'AL' else 'NonAutonomous'
     #
     # image name
-    image_data['user_image_name'] = 'AL-KVM-' + today_date_str if ol_type == 'AL' else 'OL-KVM-' + today_date_str
+    image_data['user_image_name'] = 'AL-KVM-' + today_date_str if ol_type == 'AL' \
+        else 'OL-KVM-' + today_date_str
     #
     # instance name
-    image_data['user_instance_name'] = 'KVM-builder-' + today_timestamp
+    image_data['user_instance_name'] = 'AL-KVM-builder-' + today_timestamp if ol_type == 'AL' \
+        else 'OL-KVM-builder-' + today_timestamp
 
     return image_data
 
@@ -669,15 +717,16 @@ def build_data(image_data, dir_root):
     """
     #
     # look in directory tree for the custom_*sh scripts
+    cs_path = None
     for custom_script in custom_kvm_build_scripts:
-         cs_path = glob.glob(dir_root + '/**/%s' % custom_script, recursive = True)
-
-
-
-    #
-    # var file name
-    image_data['user_script_dir'] = tfvarsfile
-
+        cs_path = glob.glob(dir_root + '/**/%s' % custom_script, recursive = True)
+        if bool(cs_path):
+            print_g(msg='script %s' % cs_path)
+            script_name = os.path.basename(custom_script)
+            script_base = os.path.splitext(script_name)[0]
+            image_data['user_' + script_base] = script_name
+            image_data['user_' + script_base + '_path'] = cs_path[0]
+        cs_path = None
     return image_data
 
 
@@ -727,7 +776,8 @@ def main():
     # current user
     operator = _get_current_user()
     operator_home = _get_current_user_home()
-    print_g(msg='Username:     %s\nHome:         %s' % (operator, operator_home), term=True)
+    _clear_term()
+    print_g(msg='%30s: %s\n%30s: %s' % ('Username', operator, 'Home', operator_home), term=True)
     #
     # date strings
     # today_date_str = _get_today()
@@ -739,28 +789,41 @@ def main():
     args = parse_args()
     #
     # packer var file, create dir if not exits.
-    tfvarsfile = args.datadir + '/' + args.varfilename + '.tfvars.json'
+    data_dir = operator_home + '/data' if args.datadir.startswith('~') else args.datadir
+    tfvarsfile = data_dir + '/' + args.varfilename + '.tfvars.json'
     try:
         os.makedirs(os.path.dirname(tfvarsfile))
     except OSError as e:
         if e.errno != errno.EEXIST:
             sys.exit('Failed to create directory %s: %s' % (os.path.dirname(tfvarsfile), str(e)))
-    print_g(msg='Packer var file: %s' % tfvarsfile, term=True)
+    print_g(msg='%30s: %s' % ('Packer var file', tfvarsfile), term=True)
     #
     # get configuration data
-    cfg_dict = get_configdata(args.profile, args.configfile)
+    ret, configuration = get_configdata(args.profile, args.configfile)
+    if ret == 1:
+        _logger.error('Failed to read config file %s', args.configfile)
+        print_g('*** ERROR *** %s' % configuration)
+        sys.exit(1)
+
     print_g(msg='Configuration', term=True)
-    for k, v in cfg_dict.items():
+    for k, v in configuration.items():
         print_g(msg='%30s: %s' % (k, v), term=True)
     #
+    # continue?
+    resp = _read_yn(prompt='Continue?', yn=True, default_yn=True)
+    if not resp:
+        sys.exit('Exiting.')
+    else:
+        _clear_term()
+    #
     # data from oci
-    image_data = collect_build_parameters(cfg_dict)
+    image_data = collect_build_parameters(configuration)
     #
     # data from operator
     image_data = collect_instance_parameters(image_data, args.oltype)
     #
     # data for build
-    image_data = build_data(image_data, tfvarsfile)
+    image_data = build_data(image_data, operator_home)
     #
     # validate
     show_parameters(image_data)
@@ -773,7 +836,7 @@ def main():
     try:
         with open(tfvarsfile, 'w') as tfvj:
             json.dump(image_data, tfvj, indent=4)
-        return True
+        sys.exit(0)
     except Exception as e:
         raise Exception('Failed to write %s:' % tfvarsfile) from e
 

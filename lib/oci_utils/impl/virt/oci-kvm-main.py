@@ -44,84 +44,126 @@ def parse_args():
     -------
         The command line namespace.
     """
-    parser = argparse.ArgumentParser(description='Utility for creating and '
-                                                 'managing KVM virtual '
-                                                 'machines on an OCI '
-                                                 'instance.')
+    parser = argparse.ArgumentParser(description='Utility for creating and managing KVM virtual machines '
+                                                 'on an OCI instance.')
     subparser = parser.add_subparsers(dest='mode')
+    #
     create_parser = subparser.add_parser(_create,
-                                         help='Create a new virtual machine')
+                                         help='Create a new virtual machine.')
+    create_parser.add_argument('-d', '--disk',
+                               action='store',
+                               type=str,
+                               help='The path to the root disk of the VM.')
+    create_parser.add_argument('-p', '--pool',
+                               action='store',
+                               type=str,
+                               help='The name a of storage pool to be used for root disk.')
+    create_parser.add_argument('-s', '--disk-size',
+                               action='store',
+                               type=_disk_size_in_gb,
+                               help='The size of the disk in GB to be created when using storage pool.')
+    create_parser.add_argument('-n', '--net',
+                               action='append',
+                               type=str,
+                               help='The IP or name of the VNIC that should be attached to the VM.')
+    create_parser.add_argument('-v', '--virtual-network',
+                               action='append',
+                               type=str,
+                               help='The name of libvirt nework to attach the guest to.')
+    create_parser.add_argument('-D', '--domain',
+                               action='store',
+                               type=str,
+                               help='The name of the virtual machine.',
+                               required=True)
+    create_parser.add_argument('-V', '--virt',
+                               nargs=argparse.REMAINDER,
+                               help='Additional arguments to provide to virt-install. '
+                                    'All arguments that appear after this one will be passed unmodified into '\
+                                    'virt-install, even if they are arguments that oci-kvm would otherwise understand.',
+                               required=True)
+    #
     destroy_parser = subparser.add_parser(_destroy,
-                                          help='Destroy an existing virtual '
-                                               'machine')
-    create_pool_parser = subparser.add_parser(_create_pool,
-                                              help='Create a filesystem storage pool')
-    create_network_parser = subparser.add_parser(_create_network,
-                                                 help='Create a libvirt network on an OCI vNIC')
-    delete_network_parser = subparser.add_parser(_delete_network,
-                                                 help='Delete a libvirt network on an OCI vNIC')
-
-    create_parser.add_argument('-d', '--disk', action='store', type=str,
-                               help='Path to the root disk of the VM')
-    create_parser.add_argument('-p', '--pool', action='store', type=str,
-                               help='Name a of storage pool to be used for root disk')
-    create_parser.add_argument('-s', '--disk-size', action='store', type=_disk_size_in_gb,
-                               help='Size of the disk in GB to be created when using storage pool')
-    create_parser.add_argument('-n', '--net', action='append', type=str,
-                               help='IP or name of the VNIC that should be attached '
-                                    'to the VM')
-    create_parser.add_argument('-v', '--virtual-network', action='append', type=str,
-                               help='The name of libvirt nework to attach the guest to')
-    create_parser.add_argument('-D', '--domain', action='store', type=str,
-                               help='Name of the virtual machine',
-                               required=True)
-    create_parser.add_argument('-V', '--virt', nargs=argparse.REMAINDER,
-                               help='Additional arguments to provide to '
-                                    'virt-install.  All arguments that appear '
-                                    'after this one will be passed unmodified '
-                                    'into virt-install, even if they are '
-                                    'arguments that oci-kvm would otherwise '
-                                    'understand.',
-                               required=True)
-
-    destroy_parser.add_argument('-D', '--domain', action='store', type=str,
-                                help='Name of the virtual machine',
+                                          help='Destroy an existing virtual machine.')
+    destroy_parser.add_argument('-D', '--domain',
+                                action='store',
+                                type=str,
+                                help='The name of the virtual machine.',
                                 required=True)
-    destroy_parser.add_argument('--destroy-disks', action='store_true',
-                                help='Also delete storage pool based disks')
-    destroy_parser.add_argument('-s', '--stop', action='store_true', default=False,
-                                help='First stop the guess if it si running')
-    destroy_parser.add_argument('-f', '--force', action='store_true', default=False,
-                                help='Forced operation, no gracefull shutdown')
-
-    dbp_group = create_pool_parser.add_argument_group(
-        title='disk pool', description='Options for disk based storage pool')
-    dbp_group.add_argument('-d', '--disk', action='store', type=str,
-                           help='Path to the root disk of the storage pool')
-    nfsp_group = create_pool_parser.add_argument_group(
-        title='NETFS pool', description='Options for NETFS based storage pool')
-    nfsp_group.add_argument('-N', '--netfshost', action='store', type=str,
-                            help='name or IP of the NFS server')
-    nfsp_group.add_argument('-p', '--path', action='store', type=str,
-                            help='path of the NETFS resource')
-    create_pool_parser.add_argument('-n', '--name', action='store', type=str,
-                                    help='name of the pool', required=True)
-
-    create_network_parser.add_argument('-n', '--net', action='store', required=True, type=str,
-                                       help='IP of the VNIC used to build the network')
-    create_network_parser.add_argument('-N', '--network-name', action='store', required=True, type=str,
-                                       help='the name of the network')
-    create_network_parser.add_argument('-B', '--ip-bridge', action='store', required=True, type=str,
-                                       help='Bridge IP for virtual network address space')
-    create_network_parser.add_argument('-S', '--ip-start', action='store', required=True, type=str,
-                                       help='guest first IP range in virtual network address space')
-    create_network_parser.add_argument('-E', '--ip-end', action='store', required=True, type=str,
-                                       help='guest last IP range in virtual network address space')
-    create_network_parser.add_argument('-P', '--ip-prefix', action='store', required=True, type=str,
-                                       help='IP prefix to be used in virtual network')
-
-    delete_network_parser.add_argument('-N', '--network-name', action='store', required=True, type=str,
-                                       help='the name of the network')
+    destroy_parser.add_argument('--destroy-disks',
+                                action='store_true',
+                                help='Also delete storage pool based disks.')
+    destroy_parser.add_argument('-s', '--stop',
+                                action='store_true',
+                                default=False,
+                                help='First stop the guess if it is running.')
+    destroy_parser.add_argument('-f', '--force',
+                                action='store_true',
+                                default=False,
+                                help='Forced operation, no gracefull shutdown.')
+    #
+    create_pool_parser = subparser.add_parser(_create_pool,
+                                              help='Create a filesystem storage pool.')
+    dbp_group = create_pool_parser.add_argument_group(title='disk pool',
+                                                      description='The options for disk based storage pool.')
+    dbp_group.add_argument('-d', '--disk',
+                           action='store',
+                           type=str,
+                           help='The path to the root disk of the storage pool.')
+    #
+    nfsp_group = create_pool_parser.add_argument_group(title='NETFS pool',
+                                                       description='The options for NETFS based storage pool.')
+    nfsp_group.add_argument('-N', '--netfshost',
+                            action='store',
+                            type=str,
+                            help='The name or IP of the NFS server.')
+    nfsp_group.add_argument('-p', '--path',
+                            action='store',
+                            type=str,
+                            help='The path of the NETFS resource.')
+    create_pool_parser.add_argument('-n', '--name',
+                                    action='store',
+                                    type=str,
+                                    help='The name of the pool.',
+                                    required=True)
+    #
+    create_network_parser = subparser.add_parser(_create_network,
+                                                 help='Create a libvirt network on an OCI vNIC.')
+    create_network_parser.add_argument('-n', '--net',
+                                       action='store',
+                                       required=True, type=str,
+                                       help='The IP of the VNIC used to build the network.')
+    create_network_parser.add_argument('-N', '--network-name',
+                                       action='store',
+                                       required=True,
+                                       type=str,
+                                       help='The name of the network.')
+    create_network_parser.add_argument('-B', '--ip-bridge',
+                                       action='store',
+                                       required=True,
+                                       type=str,
+                                       help='The bridge IP for virtual network address space.')
+    create_network_parser.add_argument('-S', '--ip-start',
+                                       action='store',
+                                       required=True,
+                                       type=str,
+                                       help='The guest first IP range in virtual network address space.')
+    create_network_parser.add_argument('-E', '--ip-end',
+                                       action='store',
+                                       required=True,
+                                       type=str,
+                                       help='The guest last IP range in virtual network address space.')
+    create_network_parser.add_argument('-P', '--ip-prefix',
+                                       action='store',
+                                       required=True,
+                                       type=str,
+                                       help='The IP prefix to be used in virtual network.')
+    #
+    delete_network_parser = subparser.add_parser(_delete_network,
+                                                 help='Delete a libvirt network on an OCI vNIC.')
+    delete_network_parser.add_argument('-N', '--network-name',
+                                       action='store',
+                                       required=True, type=str,
+                                       help='The name of the network.')
 
     return parser
 

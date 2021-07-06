@@ -512,8 +512,8 @@ class OCIInstance(OCIAPIAbstractResource):
             # compartment_id=self._data['compartment_id'],
             # instance_id=self._ocid)
         except oci_sdk.exceptions.ServiceError as e:
-            OCIInstance._logger.debug('sdk call failed', exc_info=True)
-            OCIInstance._logger.warning('sdk call failed [%s]', str(e))
+            OCIInstance._logger.debug('SDK call failed', exc_info=True)
+            OCIInstance._logger.warning('SDK call failed [%s]', str(e))
             return []
         for v_a_data in vnic_atts.data:
             try:
@@ -528,7 +528,7 @@ class OCIInstance(OCIAPIAbstractResource):
             except oci_sdk.exceptions.ServiceError:
                 # ignore these, it means the current user has no
                 # permission to list the instances in the compartment
-                OCIInstance._logger.debug('current user has no permission to list the vcns in the compartment')
+                OCIInstance._logger.debug('Current user has no permission to list the vcns in the compartment')
 
         return vnics
 

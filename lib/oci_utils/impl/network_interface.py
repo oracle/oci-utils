@@ -19,8 +19,10 @@ class _intf_dict(dict):
     """
     Creates a new dictionnary representing an interface
     keys are
-        CONFSTATE  'uncfg' indicates missing IP config, 'missing' missing VNIC,
-                        'excl' excluded (-X), '-' hist configuration match oci vcn configuration
+        CONFSTATE  'uncfg' indicates missing IP config,
+                   'missing' missing VNIC,
+                   'excl' excluded (-X),
+                   '-' hist configuration match oci vcn configuration
     """
 
     def __init__(self, other=None):

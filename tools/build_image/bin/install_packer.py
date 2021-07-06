@@ -111,15 +111,20 @@ def unzip_file(zipped_file):
         return False
 
 
-def remove_packer():
+def remove_file(somepath):
     """
     Delete the packer executable from /usr/local/bin.
+
+    Parameters
+    ----------
+    somepepath: str
+        File path to be removed.
 
     Returns
     -------
         bool: True on success, False on failure.
     """
-    remove_cmd = ['sudo', 'rm', '-rf', packer_exec]
+    remove_cmd = ['sudo', 'rm', '-rf', somepath]
     try:
         if os.path.exists(packer_exec):
             proc = subprocess.Popen(remove_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -179,7 +184,7 @@ def main():
     else:
         print('Failed to unzip                %s' % packer_zip)
         sys.exit(1)
-    if remove_packer():
+    if remove_file(packer_exec):
         print('Successfully removed           %s' % packer_exec)
     else:
         print('Failed to remove               %s' % packer_exec)
@@ -189,6 +194,10 @@ def main():
     else:
         print('Failed to install              %s' % packer_exec)
         sys.exit(1)
+    if remove_file(packer_zip):
+        print('Successfully removed           %s' % packer_zip)
+    else:
+        print('Failed to remove               %s' % packer_zip)
     sys.exit(0)
 
 
