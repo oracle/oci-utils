@@ -69,7 +69,7 @@ def parse_args():
     create_parser.add_argument('-v', '--virtual-network',
                                action='append',
                                type=str,
-                               help='The name of libvirt nework to attach the guest to.')
+                               help='The name of libvirt network to attach the guest to.')
     create_parser.add_argument('-D', '--domain',
                                action='store',
                                type=str,
@@ -184,14 +184,14 @@ def create_vm(args):
             call, 0 on success, 1 otherwise.
     """
     if not args.disk and not args.pool:
-        print("either --disk or --pool option must be specified", file=sys.stderr)
+        print("Either --disk or --pool option must be specified", file=sys.stderr)
         return 1
 
     if args.disk and args.pool:
         print("--disk and --pool options are exclusive", file=sys.stderr)
         return 1
     if args.pool and not args.disk_size:
-        print("must specify a disk size", file=sys.stderr)
+        print("You must specify a disk size", file=sys.stderr)
         return 1
 
     if args.net and args.virtual_network:
@@ -206,12 +206,10 @@ def create_vm(args):
             if n_name not in _all_net_names:
                 _all_net_names.add(n_name)
             else:
-                print('duplicate virtual network name [%s], ignore it', n_name)
+                print('Duplicate virtual network name [%s], ignore it', n_name)
 
     if '--network' in args.virt:
-        sys.stderr.write(
-            "--network is not a supported option. Please retry without "
-            "--network option.\n")
+        sys.stderr.write("--network is not a supported option. Please retry without --network option.\n")
         return 1
 
     # sanity on extra arguments passed to virt-install(1)
@@ -227,7 +225,9 @@ def create_vm(args):
                                      root_disk=args.disk,
                                      pool=args.pool,
                                      disk_size=args.disk_size,
-                                     network=list(_all_net_names), virtual_network=args.virtual_network, extra_args=_virt_install_extra)
+                                     network=list(_all_net_names),
+                                     virtual_network=args.virtual_network,
+                                     extra_args=_virt_install_extra)
 
 
 def destroy_vm(args):

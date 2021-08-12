@@ -19,10 +19,10 @@ usage
 show [-h|--help] [-C COMP|--compartments COMP] [-A|--all] [--output-mode MODE] [--details] [--no-truncate]
 
 .B oci-iscsi-config
-create [-h|--help] [-S SIZE|--size SIZE] [-v NAME |--volume-name NAME] [--output-mode MODE] [--attach-volume ]
+create [-h|--help] [-S SIZE|--size SIZE] [-v NAME |--volume-name NAME] [--output-mode MODE] [--attach-volume ] [-c | --chap ]
 
 .B oci-iscsi-config
-attach [-h|--help] [-I IQNS|--iqns IQNS] [-u USER |--username USER] [-p PASSWORD |--password PASSWORD]
+attach [-h|--help] [-I IQNS|--iqns IQNS] [-u USER |--username USER] [-p PASSWORD |--password PASSWORD] [-c | --chap ]
 
 .B oci-iscsi-config
 detach [-h|--help] [-I IQNS|--iqns IQNS] [-f | --force]
@@ -137,6 +137,9 @@ Name of the block volume to create
 .TP
 .BI --attach-volume
 Attach the volume after creation
+.TP
+.BI -c,--chap
+Attach the volume with 'Require Chap Credentials' flag
 .RE
 .TP
 oci-iscsi-config attach
@@ -157,6 +160,9 @@ Use USER as the user name when attaching a device that requires CHAP authenticat
 .TP
 .BI -p,--password=PASSWORD
 Use PASSWD as the password when attaching a device that requires CHAP authentication
+.TP
+.BI -c,--chap
+Attach the volume with 'Require Chap Credentials' flag
 .RE
 .TP
 oci-iscsi-config detach
@@ -202,11 +208,19 @@ for information about configuring oci-utils to work as the root user.
 .PP
 .nf
 .RS
-oci-iscsi-config attach --iqns=ocid1.volume.oc1.phx.abyhqljrfuj4t76qpelfeox2hktcpt6gkz3fqqkajshdkajshdfkajfdjkmq
+sudo oci-iscsi-config attach --iqns=ocid1.volume.oc1.phx.abyhqljrfuj4t76qpelfeox2hktcpt6gkz3fqqkajshdkajshdfkajfdjkmq
 .RE
 .fi
 .PP
-Attach the given volume to this instance.
+Attaches the given volume to this instance.
+.PP
+.nf
+.RS
+sudo oci-iscsi-config attach --iqns=ocid1.volume.oc1.phx.abyhqljrfuj4t76qpelfeox2hktcpt6gkz3fqqkajshdkajshdfkajfdjkmq --chap
+.RE
+.fi
+.PP
+Attaches the given volume to this instance with the 'Require Chap Credentials' flag.
 .PP
 .nf
 .RS

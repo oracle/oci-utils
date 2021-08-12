@@ -199,22 +199,18 @@ def validate_block_device(dev_orig):
         while True:
             try:
 
-                dev = os.path.abspath(
-                    os.path.join(os.path.dirname(dev), os.readlink(dev)))
+                dev = os.path.abspath(os.path.join(os.path.dirname(dev), os.readlink(dev)))
             except OSError as e:
                 # Found  a real path.
                 if e.errno == 22:
                     break
                 _logger.error(
-                        "Unexpected error occured while resolving {}.  Error "
-                        "reading {}: {}",
-                        dev_orig, dev, e)
+                        "Unexpected error occured while resolving {}.  Error reading {}: {}", dev_orig, dev, e)
                 return False
 
             # Prevent infinite loops
             if dev in visited:
-                _logger.error("Infinite loop encountered trying to resolve {}.",
-                            dev_orig)
+                _logger.error("Infinite loop encountered trying to resolve {}.", dev_orig)
                 print_choices("Path:", visited + [dev])
                 return False
 
@@ -269,8 +265,6 @@ def _print_available_block_devices(devices):
         No return value.
     """
     if not devices or len(devices) == 0:
-        _logger.error(
-            "All block devices are currently in use.  Please attach a new "
-            "block device via the OCI console.")
+        _logger.error("All block devices are currently in use.  Please attach a new block device via the OCI console.")
     else:
         print_choices("Available Block Devices:", devices)

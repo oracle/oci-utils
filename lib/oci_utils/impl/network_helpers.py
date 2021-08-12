@@ -93,12 +93,15 @@ def _get_namespaces():
     Returns:
        list of names as string
     """
-    return [name.split(b' ')[0] for name in subprocess.check_output(['/usr/sbin/ip', 'netns', 'list']).splitlines()]
+    _cmd = ['/usr/sbin/ip', 'netns', 'list']
+    _logger.debug('Executing %s', _cmd)
+    return [name.split(b' ')[0] for name in subprocess.check_output(_cmd).splitlines()]
 
 
 def _get_link_infos(namespace):
     """
-    Gets all namespace links information
+    Get all namespace links information.
+
     parameters:
     -----------
         namespace : the network namespace as str ('' means default)
@@ -131,13 +134,16 @@ def _get_link_infos(namespace):
         _cmd.extend(['-netns', namespace])
 
     _cmd.extend(['-details', '-json', 'address', 'show'])
-
-    link_infos = sudo_utils.call_output(_cmd)
+    _logger.debug('Executing %s', _cmd)
+    link_infos = sudo_utils.call_output(_cmd).decode('utf-8')
+    _logger.debug('Result: %s', link_infos)
     if link_infos is None or not link_infos.strip():
         return []
     _vfs_mac = []
+    #
     # the ip command return a json array
     link_info_j = json.loads(link_infos.strip())
+    _logger.debug('Result json: %s', link_info_j)
     _infos = []
     for obj in link_info_j:
         _addr_info = {'addresses': []}
@@ -149,6 +155,7 @@ def _get_link_infos(namespace):
                     _vlanid = a_info.get('linkinfo')['info_data']['id']
                 else:
                     _vlanid = None
+
                 _addr_info['addresses'].append({
                     'vlanid': _vlanid,
                     'broadcast': a_info.get('broadcast'),
@@ -158,7 +165,7 @@ def _get_link_infos(namespace):
                         a_info['local'],
                         a_info['prefixlen'])).network)
                 })
-
+        #
         # grab VF mac if any
         if 'vfinfo_list' in obj:
             for _v in obj['vfinfo_list']:
@@ -180,14 +187,15 @@ def _get_link_infos(namespace):
         })
         _logger.debug('New system interface found : %s', _addr_info)
         _infos.append(_addr_info)
-
+    #
     # now loop again to set the 'is_vf' flag
     for _info in _infos:
         if _info['mac'] in _vfs_mac:
             _info['is_vf'] = True
         else:
             _info['is_vf'] = False
-
+    for k,v in _addr_info.items():
+        _logger.debug('%30s: %s', k, v)
     return _infos
 
 
@@ -224,7 +232,7 @@ def get_network_namespace_infos():
     _ns_list.append(b'')
     for _ns in _ns_list:
         _result[_ns] = _get_link_infos(_ns)
-
+    _logger.debug('Network namespace infos: %s', _result)
     return _result
 
 
@@ -286,10 +294,8 @@ def get_interfaces():
                     virt_pci_id = os.readlink('{}/{}'.format(dev, d))[3:]
                     virt_ifaces[int(d[6:])] = {'pci_id': virt_pci_id}
 
-                # TODO: find a better way to get mac addresses for
-                # TODO: virtual functions
-                for line in subprocess.check_output(
-                        ['/usr/sbin/ip', 'link', 'show', n]).splitlines():
+                # TODO: find a better way to get mac addresses for virtual functions
+                for line in subprocess.check_output(['/usr/sbin/ip', 'link', 'show', n]).splitlines():
                     line = line.strip().decode()
                     if not line.startswith('vf '):
                         continue
@@ -339,10 +345,8 @@ def is_ip_reachable(ipaddr, port=3260):
         bool
             True for success, False for failure
     """
-    assert isinstance(ipaddr, str), \
-        'ipaddr must be a valid string [%s]' % str(ipaddr)
-    assert (isinstance(port, int) and port > 0), \
-        'port must be positive value [%s]' % str(port)
+    assert isinstance(ipaddr, str), 'IPaddr must be a valid string [%s]' % str(ipaddr)
+    assert (isinstance(port, int) and port > 0), 'Port must be positive value [%s]' % str(port)
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -583,7 +587,8 @@ def remove_ip_addr(device, ip_addr, namespace=None):
         raise Exception('Cannot remove ip address')
 
 
-def remove_ip_addr_rules(ip_addr):
+# def remove_ip_addr_rules(ip_addr):
+def remove_ip_rules(ip_addr):
     """
     Remove all ip rules set for an  ip address
     Parameter:
@@ -593,7 +598,9 @@ def remove_ip_addr_rules(ip_addr):
     """
     _lines = ''
     try:
-        _lines = subprocess.check_output(['/sbin/ip', 'rule', 'list']).splitlines()
+        _cmd = ['/sbin/ip', 'rule', 'list']
+        _logger.debug('Executing %s', _cmd )
+        _lines = subprocess.check_output(_cmd).decode('utf-8').splitlines()
     except subprocess.CalledProcessError:
         pass
     # for any line (i.e rules) if the ip is involved , grab the priority number
@@ -604,7 +611,9 @@ def remove_ip_addr_rules(ip_addr):
 
     # now del all rules by priority number
     for prio_num in prio_nums:
-        _ret = sudo_utils.call(['/sbin/ip', 'rule', 'del', 'pref', prio_num])
+        _cmd = ['/sbin/ip', 'rule', 'del', 'pref', prio_num]
+        _logger.debug('Executing %s', _cmd)
+        _ret = sudo_utils.call(_cmd)
         if _ret != 0:
             _logger.warning('Cannot delete rule [%s]', prio_num)
 

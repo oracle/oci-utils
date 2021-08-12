@@ -14,7 +14,9 @@ from .resources import OCIAPIAbstractResource
 
 from .. import OCI_ATTACHMENT_STATE, \
     OCI_COMPARTEMENT_STATE, \
-    OCI_RESOURCE_STATE, OCI_INSTANCE_STATE, OCI_VOLUME_SIZE_FMT
+    OCI_RESOURCE_STATE, \
+    OCI_INSTANCE_STATE, \
+    OCI_VOLUME_SIZE_FMT
 
 
 class OCICompartment(OCIAPIAbstractResource):
@@ -179,7 +181,7 @@ class OCICompartment(OCIAPIAbstractResource):
             # subnets_data = oci_sdk.pagination.list_call_get_all_results(nc.list_subnets,
             # compartment_id=self._data['compartment_id'])
             #
-            # GT square
+            # GT
             # subnets_data = oci_sdk.pagination.list_call_get_all_results(nc.list_subnets,
             # compartment_id=self._data.compartment_id)
             subnets_data = oci_sdk.pagination.list_call_get_all_results(nc.list_subnets,
@@ -1162,8 +1164,8 @@ class OCIVNIC(OCIAPIAbstractResource):
         nc = self._oci_session.get_network_client()
         try:
             private_ip = nc.create_private_ip(cpid)
-        #
-        # GT
+            #
+            # GT
             # return OCIPrivateIP(session=self._oci_session, private_ip_data=oci_sdk.util.to_dict(private_ip.data))
             return OCIPrivateIP(session=self._oci_session, private_ip_data=private_ip.data)
         except oci_sdk.exceptions.ServiceError as e:
@@ -2010,8 +2012,7 @@ class OCIVolume(OCIAPIAbstractResource):
         # return self.att_data['iqn']
         return self.att_data.iqn
 
-    def attach_to(self, instance_id, use_chap=False,
-                  display_name=None, wait=True):
+    def attach_to(self, instance_id, use_chap=False, display_name=None, wait=True):
         """
         Attach the volume to the given instance.
 
@@ -2020,7 +2021,7 @@ class OCIVolume(OCIAPIAbstractResource):
         instance_id: str
             The instance identification.
         use_chap: bool
-            Use chap security if set.
+            Use chap credential security if set.
         display_name: str
             The name.
         wait: bool
@@ -2036,23 +2037,20 @@ class OCIVolume(OCIAPIAbstractResource):
              Exception
                  On failure to attach the volume.
         """
-        av_det = oci_sdk.core.models.AttachIScsiVolumeDetails(
-            type="iscsi",
-            use_chap=use_chap,
-            volume_id=self.get_ocid(),
-            instance_id=instance_id,
-            display_name=display_name)
+        av_det = oci_sdk.core.models.AttachIScsiVolumeDetails(type="iscsi",
+                                                              use_chap=use_chap,
+                                                              volume_id=self.get_ocid(),
+                                                              instance_id=instance_id,
+                                                              display_name=display_name)
         cc = self._oci_session.get_compute_client()
         try:
             vol_att = cc.attach_volume(av_det)
             if wait:
                 get_attachement = cc.get_volume_attachment(vol_att.data.id)
                 oci_sdk.wait_until(cc, get_attachement, 'lifecycle_state', 'ATTACHED')
-
             return self._oci_session.get_volume(vol_att.data.volume_id)
         except oci_sdk.exceptions.ServiceError as e:
-            OCIVolume._logger.debug(
-                'Failed to attach volume', exc_info=True)
+            OCIVolume._logger.debug('Failed to attach volume', exc_info=True)
             raise Exception('Failed to attach volume') from e
 
     def detach(self, wait=True):
@@ -2079,7 +2077,7 @@ class OCIVolume(OCIAPIAbstractResource):
                 Call to OCI SDK to detach the volume has failed.
         """
         if not self.is_attached():
-            OCIVolume._logger.debug('skip detach, volume not attached')
+            OCIVolume._logger.debug('Skip detach, volume not attached.')
             return True
 
         cc = self._oci_session.get_compute_client()

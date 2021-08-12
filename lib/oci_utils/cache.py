@@ -104,7 +104,7 @@ def load_cache(global_file, user_file=None, max_age=None):
         tuple
             (timestamp, file_contents)
     """
-    _logger.debug('loading cache %s', global_file)
+    _logger.debug('Loading cache %s', global_file)
 
     cache_fname = get_newer(global_file, user_file)
     if cache_fname is None:

@@ -91,7 +91,7 @@ def read_yn(prompt, yn=True, waitenter=False, suppose_yes=False):
 
 def error_msg(msg=None):
     """
-    GT debug message
+    Debug message
 
     Parameters
     ----------

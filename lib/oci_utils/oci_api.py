@@ -743,20 +743,18 @@ class OCISession:
         try:
             vol_data = bsc.get_volume(volume_id=volume_id).data
         except oci_sdk.exceptions.ServiceError:
-            _logger.debug('failed to get volume', exc_info=True)
+            _logger.debug('Failed to get volume', exc_info=True)
             return None
 
-        if OCI_RESOURCE_STATE[vol_data.lifecycle_state] \
-                == OCI_RESOURCE_STATE.TERMINATED:
+        if OCI_RESOURCE_STATE[vol_data.lifecycle_state] == OCI_RESOURCE_STATE.TERMINATED:
             return None
 
         try:
-            v_att_list = oci_sdk.pagination.list_call_get_all_results(
-                cc.list_volume_attachments,
-                compartment_id=vol_data.compartment_id,
-                volume_id=vol_data.id).data
+            v_att_list = oci_sdk.pagination.list_call_get_all_results(cc.list_volume_attachments,
+                                                                      compartment_id=vol_data.compartment_id,
+                                                                      volume_id=vol_data.id).data
         except Exception:
-            _logger.debug('cannot find any attachments for this volume', exc_info=True)
+            _logger.debug('Cannot find any attachments for this volume', exc_info=True)
             #
             #
             # return OCIVolume(self, volume_data=oci_sdk.util.to_dict(vol_data))
@@ -848,7 +846,8 @@ class OCISession:
         for comp in all_comps:
             try:
                 comp_id = comp.get_compartment_id()
-                vnic_atts = oci_sdk.pagination.list_call_get_all_results(cc.list_vnic_attachments, compartment_id=comp_id)
+                vnic_atts = oci_sdk.pagination.list_call_get_all_results(cc.list_vnic_attachments,
+                                                                         compartment_id=comp_id)
                 for vnic_att in vnic_atts.data:
                     try:
                         vnic_dat = nc.get_vnic(vnic_att.vnic_id).data
@@ -894,11 +893,10 @@ class OCISession:
             If the creation of the volume fails for any reason.
         """
         bsc = self.get_block_storage_client()
-        cvds = oci_sdk.core.models.CreateVolumeDetails(
-            availability_domain=availability_domain,
-            compartment_id=compartment_id,
-            size_in_gbs=size,
-            display_name=display_name)
+        cvds = oci_sdk.core.models.CreateVolumeDetails(availability_domain=availability_domain,
+                                                       compartment_id=compartment_id,
+                                                       size_in_gbs=size,
+                                                       display_name=display_name)
         try:
             vol_data = bsc.create_volume(create_volume_details=cvds).data
             if wait:

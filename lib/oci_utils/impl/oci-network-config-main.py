@@ -64,7 +64,8 @@ def get_arg_parser():
     """
     parser = argparse.ArgumentParser(description='Utility for configuring network interfaces on an instance running '
                                                  'in the Oracle Cloud Infrastructure.')
-    parser.add_argument('--quiet', '-q', action='store_true',
+    parser.add_argument('--quiet', '-q',
+                        action='store_true',
                         help='Suppress information messages.')
 
     subparser = parser.add_subparsers(dest='command')
@@ -522,15 +523,15 @@ def show_network_config(vnic_utils):
     _title = "Operating System level network configuration"
     _columns = (['CONFIG', 6, 'CONFSTATE'],
                 ['ADDR', 15, 'ADDR'],
-                ['SPREFIX', 15, 'SPREFIX'],
-                ['SBITS', 5, 'SBITS'],
-                ['VIRTRT', 15, 'VIRTRT'],
+                ['SUBNET', 15, 'SPREFIX'],
+                ['BITS', 5, 'SBITS'],
+                ['VIRTROUTER', 15, 'VIRTRT'],
                 ['NS', 10, 'NS'],
                 ['IND', 4, 'IND'],
                 ['IFACE', 15, 'IFACE'],
                 ['VLTAG', 5, 'VLTAG'],
-                ['VLAN', 11, 'VLAN'],
-                ['STATE', 5, 'STATE'],
+                ['VLAN', 13, 'VLAN'],
+                ['STATE', 6, 'STATE'],
                 ['MAC', 17, 'MAC'],
                 ['VNIC ID', 90, 'VNIC'])
     printer = TablePrinter(title=_title, columns=_columns, column_separator='', text_truncate=False)
@@ -628,9 +629,6 @@ def do_create_vnic(create_options):
             _all_subnets = [v.get_subnet() for v in _this_instance.all_vnics()]
             for subn in _all_subnets:
                 if subn.is_suitable_for_ip(create_options.ip_address):
-                    #
-                    # GT
-                    # subnet_id = subn.get_subnet_id()
                     subnet_id = subn.get_ocid()
                 if subnet_id is None:
                     raise Exception('Cannot find suitable subnet for ip %s' % create_options.ip_address)
@@ -774,7 +772,7 @@ def main():
         return 0
 
     if os.geteuid() != 0:
-        _logger.error("You must run this program with root privileges")
+        _logger.error("This program needs to be run with root privileges.")
         return 1
 
     vnic_utils = VNICUtils()
@@ -845,7 +843,7 @@ def main():
         # apply config of newly created vnic
         time.sleep(25)
         vnic_utils = VNICUtils()
-        vnic_utils.auto_config(None)
+        vnic_utils.auto_config(None, deconfigured=False)
 
     if args.command == 'detach-vnic':
         try:
@@ -857,13 +855,14 @@ def main():
         # if we are here session is alive: no check
         if get_oci_api_session().this_shape().startswith("BM"):
             # in runnning on BM some cleanup is needed on the host
-            vnic_utils.auto_config(None)
+            vnic_utils.auto_config(None, deconfigured=False)
 
     if args.command == "add-secondary-addr":
         try:
             (ip, vnic_id) = do_add_private_ip(vnic_utils, args)
             _logger.info("IP %s has been assigned to vnic %s.", ip, vnic_id)
         except Exception as e:
+            _logger.debug('Failed to add private IP: %s', str(e), stack_info=True)
             _logger.error('Failed to add private IP: %s', str(e))
             return 1
 
@@ -873,21 +872,39 @@ def main():
             if ret != 0:
                 raise Exception('Cannot delete ip: %s' % out)
         except Exception as e:
-            _logger.error('Failed to delete private IP: %s', str(e), stack_info=True)
+            _logger.debug('Failed to delete private IP: %s', str(e), stack_info=True)
+            _logger.error('Failed to delete private IP: %s', str(e))
             return 1
 
     if 'namespace' in args and args.namespace:
-        vnic_utils.set_namespace(args.namespace)
+        try:
+            vnic_utils.set_namespace(args.namespace)
+        except Exception as e:
+            _logger.debug('Failed to set namespace: %s', str(e), stack_info=True)
+            _logger.error('Failed to set namespace: %s', str(e))
 
     if 'start_sshd' in args and args.start_sshd:
-        vnic_utils.set_sshd(args.start_sshd)
+        try:
+            vnic_utils.set_sshd(args.start_sshd)
+        except Exception as e:
+            _logger.debug('Failed to start sshd: %s', str(e), stack_info=True)
+            _logger.error('Failed to start sshd: %s', str(e))
 
     if args.command == 'configure':
-        vnic_utils.auto_config(args.sec_ip)
-        _logger.info('Configured ')
+        try:
+            vnic_utils.auto_config(args.sec_ip)
+            _logger.info('Configured ')
+        except Exception as e:
+            _logger.debug('Failed to configure network: %s', str(e), stack_info=True)
+            _logger.error('Failed to configure network: %s', str(e))
 
     if args.command == 'unconfigure':
-        vnic_utils.auto_deconfig(args.sec_ip)
+        try:
+            vnic_utils.auto_deconfig(args.sec_ip)
+            _logger.info('Unconfigured ')
+        except Exception as e:
+            _logger.debug('Failed to unconfigure network: %s', str(e), stack_info=True)
+            _logger.error('Failed to unconfigure network: %s', str(e))
 
     return 0
 

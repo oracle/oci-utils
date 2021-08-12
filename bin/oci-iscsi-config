@@ -26,7 +26,7 @@ declare -i post_operation_show=0
 if [ "${1:0:1}" != '-' ]
 then
    # execute as is as the command line do not start with an option dash-<something>
-   exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $@
+   exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py "$@"
 fi
 
 PARSED_ARGUMENTS=$(getopt -a  --quiet -o sC:iAd:a:c:yf --long show,compartment:,interactive,all,detach:,attach:,create-volume:,destroy-volume:,volume-name:,username:,password:,help,yes,attach-volume,force -- "$@")

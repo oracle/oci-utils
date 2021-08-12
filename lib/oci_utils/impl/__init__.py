@@ -153,8 +153,7 @@ def setup_logging(forceDebug=False):
     """
 
     flatFormatter = logging.Formatter('%(message)s')
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s(%(module)s:%(lineno)s) - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s(%(module)s:%(lineno)s) - %(message)s')
     handler = None
     if os.environ.get('_OCI_UTILS_SYSLOG'):
         handler = logging.handlers.SysLogHandler(address='/dev/log',
