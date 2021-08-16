@@ -760,7 +760,9 @@ class NotificationMessage():
                 _logger.info("Publishing message '%s: %s'", self._instance_name, self._title)
             else:
                 _logger.info("Publishing message '[%d/%d] %s: %s'", nb, nbtot, self._instance_name, self._title)
-            _message_details = oci_sdk.ons.models.MessageDetails(body=chunk, title=self._title)
+            _message_details = oci_sdk.ons.models.MessageDetails(body=chunk, title=self._instance_name
+                                                                                   + ':'
+                                                                                   + 'self._title)
             request_id = uuid.uuid4().hex
             _logger.debug('Message request id: %s', request_id)
             publish_message_response = self._ons_client.publish_message(topic_id=self._topic,
