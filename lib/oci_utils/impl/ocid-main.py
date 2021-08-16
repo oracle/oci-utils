@@ -49,14 +49,14 @@ def parse_args():
                         action='store',
                         metavar='FUNC',
                         default=False,
-                        help='refresh cached data for the given function, or all functions if FUNC is not '
+                        help='Refresh cached data for the given function, or all functions if FUNC is not '
                              'specified, and exit. Possible values for FUNC: vnic, iscsi, public_ip')
     parser.add_argument('--no-daemon',
                         action='store_true',
-                        help='run ocid in the foreground, useful for debugging')
+                        help='Run ocid in the foreground, useful for debugging')
     parser.add_argument('--stop-all',
                         action='store_true',
-                        help='gracefull stop running ocid daemon')
+                        help='Gracefull stop running ocid daemon')
 
     args = parser.parse_args()
     # when no argument is given set to True
@@ -153,7 +153,7 @@ class OcidThread(threading.Thread):
         trigger a stop phase of the daemon
         set the event triggering the stop
         """
-        self.thr_logger.debug('been requested to stop')
+        self.thr_logger.debug('Recieved a request to stop.')
         self.active = False
         self.blocking_evt.set()
 
@@ -179,7 +179,7 @@ class OcidThread(threading.Thread):
             if not self.active:
                 # shutting down.
                 self.thread_lock.release()
-                self.thr_logger.debug('shutting down')
+                self.thr_logger.debug('Shutting down.')
                 break
             try:
                 self.context = self.ocidfunc(self.context, self.thr_logger)
@@ -250,6 +250,7 @@ def iscsi_func(context, func_logger):
             oci_sess = oci_utils.oci_api.OCISession()
         except Exception as e:
             func_logger.debug('Failed to get a session: %s' % str(e))
+
         max_volumes = 8
         if 'max_volumes' in context:
             max_volumes = int(context['max_volumes'])
@@ -264,10 +265,10 @@ def iscsi_func(context, func_logger):
             detach_retry = int(context['detach_retry'])
 
         if max_volumes > _MAX_VOLUMES_LIMIT:
-            func_logger.warn("Your configured max_volumes(%s) is over the "
-                             "limit(%s)\n" %
-                             (max_volumes, _MAX_VOLUMES_LIMIT))
+            func_logger.warn("Your configured max_volumes(%s) is over the limit(%s)\n"
+                             % (max_volumes, _MAX_VOLUMES_LIMIT))
             max_volumes = _MAX_VOLUMES_LIMIT
+
         context = {'ignore_file_ts': 0,
                    'ignore_iqns': [],
                    'attach_failed': {},
@@ -284,13 +285,13 @@ def iscsi_func(context, func_logger):
 
     # Load the saved passwords
     chap_passwords = context['chap_pws']
-    if context['chap_pw_ts'] == 0 or \
-            get_timestamp(oci_utils.__chap_password_file) > context['chap_pw_ts']:
+    if context['chap_pw_ts'] == 0 \
+            or get_timestamp(oci_utils.__chap_password_file) > context['chap_pw_ts']:
         # the password file has changed or was never loaded
-        context['chap_pw_ts'], chap_passwords = \
-            load_cache(oci_utils.__chap_password_file)
+        context['chap_pw_ts'], chap_passwords = load_cache(oci_utils.__chap_password_file)
     if chap_passwords is None:
         chap_passwords = {}
+
     # save for the next iteration
     context['chap_pws'] = chap_passwords
 
@@ -302,10 +303,11 @@ def iscsi_func(context, func_logger):
     # volumes connected to this instance
     inst_volumes = []
     if context['oci_sess'] is not None:
+        #
         # get a list of volumes attached to the instance
         instance = context['oci_sess'].this_instance()
         if instance is None:
-            func_logger.debug('Cannot get current instance')
+            func_logger.debug('Cannot get current instance.')
         else:
             volumes = instance.all_volumes()
             for v in volumes:
@@ -318,8 +320,11 @@ def iscsi_func(context, func_logger):
                     all_iqns[v.get_portal_ip()].append(v.get_iqn())
                 else:
                     all_iqns[v.get_portal_ip()] = [v.get_iqn()]
+            func_logger.debug('All volumes: %s', all_iqns)
     else:
+        #
         # fall back to scanning
+        func_logger.debug('Scan for volumes.')
         for r in range(context['max_volumes'] + 1):
             ipaddr = "169.254.2.%d" % (r + 1)
             iqns = oci_utils.iscsiadm.discovery(ipaddr)
@@ -334,30 +339,37 @@ def iscsi_func(context, func_logger):
                     vol['user'] = chap_passwords[iqn][0]
                     vol['password'] = chap_passwords[iqn][1]
                 inst_volumes.append(vol)
-
+            func_logger.debug('Scanned volumes: %s', inst_volumes)
+    #
     # Load the list of volumes that were detached using oci-iscsi-config.
     # ocid shouldn't attach these automatically.
     ignore_iqns = context['ignore_iqns']
-    if context['ignore_file_ts'] == 0 or \
-            get_timestamp(oci_utils.__ignore_file) > context['ignore_file_ts']:
+    if context['ignore_file_ts'] == 0 or get_timestamp(oci_utils.__ignore_file) > context['ignore_file_ts']:
+        #
         # the list of detached volumes changed since last reading the file
-        context['ignore_file_ts'], ignore_iqns = \
-            load_cache(oci_utils.__ignore_file)
+        context['ignore_file_ts'], ignore_iqns = load_cache(oci_utils.__ignore_file)
     if ignore_iqns is None:
         ignore_iqns = []
+    #
     # save for next iteration
     context['ignore_iqns'] = ignore_iqns
-
+    #
     # volumes that failed to attach in an earlier iteration
     attach_failed = context['attach_failed']
-
+    #
     # do we need to cache files?
     cache_changed = False
     ign_changed = False
     chap_changed = False
-
+    #
+    # if inst_volumes is empty, clean iscsiadm-cache to.
+    if not bool(inst_volumes):
+        all_iqns = {}
+        write_cache(cache_content=[all_iqns, attach_failed], cache_fname=oci_utils.iscsiadm.ISCSIADM_CACHE)
+    #
     # check if all discovered iscsi devices are configured and attached
     for vol in inst_volumes:
+        func_logger.debug('iqn: %s', vol['iqn'])
         if vol['iqn'] in ignore_iqns:
             # a device that was manually detached, so don't
             # re-attach it automatically
@@ -370,27 +382,31 @@ def iscsi_func(context, func_logger):
             # configure and attach the device
             __ocid_logger.info("Attaching iscsi device: %s:%s (%s)", vol['ipaddr'], "3260", vol['iqn'])
             if vol['user'] is not None:
-                attach_result = \
-                    oci_utils.iscsiadm.attach(vol['ipaddr'], 3260,
-                                              vol['iqn'], vol['user'],
-                                              vol['password'],
-                                              auto_startup=True)
+                attach_result = oci_utils.iscsiadm.attach(vol['ipaddr'],
+                                                          3260,
+                                                          vol['iqn'],
+                                                          vol['user'],
+                                                          vol['password'],
+                                                          auto_startup=True)
                 if vol['iqn'] not in chap_passwords:
                     chap_passwords[vol['iqn']] = (vol['user'], vol['password'])
                     chap_changed = True
             else:
-                attach_result = \
-                    oci_utils.iscsiadm.attach(vol['ipaddr'], 3260,
-                                              vol['iqn'],
-                                              auto_startup=True)
+                attach_result = oci_utils.iscsiadm.attach(vol['ipaddr'],
+                                                          3260,
+                                                          vol['iqn'],
+                                                          auto_startup=True)
             if attach_result != 0:
-                func_logger.info("Failed to attach device: %s" %
-                                 oci_utils.iscsiadm.error_message_from_code(
-                                     attach_result))
+                func_logger.info("Failed to attach device: %s"
+                                 % oci_utils.iscsiadm.error_message_from_code(attach_result))
                 attach_failed[vol['iqn']] = attach_result
                 cache_changed = True
+        else:
+            #
+            # iqn is in session_devs but not in iscsiadm cache
+            write_cache(cache_content=[all_iqns, attach_failed], cache_fname=oci_utils.iscsiadm.ISCSIADM_CACHE)
 
-    # look for perviously failed volumes that are now in the session
+    # look for previously failed volumes that are now in the session
     # (e.g. the user supplied the password using oci-iscsi-config)
     for iqn in list(attach_failed.keys()):
         if iqn in session_devs:
@@ -405,65 +421,68 @@ def iscsi_func(context, func_logger):
     # these devices were disconnected from the instance in the console,
     # we now have to detach them from at the OS level
     for iqn in session_devs:
+        #
         # ignore the boot device
         if iqn.endswith('boot:uefi'):
             continue
         if 'state' not in session_devs[iqn]:
             continue
         if session_devs[iqn]['state'] in ['blocked', 'transport-offline']:
-            func_logger.debug("Checking iqn %s (state %s)\n" %
-                              (iqn, session_devs[iqn]['state']))
+            func_logger.debug("Checking iqn %s (state %s)\n" % (iqn, session_devs[iqn]['state']))
+            #
             # is the iqn discoverable at the portal?
             if iqn not in inst_volumes:
                 # Not found by iscsiadm discovery.
                 # To allow time for the volume to recover, wait for detach_retry
                 # iterations where the volume was offline before detaching it
                 if iqn not in context['offline_vols']:
-                    func_logger.info("iSCSI volume appears to be "
-                                     "offline: %s" % iqn)
+                    func_logger.info("iSCSI volume appears to be offline: %s" % iqn)
                     new_offline_vols[iqn] = 1
                     continue
+
                 if context['offline_vols'][iqn] < detach_retry:
                     new_offline_vols[iqn] = context['offline_vols'][iqn] + 1
-                    func_logger.info("iSCSI volume still offline (%d): %s"
-                                     % (new_offline_vols[iqn], iqn))
+                    func_logger.info("iSCSI volume still offline (%d): %s" % (new_offline_vols[iqn], iqn))
                     continue
 
                 if not context['auto_detach']:
-                    func_logger.info("Volume still offline, but iSCSI "
-                                     "auto_detach disabled: %s" % iqn)
+                    func_logger.info("Volume still offline, but iSCSI auto_detach disabled: %s" % iqn)
                     new_offline_vols[iqn] = detach_retry + 1
                     continue
 
                 cache_changed = True
                 ipaddr = session_devs[iqn]['persistent_portal_ip']
-                func_logger.info("Detaching iSCSI device: %s:%s (%s)" %
-                                 (ipaddr, "3260", iqn))
+                func_logger.info("Detaching iSCSI device: %s:%s (%s)" % (ipaddr, "3260", iqn))
                 oci_utils.iscsiadm.detach(ipaddr, 3260, iqn)
+                #
                 # delete from list of previously offline volumes so it
                 # doesn't get reported as 'now online'
                 del context['offline_vols'][iqn]
+                #
                 # device is gone, remove from "ignore" list
                 if iqn in ignore_iqns:
                     ignore_iqns.remove(iqn)
                     ign_changed = True
+                #
                 # remove from attach_failed list if present
                 if iqn in attach_failed:
                     del attach_failed[iqn]
                     cache_changed = True
-
-    # look for deviced that were previously offline but now back online
+    #
+    # look for devices that were previously offline but now back online
     # (just for printing a message that it's now online)
     for iqn in context['offline_vols']:
         if iqn not in new_offline_vols:
             func_logger.info("iSCSI volume now online: %s" % iqn)
     context['offline_vols'] = new_offline_vols
-
+    #
     # check if the devices that were previously manually detached are still
     # connected to the instance
     inst_iqns = [vol['iqn'] for vol in inst_volumes]
     for iqn in ignore_iqns:
-        if iqn not in inst_iqns:
+        # if iqn not in inst_iqns:
+        # GT
+        if iqn in inst_iqns:
             func_logger.debug("Removing iqn %s from ignore list" % iqn)
             ignore_iqns.remove(iqn)
             ign_changed = True
@@ -471,16 +490,12 @@ def iscsi_func(context, func_logger):
     # rewrite changed cache files
     if ign_changed:
         context['ignore_file_ts'] = \
-            write_cache(cache_content=ignore_iqns,
-                        cache_fname=oci_utils.__ignore_file)
+            write_cache(cache_content=ignore_iqns, cache_fname=oci_utils.__ignore_file)
     if chap_changed:
         context['chap_pw_ts'] = \
-            write_cache(cache_content=chap_passwords,
-                        cache_fname=oci_utils.__chap_password_file,
-                        mode=0o600)
+            write_cache(cache_content=chap_passwords, cache_fname=oci_utils.__chap_password_file, mode=0o600)
     if cache_changed or not os.path.exists(oci_utils.iscsiadm.ISCSIADM_CACHE):
-        write_cache(cache_content=[all_iqns, attach_failed],
-                    cache_fname=oci_utils.iscsiadm.ISCSIADM_CACHE)
+        write_cache(cache_content=[all_iqns, attach_failed], cache_fname=oci_utils.iscsiadm.ISCSIADM_CACHE)
     else:
         try:
             os.utime(oci_utils.iscsiadm.ISCSIADM_CACHE, None)
@@ -533,10 +548,8 @@ def vnic_func(context, func_logger):
         _vnic_utils = vnicutils.VNICUtils()
     else:
         _vnic_utils = context['vnic_utils']
-    #
-    # GT
-    # LINUX-10360 ocid service configures unconfigured vnics; commented out in case of side effects.
-    # _vnic_utils.auto_config([])
+
+    _vnic_utils.auto_config([], deconfigured=False)
 
     return context
 
@@ -574,24 +587,21 @@ def start_thread(name, repeat):
     elif name == 'iscsi':
         max_volumes = OCIUtilsConfiguration.get('iscsi', 'max_volumes')
         is_enabled = OCIUtilsConfiguration.get('iscsi', 'enabled')
-        auto_detach = \
-            OCIUtilsConfiguration.get('iscsi', 'auto_detach') in true_list
+        auto_detach = OCIUtilsConfiguration.get('iscsi', 'auto_detach') in true_list
         if is_enabled not in true_list:
             return None
         # oci-growfs
         auto_resize = OCIUtilsConfiguration.get('iscsi', 'auto_resize')
         if auto_resize in true_list:
             try:
-                _ = subprocess.check_output(
-                    ['/usr/libexec/oci-growfs', '-y'], stderr=subprocess.STDOUT)
+                _ = subprocess.check_output(['/usr/libexec/oci-growfs', '-y'], stderr=subprocess.STDOUT)
             except Exception:
                 pass
 
         scan_interval = OCIUtilsConfiguration.get('iscsi', 'scan_interval')
         th = OcidThread(name=name,
                         ocidfunc=iscsi_func,
-                        context={'max_volumes': max_volumes,
-                                 'auto_detach': auto_detach, },
+                        context={'max_volumes': max_volumes, 'auto_detach': auto_detach, },
                         sleeptime=int(scan_interval),
                         repeat=repeat)
     elif name == 'vnic':
@@ -745,7 +755,7 @@ def main():
 
     try:
         if os.geteuid() != 0:
-            sys.stderr.write("This program must be run as root.\n")
+            sys.stderr.write('This program needs to be run with root privileges.\n')
             return 1
 
         pidlock = daemon.pidfile.PIDLockFile('/var/run/ocid.pid')
@@ -775,7 +785,7 @@ def main():
         return 0
 
     except Exception:
-        __ocid_logger.exception('internal error:')
+        __ocid_logger.exception('Internal ERROR:')
 
 
 if __name__ == "__main__":

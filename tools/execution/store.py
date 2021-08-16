@@ -47,7 +47,8 @@ class Store(object):
         return None
 
     def store(self, storableObject):
-        """Store to the repository a Storable instance
+        """
+        Store to the repository a Storable instance
         see Storable.toXMLElement()
         if the storable with the same key is already present the store
         is ignored
@@ -55,7 +56,7 @@ class Store(object):
         Parameters
         ----------
         storableObject : storable.Storable
-            an Storable object
+            a Storable object
         Returns
         -------
         boolean

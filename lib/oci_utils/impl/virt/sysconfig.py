@@ -15,7 +15,6 @@ _logger = logging.getLogger('oci-utils.sysconfig')
 
 __sysconfig = '/etc/sysconfig'
 __netscripts = __sysconfig + '/network-scripts'
-
 __iface_prefix = 'ifcfg-'
 
 

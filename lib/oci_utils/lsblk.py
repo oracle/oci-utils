@@ -14,9 +14,8 @@ import subprocess
 
 __lsblk_logger = logging.getLogger('oci-utils.lsblk')
 
-_LSBLK_PATTERN = re.compile(
-    r'^NAME="([^"]*)" FSTYPE="([^"]*)" MOUNTPOINT="([^"]*)" '
-    r'SIZE="([^"]*)" PKNAME="([^"]*)"', flags=re.UNICODE)
+_LSBLK_PATTERN = re.compile(r'^NAME="([^"]*)" FSTYPE="([^"]*)" MOUNTPOINT="([^"]*)" SIZE="([^"]*)" PKNAME="([^"]*)"',
+                            flags=re.UNICODE)
 
 
 def list():

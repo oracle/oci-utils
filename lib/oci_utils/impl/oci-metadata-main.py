@@ -74,14 +74,14 @@ oci_metadata_display_order = [
     'publicIp',
     'macAddr',
     'subnetCidrBlock',
-    'virtualRouterIp', ]
+    'virtualRouterIp',
+    'definedTags']
 
 human_readable_type = {
     str: 'string type',
     dict: 'json format'}
 
 oci_metadata_ignores = [
-    'definedTags',
     'freeformTags',
     'launchMode',
     'ipxeScript',
@@ -436,7 +436,7 @@ def get_values(key, metadata):
             elif v is not None:
                 values.append(v)
         return values
-    if isinstance(metadata, dict):
+    if not isinstance(metadata, dict):
         return None
     if key in metadata:
         return metadata[key]
@@ -481,7 +481,11 @@ def get_trimed_key_values(keys, metadata):
         if len(ks) > 1:
             # path key
             newkey_list = []
-            _get_path_keys(metadata, ks[1:], newkey_list)
+            try:
+                _get_path_keys(metadata, ks[1:], newkey_list)
+            except Exception as e:
+                _logger.error('%s', str(e))
+                continue
             for _key in newkey_list:
                 v = _get_by_path(metadata, _key)
                 if v:
@@ -640,6 +644,7 @@ def main():
         return 1
 
     if args.setkeys:
+        # set
         if args.keys:
             _logger.error("-g or --get option conflicts with -u or --update.")
             return 1
@@ -652,6 +657,11 @@ def main():
             # meta = oci_utils.oci_api.OCISession().update_instance_metadata(
             # instance_id=inst_id, **k_v)
             meta = OCISession().update_instance_metadata(instance_id=inst_id, **k_v)
+            if meta is None:
+                #
+                # if meta is None, the session failed to update the metadata; the session is writing the error message;
+                # this should change...
+                return 1
             metadata = meta.filter(list(k_v.keys()))
         except Exception as e:
             _logger.error("%s", str(e), exc_info=True)
@@ -660,7 +670,7 @@ def main():
         # get
         if args.value_only:
             if len(args.keys) != 1:
-                sys.stderr.write("Error: --value-only option works only with one -g or --get option.")
+                _logger.error("Error: --value-only option works only with one -g or --get option.")
                 return 1
 
         try:

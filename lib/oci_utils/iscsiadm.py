@@ -94,26 +94,27 @@ def discovery(ipaddr):
             The list of iSCSI qualified names discovered.
     """
     if not is_ip_reachable(ipaddr):
-        _iscsi_logger.warning('given IP is not reachable')
+        _iscsi_logger.warning('Given IP is not reachable.')
         return []
     try:
         with open(os.devnull, 'w') as dev_null:
-            output = subprocess.check_output(['/usr/sbin/iscsiadm',
-                                              '-m', 'discovery',
-                                              '-t', 'st',
-                                              '-p', ipaddr + ':3260'],
-                                             stderr=dev_null)
+            _cmd = ['/usr/sbin/iscsiadm',
+                    '-m', 'discovery',
+                    '-t', 'st',
+                    '-p', ipaddr + ':3260']
+            _iscsi_logger.debug('Executing %s', _cmd)
+            output = subprocess.check_output(_cmd, stderr=dev_null).decode('utf-8')
         iqns = []
         for line in output.splitlines():
             if b'iqn' not in line:
                 continue
-            match = _DISCOVERY_PATTERN.match(line.strip().decode())
+            match = _DISCOVERY_PATTERN.match(line.strip())
             if match:
                 iqns.append(match.group(1))
         return iqns
     except subprocess.CalledProcessError as e:
         # TODO : why this is not an error ?
-        _iscsi_logger.warning('error running /usr/sbin/iscsiadm [%s]', str(e))
+        _iscsi_logger.warning('Error running /usr/sbin/iscsiadm [%s]', str(e))
         return []
 
 
@@ -142,12 +143,10 @@ def session():
            }
     """
     try:
-        # TODO : force LANG=C
         with open(os.devnull, 'w') as dev_null:
-            output = subprocess.check_output(['/usr/sbin/iscsiadm',
-                                              '-m', 'session',
-                                              '-P', '3'],
-                                             stderr=dev_null)
+            _cmd = ['/usr/sbin/iscsiadm', '-m', 'session', '-P', '3']
+            _iscsi_logger.debug('Executing %s', _cmd)
+            output = subprocess.check_output(_cmd, stderr=dev_null).decode('utf-8')
         devices = {}
 
         device_info = {}
@@ -155,32 +154,32 @@ def session():
         for line in output.splitlines():
             # new section describing a different Target is starting
             # save any data collected about the previous Target
-            if b'Target:' in line:
+            if 'Target:' in line:
                 if target is not None and device_info != {}:
                     devices[target] = device_info
                     device_info = {}
-                match = _TARGET_PATTERN.search(line.strip().decode())
+                match = _TARGET_PATTERN.search(line.strip())
                 if match:
                     target = match.group(1)
                 else:
                     target = None
                 continue
-            if b'Current Portal:' in line:
-                match = _PORTAL_PATTERN.search(line.strip().decode())
+            if 'Current Portal:' in line:
+                match = _PORTAL_PATTERN.search(line.strip())
                 if match:
                     device_info['current_portal_ip'] = match.group(2)
                     device_info['current_portal_port'] = match.group(3)
-            if b'Persistent Portal:' in line:
-                match = _PORTAL_PATTERN.search(line.strip().decode())
+            if 'Persistent Portal:' in line:
+                match = _PORTAL_PATTERN.search(line.strip())
                 if match:
                     device_info['persistent_portal_ip'] = match.group(2)
                     device_info['persistent_portal_port'] = match.group(3)
-            if b'iSCSI Session State:' in line:
-                match = _SESS_STATE_PATTERN.search(line.strip().decode())
+            if 'iSCSI Session State:' in line:
+                match = _SESS_STATE_PATTERN.search(line.strip())
                 if match:
                     device_info['session_state'] = match.group(1)
-            if b'Attached scsi disk' in line:
-                match = _DISK_PATTERN.search(line.strip().decode())
+            if 'Attached scsi disk' in line:
+                match = _DISK_PATTERN.search(line.strip())
                 if match:
                     device_info['device'] = match.group(1)
                     device_info['state'] = match.group(2)
@@ -189,15 +188,15 @@ def session():
 
         return devices
     except OSError:
-        _iscsi_logger.error('failed to execute /usr/sbin/iscsiadm')
+        _iscsi_logger.error('Failed to execute /usr/sbin/iscsiadm')
         return {}
     except subprocess.CalledProcessError as e:
         if e.returncode in (15, 21):
             # non fatal error that we should not warn the user about
             # see ISCSIADM(8)
-            _iscsi_logger.debug('error running /usr/sbin/iscsiadm [%s]', str(e))
+            _iscsi_logger.debug('Error running /usr/sbin/iscsiadm [%s]', str(e))
         else:
-            _iscsi_logger.warning('error running /usr/sbin/iscsiadm [%s]', str(e))
+            _iscsi_logger.warning('Error running /usr/sbin/iscsiadm [%s]', str(e))
         return {}
 
 
@@ -228,75 +227,86 @@ def attach(ipaddr, port, iqn, username=None, password=None, auto_startup=True):
             True on success, False otherwise
     """
     try:
-        subprocess.check_output(['/usr/sbin/iscsiadm',
-                                 '-m', 'node',
-                                 '-o', 'new',
-                                 '-T', iqn,
-                                 '-p', "%s:%s" % (ipaddr, port)],
-                                stderr=subprocess.STDOUT)
+        _cmd = ['/usr/sbin/iscsiadm',
+                '-m', 'node',
+                '-o', 'new',
+                '-T', iqn,
+                '-p', "%s:%s" % (ipaddr, port)]
+        _iscsi_logger.debug('Executing %s', _cmd)
+        subprocess.check_output(_cmd, stderr=subprocess.STDOUT)
     except OSError as e:
-        _iscsi_logger.error('failed to execute /usr/sbin/iscsiadm: %s', str(e))
+        _iscsi_logger.error('Failed to execute /usr/sbin/iscsiadm: %s', str(e))
         return 404
     except subprocess.CalledProcessError as e:
-        _iscsi_logger.error('failed to register new iscsi volume')
+        _iscsi_logger.error('Failed to register new iscsi volume')
         _iscsi_logger.info(e.output)
         return e.returncode
-
+    #
+    # if enabled, set automatic attach after reboot.
     if auto_startup:
         try:
-            subprocess.check_output(['/usr/sbin/iscsiadm',
-                                     '-m', 'node',
-                                     '-o', 'update',
-                                     '-T', iqn,
-                                     '-n', 'node.startup',
-                                     '-v', 'automatic'],
-                                    stderr=subprocess.STDOUT)
+            _cmd = ['/usr/sbin/iscsiadm',
+                    '-m', 'node',
+                    '-o', 'update',
+                    '-T', iqn,
+                    '-n', 'node.startup',
+                    '-v', 'automatic']
+            _iscsi_logger.debug('Executing %s', _cmd)
+            subprocess.check_output(_cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            logging.warning('failed to set automatic startup set for iscsi volume %s' % iqn)
-            logging.warning('iscsiadm output: %s' % e.output)
+            logging.warning('Failed to set automatic startup set for iscsi volume %s', iqn)
+            logging.warning('iscsiadm output: %s', e.output)
             return e.returncode
-
+    #
+    # if a username/password is provided, use CHAP authentication
     if username is not None and password is not None:
         try:
-            subprocess.check_output(['/usr/sbin/iscsiadm',
-                                     '-m', 'node',
-                                     '-o', 'update',
-                                     '-T', iqn,
-                                     '-p', "%s:%s" % (ipaddr, port),
-                                     '-n', 'node.session.auth.authmethod',
-                                     '-v', 'CHAP'],
-                                    stderr=subprocess.STDOUT)
-            subprocess.check_output(['/usr/sbin/iscsiadm',
-                                     '-m', 'node',
-                                     '-o', 'update',
-                                     '-T', iqn,
-                                     '-p', "%s:%s" % (ipaddr, port),
-                                     '-n', 'node.session.auth.username',
-                                     '-v', username],
-                                    stderr=subprocess.STDOUT)
-            subprocess.check_output(['/usr/sbin/iscsiadm',
-                                     '-m', 'node',
-                                     '-o', 'update',
-                                     '-T', iqn,
-                                     '-p', "%s:%s" % (ipaddr, port),
-                                     '-n', 'node.session.auth.password',
-                                     '-v', password],
-                                    stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            _iscsi_logger.error('failed to update authentication settings')
-            _iscsi_logger.info(e.output)
-            return e.returncode
+            _cmd = ['/usr/sbin/iscsiadm',
+                    '-m', 'node',
+                    '-o', 'update',
+                    '-T', iqn,
+                    '-p', "%s:%s" % (ipaddr, port),
+                    '-n', 'node.session.auth.authmethod',
+                    '-v', 'CHAP']
+            _iscsi_logger.debug('Executing %s', _cmd)
+            subprocess.check_output(_cmd, stderr=subprocess.STDOUT)
 
+            _cmd = ['/usr/sbin/iscsiadm',
+                    '-m', 'node',
+                    '-o', 'update',
+                    '-T', iqn,
+                    '-p', "%s:%s" % (ipaddr, port),
+                    '-n', 'node.session.auth.username',
+                    '-v', username]
+            _iscsi_logger.debug('Executing %s', _cmd)
+            subprocess.check_output(_cmd, stderr=subprocess.STDOUT)
+
+            _cmd = ['/usr/sbin/iscsiadm',
+                    '-m', 'node',
+                    '-o', 'update',
+                    '-T', iqn,
+                    '-p', "%s:%s" % (ipaddr, port),
+                    '-n', 'node.session.auth.password',
+                    '-v', password]
+            _iscsi_logger.debug('Executing %s', _cmd)
+            subprocess.check_output(_cmd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            _iscsi_logger.error('Failed to update authentication settings')
+            _iscsi_logger.info(e.output.decode('utf-8'))
+            return e.returncode
+    #
+    # login
     try:
-        subprocess.check_output(['/usr/sbin/iscsiadm',
-                                 '-m', 'node',
-                                 '-T', iqn,
-                                 '-p', "%s:%s" % (ipaddr, port),
-                                 '-l'],
-                                stderr=subprocess.STDOUT)
+        _cmd = ['/usr/sbin/iscsiadm',
+                '-m', 'node',
+                '-T', iqn,
+                '-p', "%s:%s" % (ipaddr, port),
+                '-l']
+        _iscsi_logger.debug('Executing %s', _cmd)
+        subprocess.check_output(_cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        _iscsi_logger.error('failed to log in to iscsi volume: %s', error_message_from_code(e.returncode))
-        _iscsi_logger.error('iscsiadm output: %s', e.output)
+        _iscsi_logger.error('Failed to log in to iscsi volume: %s', error_message_from_code(e.returncode))
+        _iscsi_logger.error('iscsiadm output: %s', e.output.decode('utf-8'))
         return e.returncode
 
     return 0
@@ -326,21 +336,21 @@ def detach(ipaddr, port, iqn):
         return 403
     dev_null = open(os.devnull, 'w')
     try:
+        _cmd = ['/usr/sbin/iscsiadm',
+                '-m', 'node',
+                '-T', iqn,
+                '-p', "%s:%s" % (ipaddr, port),
+                '-u']
+        _iscsi_logger.debug('Executing %s', _cmd)
+        subprocess.check_call(_cmd, stderr=dev_null, stdout=dev_null)
 
-        subprocess.check_call(['/usr/sbin/iscsiadm',
-                               '-m', 'node',
-                               '-T', iqn,
-                               '-p', "%s:%s" % (ipaddr, port),
-                               '-u'],
-                              stderr=dev_null,
-                              stdout=dev_null)
-        subprocess.check_call(['/usr/sbin/iscsiadm',
-                               '-m', 'node',
-                               '-o', 'delete',
-                               '-T', iqn,
-                               '-p', "%s:%s" % (ipaddr, port)],
-                              stderr=dev_null,
-                              stdout=dev_null)
+        _cmd = ['/usr/sbin/iscsiadm',
+                '-m', 'node',
+                '-o', 'delete',
+                '-T', iqn,
+                '-p', "%s:%s" % (ipaddr, port)]
+        _iscsi_logger.debug('Executing %s', _cmd)
+        subprocess.check_call(_cmd, stderr=dev_null, stdout=dev_null)
     except subprocess.CalledProcessError as e:
         _iscsi_logger.error('Error running iscsiadm command [%s]', str(e))
         return False

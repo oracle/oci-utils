@@ -247,8 +247,7 @@ def main():
     if system_tools.is_root():
         _logger.debug('User is root.')
     else:
-        exit_with_msg('  *** ERROR *** You must run this program with root '
-                      'privileges')
+        exit_with_msg('  *** ERROR *** This program needs to be run with root privileges.')
     #
     # Verbose mode is False by default
     migrate_data.verbose_flag = args.verbose_flag

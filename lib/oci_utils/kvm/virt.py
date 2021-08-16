@@ -527,19 +527,17 @@ def create(**kargs):
 
     _instance_shape = _metadata['instance']['shape']
     _is_bm_shape = _instance_shape.startswith('BM')
-
-    _logger.debug('instance shape is [%s]' % _instance_shape)
+    _logger.debug('Instance shape is [%s]' % _instance_shape)
 
     if not virt_check.validate_kvm_env(_is_bm_shape):
-        _logger.error("Server does not have supported environment "
-                      "for guest creation")
+        _logger.error("Server does not have supported environment for guest creation")
         return 1
 
     if not virt_check.validate_domain_name(kargs['name']):
         _logger.error("Domain name \"{}\" is already in use.".format(kargs['name']))
         return 1
 
-    _logger.debug('domain name to use [%s]' % kargs['name'])
+    _logger.debug('Domain name to use [%s]' % kargs['name'])
 
     if kargs['root_disk']:
         _root_disk = virt_check.validate_block_device(kargs['root_disk'])
@@ -567,14 +565,14 @@ def create(**kargs):
     else:
         vnics = _metadata['vnics']
         if _logger.isEnabledFor(logging.DEBUG):
-            _logger.debug('vnics found')
+            _logger.debug('vNICs found')
             for _v in vnics:
                 _logger.debug('  [%s]' % str(_v))
 
         interfaces = get_interfaces()
         if _logger.isEnabledFor(logging.DEBUG):
             for _i in interfaces:
-                _logger.debug('interface [%s]' % _i)
+                _logger.debug('Interface [%s]' % _i)
                 _logger.debug('  [%s]' % str(interfaces[_i]))
 
         if _is_bm_shape:
@@ -582,27 +580,27 @@ def create(**kargs):
             # TODO: put that at upper level
             if vnics[0]['privateIp'] in kargs['network']:
                 # on BM shape vNIC IP are given
-                _logger.error('primary vNIC IP must not be selected')
+                _logger.error('Primary vNIC IP must not be selected')
                 return 1
 
             args.append('--hvm')
             free_vnic_ip_addrs = []
             free_vnics = find_free_vnics(vnics, interfaces)
-            _logger.debug('free vnics ips : %s' % str(free_vnics))
+            _logger.debug('Free vNIC ips : %s' % str(free_vnics))
             if not kargs['network']:
                 try:
                     free_vnic_ip_addrs.append(free_vnics.pop())
-                    _logger.debug('no network option specified, taking the first one: %s' % free_vnic_ip_addrs)
+                    _logger.debug('No network option specified, taking the first one: %s' % free_vnic_ip_addrs)
                 except KeyError:
                     _print_available_vnics(free_vnics)
                     return 1
             else:
-                _logger.debug('network option specified:  %s' % kargs['network'])
+                _logger.debug('Network option specified:  %s' % kargs['network'])
                 free_vnic_ip_addrs = kargs['network']
 
             _blacklisted_vfs = []
             for free_vnic_ip_addr in free_vnic_ip_addrs:
-                _logger.debug('checking vnic [%s] and find VF' % free_vnic_ip_addr)
+                _logger.debug('Checking vnic [%s] and find VF' % free_vnic_ip_addr)
                 vnic, vf, vf_num = test_vnic_and_assign_vf(free_vnic_ip_addr, free_vnics, _blacklisted_vfs)
                 if not vnic:
                     return 1
@@ -612,7 +610,7 @@ def create(**kargs):
                 vf_dev = get_interface_by_pci_id(vf, interfaces)
                 _logger.debug('VF dev found %s' % vf_dev)
                 if not create_networking(vf_dev, vnic['vlanTag'], vnic['macAddr']):
-                    _logger.debug('networking creation has failed')
+                    _logger.debug('Networking creation has failed')
                     destroy_networking(vf_dev, vnic['vlanTag'])
                     return 1
 
@@ -621,7 +619,6 @@ def create(**kargs):
                             'model=e1000'.format(vf_dev, vnic['vlanTag'], vnic['macAddr']))
         else:
             # VM shape case : vnic are used directly (no VF)
-
             # sanity : verify primary vnic is not specified
             # TODO: put that at upper level
             primary_mac = vnics[0]['macAddr'].upper()
@@ -638,10 +635,10 @@ def create(**kargs):
                         _logger.error('Cannot find MAC address for %s' % vn_name)
                         return 1
                     if _mac_to_use == primary_mac:
-                        _logger.error('primary vNIC must not be selected')
+                        _logger.error('Primary vNIC must not be selected')
                         return 1
-                    args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' %
-                                (vn_name, _mac_to_use))
+                    args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s'
+                                % (vn_name, _mac_to_use))
             else:
                 _logger.debug('no vnic specified, find one')
                 # have to find one free interface. i.e not already used by a guest
@@ -654,7 +651,7 @@ def create(**kargs):
                 for intf_name, intf_info in interfaces.items():
                     # skip non physical intf
                     if not intf_info['physical']:
-                        _logger.debug('skipping physical [%s]' % intf_info)
+                        _logger.debug('Skipping physical [%s]' % intf_info)
                         continue
                     # if used by a guest, skip it
                     if intf_name in [list(m.values())[0] for m in list(domains_nics.values())]:
@@ -662,7 +659,7 @@ def create(**kargs):
                         continue
                     # if primary one (primary VNIC), skip it
                     if vnics[0]['macAddr'].upper() == intf_info['mac'].upper():
-                        _logger.debug('skipping primary [%s]' % intf_info)
+                        _logger.debug('Skipping primary [%s]' % intf_info)
                         continue
                     # we've found one
                     intf_to_use = intf_name
@@ -670,27 +667,27 @@ def create(**kargs):
                     break
 
                 if not intf_to_use:
-                    _logger.error('no free VNIC available')
+                    _logger.error('No free VNIC available')
                     return 1
 
                 args.append('--network')
-                args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s' %
-                            (intf_to_use, _mac_to_use))
+                args.append('type=direct,model=virtio,source_mode=passthrough,source=%s,mac=%s'
+                            % (intf_to_use, _mac_to_use))
 
     args.extend(kargs['extra_args'])
 
     if '--console' in kargs['extra_args']:
         args.append('--noautoconsole')
-        print("Autoconsole has been disabled. To view the console, issue "
-              "'virsh console {}'".format(kargs['name']))
+        print("Autoconsole has been disabled. To view the console, issue 'virsh console {}'".format(kargs['name']))
 
     if _logger.isEnabledFor(logging.DEBUG):
-        _logger.debug('create: executing [%s]' % ' '.join(args))
+        _logger.debug('Create: executing [%s]' % ' '.join(args))
 
+    _logger.debug('Executing\n%s', args)
     virt_install = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    _logger.debug('Waiting for virt-install process to terminate')
+    _logger.debug('Waiting for virt-install process to terminate.')
     (_out, _err) = virt_install.communicate()
-    _logger.debug('virt-install process terminated')
+    _logger.debug('virt-install process terminated.')
     if virt_install.returncode != 0:
         _logger.error('Creation failed: %s' % _err.decode('utf-8'))
         if _is_bm_shape and not kargs['virtual_network']:
@@ -926,7 +923,7 @@ def create_virtual_network(**kargs):
     # get the given IP used to find vNIC to use
     _vnic_ip_to_use = kargs['network']
 
-    _logger.debug('in create_virtual_network, given IP : %s ' % _vnic_ip_to_use)
+    _logger.debug('In create_virtual_network, given IP : %s ' % _vnic_ip_to_use)
 
     # get all vNIC of the current system
     _all_vnics = _metadata['vnics']
@@ -942,9 +939,9 @@ def create_virtual_network(**kargs):
         # based on given IP address, find free VF.
         vnic, vf, vf_num = test_vnic_and_assign_vf(_vnic_ip_to_use, free_vnics)
         if not vnic:
-            _logger.debug('choosen vNIC is not free')
+            _logger.debug('Choosen vNIC is not free')
             return 1
-        _logger.debug('ready to write network configuration for (%s, %s, %s)' % (vnic, vf, vf_num))
+        _logger.debug('Ready to write network configuration for (%s, %s, %s)' % (vnic, vf, vf_num))
 
         vf_dev = get_interface_by_pci_id(vf, _all_system_interfaces)
         _logger.debug('vf device for %s: %s' % (vf, vf_dev))
@@ -953,7 +950,7 @@ def create_virtual_network(**kargs):
                                  vnic['macAddr'],
                                  vnic['privateIp'],
                                  int(vnic['subnetCidrBlock'].split('/')[1])):
-            _logger.error('cannot create networking')
+            _logger.error('Cannot create networking.')
             destroy_networking(vf_dev, vnic['vlanTag'])
             return 1
     else:
@@ -971,24 +968,24 @@ def create_virtual_network(**kargs):
             if attrs['mac'].upper() == vnic['macAddr'].upper() and attrs['physical']:
                 vf_dev = intf_name
         if vf_dev is None:
-            _logger.error('cannot find network interface matching vNIC with ip [%s]' % _vnic_ip_to_use)
+            _logger.error('Cannot find network interface matching vNIC with ip [%s]' % _vnic_ip_to_use)
             return 1
 
-        _logger.debug(' device for nework %s' % vf_dev)
+        _logger.debug('Device for nework %s' % vf_dev)
 
         if not create_networking(vf_dev,
                                  None,
                                  vnic['macAddr'],
                                  vnic['privateIp'],
                                  int(vnic['subnetCidrBlock'].split('/')[1])):
-            _logger.error('cannot create networking')
+            _logger.error('Cannot create networking')
             destroy_networking(vf_dev)
             return 1
 
     _logger.debug('Networking succesfully created')
 
     # define a routing table for the new VF.
-    _logger.debug('add new routing table [%s]' % vf_dev)
+    _logger.debug('Add new routing table [%s]' % vf_dev)
     add_route_table(vf_dev)
 
     # deduce KVMnetwork
@@ -1022,7 +1019,7 @@ def create_virtual_network(**kargs):
     dhcp = SubElement(ip, 'dhcp')
     SubElement(dhcp, 'range', start=kargs['ip_start'], end=kargs['ip_end'])
 
-    _logger.debug('defining network as [%s]' % ElementTree.tostring(netXML))
+    _logger.debug('Defining network as [%s]' % ElementTree.tostring(netXML).decode('utf-8'))
 
     tf = tempfile.NamedTemporaryFile(mode='w', delete=False)
     os.chmod(tf.name, 0o644)

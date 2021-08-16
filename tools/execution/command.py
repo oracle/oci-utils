@@ -11,13 +11,15 @@ from . import storable
 
 
 class Command(storable.Storable):
-    """Command class.
-    This reperesent a sub process execution
+    """
+    Command class.
+    This represent a sub process execution
     Stored or retrieved to or form the execution store
     """
 
     def __init__(self, args):
-        """Create a new command
+        """
+        Create a new command
 
         Parameters
         ----------

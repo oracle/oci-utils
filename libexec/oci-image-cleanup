@@ -475,7 +475,7 @@ restore()
 # Main
   
 if [ "$EUID" -ne 0 ]; then 
-    echo "This script needs root privileges to execute."
+    echo "This program needs to be run with root privileges."
     exit 1
 fi
 

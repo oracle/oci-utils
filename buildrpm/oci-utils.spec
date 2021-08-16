@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.12.4
-Release: 4%{?dist}
+Version: 0.12.6
+Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -26,8 +26,6 @@ Requires: cloud-utils-growpart
 Requires: util-linux
 # for iscsiadm
 Requires: iscsi-initiator-utils
-# for notify for now
-Requires: python36-oci-cli
 Requires: python36-oci-sdk
 #
 %if 0%{?rhel} == 7
@@ -151,6 +149,12 @@ rm -rf %{buildroot}
 %exclude /opt/oci-utils/tests/test_mig*
 /opt/oci-utils
 
+%post
+%systemd_post ocid.service
+
+%preun
+%systemd_post ocid.service
+
 %post kvm
 %systemd_post oci-kvm-config.service
 
@@ -178,6 +182,40 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Wed Aug 11 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-6
+- LINUX-1742: oci-public-ip reports errors when python-oci-sdk is installed but not set up
+- LINUX-9425: oci-iscsi-config attach -I fails on iqn's
+- LINUX-9444: port oci-notify to python3; remove requirement for oci-cli
+- LINUX-11295: ocid service fails to restart in E4 flex shapes on OL8 image
+- LINUX-11322: oci-iscsi-config create and attach do not have a 'require chap credentials' option
+- LINUX-11379: The oci-iscsi-config -a missing "command executed successfully' message
+
+* Mon Aug 2 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-5
+- LINUX-9229 remove Error in message "Error: Local iscsi info not available
+- LINUX-9857 oci-network-config configure do not persist configuration
+- LINUX-11228 oci-iscsi-config sync does not funtion as documented
+- LINUX-11293 oci-iscsi-config chap secrets function
+- LINUX-11345 oci-iscsi-config show without sudo shows error
+
+* Fri Jul 16 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-4
+- enable ocid service install time
+- fixed secondary address persistence and configuration issue
+
+* Fri Jul 2 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-3
+- LINUX-9680 move KVM image scripts to github
+- LINUX-11255 output of oci-public-ip -g has a # at then end
+- LINUX-11261 ocid does not enable vnics at reboot/ocid configures unconfigured vnics
+- image build scripts
+
+* Mon Jun 28 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-2
+- OLUEK-5005 oci-metadata (oci-utils) value-only flag broken
+
+* Wed Jun 23 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-1
+- modified oci-iscsi-config output in compat mode
+- corrected oci-iscsi-config behaviour on invalid compat syntax
+- some small changes
+- changed log and error messages
+
 * Thu Jun 17 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.4-4
 - LINUX-11136 compatibility: oci-network-config --(de)configure does not show results
 - LINUX-11163 compatibility: oci-network-config differences in output
@@ -237,7 +275,7 @@ rm -rf %{buildroot}
 
 
 * Tue Dec 1 2020 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.0-1
- - update migrate
+- update migrate
 
 * Tue Nov 10 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.12.0
  - LINUX-9546 - oci-image-cleanup --dry-run do not print the plan directly

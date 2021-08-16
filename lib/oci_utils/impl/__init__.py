@@ -12,8 +12,15 @@ import logging
 import logging.handlers
 
 
-__all__ = ['read_config', 'SUDO_CMD',
-           'CAT_CMD', 'SH_CMD', 'CP_CMD', 'TOUCH_CMD', 'CHMOD_CMD', 'LSBLK_CMD', 'MKDIR_CMD']
+__all__ = ['read_config',
+           'SUDO_CMD',
+           'CAT_CMD',
+           'SH_CMD',
+           'CP_CMD',
+           'TOUCH_CMD',
+           'CHMOD_CMD',
+           'LSBLK_CMD',
+           'MKDIR_CMD']
 
 
 CAT_CMD = '/usr/bin/cat'
@@ -146,8 +153,7 @@ def setup_logging(forceDebug=False):
     """
 
     flatFormatter = logging.Formatter('%(message)s')
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s(%(module)s:%(lineno)s) - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s(%(module)s:%(lineno)s) - %(message)s')
     handler = None
     if os.environ.get('_OCI_UTILS_SYSLOG'):
         handler = logging.handlers.SysLogHandler(address='/dev/log',

@@ -5,8 +5,12 @@
         "user_compartment_ocid": "",
         "user_subnet_ocid": "",
         "user_image_name": "",
-        "user_AL_version": "",
-        "user_OL_flavour": "NonAutonomous"
+        "user_instance_name": "",
+        "user_OL_version": "",
+        "user_OL_flavour": "NonAutonomous",
+        "user_shape_name": "",
+        "user_custom_post_install_task": "",
+        "user_custom_firstboot": ""
     },
     "builders": [
         {
@@ -16,10 +20,10 @@
             "availability_domain": "{{user `user_availability_domain`}}",
             "base_image_ocid": "{{user `user_base_image_ocid`}}",
             "compartment_ocid": "{{user `user_compartment_ocid`}}",
-            "shape": "VM.Standard2.1",
+            "shape": "{{user `user_shape_name`}}",
             "subnet_ocid": "{{user `user_subnet_ocid`}}",
             "image_name": "{{user `user_image_name`}}",
-            "instance_name": "AL-KVM-builder-{{timestamp}}",
+            "instance_name": "{{user `user_instance_name`}}",
             "tags": {
                 "OL_flavour": "{{user `user_OL_flavour`}}",
                 "OL_version": "{{user `user_OL_version`}}"
@@ -29,20 +33,27 @@
     ],
     "provisioners": [
         {
+            "type": "file",
+            "source": "{{user `user_custom_post_install_task_path`}}",
+            "destination": "/tmp/{{user `user_custom_post_install_task`}}"
+        },
+        {
+            "type": "file",
+            "source": "{{user `user_custom_firstboot_path`}}",
+            "destination": "/tmp/{{user `user_custom_firstboot`}}"
+        },
+        {
             "type": "shell",
             "inline": [
-                "sudo yum install -y python36-libvirt",
-                "sudo rpm -Uv https://ca-artifacts.us.oracle.com/auto-build/x86_64-build-output-7/oci-utils-0.11.6-9.el7.noarch.rpm",
-                "sudo rpm -Uv https://ca-artifacts.us.oracle.com/auto-build/x86_64-build-output-7/oci-utils-kvm-0.11.6-9.el7.noarch.rpm"
+                "sudo yum install -y python36-libvirt"
             ]
         },
         {
             "type": "shell",
             "inline": [
                 "sudo yum -y install git",
-                "git  clone  https://gitlab+deploy-token-47:fa9KGVrxZG4oVMpbSiX9@linux-git.us.oracle.com:/oci-ol/oci-kvm-image-build.git /tmp/oci-kvm-image-build/",
-                "sudo -u root /bin/bash /tmp/oci-kvm-image-build/custom_post_install_task.sh",
-                "sudo -u root /bin/bash /tmp/oci-kvm-image-build/custom_firstboot.sh"
+                "sudo -u root /bin/bash /tmp/custom_post_install_task.sh",
+                "sudo -u root /bin/bash /tmp/custom_firstboot.sh"
             ]
         }
     ]

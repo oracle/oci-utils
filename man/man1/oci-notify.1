@@ -10,13 +10,11 @@
 oci-notify - Send a message and data to a Oracle Cloud Infrastructure
 notification service.
 .SH SYNOPSIS
-.B oci-notify -c
-.I OCID_TOPIC
+.B oci-notify
+config OCID_TOPIC
 
-.B oci-notify -t
-.I TITLE
-.B -f
-.I FILE
+.B oci-notify
+message [-t|--title] TITLE [-f|--file] FILE
 
 .SH DESCRIPTION
 The
@@ -28,17 +26,11 @@ are split into 64KB chunks. It is the responsibility of the notification service
 configuration where and how the messages are delivered.
 
 .B oci-notify
-command writes log and error messages to the logfile
-.B /var/log/oci-notify.log
-
-.B oci-notify
 expects
 .B oci-sdk
-as well as
-.B oci-cli
 installed. Authentication is attempted via
 .B oci-sdk
-configuration, direct authentication. On failure, the instance principal authentication is used.
+configuration. If direct authentication fails, the instance principal authentication is tried.
 
 .B oci-notify
 expects the configuration files by default in
@@ -54,12 +46,32 @@ truncates the header of the message to 128 characters.
 .B oci-notify
 limits the size of the message to 10 chunks of 64KB each.
 
+The message can be a flat file, a url or a string/text. If the messags is not a url and the path in the message does not
+exists, the message is send as such.
+
 .B oci-notify
 must be run with root privileges, either as user root or using
 .B sudo(8).
 
 .SH OPTIONS
-.IP "oci-notify -c <topic>"
+.IP "oci-notify --help"
+usage: oci-notify-main.py [-h] {config,message} ...
+
+This utility assists with sending messages to an Oracle Cloud Infrastructure
+notification service. The length of the message title is limited to 128 bytes.
+The message file is split in 65536KB chunks and send as separate messages. The
+number of chunks is limited to 10. The message file can be a flat file, a url
+or a string. See the manual page for more information.
+
+positional arguments:
+  {config,message}
+    config          Configure the notification server.
+    message         Send a message.
+
+optional arguments:
+  -h, --help        show this help message and exit
+
+.IP "oci-notify config <topic>"
 sets the notification service topic by creating or updating the
 .B oci.conf
 file. The
@@ -68,7 +80,7 @@ is the
 .B ocid
 of the notification service.
 
-.IP "oci-notify -t <subject> -f <file>
+.IP "oci-notify message --title <subject> --file <file>
 sends the file
 .B file
 with subject
@@ -82,14 +94,17 @@ is a text string used as message header, email subject, etc ... The
 is prepended with the instance name.
 
 .B file
-is the full or relative path of the file to send.
+is the full or relative path of a flat file, a url or a string/text to send.
 
 .SH DIAGNOSTICS
 Return an exit status of 0 for success or a positive value if an error occurred.
 
 .SH EXAMPLES
-.IP "oci-notify -t 'memory information' -f /proc/meminfo"
-.IP "df -h > /tmp/diskdata; du -sh /* >> /tmp/diskdata; oci-notify -t 'disk usage information' -f /tmp/diskdata"
+.IP "oci-notify config ocid1.onstopic.oc1.<region>.<nofication id>"
+.IP "oci-notify message --title 'memory information' --file /proc/meminfo"
+.IP "df -h > /tmp/diskdata; du -sh /* >> /tmp/diskdata; oci-notify message --title 'disk usage information' --file /tmp/diskdata"
+.IP "oci-notify message --title 'sending data from the web' --file https://docs.oracle.com/en/operating-systems/oracle-linux/8/licenses/lic-intro.html"
+.IP "oci-notify message --title 'sending a text' --file 'Today is a beautiful day'"
 
 .SH "SEE ALSO"
 .BR ocid (8)

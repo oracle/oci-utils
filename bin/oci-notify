@@ -1,410 +1,69 @@
-#!/bin/bash
-#
-# Copyright © 2020 Oracle Corp., Inc.  All rights reserved.
-# Licensed under the Universal Permissive License v 1.0 as shown
-# at http://oss.oracle.com/licenses/upl.
+#!/bin/sh
 
-export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
 
-ocicli=python36-oci-cli
-ocisdk=python36-oci-sdk
-#
-# configuration directory; environment variable OCI_CONFIG_DIR overrules
-# the default configuration directory /etc/oci-utils.
-config_dir=/etc/oci-utils
-if [ ! -z ${OCI_CONFIG_DIR+x} ]; then
-    config_dir=/etc/oci-utils
+
+
+# utility assists with configuring iscsi storage on Oracle Cloud
+# Infrastructure instances.  See the manual page for more information.
+
+
+_PY3=/usr/bin/python3
+s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
+
+declare COMMAND
+declare -A TOPICOCID
+declare -A MSGDATA
+declare -A MSGTITLE
+declare notify_exec="${s_dir}/oci-notify-main.py"
+
+if [ "${1:0:1}" != '-' ]
+then
+   # execute as is as the command line do not start with an option dash-<something>
+   exec ${_PY3} $notify_exec "$@"
+   exit 0
 fi
-# OCI config: topic OCID etc.
-oci_config_file=$config_dir/oci.conf
-# OCI API private key
-oci_api_key_file=$config_dir/oci_api_key.pem
-# OCI SDK/CLI config
-oci_cli_config_file=$config_dir/oci_cli.conf
-# max title length
-MAXTITLELEN=128
-# log
-log_file=/var/log/oci-notify.log
-# temp message 
-tmpmsg=/tmp/mesg.oci
 
-usage() {
-    cat >&2 << EOF
-Usage:
-${0##*/} -c <Notification topic OCID>
-  Configuration.
-${0##*/} -t <Message title> -f <File containing the message body>
-  Send a message.
-${0##*/} -h
-  This help text.
-EOF
-    exit 1
-}
+PARSED_ARGUMENTS=$(getopt --alternative  --quiet --options c:t:f:h --longoptions config:,title:,file:,help -- "$@")
+eval set -- "$PARSED_ARGUMENTS"
 
-get_instance_name() {
-    curl -sfm 25 -H "Authorization: Bearer Oracle" \
-        http://169.254.169.254/opc/v2/instance/displayName \
-        2>/dev/null || curl -sfm 25 \
-        http://169.254.169.254/opc/v1/instance/displayName 2>/dev/null
-}
-
-get_time() {
-    date "+%F %T,%3N"
-}
-
-log() {
-    log_info "$*"
-}
-
-log_info() {
-    echo "$*"
-    echo "$(get_time) - ${0##*/}[INFO]: $*" >> "$log_file"
-}
-
-log_debug() {
-    echo "$(get_time) - ${0##*/}[DEBUG]: $*" >> "$log_file"
-}
-
-log_error() {
-    echo "$*" >&2
-    echo "$(get_time) - ${0##*/}[ERROR]: $*" >> "$log_file"
-}
-
-oci_cli_check() {
-    which oci > /dev/null 2>&1
-    if [ ${?} -gt 0 ]; then
-        log_error "oci_cli is not installed; install ${ocicli}."
-        exit 1
-    else
-        log_debug "oci_cli is installed."
-    fi
-}
-
-oci_cli_config_check() {
-    if [ ! -f "$oci_cli_config_file" ]; then
-        #
-        # oci cli config file is not found at expected location.
-        log_debug "oci cli configuration file ${oci_cli_config_file} was not found." >&2
-    else
-        log_debug "${oci_cli_config_file} found."
-        #
-        # check path of keyfile.
-        kfline=$(grep '^key_file' $oci_cli_config_file)
-        if [ -z ${kfline} ]; then
-            log_error "key_file line missing from ${oci_cli_config_file}"
-            exit 1
-        else
-            IFS='=' read -r -a kf_array <<< $kfline
-            new_kfile=${kf_array[1]}
-            log_debug "key file set as $new_kfile"
-            if [ -f "$new_kfile" ]; then
-                oci_api_key_file=${new_kfile}
-                log_debug "$new_kfile exists"
-            else
-                log_error "$new_kfile does not exists or is not a file."
-                exit 1
-            fi
-        fi
-    fi
-}
-
-oci_sdk_check() {
-    ocisdkinstalled=$(
-        python3 -c "HAVE_OCI_SDK = 'True'
-try:
-    import oci as oci_sdk
-except ImportError:
-    HAVE_OCI_SDK = 'False'
-print(HAVE_OCI_SDK)"
-)
-    if [ "${ocisdkinstalled}x" != "Truex" ]; then
-        log_error "oci_sdk is not installed; install ${ocisdk}."
-        exit 1
-    else
-        log_debug "oci_sdk installed."
-    fi
-}
-
-python3_check() {
-    which python3 > /dev/null 2>&1
-    if [[ "$(python3 -V)" =~ "Python 3" ]]; then
-        log_debug "python3 is installed."
-        return
-    fi
-    log_error "python3 is not installed."
-    exit 1
-}
-
-read_file() {
-    local f="$1"
-    if [[ $f =~ ^(https?|ftp|file):// ]]; then
-        curl -sfm 25 "$f" 2>/dev/null
-    else
-        if [ -r "$f" ]; then
-            cat "$f"
-        fi
-    fi
-}
-
-run_as_root_check() {
-    if [ "$(id -u)" != 0 ]; then
-        echo "Please run as root." >&2
-        exit 1
-    else
-        log_debug "Current user is root."
-    fi
-}
-
-# Configure the notification topic.
-#
-# $1 - topic id
-#
-configure_notification() {
-    ocid_topic="$1"
-    #
-    # test if ocid_topic can be a valid ocid.
-    if [[ ! $ocid_topic =~ ^ocid[0-9]\.onstopic\. ]]; then
-        log_error "Invalid notification service topic OCID: ${ocid_topic}" >&2
-        exit 2
-    fi
-    umask 0066
-    #
-    # create the oci_config_file if it does not exists
-    if [ ! -f "$oci_config_file" ]; then
-        cat > "$oci_config_file" <<EOF
-# This file is a bourne shell snippet, and is sourced by the
-# script oci-notify for configuration.
-
-EOF
-    fi
-    #
-    # if the topic is already defined, update it, else add.
-    if grep -q "^topic=" "$oci_config_file"; then
-        sed -i "s/^topic=.*/topic=\"$ocid_topic\"/g" "$oci_config_file"
-    else
-        cat >> "$oci_config_file" <<EOF
-# OCI notification service topic OCID
-topic="$ocid_topic"
-
-EOF
-    fi
-    umask "$old_umask"
-    log "Configured OCI notification service topic OCID."
-    #
-    # send a configuration message.
-    instance_name=$(get_instance_name)
-    title="oci-utils: Notification enabled on instance $instance_name"
-    out_file=$(mktemp "$work_dir/config_XXXX")
-    cat > "$out_file" <<EOF
-Configured OCI notification service topic OCID on instance $instance_name: $ocid_topic
-
-EOF
-    send_message "$ocid_topic" "$title" "$out_file"
-}
-
-# Publish the message.
-#
-# $1 - topic id
-# $2 - title
-# $3 - body
-# global variables:
-#   instance_principal, OCI_CLI_PROFILE_CONFIG, OCI_INSTANCE_PRINCIPAL_AUTH
-publish_message() {
-    local ret0 ret1 out0 out1
-    topicid="$1"
-    xheader="$2"
-    body="$3"
-   #
-    # truncate header
-    header=$(echo "${xheader}" | cut -c 1-$MAXTITLELEN)
-    log "Publishing message '$header'"
-    #
-    # oci cli profile
-    if [ "$instance_principal" -eq 0 ]; then
-        log_debug "Running OCI CLI with profile config."
-        out0=$(oci $OCI_CLI_PROFILE_CONFIG ons message publish \
-                  --topic-id "$topicid"  --title "$header" --body "$body" 2>&1)
-        ret0=$?
-        log_debug "$out0"
-        if [ $ret0 -ne 0 ]; then
-            #
-            # wait a second, we do second try with instance principal auth
-            sleep 1
-            log_debug "Running OCI CLI with instance principal auth."
-            out1=$(oci $OCI_INSTANCE_PRINCIPAL_AUTH ons message publish \
-                --topic-id "$topicid" --title "$header" --body "$body" 2>&1)
-            ret1=$?
-            if [ $ret1 -ne 0 ]; then
-                log_debug "$out1"
-                log_error "Failed to publish message '$header'" >&2
-                return $ret0
-            else
-                log "Published message '$header'"
-            fi
-        else
-            log "Published message '$header'"
-        fi
-    else
-        # instance principal auth
-        log_debug "Running OCI CLI with instance principal auth."
-        out1=$(oci $OCI_INSTANCE_PRINCIPAL_AUTH ons message publish \
-            --topic-id "$topicid" --title "$header" --body "$body" 2>&1)
-        ret1=$?
-        log_debug "$out1"
-        if [ $ret1 -ne 0 ]; then
-            log_error "Failed to publish message '$header'" >&2
-            return $ret1
-        else
-            log "Published message '$header'"
-        fi
-    fi
-}
-
-
-# Prepare sending of the message.
-#
-# $1 - topic id
-# $2 - title
-# $3 - file
-# global variables:
-#   instance_principal, OCI_CLI_PROFILE_CONFIG, OCI_INSTANCE_PRINCIPAL_AUTH
-send_message() {
-    topic=${1}
-    title=${2}
-    file=${3}
-    #
-    # If oci cli config or api key doesn't exist
-    # switch to instance principal authorization
-    if [ -f "$oci_cli_config_file" -a -f "$oci_api_key_file" ]; then
-        instance_principal=0
-    else
-        instance_principal=1
-    fi
-    #
-    OCI_INSTANCE_PRINCIPAL_AUTH="--auth instance_principal"
-    OCI_CLI_PROFILE_CONFIG="--config-file $oci_cli_config_file"
-    if [[ $file =~ ^(https?|ftp|file):// ]]; then
-        curl -sfm 25 "$file" 2>/dev/null > "$tmpmsg"
-        file=$tmpmsg
-    fi
-    size=$(stat -c %s "$file")
-    #
-    # split file in 64KB chunks if necessary.
-    if [[ $size -gt 65536 ]]; then
-        split -C 64K -d -a 1 "$file" "${file}."
-        files=$(find "$file".*)
-        count=$(echo "$files" | wc -l)
-        echo "$files" | while IFS='' read -r f; do
-            i=${f##*.}
-            t="[$((i+1))/$count] $title"
-            body=$(read_file "$f")
-            publish_message "$topic" "$t" "$body"
-            ret=$?
-            rm -f "$f"
-            # wait a second
-            sleep 1
-        done
-    else
-        body=$(read_file "$file")
-        publish_message "$topic" "$title" "$body"
-        ret=$?
-    fi
-}
-
-#
-# main
-run_as_root_check
-
-python3_check
-
-oci_sdk_check
-
-oci_cli_check
-
-oci_cli_config_check
-
-while getopts "t:f:c:h" OPTION; do
-    case "$OPTION" in
-      t)
-        title="$OPTARG"
-        ;;
-      f)
-        file="$OPTARG"
-        ;;
-      c)
-        notification_ocid="$OPTARG"
-        ;;
-      h)
-        usage
-        ;;
-      *)
-        usage
-        ;;
-    esac
+while :
+do
+  case "$1" in
+    -c|--config)
+      COMMAND='config';  TOPICOCID=${2}; shift 2
+    ;;
+    -t|--title)
+      COMMAND='message'; MSGTITLE=${2};  shift 2
+    ;;
+    -f|--file)
+      COMMAND='message'; MSGDATA=${2};   shift 2
+    ;;
+    -h|--help)
+      COMMAND='--help'; shift
+    ;;
+    --)
+      shift; break
+    ;;
+    *)
+      COMMAND='--help'
+    ;;
+  esac
 done
-#
-# save umask
-old_umask=$(umask)
-#
-# set global variables
-OCI_INSTANCE_PRINCIPAL_AUTH="--auth instance_principal"
-OCI_CLI_PROFILE_CONFIG="--config-file $oci_cli_config_file"
-#
-# arguments
-if [ -z "${notification_ocid+x}" ]; then
-    # no topic, must be message.
-    if [ -z "${title+x}" -o -z "${file+x}" ]; then
-        log_error "title or file need to be both non-empty." >&2
-        usage
-    else
-        log_debug "title and file are not zero"
-    fi
-else
-    # topic is defined, must be message.
-    if  [ ! -z "${title+x}" -o ! -z "${file+x}" ]; then
-        log_error "title and file need to be both empty." >&2
-        usage
-    else
-        log_debug "title and file are zero"
-    fi
-fi
 
-#log_info "$0 $@"
-if ! [ -z "${title+x}" ]; then
-    log_debug "notification message: ${title}"
-    # If file does not exist, exit.
-    # if [ ! -f "$file" ]; then
-    #     log_error "$file doesn't exist." >&2
-    #     exit 1
-    # else
-    #     log_debug "$file exists"
-    # fi
-    # If oci config doesn't exist, i.e. notification service is not configured, exit.
-    if [ ! -f "$oci_config_file" ]; then
-        #
-        # notification service not configured.
-        log_error "OCI notification service topic is not configured." >&2
-        log_error "Please configure OCI notification service topic OCID with oci-notify -c <topic> ." >&2
-        exit 2
-    else
-        #
-        # send message
-        log_debug "oci topic configuration file found."
-        # source oci config file
-        . "$oci_config_file"
-        #
-        # If topic ocid is not set, exit.
-        if [ -z "$topic" ]; then
-            log_error "OCI notification service topic is not configured." >&2
-            log_error "Please configure OCI notification service topic OCID with al-config." >&2
-            exit 1
-        fi
-        instance_name=$(get_instance_name)
-        send_message "${topic}" "${instance_name}: ${title}" "${file}"
-    fi
-elif ! [ -z "${notification_ocid+x}" ]; then
-    configure_notification "${notification_ocid}"
+if [ ${COMMAND} == '--help' ]; then
+  exec ${_PY3} ${notify_exec} --help
+elif [ -z "${TOPICOCID+x}" ]; then
+  # no topic, must be message.
+  if [ -z "${MSGTITLE+x}" -o -z "${MSGDATA+x}" ]; then
+    exec ${_PY3} ${notify_exec} --help
+  else
+    exec ${_PY3} ${notify_exec} message --title "${MSGTITLE}" --file "${MSGDATA}"
+  fi
 else
-    echo "Invalid command line parameters."
-    exit 3
+  # topic is defined, must be config
+  exec ${_PY3} ${notify_exec} config "$TOPICOCID"
 fi
+exit 0

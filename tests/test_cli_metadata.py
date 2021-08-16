@@ -11,6 +11,64 @@ from tools.oci_test_case import OciTestCase
 
 os.environ['LC_ALL'] = 'en_US.UTF8'
 
+instance_key_set = ('availabilitydomain',
+                    'faultdomain',
+                    'compartmentid',
+                    'displayname',
+                    'hostname',
+                    'id',
+                    'image',
+                    'metadata',
+                    'region',
+                    'canonicalregionname',
+                    'ociadname',
+                    'regioninfo',
+                    'shape',
+                    'shapeconfig',
+                    'state',
+                    'timecreated',
+                    'agentconfig',
+                    'definedtags',
+                    )
+
+metadata_key_set = ('ssh_authorized_keys',
+                    )
+
+regioninfo_key_set = ('realmkey',
+                      'realmdomaincomponent',
+                      'regionkey',
+                      'regionidentifier'
+                      )
+
+shape_key_set = ('ocpus',
+                 'memoryingbs',
+                 'networkingbandwidthingbps',
+                 'maxvnicattachments',
+                 )
+
+agentconfig_key_set = ('monitoringdisabled',
+                       'managementdisabled',
+                       'allpluginsdisabled',
+                       'pluginsconfig',
+                       )
+pluginsconfig_key_set = ('name',
+                         'desiredstate',
+                        )
+
+definedtags_key_set = ('oracle-tags',
+                      )
+
+oracletags_key_set = ('createdby',
+                      'createdon',
+                     )
+
+vnic_key_set = ('vnicid',
+                'privateip',
+                'vlantag',
+                'macaddr',
+                'virtualrouterip',
+                'subnetcidrblock'
+                )
 
 class TestCliOciMetadata(OciTestCase):
     """ oci-metadata tests.
@@ -74,42 +132,358 @@ class TestCliOciMetadata(OciTestCase):
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
-    def test_get_metadata(self):
+    def test_get_metadata_instance(self):
         """
-        Test displaying 'instance' metadata
+        Test displaying instance metadata.
 
         Returns
         -------
         No return value.
         """
         try:
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', 'instance'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/availabilityDomain'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/faultDomain'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/compartmentId'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/displayName'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/hostname'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/id'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/image'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/metadata'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/metadata/ssh_authorized_keys'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/region'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/canonicalRegionName'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/ociAdName'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo/realmKey'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo/realmDomainComponent'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo/regionKey'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regionInfo/regionIdentifier'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/shape'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/state'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/timeCreated'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/agentConfig'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics'])
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/0'])
+            key_data = subprocess.check_output([self.oci_metadata_path, '--get', 'instance'])
+            print(key_data.decode('utf-8'))
+            self.assertIsNotNone(key_data)
+        except Exception as e:
+                self.fail('Execution has failed: %s' % str(e))
+
+        for key in instance_key_set \
+                   + regioninfo_key_set \
+                   + shape_key_set \
+                   + agentconfig_key_set \
+                   + definedtags_key_set \
+                   + metadata_key_set \
+                   + pluginsconfig_key_set \
+                   + oracletags_key_set :
+            with self.subTest(key=key):
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', key])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', key, '--value-only'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', key, '--human-readable'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', key, '--json'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', key, '--trim'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_metadata_instance_keys(self):
+        """
+        Test displaying instance metadata.
+
+        Returns
+        -------
+        No return value.
+        """
+        for key in instance_key_set:
+            with self.subTest(key=key):
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/%s' % key])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/%s' % key, '--value-only'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/%s' %  key, '--human-readable'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/%s' %  key, '--json'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/%s' % key, '--trim'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_metadata_instance_regioninfo_keys(self):
+        """
+        Test displaying instance metadata.
+
+        Returns
+        -------
+        No return value.
+        """
+
+        for key in regioninfo_key_set:
+            with self.subTest(key=key):
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regioninfo/%s' % key])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regioninfo/%s' % key, '--value-only'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regioninfo/%s' %  key, '--human-readable'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regioninfo/%s' %  key, '--json'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/regioninfo/%s' % key, '--trim'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_metadata_instance_shapeconfig_keys(self):
+        """
+        Test displaying instance metadata.
+
+        Returns
+        -------
+        No return value.
+        """
+
+        for key in shape_key_set:
+            with self.subTest(key=key):
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/shapeconfig/%s' % key])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/shapeconfig/%s' % key, '--value-only'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/shapeconfig/%s' %  key, '--human-readable'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/shapeconfig/%s' %  key, '--json'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/shapeconfig/%s' % key, '--trim'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_metadata_instance_agentconfig_keys(self):
+        """
+        Test displaying instance metadata.
+
+        Returns
+        -------
+        No return value.
+        """
+
+        for key in agentconfig_key_set:
+            with self.subTest(key=key):
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/agentconfig/%s' % key])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/agentconfig/%s' % key, '--value-only'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/agentconfig/%s' %  key, '--human-readable'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/agentconfig/%s' %  key, '--json'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/agentconfig/%s' % key, '--trim'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_metadata_instance_definedtags_keys(self):
+        """
+        Test displaying instance metadata.
+
+        Returns
+        -------
+        No return value.
+        """
+        for key in definedtags_key_set:
+            with self.subTest(key=key):
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/definedtags/%s' % key])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/definedtags/%s' % key, '--value-only'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/definedtags/%s' %  key, '--human-readable'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/definedtags/%s' %  key, '--json'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/definedtags/%s' % key, '--trim'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+
+
+    def test_get_metadata_vnic(self):
+        """
+        Test displaying instance metadata.
+
+        Returns
+        -------
+        No return value.
+        """
+        try:
+            key_data = subprocess.check_output([self.oci_metadata_path, '--get', 'vnics'])
+            print(key_data.decode('utf-8'))
+            self.assertIsNotNone(key_data)
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
+
+        for key in vnic_key_set:
+            with self.subTest(key=key):
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', key])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', key, '--value-only'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', key, '--human-readable'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', key, '--json'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', key, '--trim'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+
+    def test_get_metadata_vnic_keys(self):
+        """
+        Test displaying instance metadata.
+
+        Returns
+        -------
+        No return value.
+        """
+        for key in vnic_key_set:
+            with self.subTest(key=key):
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/%s' % key])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/%s' % key, '--value-only'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/%s' % key, '--human-readable'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/%s' % key, '--json'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
+                try:
+                    key_data = subprocess.check_output([self.oci_metadata_path, '--get', '/vnics/*/%s' % key, '--trim'])
+                    print(key_data.decode('utf-8'))
+                    self.assertIsNotNone(key_data)
+                except Exception as e:
+                    self.fail('Execution has failed: %s' % str(e))
 
     def test_get_definedtags(self):
         """
@@ -156,18 +530,6 @@ class TestCliOciMetadata(OciTestCase):
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
-    def test_get_metadata_only_values(self):
-        """
-        Test displaying 'instance' metadata
-
-        Returns
-        -------
-        No return value.
-        """
-        try:
-            _ = subprocess.check_output([self.oci_metadata_path, '--get', 'instance', '--value-only'])
-        except Exception as e:
-            self.fail('Execution has failed: %s' % str(e))
 
     def test_get_all_vnics(self):
         """
@@ -211,6 +573,7 @@ class TestCliOciMetadata(OciTestCase):
         try:
             this_displayname = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/displayName', '--value-only', '--trim']).decode('utf-8').strip()
             _ = subprocess.check_output([self.oci_metadata_path, '--update', 'displayName=AutoTest'])
+            time.sleep(120)
             _ = subprocess.check_output([self.oci_metadata_path, '--update', 'displayName=%s' % this_displayname])
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))

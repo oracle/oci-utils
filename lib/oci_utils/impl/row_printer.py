@@ -26,14 +26,13 @@ def get_row_printer_impl(mode):
         return HtmlPrinter
     if mode == 'text':
         return TextPrinter
-    raise Exception('unknown mode [%s]' % mode)
+    raise Exception('Unknown mode: [%s]' % mode)
 
 
 class ColumnsPrinter:
     """
-    base class fo array printer
+    Base class for array printer
     """
-
     _DEFAULT_SEP = ':'
     _MISSING_ATTR = '-'
     _DEFAULT_WIDTH = 10
@@ -55,7 +54,7 @@ class ColumnsPrinter:
                               callback must return a string to be printed. callback will
                               be called with columns name as first argument and object as passed to printRow()
                         ex: (['name',10,'getName'])
-                           This will produce a columns of 10 characters width.
+                           This will produce a column of 10 characters width.
                            'getName' method will be called on each objects passed to printRow()
                         ex:  (['foo',10, bar])
                             a call to printRow(o) produce a call to bar('foo',o)
@@ -64,7 +63,7 @@ class ColumnsPrinter:
         self.title = kargs.get('title', None)
         _columns = kargs.get('columns', None)
         if not _columns:
-            raise AttributeError('columns keyword cannot be empty')
+            raise AttributeError('Columns keyword cannot be empty.')
         self.columnsNames = []
         self.columnsWidths = []
         self.columnsAttrs = []
@@ -111,7 +110,7 @@ class ColumnsPrinter:
         static method to print a key value pair
         depend of the implementation
         """
-        print("%s %c %s" % (attrName, ColumnsPrinter._DEFAULT_SEP, attrValue), file=self.printer)
+        print("%s%c %s" % (attrName, ColumnsPrinter._DEFAULT_SEP, attrValue), file=self.printer)
 
     def printFooter(self):
         """
@@ -142,29 +141,28 @@ class ColumnsPrinter:
 
         _columnAttr = self.columnsAttrs[columnIdx]
         if isinstance(_columnAttr, types.FunctionType):
+            #
             # call the defined callback
             try:
                 return _columnAttr(self.columnsNames[columnIdx], _object)
             except Exception as e:
-                raise LookupError("error calling callback [%s] in obj %s: %s"
+                raise LookupError("Error calling callback [%s] in obj %s: %s"
                                   % (_columnAttr, _object, e.args[0])) from e
 
         if isinstance(_object, list) or isinstance(_object, tuple):
-            """
-            list case : return the columnIdx'th element
-            """
+            #
+            # list case : return the columnIdx'th element
             if len(_object) <= columnIdx:
-                raise LookupError('list too small to match index %d' % columnIdx)
+                raise LookupError('List too small to match index %d' % columnIdx)
             return _object[columnIdx]
 
         if isinstance(_object, dict):
-            """
-            dict case : return the value of key defined for that column
-            """
+            #
+            # dict case : return the value of key defined for that column
             _key = self.columnsAttrs[columnIdx]
             if _key in _object:
                 return _object[self.columnsAttrs[columnIdx]]
-            raise LookupError('missing key [%s] in dict' % _key)
+            raise LookupError('Missing key [%s] in dict' % _key)
 
         # otherwise handle Object case.
         # if a callback is defined call and return its result
@@ -173,12 +171,12 @@ class ColumnsPrinter:
 
         _o_attr = getattr(_object, _columnAttr, None)
         if not _o_attr:
-            raise LookupError("missing object attribute [%s] in obj %s" % (_columnAttr, _object))
+            raise LookupError("Missing object attribute [%s] in obj %s" % (_columnAttr, _object))
         if isinstance(_o_attr, types.MethodType):
             try:
                 return _o_attr()
             except Exception as e:
-                raise LookupError("error calling method [%s] in obj %s: %s" % (_columnAttr, _object, e.args[0])) from e
+                raise LookupError("Error calling method [%s] in obj %s: %s" % (_columnAttr, _object, e.args[0])) from e
         else:
             return _o_attr
 
@@ -233,7 +231,7 @@ class TablePrinter(ColumnsPrinter):
                 _elements.append(self._getValueForColumn(cidx, o))
             except LookupError:
                 # _logger.debug('cannot get value', exc_info=True)
-                _logger.debug('cannot get value')
+                _logger.debug('Cannot get value.')
                 _elements.append(self.replacement)
         self._printElements(_elements)
 
@@ -299,7 +297,7 @@ class JSONPrinter(ColumnsPrinter):
                 _a[_name] = self._getValueForColumn(cidx, o)
             except LookupError:
                 # _logger.debug('Cannot get value', exc_info=True)
-                _logger.debug('Cannot get value')
+                _logger.debug('Cannot get value.')
 
             cidx = cidx+1
 
@@ -348,7 +346,7 @@ class HtmlPrinter(ColumnsPrinter):
                 try:
                     vals.append(o[attr])
                 except KeyError:
-                    _logger.debug("missing key [%s] in dict", attr)
+                    _logger.debug("Missing key [%s] in dict.", attr)
 
             return self._printElements(vals)
 
@@ -362,18 +360,18 @@ class HtmlPrinter(ColumnsPrinter):
                 try:
                     newCell = attr(currentName, o)
                 except Exception as e:
-                    _logger.debug("error calling callback [%s] in obj %s: %s", attr, o, e.args[0])
+                    _logger.debug("Error calling callback [%s] in obj %s: %s", attr, o, e.args[0])
             else:
                 method = getattr(o, attr, None)
                 if method is None:
                     if _logger.isEnabledFor(logging.DEBUG):
-                        _logger.debug("missing method [%s] in obj %s", attr, o)
+                        _logger.debug("Missing method [%s] in obj %s", attr, o)
                     newCell = self.replacement
                 else:
                     try:
                         newCell = method()
                     except Exception as e:
-                        _logger.debug("error calling method [%s] in obj %s: %s", attr, o, e.args[0])
+                        _logger.debug("Error calling method [%s] in obj %s: %s", attr, o, e.args[0])
                         newCell = self.replacement
 
             vals.append(newCell)
@@ -404,7 +402,7 @@ class HtmlPrinter(ColumnsPrinter):
                 o = next(it)
                 _buffer.write('<td align="center" valign="middle">%s</td>\n' % str(o))
             except StopIteration:
-                _logger.debug('not enough elem to be printed')
+                _logger.debug('Not enough elements to be printed.')
                 break
         _buffer.write('</tr>\n')
 
@@ -430,7 +428,7 @@ class TextPrinter(ColumnsPrinter):
                     _value = self.replacement
             except LookupError:
                 # _logger.debug('cannot get value', exc_info=True)
-                _logger.debug('cannot get value')
+                _logger.debug('Cannot get value.')
                 _value = self.replacement
 
             print('%s: %s' % (self.columnsNames[cidx], _value), file=self.printer)
