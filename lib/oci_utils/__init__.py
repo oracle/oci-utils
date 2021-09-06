@@ -32,6 +32,7 @@ oci_regions = {
     'cwl': 'cwl - uk-cardiff-1 (Newport, UK)',
     'dxb': 'dxb - me-dubai-1 (Duabi, UAE)',
     'gru': 'gru - sa-saopaulo-1 (Sao Paulo, Brazil)',
+    'vcp': 'vcp - sa-vinhedo-1 (Vinhedo, Brazil)',
     'hyd': 'hyd - ap-hyderabad-1 (Hyderabad, India)',
     'icn': 'icn - ap-seoul-1 (Seoul, South Korea)',
     'jed': 'jed - me-jeddah-1 (Jeddah, Saoudi Arabia)',

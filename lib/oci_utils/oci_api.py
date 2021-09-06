@@ -374,7 +374,7 @@ class OCISession:
 
         Returns
         -------
-            A instance of oci.core.BlockStorageClient
+            A instance of oci.core.blockstorage_client.BlockStorageClient
         """
         if self._block_storage_client is None:
             if self.signer is not None:
@@ -384,6 +384,24 @@ class OCISession:
                 self._block_storage_client = \
                     oci_sdk.core.blockstorage_client.BlockstorageClient(config=self.oci_config)
         return self._block_storage_client
+
+    def get_object_storage_client(self):
+        """
+        Get a new object storage client.
+
+        Returns
+        -------
+            An instance of oci.object_storage.object_storage_client.ObjectStorageClient.
+        """
+        if self._object_storage_client is None:
+            if self.signer is not None:
+                self._object_storage_client = \
+                    oci_sdk.object_storage.object_storage_client.ObjectStorageClient(config=self.oci_config,
+                                                                                     signer=self.signer)
+            else:
+                self._object_storage_client = \
+                    oci_sdk.object_storage.object_storage_client.ObjectStorageClient(config=self.oci_config)
+        return self._object_storage_client
 
     def all_instances(self):
         """

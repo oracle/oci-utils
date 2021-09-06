@@ -161,8 +161,10 @@ def setup_logging(forceDebug=False):
     else:
         if forceDebug:
             try:
-                handler = logging.handlers.RotatingFileHandler(
-                    '/var/tmp/oci-utils.log', mode='a', maxBytes=1024 * 1024, backupCount=3)
+                handler = logging.handlers.RotatingFileHandler('/var/tmp/oci-utils.log',
+                                                               mode='a',
+                                                               maxBytes=1024 * 1024,
+                                                               backupCount=3)
                 handler.setFormatter(formatter)
                 handler.setLevel(logging.NOTSET)
             except Exception as _:

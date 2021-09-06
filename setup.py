@@ -364,7 +364,7 @@ if sys.version_info.major < 3:
 
 setup(
     name="oci-utils",
-    version="0.12.5",
+    version="0.12.6",
     author="Laszlo Peter, Qing Lin, Guido Tijskens, Emmanuel Jannetti",
     author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com, emmanuel.jannetti@oracle.com",
     description="Oracle Cloud Infrastructure utilities",

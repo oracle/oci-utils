@@ -94,7 +94,7 @@ def skipUnlessRoot():
         __current_user_id = os.geteuid()
 
     if __current_user_id != 0:
-        return unittest.skip("must be root")
+        return unittest.skip("Must be root")
     return lambda func: func
 
 

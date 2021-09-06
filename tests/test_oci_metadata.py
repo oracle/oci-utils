@@ -74,8 +74,8 @@ class TestOciMetadata(OciTestCase):
         self.assertIn('ocid1.compartment.oc1..', metadata['instance']['compartmentId'],
                       'Not expected value of \'compartmentId\'  of filtered instance metadata')
         self.assertIn('vnics', metadata, '\vnics\' not part of filtered instance metadata')
-        self.assertIn('macAddr', metadata['vnics'][0], 'first VNIC of metatada do nto contain \'macAddr\' key')
-        self.assertNotIn('vnicId', metadata['vnics'][0], 'first VNIC of metatada do nto contain \'vnicId\' key')
+        self.assertIn('macAddr', metadata['vnics'][0], 'first VNIC of metatada do not contain \'macAddr\' key')
+        self.assertNotIn('vnicId', metadata['vnics'][0], 'first VNIC of metatada do not contain \'vnicId\' key')
 
 
 if __name__ == '__main__':

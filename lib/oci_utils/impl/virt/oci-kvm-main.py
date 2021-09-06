@@ -15,23 +15,38 @@ import logging
 import xml.dom.minidom
 import libvirt
 import oci_utils.kvm.virt
+from oci_utils.impl.row_printer import get_row_printer_impl
 
 _logger = logging.getLogger("oci-utils.oci-kvm")
 
 _create = 'create'
 _destroy = 'destroy'
+_pool = 'pool'
 _create_pool = 'create-pool'
+_list_pool = 'list-pool'
 _create_network = 'create-network'
 _delete_network = 'delete-network'
 
 
 def _disk_size_in_gb(_string):
+    """
+    Convert string to int.
+
+    Parameters
+    ----------
+    _string: str
+        string containing a positive integer.
+
+    Returns
+    -------
+        int: the integer value.
+    """
     try:
         value = int(_string)
     except ValueError as e:
         raise argparse.ArgumentTypeError(str(e))
     if value <= 0:
-        raise argparse.ArgumentTypeError('size must be positive value')
+        raise argparse.ArgumentTypeError('Size must be positive value')
     return value
 
 
@@ -78,7 +93,7 @@ def parse_args():
     create_parser.add_argument('-V', '--virt',
                                nargs=argparse.REMAINDER,
                                help='Additional arguments to provide to virt-install. '
-                                    'All arguments that appear after this one will be passed unmodified into '\
+                                    'All arguments that appear after this one will be passed unmodified into '
                                     'virt-install, even if they are arguments that oci-kvm would otherwise understand.',
                                required=True)
     #
@@ -101,8 +116,7 @@ def parse_args():
                                 default=False,
                                 help='Forced operation, no gracefull shutdown.')
     #
-    create_pool_parser = subparser.add_parser(_create_pool,
-                                              help='Create a filesystem storage pool.')
+    create_pool_parser = subparser.add_parser(_create_pool, help='Create a filesystem storage pool.')
     dbp_group = create_pool_parser.add_argument_group(title='disk pool',
                                                       description='The options for disk based storage pool.')
     dbp_group.add_argument('-d', '--disk',
@@ -125,6 +139,12 @@ def parse_args():
                                     type=str,
                                     help='The name of the pool.',
                                     required=True)
+    #
+    list_pool_parser = subparser.add_parser(_list_pool, help='Show the filesystem storage pools.')
+    list_pool_parser.add_argument('--output-mode',
+                                  choices=('parsable', 'table', 'json', 'text'),
+                                  help='Set output mode.',
+                                  default='table')
     #
     create_network_parser = subparser.add_parser(_create_network,
                                                  help='Create a libvirt network on an OCI vNIC.')
@@ -164,6 +184,10 @@ def parse_args():
                                        action='store',
                                        required=True, type=str,
                                        help='The name of the network.')
+    delete_network_parser.add_argument('-y', '--yes',
+                                       action='store_true',
+                                       default=False,
+                                       help='Assume yes')
 
     return parser
 
@@ -218,7 +242,7 @@ def create_vm(args):
     # may setup things by mistake
     _virt_install_extra = []
     for _a in args.virt:
-        if _a not in ('--print-xml',  '--version', '-h', '--help'):
+        if _a not in ('--print-xml', '--version', '-h', '--help'):
             _virt_install_extra.append(_a)
 
     return oci_utils.kvm.virt.create(name=args.domain,
@@ -252,7 +276,7 @@ def destroy_vm(args):
     dom = None
     try:
         dom = libvirtConn.lookupByName(args.domain)
-        if dom == None:
+        if dom is None:
             print("Domain %s does not exist." % args.domain, file=sys.stderr)
             return 1
     except Exception as e:
@@ -261,12 +285,12 @@ def destroy_vm(args):
     # from here , domain exists
     if dom.isActive():
         if not args.stop:
-            _logger.error("Domain %s is running.  Only domains that are not running can be destroyed." % args.domain)
+            _logger.error("Domain %s is running.  Only domains that are not running can be destroyed.", args.domain)
             libvirtConn.close()
             return 1
 
         shut_res = 0
-        _logger.debug('Domain is running, stop it first with force ? %s' % args.force)
+        _logger.debug('Domain is running, stop it first with force ? %s', args.force)
         if args.force:
             shut_res = dom.destroyFlags()
         else:
@@ -311,8 +335,10 @@ def _delete_network_vm(args):
     print(xml.dom.minidom.parseString(net.XMLDesc()).toprettyxml(indent=" ", newl=''))
     print('')
 
-    if input('Really destroy this network ?').strip().lower() in ('y', 'yes'):
-        return oci_utils.kvm.virt.delete_virtual_network(network_name=args.network_name)
+    if not args.yes:
+        if not input('Really destroy this network ?').strip().lower() in ('y', 'yes'):
+            return 1
+    return oci_utils.kvm.virt.delete_virtual_network(network_name=args.network_name)
     return 1
 
 
@@ -331,6 +357,12 @@ def _create_network_vm(args):
             The return value provided by the kvm storage pool create
             call, 0 on success, 1 otherwise.
     """
+    #
+    # maximum length of network name is 14 chars, longer names will result in
+    # a failure 'numerical result out of range' when creating the bridge.
+    if len(args.network_name) > 14:
+        _logger.error('Network name %s to long, max is 14 characters.', args.network_name)
+        return 1
     # check network  name unicity
     conn = libvirt.openReadOnly(None)
     _vnets = []
@@ -354,7 +386,7 @@ def _create_network_vm(args):
 
 def _create_pool_vm(args):
     """
-    create a filesystem pool
+    Create a filesystem pool
 
     Parameters
     ----------
@@ -369,7 +401,7 @@ def _create_pool_vm(args):
     """
     # check storage pool name unicity
     conn = libvirt.open(None)
-    _sps = []
+    _sps = list()
     if conn:
         _sps = [sp for sp in conn.listAllStoragePools() if sp.name() == args.name]
         conn.close()
@@ -390,7 +422,7 @@ def _create_pool_vm(args):
         return 1
 
     if args.netfshost and not args.path:
-        print("must specify the remote resource path with the --path option", file=sys.stderr)
+        print("Must specify the remote resource path with the --path option", file=sys.stderr)
         return 1
 
     _pool_name = args.name
@@ -398,6 +430,148 @@ def _create_pool_vm(args):
         return oci_utils.kvm.virt.create_fs_pool(args.disk, _pool_name)
     if args.netfshost:
         return oci_utils.kvm.virt.create_netfs_pool(args.netfshost, args.path, _pool_name)
+
+
+def _format_size(size):
+    """
+    Format a size in bytes as a sting Tib, Gib, Mib.
+
+    Parameters
+    ----------
+    size: int
+        The size in bytes.
+
+    Returns
+    -------
+        str: the size string.
+    """
+    size_mb = float(size)/1048576
+    size_str = '%10.2f MiB' % size_mb
+    if size_mb > 1024:
+        size_gb = size_mb/1024
+        size_str = '%10.2f GiB' % size_gb
+    else:
+        return size_str
+    if size_gb > 1024:
+        size_tb = size_gb/1024
+        size_str = '%10.2f TiB' % size_tb
+    return size_str.strip()
+
+
+def _list_pool_vm(args):
+    """
+    List the filesystem pools.
+
+    Parameters
+    ----------
+        args : namespace
+            The parsed command line.
+    Returns
+    -------
+        No return value.
+    """
+    _logger.debug('_list_pool_vm')
+
+    pool_states = ['inactive',
+                   'initializing',
+                   'running',
+                   'degraded',
+                   'inaccessible']
+    yes_no = ['no',
+              'yes']
+
+    conn = libvirt.open(None)
+    try:
+        _sps = list()
+        if conn:
+            _sps = conn.listAllStoragePools()
+        else:
+            _logger.error('Failed to contact hypervisor')
+            raise ValueError('Failed to contact hypervisor.')
+    except Exception as e:
+        _logger.error('Failed to collect vm pool data: %s', str(e))
+        raise ValueError('Failed to collect vm pool data.') from e
+    finally:
+        conn.close()
+
+    if len(_sps) == 0:
+        _logger.info('No filesystem pools found.')
+        return
+
+    _collen = {'name': 4,
+               'uuid': 4,
+               'autostart': 9,
+               'active': 6,
+               'persistent': 10,
+               'volumes': 7,
+               'state': 5,
+               'capacity': 8,
+               'allocation': 10,
+               'available': 9}
+    #
+    # format data and determine optimal lenght of fields.
+    pool_data = list()
+    for _sp in _sps:
+        _sp_info = _sp.info()
+        _sp_data = dict()
+        # name
+        _sp_name_len = len(_sp.name())
+        _collen['name'] = _sp_name_len if _sp_name_len > _collen['name'] else _collen['name']
+        _sp_data['name'] = _sp.name()
+        # uuid
+        _sp_uuid_len = len(_sp.UUIDString())
+        _collen['uuid'] = _sp_uuid_len if _sp_uuid_len > _collen['uuid'] else _collen['uuid']
+        _sp_data['uuid'] = _sp.UUIDString()
+        # autostart
+        _sp_data['autostart'] = yes_no[_sp.autostart()]
+        # active
+        _sp_data['active'] = yes_no[_sp.isActive()]
+        # persistent
+        _sp_data['persistent'] = yes_no[_sp.isPersistent()]
+        # number of volumes
+        _sp_data['volumes'] = _sp.numOfVolumes()
+        # total capacity
+        _sp_data['capacity'] = _format_size(int(_sp_info[1]))
+        _sp_cap_len = len(_sp_data['capacity'])
+        _collen['capacity'] = _sp_cap_len if _sp_cap_len > _collen['capacity'] else _collen['capacity']
+        # state
+        _sp_data['state'] = pool_states[_sp_info[0]]
+        _sp_state_len = len(_sp_data['state'])
+        _collen['state'] = _sp_state_len if _sp_state_len > _collen['state'] else _collen['state']
+        # allocated space
+        _sp_data['allocation'] = _format_size(int(_sp_info[2]))
+        _sp_alloc_len = len(_sp_data['allocation'])
+        _collen['allocation'] = _sp_alloc_len if _sp_alloc_len > _collen['allocation'] else _collen['allocation']
+        # available space
+        _sp_data['available'] = _format_size(int(_sp_info[3]))
+        _sp_avail_len = len(_sp_data['available'])
+        _collen['available'] = _sp_avail_len if _sp_avail_len > _collen['available'] else _collen['available']
+
+        pool_data.append(_sp_data)
+
+    _title = 'VM pool Information'
+    _columns = list()
+    _columns.append(['Name', _collen['name']+2, 'name'])
+    _columns.append(['UUID', _collen['uuid']+2, 'uuid'])
+    _columns.append(['Autostart', _collen['autostart']+2, 'autostart'])
+    _columns.append(['Active', _collen['active']+2, 'active'])
+    _columns.append(['Persistent', _collen['persistent']+2, 'persistent'])
+    _columns.append(['Volumes', _collen['volumes']+2, 'volumes'])
+    _columns.append(['State', _collen['state']+2, 'state'])
+    _columns.append(['Capacity', _collen['capacity']+2, 'capacity'])
+    _columns.append(['Allocation', _collen['allocation']+2, 'allocation'])
+    _columns.append(['Available', _collen['available']+2, 'available'])
+
+    printerKlass = get_row_printer_impl(args.output_mode)
+    printer = printerKlass(title=_title, columns=_columns)
+    printer.printHeader()
+
+    for _sp in pool_data:
+        printer.rowBreak()
+        printer.printRow(_sp)
+    printer.printFooter()
+    printer.finish()
+    return
 
 
 def main():
@@ -412,6 +586,7 @@ def main():
     subcommands = {_create: create_vm,
                    _destroy: destroy_vm,
                    _create_pool: _create_pool_vm,
+                   _list_pool: _list_pool_vm,
                    _create_network: _create_network_vm,
                    _delete_network: _delete_network_vm}
 

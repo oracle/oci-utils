@@ -182,6 +182,17 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Fri Aug 27 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5.9
+- LINUX-11457: public API oci_api missing get_object_storage_client
+
+* Tue Aug 24 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-8
+- LINUX-11441: add --yes flag to delete-network in oci-kvm
+- LINUX-11442: oci-kvm create network fails with 'numerical result out of range when name > 14 characters
+- LINUX-11443: oci-kvm create-pool on nfs fails with python3 string error
+
+* Thu Aug 12 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-7
+- LINUX-7304: KVM image script alignment
+
 * Wed Aug 11 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-6
 - LINUX-1742: oci-public-ip reports errors when python-oci-sdk is installed but not set up
 - LINUX-9425: oci-iscsi-config attach -I fails on iqn's

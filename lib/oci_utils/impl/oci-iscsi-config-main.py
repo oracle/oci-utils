@@ -866,7 +866,7 @@ def api_display_available_block_volumes(sess, compartments, show_all, output_mod
         compartement ocid(s)
     show_all: bool
         display all volumes. By default display only not-attached  ones
-    output_mode : informtion display mode
+    output_mode : information display mode
     details : display detailed information ?
     truncate: truncate text?
 
@@ -1002,10 +1002,10 @@ def get_volume_by_iqn(sess, iqn):
     try:
         if bool(sess):
             get_volume_by_iqn.all_this_instance_volume = sess.this_instance().all_volumes()
-            for v in get_volume_by_iqn.all_this_instance_volume:
-                if v.get_iqn() == iqn:
-                    _logger.debug('Found %s', str(v))
-                    return v
+            for volume in get_volume_by_iqn.all_this_instance_volume:
+                if volume.get_iqn() == iqn:
+                    _logger.debug('Found %s', str(volume))
+                    return volume
         else:
             _logger.info('Unable to get volume ocid and display name for iqn %s, ', iqn)
     except Exception as e:

@@ -368,11 +368,15 @@ def do_show_vnics_information(vnics, mode, details=False):
 def do_show_information(vnic_utils, mode, details=False):
     """
     Display network information
-    parameter
-    ---------
-        vnic_utils : instance ov VNICUtil
-        mode : output mode (text,parsable etc...)
-        details : display detailed information ?
+
+    Parameters
+    ----------
+        vnic_utils : instance of VNICUtils
+
+        mode : str
+            output mode (text,parsable etc...)
+        details : bool
+            display detailed information ?
     """
 
     sess = get_oci_api_session()
