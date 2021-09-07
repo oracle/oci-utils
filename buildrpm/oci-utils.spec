@@ -182,6 +182,9 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Tue Sep 07 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5.10
+- LINUX-11499: oci-metadata --value-only returning null
+
 * Fri Aug 27 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5.9
 - LINUX-11457: public API oci_api missing get_object_storage_client
 

@@ -105,11 +105,8 @@ def parse_args():
     -------
         The argparse namespace.
     """
-    parser = argparse.ArgumentParser(description='Utility for displaying '
-                                                 'metadata for an instance '
-                                                 'running in '
-                                                 'the Oracle Cloud '
-                                                 'Infrastructure.',
+    parser = argparse.ArgumentParser(description='Utility for displaying metadata for an instance running in '
+                                                 'the Oracle Cloud Infrastructure.',
                                      add_help=False)
     parser.add_argument('-h', '--human-readable', action='store_true',
                         help='Display human readable output (default)')
@@ -117,26 +114,22 @@ def parse_args():
                         help='Display json output')
     parser.add_argument('-g', '--get', metavar='KEY', dest='keys',
                         action='append', type=str.lower,
-                        help='Display the value of a specific key. '
-                        'Key can be any single field-name in metadata json output,'
-                        'or a path like /instance/id, or /vnics/*/vnicid')
+                        help='Display the value of a specific key. Key can be any single field-name in metadata json '
+                             'output,or a path like /instance/id, or /vnics/*/vnicid')
     parser.add_argument('--value-only', action='store_true',
                         help='Used with one -g option, return a list of values matching the key.')
 
     parser.add_argument('--export', action='store_true',
-                        help='Used with the -g option, export the keys as '
-                             'environment variables.')
+                        help='Used with the -g option, export the keys as environment variables.')
     parser.add_argument('--trim', action='store_true',
-                        help='Used with the -g option, trim the key path to '
-                             'the last component.')
+                        help='Used with the -g option, trim the key path to the last component.')
     parser.add_argument('-u', '--update', nargs='+', metavar='KEY=VALUE ',
                         dest='setkeys',
                         action='append', type=str,
-                        help='Update the value for a specific key.  KEY can '
-                             'be displayName or a key in the extended metadata.'
-                             ' VALUE can be a string, JSON data or a pointer '
-                             'to a file containing JSON data.'
-                             ' Note: do not put spaces around "=".'
+                        help='Update the value for a specific key.  '
+                             'KEY can be displayName or a key in the extended metadata. '
+                             'VALUE can be a string, JSON data or a pointer to a file containing JSON data. '
+                             'Note: do not put spaces around "=".'
                         )
     parser.add_argument('-i', '--instance-id', metavar='OCID',
                         action='store', type=str,
@@ -367,6 +360,7 @@ def verify_setkeys(set_keys):
     ----------
     set_keys: dict
         The list of key-value pairs
+
     Returns
     -------
         bool
@@ -491,7 +485,7 @@ def get_trimed_key_values(keys, metadata):
                 if v:
                     exportKeys[ke].append(v)
             continue
-        v = get_values(ke,  metadata)
+        v = get_values(ke, metadata)
         if isinstance(v, list):
             exportKeys[ke].extend(v)
         elif v is not None:
@@ -507,11 +501,13 @@ def remove_list_for_single_item_list(dic):
     one or less item,  then the key
     will be equal to the item in the list.
 
-    Inputs:
-    dic: a dictionary
+    Parameters
+    ----------
+        dic: a dictionary
 
-    Returns:
-    dic: the changed dictionary
+    Returns
+    -------
+        dic: the changed dictionary
     """
     for k, v in dic.items():
         if isinstance(v, list):
@@ -523,14 +519,16 @@ def remove_list_for_single_item_list(dic):
 
 def print_trimed_key_values(keys, metadata):
     """
-    print the trimmed key and its value.
+    Print the trimmed key and its value.
 
-    Inputs:
-    keys: a list of getting keys.
-    metadata: a dict of matching values
+    Parameters
+    ----------
+        keys: a list of getting keys.
+        metadata: a dict of matching values
 
-    Returns:
-    None.
+    Returns
+    -------
+        No return value.
     """
 
     kValues = get_trimed_key_values(keys, metadata)
@@ -539,33 +537,44 @@ def print_trimed_key_values(keys, metadata):
             for item in v:
                 print(k + ": " + str(item))
         else:
-            print(k + ": " + str(v))
+            if k == 'region':
+                region = oci_regions[v] if v in oci_regions else str(v)
+                print(k + ": " + region)
+            else:
+                print(k + ": " + str(v))
 
 
 def print_value_only(keys, metadata):
     """
-    print the values only for the matching key.
+    Print the values only for the matching key.
 
-    Inputs:
-    keys: a list of getting keys.
-    metadata: a dict of matching values
 
-    Returns:
-    None.
+    Parameters
+    ----------
+        keys: a list of getting keys.
+        metadata: a dict of matching values
+
+    Returns
+    -------
+        No return value.
     """
 
     kValues = get_trimed_key_values(keys, metadata)
-    for _, v in kValues.items():
+    for k, v in kValues.items():
         if isinstance(v, list):
             for item in v:
                 print(str(item))
         else:
-            print(str(v))
+            if k == 'region':
+                region = oci_regions[v] if v in oci_regions else str(v)
+                print(region)
+            else:
+                print(str(v))
 
 
 def export_keys(keys, metadata):
     """
-    export the key and values in the metadata.
+    Export the key and values in the metadata.
 
     Parameters
     ----------
@@ -705,6 +714,7 @@ def main():
     if args.trim:
         print_trimed_key_values(args.keys, metadata)
         return 0
+
     if args.json:
         print(json.dumps(metadata, default=dumper, indent=2))
         return 0
