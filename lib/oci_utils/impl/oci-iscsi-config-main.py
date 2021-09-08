@@ -796,7 +796,7 @@ def do_detach_volume(oci_session, iscsiadm_session, iqn, mode):
         raise Exception("Volume with IQN [%s] not found" % iqn)
     try:
         compat_info_message(compat_msg="Detaching volume",
-                            gen_msg="Detaching volume %s (%s)" % (_volume.get_display_name(),
+                            gen_msg="Detaching volume %s [%s]" % (_volume.get_display_name(),
                                                                   _volume.get_iqn()), mode=mode)
         _volume.detach()
     except Exception as e:
@@ -953,22 +953,22 @@ def _do_attach_oci_block_volume(sess, ocid, chap=False):
     Raise:
         Exception if attachment failed
     """
-    _logger.debug("Attaching volume [%s]", ocid)
+    _logger.debug('Attaching volume [%s]', ocid)
     vol = sess.get_volume(ocid)
     if vol is None:
-        raise Exception("Volume %s not found" % ocid)
+        raise Exception('Volume [%s] not found' % ocid)
 
     if vol.is_attached():
         if vol.get_instance().get_ocid() == sess.this_instance().get_ocid():
             # attached to this instance already
-            _msg = "Volume %s already attached to this instance" % ocid
+            _msg = 'Volume [%s] already attached to this instance' % ocid
         else:
-            _msg = "Volume %s already attached to instance %s (%s)" % (ocid,
+            _msg = 'Volume [%s] already attached to instance %s [%s]' % (ocid,
                                                                        vol.get_instance().get_ocid(),
                                                                        vol.get_instance().get_display_name())
         raise Exception(_msg)
 
-    _logger.info("Attaching OCI Volume to this instance.")
+    _logger.info('Attaching OCI Volume [%s] to this instance.' % ocid)
     # vol = vol.attach_to(instance_id=sess.this_instance().get_ocid(), wait=True)
     vol = vol.attach_to(instance_id=sess.this_instance().get_ocid(), use_chap=chap, wait=True)
     _logger.debug("Volume [%s] attached", ocid)
@@ -1007,10 +1007,10 @@ def get_volume_by_iqn(sess, iqn):
                     _logger.debug('Found %s', str(volume))
                     return volume
         else:
-            _logger.info('Unable to get volume ocid and display name for iqn %s, ', iqn)
+            _logger.info('Unable to get volume ocid and display name for iqn [%s], ', iqn)
     except Exception as e:
-        _logger.debug('Failed to get volume data for iqn %s: %s', iqn, str(e), stack_info=True, exc_info=True)
-        _logger.error('Failed to get volume data for iqn %s', iqn)
+        _logger.debug('Failed to get volume data for iqn [%s]: %s', iqn, str(e), stack_info=True, exc_info=True)
+        _logger.error('Failed to get volume data for iqn [%s]', iqn)
     return None
 
 
@@ -1029,7 +1029,7 @@ def _get_iqn_from_ocid(sess, ocid):
     -------
         str: the iqn.
     """
-    _logger.debug('Trying to find the iqn for volume %s', ocid)
+    _logger.debug('Trying to find the iqn for volume [%s]', ocid)
     this_compartment = sess.this_compartment()
     this_availability_domain = sess.this_availability_domain()
     all_volumes = this_compartment.all_volumes(this_availability_domain)
@@ -1057,7 +1057,7 @@ def _is_iqn_attached(sess, iqn):
     -------
         str: the ocid
     """
-    _logger.debug('Verifying if %s is attached to this instance.')
+    _logger.debug('Verifying if [%s] is attached to this instance.')
     volume_data = get_volume_by_iqn(sess, iqn)
     if volume_data is None:
         return None
@@ -1084,7 +1084,7 @@ def do_umount(mountpoint):
         subprocess.check_output(['/usr/bin/umount', mountpoint], stderr=subprocess.STDOUT)
         return True
     except subprocess.CalledProcessError as e:
-        _logger.error("Failed to unmount %s: %s", mountpoint, e.output)
+        _logger.error("Failed to unmount [%s]: %s", mountpoint, e.output)
         return False
 
 
@@ -1178,7 +1178,7 @@ def do_create_volume(sess, size, display_name, attach_it, chap_credentials, mode
         _logger.debug("Failed to create volume", exc_info=True)
         raise Exception("Failed to create volume") from e
 
-    _logger.info("Volume %s created", vol.get_display_name())
+    _logger.info("Volume [%s] created", vol.get_display_name())
 
     if not attach_it:
         return
@@ -1195,7 +1195,7 @@ def do_create_volume(sess, size, display_name, attach_it, chap_credentials, mode
         raise Exception('Cannot attach BV') from e
     #
     # attach using iscsiadm commands
-    compat_info_message(gen_msg="Attaching iSCSI device", mode=mode)
+    compat_info_message(gen_msg="Attaching iSCSI device.", mode=mode)
 
     vol_portal_ip = vol.get_portal_ip()
     vol_portal_port = vol.get_portal_port()
@@ -1209,7 +1209,7 @@ def do_create_volume(sess, size, display_name, attach_it, chap_credentials, mode
                              password=vol_password,
                              auto_startup=True)
     compat_info_message(compat_msg="iscsiadm attach Result: %s" % iscsiadm.error_message_from_code(retval),
-                        gen_msg="Volume %s is attached." % vol.get_display_name(), mode=mode)
+                        gen_msg="Volume [%s] is attached." % vol.get_display_name(), mode=mode)
     if retval == 0:
         _logger.debug('Creation successful')
         if chap_credentials:
@@ -1550,7 +1550,7 @@ def main():
         retval = 0
         if not args.yes:
             for ocid in args.ocids:
-                _logger.info("Volume : %s", ocid)
+                _logger.info("Volume : [%s]", ocid)
             # if not ask_yes_no("WARNING: the volume(s) will be destroyed.  This is irreversible.  Continue?"):
             if not _read_yn('WARNING: the volume(s) will be destroyed.  This is irreversible.  Continue?',
                             yn=True,
@@ -1589,11 +1589,11 @@ def main():
         retval = 0
         for iqn in args.iqns:
             if iqn in detached_volume_iqns:
-                _logger.error("Target %s is already detached", iqn)
+                _logger.error("Target [%s] is already detached", iqn)
                 retval = 1
                 continue
             if iqn not in iscsiadm_session or 'device' not in iscsiadm_session[iqn]:
-                _logger.error("Target %s not found", iqn)
+                _logger.error("Target [%s] not found", iqn)
                 retval = 1
                 continue
 
@@ -1625,7 +1625,8 @@ def main():
                 retval = 1
 
         if retval == 0:
-            compat_info_message(gen_msg="Updating detached volume cache file: remove %s" % iqn, mode=compat_mode)
+            # compat_info_message(gen_msg="Updating detached volume cache file: remove %s" % iqn, mode=compat_mode)
+            # compat_info_message(gen_msg="Volume [%s] successfully detached." % iqn, mode=compat_mode)
             write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
 
         _logger.debug('Trigger ocid refresh')
@@ -1652,7 +1653,7 @@ def main():
             _iqn_to_use = iqn
             _save_chap_cred = False
             if iqn in iscsiadm_session:
-                _logger.info("Target %s is already attached.", iqn)
+                _logger.info("Target [%s] is already attached.", iqn)
                 continue
 
             if _iqn_to_use.startswith(oci_volume_tag):
@@ -1703,7 +1704,7 @@ def main():
                 if not this_ocid:
                     #
                     # volume is not attached to oci, giving up for now instead of letting it timeout for 90 sec
-                    _logger.error('A volume with iqn %s is not in this instance list\n '
+                    _logger.error('A volume with iqn [%s] is not in this instance list '
                                   'of attached block volumes, attach it using the ocid.', _iqn_to_use)
                     retval = 1
                     continue
@@ -1722,11 +1723,11 @@ def main():
 
                 if _iqn_to_use in iscsiadm_session:
                     _iscsi_portal_ip = iscsiadm_session[_iqn_to_use]['current_portal_ip']
-                    _logger.debug('Portal ip for %s is %s', _iqn_to_use, _iscsi_portal_ip)
+                    _logger.debug('Portal ip for [%s] is [%s]', _iqn_to_use, _iscsi_portal_ip)
                 elif pip_cand is not None:
                     _iscsi_portal_ip = pip_cand
                 else:
-                    _logger.info('Invalid argument, iqn %s not found', _iqn_to_use)
+                    _logger.info('Invalid argument, iqn [%s] not found', _iqn_to_use)
                     retval = 1
                     continue
             else:
@@ -1747,8 +1748,8 @@ def main():
                 if _iqn_to_use in detached_volume_iqns:
                     detached_volume_iqns.remove(_iqn_to_use)
             except Exception as e:
-                _logger.debug("Failed to attach target %s: %s", _iqn_to_use, str(e), exc_info=True, stack_info=True)
-                _logger.error("Failed to attach target %s: %s", _iqn_to_use, str(e))
+                _logger.debug("Failed to attach target [%s]: %s", _iqn_to_use, str(e), exc_info=True, stack_info=True)
+                _logger.error("Failed to attach target [%s]: %s", _iqn_to_use, str(e))
                 _save_chap_cred = False
                 retval = 1
                 continue
@@ -1758,10 +1759,11 @@ def main():
                 add_chap_secret(_iqn_to_use, _attachment_username, _attachment_password)
 
         if retval == 0:
+            # compat_info_message(gen_msg="Volume [%s] successfully attached." % _iqn_to_use)
             #
             # update detached volume cache
-            compat_info_message(gen_msg="Updating detached volume cache file: remove %s if necessary."
-                                        % _iqn_to_use, mode=compat_mode)
+            # compat_info_message(gen_msg="Updating detached volume cache file: remove %s if necessary."
+            #                             % _iqn_to_use, mode=compat_mode)
             write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
             #
             # run ocid.refresh

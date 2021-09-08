@@ -595,8 +595,8 @@ class OCIInstance(OCIAPIAbstractResource):
                                                                       instance_id=self._ocid).data
         except oci_sdk.exceptions.ServiceError:
             # the user has no permission to list volumes
-            OCIInstance._logger.debug('the user has no permission to list volumes', exc_info=True)
-            # TODO : shouln't be an error ?
+            OCIInstance._logger.debug('The user has no permission to list volumes', exc_info=True, stack_info=True)
+            # TODO : shouldn't be an error ?
             return []
 
         # multiple volume attachments may exist for the same

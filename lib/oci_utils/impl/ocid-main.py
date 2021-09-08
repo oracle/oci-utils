@@ -300,6 +300,23 @@ def iscsi_func(context, func_logger):
 
     all_iqns = {}
 
+    # -------------------------------------------------------------------------------------
+    # possible change for LINUX-11440; comment out the in-between
+    # verify if user has authorisation to list volumes; if not, scan for new volumes.
+    # volumes = None
+    # if context['oci_sess'] is not None:
+    #     try:
+    #         #
+    #         # get a list of volumes attached to the instance
+    #         instance = context['oci_sess'].this_instance()
+    #         if instance is None:
+    #             func_logger.debug('Cannot get current instance.')
+    #         else:
+    #             volumes = instance.all_volumes()
+    #     except Exception as e:
+    #         func_logger.debug('User is not authorized to list all volumes.')
+    # -------------------------------------------------------------------------------------
+    #
     # volumes connected to this instance
     inst_volumes = []
     if context['oci_sess'] is not None:
@@ -321,6 +338,23 @@ def iscsi_func(context, func_logger):
                 else:
                     all_iqns[v.get_portal_ip()] = [v.get_iqn()]
             func_logger.debug('All volumes: %s', all_iqns)
+    # -------------------------------------------------------------------------------------
+    #
+    # possible change for LINUX-11440; comment out the above
+    # if bool(volumes):
+    #     for v in volumes:
+    #         vol = {'iqn': v.get_iqn(),
+    #                'ipaddr': v.get_portal_ip(),
+    #                'user': v.get_user(),
+    #                'password': v.get_password()}
+    #         inst_volumes.append(vol)
+    #         if v.get_portal_ip() in all_iqns:
+    #             all_iqns[v.get_portal_ip()].append(v.get_iqn())
+    #         else:
+    #             all_iqns[v.get_portal_ip()] = [v.get_iqn()]
+    #     func_logger.debug('All volumes: %s', all_iqns)
+    #
+    # -------------------------------------------------------------------------------------
     else:
         #
         # fall back to scanning
@@ -577,8 +611,7 @@ def start_thread(name, repeat):
         is_enabled = OCIUtilsConfiguration.get('public_ip', 'enabled')
         if is_enabled not in true_list:
             return None
-        refresh_interval = \
-            OCIUtilsConfiguration.get('public_ip', 'refresh_interval')
+        refresh_interval = OCIUtilsConfiguration.get('public_ip', 'refresh_interval')
         th = OcidThread(name=name,
                         ocidfunc=public_ip_func,
                         context={},
