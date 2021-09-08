@@ -82,12 +82,15 @@ def parse_args():
                                  .replace('MAX_MESSAGE_CHUNKS', str(MAX_MESSAGE_CHUNKS)))
     parser = argparse.ArgumentParser(description='%s' % extra_descr)
     sub_parser = parser.add_subparsers(dest='mode')
+
     config_parser = sub_parser.add_parser('config', help='Configure the notification server.')
-    message_parser = sub_parser.add_parser('message', help='Send a message.')
+
     config_parser.add_argument(action='store',
                                dest='notification_ocid',
                                type=str,
                                help='The ocid of the notification topic.')
+
+    message_parser = sub_parser.add_parser('message', help='Send a message.')
     message_parser.add_argument('-t', '--title',
                                 action='store',
                                 dest='message_title',
@@ -449,7 +452,7 @@ class NotificationMessage():
             oci_config = oci_sdk.config.from_file(full_fname, profile)
             return oci_config
         except oci_sdk.exceptions.ConfigFileNotFound as e:
-            _logger.debug("Unable to read OCI config file: %s", str(e))
+            _logger.debug('Unable to read OCI config file: %s', str(e))
             raise Exception('Unable to read OCI config file') from e
 
     def get_auth_method(self, authentication_method=None):
@@ -524,7 +527,7 @@ class NotificationMessage():
         """
         _logger.debug('_proxy_authenticate')
         if os.geteuid() != 0:
-            raise Exception("Must be root to use Proxy authentication")
+            raise Exception('Must be root to use Proxy authentication')
 
         sdk_user = OCIUtilsConfiguration.get('auth', 'oci_sdk_user')
         try:
@@ -533,8 +536,8 @@ class NotificationMessage():
             self._identity_client = oci_sdk.identity.IdentityClient(self._oci_config)
             self._ons_client = oci_sdk.ons.NotificationDataPlaneClient(config=self._oci_config)
         except Exception as e:
-            _logger.debug("Proxy authentication failed: %s", str(e))
-            raise Exception("Proxy authentication failed") from e
+            _logger.debug('Proxy authentication failed: %s', str(e))
+            raise Exception('Proxy authentication failed') from e
 
     def _direct_authenticate(self):
         """
@@ -556,7 +559,7 @@ class NotificationMessage():
             self._ons_client = oci_sdk.ons.NotificationDataPlaneClient(config=self._oci_config)
         except Exception as e:
             _logger.debug('Direct authentication failed: %s', str(e))
-            raise Exception("Direct authentication failed") from e
+            raise Exception('Direct authentication failed') from e
 
     def _ip_authenticate(self):
         """
@@ -758,17 +761,19 @@ class NotificationMessage():
             _logger.debug('_Send chunk %d of %d', nb, nbtot)
             if nbtot <= 1:
                 _logger.info("Publishing message '%s: %s'", self._instance_name, self._title)
+                thistitle = self._title
             else:
                 _logger.info("Publishing message '[%d/%d] %s: %s'", nb, nbtot, self._instance_name, self._title)
+                thistitle = self._title + ' [%d/%d]' % (nb,nbtot)
             _message_details = oci_sdk.ons.models.MessageDetails(body=chunk, title=self._instance_name
                                                                                    + ':'
-                                                                                   + 'self._title)
+                                                                                   + thistitle)
             request_id = uuid.uuid4().hex
             _logger.debug('Message request id: %s', request_id)
             publish_message_response = self._ons_client.publish_message(topic_id=self._topic,
                                                                         message_details=_message_details,
                                                                         opc_request_id=request_id,
-                                                                        message_type="RAW_TEXT")
+                                                                        message_type='RAW_TEXT')
             if nbtot <= 1:
                 _logger.info("Published message '%s: %s'", self._instance_name, self._title)
             else:

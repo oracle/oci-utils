@@ -111,7 +111,7 @@ class TestCliOciIscsiConfig(OciTestCase):
             If the ISCSI_CONFIG file does not exist.
         """
         super().setUp()
-        self.iscsi_config_path = self.properties.get_property('oci-iscsi-config-path')
+        self.iscsi_config_path = self.properties.get_property('oci-iscsi-config')
         if not os.path.exists(self.iscsi_config_path):
             raise unittest.SkipTest("%s not present" % self.iscsi_config_path)
         try:

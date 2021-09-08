@@ -85,14 +85,12 @@ class ColumnsPrinter:
         self.printer = kargs.get('printer', sys.stdout)
 
     def printHeader(self):
-        """
-        prints the header of the array
-        depend of the implementation
+        """ Prints the header of the array, depend of the implementation
         """
 
     def printRow(self, o):
         """
-        prints a new row
+        Prints a new row
         o can be an arbitrary instance on which all columns attribute will be called
         if o is an dictionnary columns attribute are used as key of the dictionnary
         if o is a list all elements' string representation will be printed in order
@@ -131,7 +129,7 @@ class ColumnsPrinter:
         :param _object: Object as accepted by printRow
         raise LookupError is value cannot be found
 
-        If current column attribut is a function , call it with _object
+        If current column attribute is a function , call it with _object
         If _object is a list or a tuple, returns the columnIdx'th element of it
         If _object is a dictionary, returns the value associated with key defined in column attribute
         If _object is a Object

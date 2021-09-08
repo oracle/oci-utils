@@ -823,7 +823,7 @@ def main():
     image_data = collect_instance_parameters(image_data, args.oltype)
     #
     # data for build
-    image_data = build_data(image_data, operator_home)
+    image_data = build_data(image_data, operator_home + '/scripts')
     #
     # validate
     show_parameters(image_data)

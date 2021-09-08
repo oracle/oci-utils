@@ -693,7 +693,7 @@ def create(**kargs):
         if _is_bm_shape and not kargs['virtual_network']:
             destroy_networking(vf_dev, vnic['vlanTag'])
         return 1
-    _logger.debug('Creation succeed: %s' % _out)
+    _logger.debug('Creation succeed: %s' % _out.decode('utf-8'))
     return 0
 
 
@@ -785,10 +785,12 @@ def create_netfs_pool(netfs_server, resource_path, name):
 
     Parameters
     ----------
-        netfs_server : str
-            IP or hostname of the netFS server
-        resource_path : str
-            the resource path
+        netfs_server: str
+            IP or hostname of the netFS server.
+        resource_path: str
+            The resource path.
+        name: str
+            The pool name.
     Returns
     -------
         int
@@ -810,7 +812,7 @@ def create_netfs_pool(netfs_server, resource_path, name):
         _logger.error('Failed to open connection to qemu:///system')
         return 1
 
-    pool = conn.storagePoolDefineXML(ElementTree.tostring(poolXML), 0)
+    pool = conn.storagePoolDefineXML(ElementTree.tostring(poolXML).decode('utf-8'), 0)
     if pool is None:
         _logger.error('Failed to create StoragePool object.')
         return 1
@@ -883,6 +885,7 @@ def create_fs_pool(disk, name):
         _logger.error('Failed to build pool')
         return 1
 
+    _logger.info('Pool %s successfully created.', name)
     return 0
 
 

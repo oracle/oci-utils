@@ -413,7 +413,8 @@ class OCIMetadata(dict):
                 return None
             return new_metadata
         if isinstance(metadata, tuple):
-            filtered_tuple = [filter_results(x, keys) for x in metadata]
+            # _GT_ filtered_tuple = [filter_results(x, keys) for x in metadata]
+            filtered_tuple = [(x, keys) for x in metadata]
             for a in filtered_tuple:
                 if a is not None:
                     return tuple(filtered_tuple)

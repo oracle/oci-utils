@@ -106,7 +106,7 @@ def discovery(ipaddr):
             output = subprocess.check_output(_cmd, stderr=dev_null).decode('utf-8')
         iqns = []
         for line in output.splitlines():
-            if b'iqn' not in line:
+            if 'iqn' not in line:
                 continue
             match = _DISCOVERY_PATTERN.match(line.strip())
             if match:

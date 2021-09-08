@@ -37,6 +37,8 @@ oci-kvm - install and remove KVM guests on Oracle Cloud Infrastructure instances
 .B -p
 .I PATH}
 
+.B oci-kvm list-pool [--output-mode MODE]
+
 .B oci-kvm create-network -n|--net
 .I NET
 .B -N|--network-name
@@ -75,6 +77,10 @@ either a VNIC or a block storage device.
 The
 .B oci-kvm create-pool
 subcommand creates a storage pool for hosting guest virtual disks. Pools can be created on block devices or FSS file systems.
+
+The
+.B oci-kvm list-pool
+shows data about all pools attached to this instance.
 
 The
 .B oci-kvm create-network
@@ -184,6 +190,9 @@ subcommand, specify the last IP address in the virtual network address space.
 For the
 .B create-network
 subcommand, specify the network prefix in the virtual network address space.
+.IP --output-mode={parsable,table,json,text}
+Display list of pools as table, using json format, simple text or using parsable output
+(default is table)
 .IP --help
 
 .SH EXAMPLES
@@ -207,6 +216,11 @@ Creates a guest with a root disk of 128GB on storage pool named foo.
 oci-kvm create-network --network-name=mynet0 --net=10.0.1.2 --ip-bridge=192.168.10.9 --ip-start=192.168.10.10 --ip-end=192.168.10.30 --ip-prefix=24
 .RS 3
 Creates a virtual network named mynet0 on VNIC with 10.0.1.2 as the IP address.
+.RE
+
+oci-kvm list-pool --output-mode json
+.RS 3
+Shows data about pools attached to this instance in json format.
 .RE
 
 .SH DIAGNOSTICS
