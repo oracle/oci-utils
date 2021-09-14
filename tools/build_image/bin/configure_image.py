@@ -16,6 +16,7 @@ import termios
 import tty
 from datetime import date
 from datetime import datetime
+from subprocess import call
 
 import oci
 
@@ -109,10 +110,8 @@ def _clear_term():
     -------
         No return value.
     """
-    if os.name == 'posix':
-        _ = os.system('clear')
-    else:
-        sys.exit('Not on posix system.')
+    _ = call('clear' if os.name == 'posix' else 'cls')
+    return True
 
 
 def _getch():
@@ -442,10 +441,18 @@ def select_image_id(config_dict, compartment_id, prompt):
         oci_imageclient = oci.core.ComputeClient(config_dict)
         # oci_images = oci_imageclient.list_images(compartment_id, operating_system='Oracle Linux')
         # oci_images = oci_imageclient.list_images(compartment_id, limit=500)
-        oci_images_data = oci.pagination.list_call_get_all_results(oci_imageclient.list_images, compartment_id, operating_system='Zero').data
-        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images, compartment_id, operating_system='Custom').data
-        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images, compartment_id, operating_system='Oracle Linux').data
-        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images, compartment_id, operating_system='Oracle Autonomous Linux').data
+        oci_images_data = oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
+                                                                   compartment_id,
+                                                                   operating_system='Zero').data
+        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
+                                                                    compartment_id,
+                                                                    operating_system='Custom').data
+        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
+                                                                    compartment_id,
+                                                                    operating_system='Oracle Linux').data
+        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
+                                                                    compartment_id,
+                                                                    operating_system='Oracle Autonomous Linux').data
     except oci.exceptions.ServiceError as e:
         print_g('*** AUTHORISATION ERROR ***')
         _logger.error('Authorisation error', exc_info=True)

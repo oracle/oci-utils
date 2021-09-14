@@ -20,7 +20,7 @@ This creates a directory tree:
     ├── bin
     │   ├── configure_image.py
     │   └── install_packer.py
-    ├── Makefile
+    ├── Makefile_xxx
     ├── scripts
     │   ├── custom_firstboot.sh
     │   └── custom_post_install_task.sh
@@ -59,7 +59,7 @@ help info:
 The **Makefile** contains all what is needed to build an Oracle Linux based KVM image. Although all commands can be run separately, a single or a two-step use is easy:
 ```shell
 $ make configure
-$ make build_image
+$ make build_image 
 ```
 The built image is place in the **custom images** repository. The image name contains the date of creation.
 

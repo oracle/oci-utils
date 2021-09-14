@@ -463,7 +463,7 @@ class TestCliKvm(OciTestCase):
 
     @skipUnlessOCI()
     @skipUnlessRoot()
-    def test_create_long_network(self):
+    def test_create_long_network_LINUX_11442(self):
         """
         Test the creation of an oci-kvm network, kvm network longer than 14 chars should fail.
 

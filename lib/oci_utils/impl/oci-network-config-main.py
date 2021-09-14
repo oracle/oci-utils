@@ -223,7 +223,7 @@ def get_arg_parser():
                                        description='Detach and delete the VNIC with the given '
                                                    'OCID or  primary IP address.')
     dg = detach_vnic.add_mutually_exclusive_group(required=True)
-    dg.add_argument('--ocid',
+    dg.add_argument('-O', '--ocid',
                     action='store',
                     metavar='OCID',
                     help='Detach the VNIC with the given OCID.')
@@ -239,7 +239,7 @@ def get_arg_parser():
                               action='store',
                               metavar='IP_ADDR',
                               help='Secondary private IP to to be added.')
-    add_sec_addr.add_argument('--ocid',
+    add_sec_addr.add_argument('-O', '--ocid',
                               action='store',
                               metavar='OCID',
                               help='Uses VNIC with the given VNIC.')
