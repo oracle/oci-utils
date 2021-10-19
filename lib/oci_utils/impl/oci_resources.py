@@ -515,7 +515,7 @@ class OCIInstance(OCIAPIAbstractResource):
             # instance_id=self._ocid)
         except oci_sdk.exceptions.ServiceError as e:
             OCIInstance._logger.debug('SDK call failed', exc_info=True)
-            OCIInstance._logger.warning('SDK call failed [%s]', str(e))
+            # OCIInstance._logger.warning('SDK call failed [%s]', str(e))
             return []
         for v_a_data in vnic_atts.data:
             try:

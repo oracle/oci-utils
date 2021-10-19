@@ -240,6 +240,24 @@ def get_netmask(route_info, ifc):
     return None
 
 
+def validate_os_variant(variant):
+    """
+    Verify if the supplied os variant is valid on this server.
+
+    Parameters
+    ----------
+    variant: str
+        The os short variant.
+
+    Returns
+    -------
+        bool: True or False.
+    """
+    cmd = ['osinfo-query', '--fields', 'short-id', 'os']
+    os_variants = [x.strip() for x in run_cmd(cmd)]
+    return variant in os_variants
+
+
 def create_vnic(name):
     """
     Create a vnic.
@@ -253,8 +271,7 @@ def create_vnic(name):
     -------
         str: create vnic output.
     """
-    cmd = [oci_network_path, 'attach-vnic',
-           '--name', name]
+    cmd = [oci_network_path, 'attach-vnic', '--name', name]
     return subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8').splitlines()
 
 
@@ -321,7 +338,8 @@ def bridge_exists(bridge_name):
     -------
         bool
     """
-    cmd = ['/sbin/brctl', 'show']
+    # cmd = ['/sbin/brctl', 'show']
+    cmd = ['/usr/sbin/bridge', 'link', 'show']
     bridges = run_cmd(cmd)
     for bridge in bridges:
         if bridge_name in bridge:
@@ -576,6 +594,10 @@ def main():
     if not os.path.exists(iso_file):
         sys.exit('%s not found' % iso_file)
     #
+    # verify os variant
+    if not validate_os_variant(args.os_variant):
+        sys.exit('% is not a valid os variant.' % args.os_variant)
+    #
     # hostname
     hostname = 'guest_' + uuid.uuid4().hex[:6]
     log_output = '/var/tmp/' + hostname + '.log'
@@ -713,7 +735,7 @@ def main():
     print_par_val('os variant', list_to_str(os_cmd))
     ks_cmd = ['--initrd-inject', ks_path]
     print_par_val('ks cmd', list_to_str(ks_cmd))
-    ks_str = 'ks=file:%s' % ks_file
+    ks_str = 'inst.ks=file:%s' % ks_file
     extra_args = ['--extra-args="%s"' % ks_str, '--extra-args="console=ttyS0,115200n8"']
     print_par_val('extra args', list_to_str(extra_args))
     create_vm_cmd = [oci_kvm_path, 'create'] \

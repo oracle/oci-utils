@@ -43,17 +43,23 @@
             "destination": "/tmp/{{user `user_custom_firstboot`}}"
         },
         {
+            "type": "file",
+            "source": "{{user `user_custom_install_path`}}",
+            "destination": "/tmp/{{user `user_custom_install`}}"
+        },
+        {
             "type": "shell",
             "inline": [
-                "sudo yum install -y python36-libvirt"
+                "sudo -u root /bin/bash /tmp/custom_install.sh",
+                "sudo -u root /bin/bash /tmp/custom_post_install_task.sh",
+                "sudo -u root /bin/bash /tmp/custom_firstboot.sh"
             ]
         },
         {
             "type": "shell",
             "inline": [
-                "sudo yum -y install git",
-                "sudo -u root /bin/bash /tmp/custom_post_install_task.sh",
-                "sudo -u root /bin/bash /tmp/custom_firstboot.sh"
+                "sudo rm -f /tmp/custom*sh",
+                "history -c"
             ]
         }
     ]

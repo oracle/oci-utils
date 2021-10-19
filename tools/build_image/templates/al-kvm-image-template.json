@@ -43,15 +43,14 @@
             "destination": "/tmp/{{user `user_custom_firstboot`}}"
         },
         {
-            "type": "shell",
-            "inline": [
-                "sudo yum install -y python36-libvirt"
-            ]
+            "type": "file",
+            "source": "{{user `user_custom_install_path`}}",
+            "destination": "/tmp/{{user `user_custom_install`}}"
         },
         {
             "type": "shell",
             "inline": [
-                "sudo yum -y install git",
+                "sudo -u root /bin/bash /tmp/custom_install.sh",
                 "sudo -u root /bin/bash /tmp/custom_post_install_task.sh",
                 "sudo -u root /bin/bash /tmp/custom_firstboot.sh"
             ]
@@ -60,6 +59,7 @@
             "type": "shell",
             "inline": [
                 "sudo rm -f /etc/cron.d/al-update /var/lib/al-config/* /var/log/al.log",
+                "sudo rm -f /tmp/custom*sh",
                 "sudo sed -i '/^auto_update_time_window=/d;/# Auto update time window/d' /etc/al-config/al.conf",
                 "sudo cp /var/lib/cloud/scripts/per-instance/oci.sh /var/tmp",
                 "sudo /usr/libexec/oci-image-cleanup --force",

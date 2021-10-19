@@ -6,7 +6,7 @@
 #
 #
 TARGET=oci-utils-automation
-CONFIGDIR=configuration
+CONFIGDIR=git_repo/tests/automation/configuration
 DOCFILES=$(CONFIGDIR)/README.txt $(CONFIGDIR)/BUILD.txt
 USRFILES=$(CONFIGDIR)/oci-utils-automation.repo-7 $(CONFIGDIR)/oci-utils-automation.repo-8
 DISTRIBUTIONS=OL7 OL8
@@ -59,8 +59,8 @@ help:
 	$(WRITE) " make distro"
 	$(WRITE) " make directorystructure"
 	$(WRITE) " make rpms"
-	$(WRITE) " make publish"
 	$(WRITE) " make repos"
+	$(WRITE) " make publish"
 	$(WRITE) " make clean"
 	$(WRITE) " for adding rpm $(RPM) to repository for distro ${DISTR}"
 	$(WRITE) " make copyrpm RPM=[path|url to rpm] DISTRO=[OL7|OL8]"

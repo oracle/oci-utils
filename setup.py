@@ -438,6 +438,8 @@ setup(
              'bin/oci-image-migrate-import',
              'bin/oci-image-migrate-upload',
              'bin/oci-notify',
+             'bin/oci-compartmentid',
+             'bin/oci-instanceid',
              'bin/oci-test-ip-auth',
              ],
     classifiers=[

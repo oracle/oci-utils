@@ -1,6 +1,6 @@
 Summary:       oci-utils automation build and test utils
 Name:          oci-utils-automation
-Version:       0.1.1
+Version:       0.2.1
 Url:           http://cloud.oracle.com/iaas
 Release:       0%{?dist}
 License:       UPL
@@ -83,8 +83,11 @@ cp /usr/share/rhn/RPM-GPG-KEY-oracle /etc/pki/rpm-gpg/RPM-GPG-KEY-oracle
 rpm --import /usr/share/rhn/RPM-GPG-KEY-oracle 
 
 %changelog
+* Wed Sep 15 2021 Guido Tijskens <guido.tijskens@oracle.com> ( 0.1.2-0)
+- update structure
+
 * Wed Nov 18 2020 Guido Tijskens <guido.tijskens@oracle.com> ( 0.1.1-1 )
 - user specific channels
 
-* Tue Nov 10 2020 Guido Tijskens <guido.tijskens@oracle.com> ( 0.1.1.0 )
+* Tue Nov 10 2020 Guido Tijskens <guido.tijskens@oracle.com> ( 0.1.1-0 )
 - initial version

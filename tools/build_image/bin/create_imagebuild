@@ -4,9 +4,12 @@
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 #
-# creates a user with given name and id, create the structure to run automated tests.
+# creates a the imagebuild user
 #
-EXPECTEDNBPAR=5
+
+
+USERNAME=imagebuild
+EXPECTEDNBPAR=4
 USERADD=$(which useradd)
 GETENT=$(which getent)
 PASSWD=$(which passwd)
@@ -19,42 +22,35 @@ MKDIR=$(which mkdir)
 DELETE="$(which rm) -rf"
 CHMOD=$(which chmod)
 CHOWN=$(which chown)
+TAR="$(which tar) -xvf"
 GROUPID=1000
 USERSHELL="/bin/bash"
 BINDIR="bin"
 TESTDIR="tests"
-CONFIGDIR="configuration"
-GITDIR="git_repo"
-GITCLONE="cloneociuitils"
-WORKDIR="oci_operations/tests/automation/configuration"
-DIRLIST=( "${BINDIR}" "${TESTDIR}" "${CONFIGDIR}" "${GITDIR}")
+WORKDIR="work"
+SCRIPTDIR="scripts"
+TEMPLATEDIR="templates"
+DIRLIST=( "${BINDIR}" "${TESTDIR}" "${WORKDIR} ${SCRIPTDIR} ${TEMPLATEDIR}")
 KEYFILENAME="oci_api_key.pem"
 #
-# todo:
-# hardcode github link to automation.
-GIT=$(which git)
-# GITHUBURL="https://github.com/oracle/oci-utils.git"
-GITHUBURL="https://github.com/guidotijskens/oci-utils.git"
-#
-# https proxy
+# http(s) proxy
+HTTPPROXY="http://www-proxy-hqdc.us.oracle.com:80"
 HTTPSPROXY="http://www-proxy-hqdc.us.oracle.com:80"
 
 Usage() {
   echo ""
   echo "Usage:"
   echo ""
-  echo "${0} <username> <userid> <sdk config> <key file>"
+  echo "${0} <userid> <sdk config> <key file> <tar file>"
   echo ""
-  echo "  <username>   : the name of the user to be created."
   echo "  <userid>     : the userid for the user."
   echo "  <sdk config> : the sdk config file."
   echo "  <key file>   : the sdk key file."
-  echo "  <branch>     : the branch to be used with test list and automation code."
+  echo "  <tar file>   : the tar file with the tool."
   echo ""
-  echo " Creates a user with name <username> and userid <userid>"
+  echo " Creates a user with name imagebuild and userid <userid>"
   echo " with groupid 1000 and in group wheel with home"
-  echo " directory /home/<username>; configures the oci-sdk for direct authentication;"
-  echo " clones github oci-utils repository and checks out a branch."
+  echo " directory /home/imagebuild; configures the oci-sdk for direct authentication."
   echo ""
 }
 
@@ -87,21 +83,20 @@ ExitOnError() {
 
 NBPAR="${#}"
 if [ ${NBPAR} -ne ${EXPECTEDNBPAR} ]; then
-  MessageErrBase "username, userid, config and/or key file missing"
+  MessageErrBase "username, userid, config, key file and/or tar file missing"
   Usage
   exit 1
 fi
 
-USERNAME=${1}
-USERID=${2}
-SDKCONFIG=${3}
-KEYFILE=${4}
-GITBRANCH=${5}
+USERID=${1}
+SDKCONFIG=${2}
+KEYFILE=${3}
+TARFILE=${4}
 MessageStd "Username is ${USERNAME}"
 MessageStd "UserID is ${USERID}"
 MessageStd "SDK config file is ${SDKCONFIG}"
 MessageStd "Key file ${KEYFILE}"
-MessageStd "git branch ${GITBRANCH}"
+MessageStd "TAR file ${TARFILE}"
 #
 HOMEDIR="/home/${USERNAME}"
 MessageStd "user home directory is ${HOMEDIR}"
@@ -111,10 +106,8 @@ HOMEOCICONFIG="${HOMEOCI}/config"
 MessageStd "config file is ${HOMEOCICONFIG}"
 HOMESDKKEY="${HOMEOCI}/${KEYFILENAME}"
 MessageStd "sdk key file is ${HOMESDKKEY}"
-HOMEGITDIR=${HOMEDIR}/${GITDIR}
-MessageStd "git repositroy directory is ${HOMEGITDIR}"
-MASTERMAKE=${HOMEGITDIR}/tests/automation/Makefile
-MessageStd "Makefile location is ${MASTERMAKE}"
+#MASTERMAKE=${HOMEGITDIR}/tests/automation/Makefile
+#MessageStd "Makefile location is ${MASTERMAKE}"
 #
 #
 ${GETENT} passwd "${USERNAME}" > /dev/null 2>&1
@@ -159,39 +152,6 @@ RETVAL="${?}"
 MessageErrFatal ${RETVAL} "Failed to ${CHMOD} 600 ${HOMESDKKEY}" "${SED} -i /key_file/c\"key_file=${HOMESDKKEY}\" ${HOMEOCICONFIG}"
 ${SU} -l "${USERNAME}" -c "${SED} -i /key_file/c\"key_file=${HOMESDKKEY}\" ${HOMEOCICONFIG}"
 #
-# clone git
-#${SU} -l ${USERNAME} -c "https_proxy=${HTTPSPROXY} ${GIT} clone ${GITHUBURL} ${HOMEGITDIR}"
-#ExitOnError ${?} "Failed to clone ${GITHUBURL} to  ${HOMEGITDIR}" "${GITHUBURL} cloned to ${HOMEGITDIR} successfully."
-#
-# checkout branch
-#${SU} -l ${USERNAME} -c "${CHDIR} ${HOMEGITDIR} && ${GIT} checkout ${GITBRANCH} && ${CHDIR} ~"
-#ExitOnError ${?} "Failed to checkout ${GITBRANCH}" "Checkout ${GITBRANCH} successfully"
-#
-# create clone script to ${HOME}/bin
-${CAT} << EOT > ${HOMEDIR}/bin/${GITCLONE}
-#!/bin/bash
-THISGITBRANCH="\${1}"
-${DELETE} ${HOMEGITDIR}
-https_proxy=${HTTPSPROXY} ${GIT} clone ${GITHUBURL} ${HOMEGITDIR}
-${CHDIR} ${HOMEGITDIR}
-${GIT} checkout \${THISGITBRANCH}
-THISBRANCH=\$(${GIT} symbolic-ref --short HEAD)
-echo "\"Current branch \${THISBRANCH}\""
-EOT
-ExitOnError "${?}" "Failed to create ${HOMEDIR}/bin/${GITCLONE}" "Created ${HOMEDIR}/bin/${GITCLONE}} successfully."
-#
-# chown ${GITCLONE}
-${CHOWN} ${USERID}:${GROUPID} ${HOMEDIR}/bin/${GITCLONE}
-ExitOnError "${?}" "Failed to change owmer of  ${HOMEDIR}/bin/${GITCLONE}" "Changed owner of ${HOMEDIR}/bin/${GITCLONE}} successfully."
-#
-# chmod 755 ${GITCLONE}
-${SU} -l "${USERNAME}" -c "${CHMOD} 755 ${HOMEDIR}/bin/${GITCLONE}"
-ExitOnError "${?}" "Failed to  ${CHMOD} 755 ${HOMEDIR}/bin/${GITCLONE}" "${HOMEDIR}/bin/${GITCLONE} permission set to 755 successfully."
-
-# clone git
-${SU} -l ${USERNAME} -c "${HOMEDIR}/bin/${GITCLONE} ${GITBRANCH}"
-ExitOnError ${?} "Failed to clone ${GITHUBURL} to  ${HOMEGITDIR}" "${GITHUBURL} cloned to ${HOMEGITDIR} successfully."
-#
-# copy Makefile
-${SU} -l ${USERNAME} -c "${COPY} ${MASTERMAKE} ${HOMEDIR}"
-ExitOnError ${?} "Failed to copy ${MASTERMAKE} to ${HOMEDIR}" "Copied ${MASTERMAKE} to ${HOMEDIR} successfully."
+# expand tar file
+${SU} -l "${USERNAME}" -c "${CHDIR} ${WORKDIR}; ${TAR} ${TARFILE}"
+ExitOnError "${?}" "Failed to expand ${TARFILE}" "${TARFILE} successfully expanded"

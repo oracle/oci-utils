@@ -516,11 +516,11 @@ def _list_pool_vm(args):
         _sp_data = dict()
         # name
         _sp_name_len = len(_sp.name())
-        _collen['name'] = _sp_name_len if _sp_name_len > _collen['name'] else _collen['name']
+        _collen['name'] = max(_sp_name_len, _collen['name'])
         _sp_data['name'] = _sp.name()
         # uuid
         _sp_uuid_len = len(_sp.UUIDString())
-        _collen['uuid'] = _sp_uuid_len if _sp_uuid_len > _collen['uuid'] else _collen['uuid']
+        _collen['uuid'] = max(_sp_uuid_len, _collen['uuid'])
         _sp_data['uuid'] = _sp.UUIDString()
         # autostart
         _sp_data['autostart'] = yes_no[_sp.autostart()]
@@ -533,19 +533,19 @@ def _list_pool_vm(args):
         # total capacity
         _sp_data['capacity'] = _format_size(int(_sp_info[1]))
         _sp_cap_len = len(_sp_data['capacity'])
-        _collen['capacity'] = _sp_cap_len if _sp_cap_len > _collen['capacity'] else _collen['capacity']
+        _collen['capacity'] = max(_sp_cap_len, _collen['capacity'])
         # state
         _sp_data['state'] = pool_states[_sp_info[0]]
         _sp_state_len = len(_sp_data['state'])
-        _collen['state'] = _sp_state_len if _sp_state_len > _collen['state'] else _collen['state']
+        _collen['state'] = max(_sp_state_len, _collen['state'])
         # allocated space
         _sp_data['allocation'] = _format_size(int(_sp_info[2]))
         _sp_alloc_len = len(_sp_data['allocation'])
-        _collen['allocation'] = _sp_alloc_len if _sp_alloc_len > _collen['allocation'] else _collen['allocation']
+        _collen['allocation'] = max(_sp_alloc_len, _collen['allocation'])
         # available space
         _sp_data['available'] = _format_size(int(_sp_info[3]))
         _sp_avail_len = len(_sp_data['available'])
-        _collen['available'] = _sp_avail_len if _sp_avail_len > _collen['available'] else _collen['available']
+        _collen['available'] = max(_sp_avail_len, _collen['available'])
 
         pool_data.append(_sp_data)
 

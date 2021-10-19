@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.6
-Release: 1%{?dist}
+Release: 4%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -149,12 +149,6 @@ rm -rf %{buildroot}
 %exclude /opt/oci-utils/tests/test_mig*
 /opt/oci-utils
 
-%post
-%systemd_post ocid.service
-
-%preun
-%systemd_post ocid.service
-
 %post kvm
 %systemd_post oci-kvm-config.service
 
@@ -182,7 +176,26 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
-* Tue Sep 07 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5.10
+* Tue Oct 19 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-4
+- Correction in oci-iscsi-config man page
+- LINUX-9802 oci-iscsi-config --show does not show mount point nor file system data
+- Fixed oci-iscsi-config table formatting
+- Fixed oci-public-ip table formatting
+- Added oci-instance-id and oci-compartment-id scripts
+
+* Thu Oct 7 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-3
+- OL8 kvm image build automation
+
+* Wed Sep 29 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-2
+- Removed message_type from publish message call.
+
+* Tue Sep 28 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-1
+- Back out ocid service enabled at install.
+
+* Wed Sep 08 2021 guido tijskens <guido.tijskens@oracle.com> - 0.12.6-0
+- release 0.12.6-0
+
+* Tue Sep 07 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-10
 - LINUX-11499: oci-metadata --value-only returning null
 
 * Fri Aug 27 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5.9

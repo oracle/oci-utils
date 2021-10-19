@@ -492,15 +492,68 @@ def _display_oci_volume_list(volumes, output_mode, details, truncate):
     if len(volumes) == 0:
         print('No other volumes found.')
     else:
+        _collen = {'name': len('Name'),
+                   'size': len('Size'),
+                   'attachedto': len('Attached to'),
+                   'ocid': len('OCID'),
+                   'iqn': len('IQN'),
+                   'compartment': len('Compartment'),
+                   'availdomain': len('Availability Domain')}
+        volumes_data = list()
+        for vol in volumes:
+            _vol_data = dict()
+            # name
+            _vol_data['name'] = vol.get_display_name()
+            _vol_name_len = len(_vol_data['name'])
+            _collen['name'] = max(_vol_name_len, _collen['name'])
+            # size
+            _vol_data['size'] = vol.get_size(OCI_VOLUME_SIZE_FMT.HUMAN.name)
+            _vol_size_len = len(_vol_data['size']) + 1
+            _collen['size'] = max(_vol_size_len, _collen['size'])
+            # attached to
+            _vol_data['attachedto'] = _get_attached_instance_name(None, vol)
+            _vol_attachedto_len = len(_vol_data['attachedto'])
+            _collen['attachedto'] = max(_vol_attachedto_len, _collen['attachedto'])
+            # ocid
+            _vol_data['ocid'] = vol.get_ocid()
+            _vol_ocid_len = len(_vol_data['ocid'])
+            _collen['ocid'] = max(_vol_ocid_len, _collen['ocid'])
+            if details:
+                # iqn
+                _vol_data['iqn'] = vol.get_iqn()
+                _vol_iqn_len = len(_vol_data['iqn'])
+                _collen['iqn'] = max(_vol_iqn_len, _collen['iqn'])
+                # compartment
+                _vol_data['compartment'] = _get_comp_name(None, vol)
+                _vol_compartment_len = len(_vol_data['compartment'])
+                _collen['compartment'] = max(_vol_compartment_len, _collen['compartment'])
+                # availability domain
+                _vol_data['availdomain'] = vol.get_availability_domain_name()
+                _vol_availdomain_len = len(_vol_data['availdomain'])
+                _collen['availdomain'] = max(_vol_availdomain_len, _collen['availdomain'])
+            volumes_data.append(_vol_data)
+
         _title = 'Block volumes information'
-        _columns = [['Name', 32, 'get_display_name'],
-                    ['Size', 6, _get_displayable_size],
-                    ['Attached to', 32, _get_attached_instance_name],
-                    ['OCID', 32, 'get_ocid']]
+        _columns = list()
+        if truncate:
+            _collen['name'] = 32
+            _collen['size'] = 6
+            _collen['attachedto'] = 32
+            _collen['ocid'] = 32
+            if details:
+                _collen['iqn'] = 14
+                _collen['compartment'] = 14
+                _collen['availdomain'] = 19
+
+        _columns.append(['Name', _collen['name']+2, 'name'])
+        _columns.append(['Size', _collen['size']+2, 'size'])
+        _columns.append(['Attached to', _collen['attachedto']+2, 'attachedto'])
+        _columns.append(['OCID', _collen['ocid']+2, 'ocid'])
         if details:
-            _columns.extend((['IQN', 14, 'get_iqn'],
-                             ['Compartment', 14, _get_comp_name],
-                             ['Availability domain', 19, 'get_availability_domain_name']))
+            _columns.append(['IQN', _collen['iqn']+2, 'iqn'])
+            _columns.append(['Compartment', _collen['compartment']+2, 'compartment'])
+            _columns.append(['Availability Domain', _collen['availdomain']+2, 'availdomain'])
+
         if output_mode == 'compat':
             printerKlass = get_row_printer_impl('text')
         else:
@@ -508,7 +561,8 @@ def _display_oci_volume_list(volumes, output_mode, details, truncate):
 
         printer = printerKlass(title=_title, columns=_columns, text_truncate=truncate)
         printer.printHeader()
-        for vol in volumes:
+        # for vol in volumes:
+        for vol in volumes_data:
             printer.printRow(vol)
             printer.rowBreak()
         printer.printFooter()
@@ -577,22 +631,90 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
         _logger.debug('Cannot get all volumes of this instance : %s', str(e))
 
     if not iscsiadm_session and len(oci_vols) > 0:
-        print("Local iSCSI info not available. ")
+        print("Local iSCSI info not available.")
         print("List info from Cloud instead(No boot volume).")
         print("")
         _display_oci_volume_list(oci_vols, output_mode, details, truncate)
 
-    _columns = []
+    _collen = {'target': len('Target'),
+               'name': len('Volume Name'),
+               'ocid': len('Volume OCID'),
+               'p_portal': len('Persistent Portal'),
+               'c_portal': len('Current Portal'),
+               's_state': len('Session State'),
+               'dev': len('Attached Device'),
+               'size': len('Size')}
+
+    volumes_data = list()
+    for iqn in list(iscsiadm_session.keys()):
+        # _item = {}
+        _vol_data = dict()
+        # target
+        _vol_data['target'] = iqn
+        _vol_iqn_len = len(iqn)
+        _collen['target'] = max(_vol_iqn_len, _collen['target'])
+        #
+        oci_vol = get_volume_by_iqn(oci_sess, iqn)
+        if oci_vol is not None:
+            # name
+            _vol_data['name'] = oci_vol.get_display_name()
+            _vol_name_len = len(_vol_data['name'])
+            _collen['name'] = max(_vol_name_len, _collen['name'])
+            # ocid
+            _vol_data['ocid'] = oci_vol.get_ocid()
+            _vol_ocid_len = len(_vol_data['ocid'])
+            _collen['ocid'] = max(_vol_ocid_len, _collen['ocid'])
+        # persistent portal
+        _vol_data['p_portal'] = "%s:%s" % (iscsiadm_session[iqn]['persistent_portal_ip'],
+                                           iscsiadm_session[iqn]['persistent_portal_port'])
+        _vol_p_portal_len = len(_vol_data['p_portal'])
+        _collen['p_portal'] = max(_vol_p_portal_len, _collen['p_portal'])
+        # current portal
+        _vol_data['c_portal'] = "%s:%s" % (iscsiadm_session[iqn]['current_portal_ip'],
+                                           iscsiadm_session[iqn]['current_portal_port'])
+        _vol_c_portal_len = len(_vol_data['c_portal'])
+        _collen['c_portal'] = max(_vol_c_portal_len, _collen['c_portal'])
+        # session state
+        _vol_data['s_state'] = iscsiadm_session[iqn].get('session_state', 'n/a')
+        _vol_s_state_len = len(_vol_data['s_state'])
+        _collen['s_state'] = max(_vol_s_state_len, _collen['s_state'])
+        # device
+        device = iscsiadm_session[iqn].get('device', None)
+        if device is None:
+            _vol_data['dev'] = '(not attached)'
+        else:
+            _vol_data['dev'] = device
+            if device in disks:
+                # size
+                _vol_data['size'] = disks[device]['size']
+                _vol_size_len = len(_vol_data['size'])
+                _collen['size'] = max(_vol_size_len, _collen['size'])
+        _vol_dev_len = len(_vol_data['dev'])
+        _collen['dev'] = max(_vol_dev_len, _collen['dev'])
+
+        volumes_data.append(_vol_data)
+
+    if truncate:
+        _collen = {'target': 32,
+                   'name': 32,
+                   'ocid': 32,
+                   'p_portal': 20,
+                   'c_portal': 20,
+                   's_state': 13,
+                   'dev': 15,
+                   'size': 6}
+
+    _columns = list()
     if details:
-        _columns.append(['Target', 32, 'target'])
-    _columns.append(['Volume name', 32, 'name'])
+        _columns.append(['Target', _collen['target']+2, 'target'])
+    _columns.append(['Volume Name', _collen['name']+2, 'name'])
     if details:
-        _columns.append(['Volume OCID', 32, 'ocid'])
-        _columns.append(['Persistent portal', 20, 'p_portal'])
-        _columns.append(['Current portal', 20, 'c_portal'])
-        _columns.append(['Session State', 13, 's_state'])
-    _columns.append(['Attached device', 15, 'dev'])
-    _columns.append(['Size', 6, 'size'])
+        _columns.append(['Volume OCID', _collen['ocid']+2, 'ocid'])
+        _columns.append(['Persistent Portal', _collen['p_portal']+2, 'p_portal'])
+        _columns.append(['Current Portal', _collen['c_portal']+2, 'c_portal'])
+        _columns.append(['Session State', _collen['s_state']+2, 's_state'])
+    _columns.append(['Attached Device', _collen['dev']+2, 'dev'])
+    _columns.append(['Size', _collen['size']+2, 'size'])
 
     # this is only used in compatibility mode i.e using 'text'
     partitionPrinter = get_row_printer_impl('text')(title='Partitions',
@@ -600,41 +722,18 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
                                                              ['Size', 6, 'size'],
                                                              ['Filesystem', 12, 'fstype'],
                                                              ['Mountpoint', 12, 'mountpoint']))
-    _items = []
-    for iqn in list(iscsiadm_session.keys()):
-        _item = {}
-        oci_vol = get_volume_by_iqn(oci_sess, iqn)
-        _item['target'] = iqn
-        if oci_vol is not None:
-            _item['name'] = oci_vol.get_display_name()
-            _item['ocid'] = oci_vol.get_ocid()
-        _item['p_portal'] = "%s:%s" % (iscsiadm_session[iqn]['persistent_portal_ip'],
-                                       iscsiadm_session[iqn]['persistent_portal_port'])
-        _item['c_portal'] = "%s:%s" % (iscsiadm_session[iqn]['current_portal_ip'],
-                                       iscsiadm_session[iqn]['current_portal_port'])
-        _item['s_state'] = iscsiadm_session[iqn].get('session_state', 'n/a')
-        device = iscsiadm_session[iqn].get('device', None)
-        if device is None:
-            _item['dev'] = '(not attached)'
-        else:
-            _item['dev'] = device
-            if device in disks:
-                _item['size'] = disks[device]['size']
-
-        _items.append(_item)
 
     iscsi_dev_printer = None
-    if len(_items) == 0:
-        print('No iSCSI devices attached.')
+    if len(volumes_data) == 0:
+            print('No iSCSI devices attached.')
     elif output_mode == 'compat':
-        iscsi_dev_printer = get_row_printer_impl('text')(
-            title='Currently attached iSCSI devices', columns=_columns, text_truncate=truncate)
+        iscsi_dev_printer = get_row_printer_impl('text')(title='Currently attached iSCSI devices', columns=_columns, text_truncate=truncate)
     else:
-        iscsi_dev_printer = get_row_printer_impl(output_mode)(
-            title='Currently attached iSCSI devices', columns=_columns, text_truncate=truncate)
+        iscsi_dev_printer = get_row_printer_impl(output_mode)(title='Currently attached iSCSI devices', columns=_columns, text_truncate=truncate)
     if bool(iscsi_dev_printer):
         iscsi_dev_printer.printHeader()
-        for _item in _items:
+        # for _item in _items:
+        for _item in volumes_data:
             iscsi_dev_printer.printRow(_item)
             if output_mode == 'compat':
                 if 'partitions' not in disks[_item['dev']]:
@@ -748,7 +847,7 @@ def _do_iscsiadm_attach(iqn, targets, user=None, passwd=None, iscsi_portal_ip=No
     if not iscsi_portal_ip:
         portal_ip = None
         if targets is None:
-            raise Exception("Ocid must be running to determine the portal IP address for this device.")
+            raise Exception("Ocid service must be running to determine the portal IP address for this device.")
 
         for ipaddr in list(targets.keys()):
             if iqn in targets[ipaddr]:
@@ -882,6 +981,8 @@ def api_display_available_block_volumes(sess, compartments, show_all, output_mod
 
     vols = []
     if len(compartments) > 0:
+        #
+        # -C/--compartment option used
         for cspec in compartments:
             try:
                 if cspec == 'all':

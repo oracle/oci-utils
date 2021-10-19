@@ -46,9 +46,17 @@ def list():
     """
     try:
         with open(os.devnull, 'w') as DEVNULL:
-            output = subprocess.check_output(
-                ['/bin/lsblk', '--scsi', '--pairs', '--noheadings',
-                 '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME'], stderr=DEVNULL).decode('utf-8')
+            # output = subprocess.check_output(['/bin/lsblk',
+            #                                   '--scsi',
+            #                                   '--pairs',
+            #                                   '--noheadings',
+            #                                   '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME'],
+            #                                  stderr=DEVNULL).decode('utf-8')
+            output = subprocess.check_output(['/bin/lsblk',
+                                              '--pairs',
+                                              '--noheadings',
+                                              '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME'],
+                                             stderr=DEVNULL).decode('utf-8')
         devices = {}
         # with python3, output id byte-like object, cast it to str
         for line in output.splitlines():

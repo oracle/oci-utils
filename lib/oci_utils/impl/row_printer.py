@@ -49,10 +49,11 @@ class ColumnsPrinter:
                         each entry must have three elements:
                             - columns title
                             - columns width
-                            - attribute name to be called during printing. Or dictionary key.
-                              Or callback. callback signature is 'str _f(name,object)'
-                              callback must return a string to be printed. callback will
-                              be called with columns name as first argument and object as passed to printRow()
+                            - attribute name to be called during printing.
+                              . Or dictionary key.
+                              . Or callback. callback signature is 'str _f(name,object)'
+                                callback must return a string to be printed. callback will
+                                be called with columns name as first argument and object as passed to printRow()
                         ex: (['name',10,'getName'])
                            This will produce a column of 10 characters width.
                            'getName' method will be called on each objects passed to printRow()
@@ -92,7 +93,7 @@ class ColumnsPrinter:
         """
         Prints a new row
         o can be an arbitrary instance on which all columns attribute will be called
-        if o is an dictionnary columns attribute are used as key of the dictionnary
+        if o is an dictionary columns attribute are used as key of the dictionary
         if o is a list all elements' string representation will be printed in order
         if o is an instance, defined callback or attribute will be called
         depend of the implementation

@@ -28,7 +28,7 @@ lc_all = 'en_US.UTF8'
 default_log = '/tmp/configure_image_%s.log' % datetime.now().strftime('%Y%m%d_%H%M')
 #
 # custom scripts
-custom_kvm_build_scripts = ['custom_firstboot.sh', 'custom_post_install_task.sh']
+custom_kvm_build_scripts = ['custom_install.sh', 'custom_firstboot.sh', 'custom_post_install_task.sh']
 
 _logger = logging.getLogger(__name__)
 
@@ -60,8 +60,8 @@ def parse_args():
     parser.add_argument('-d', '--data-directory',
                         action='store',
                         dest='datadir',
-                        default='~/data',
-                        help='Root directory with data for the image build, default is ~/data.')
+                        default='~/imagebuild/data',
+                        help='Root directory with data for the image build, default is ~/imagebuild/data.')
     parser.add_argument('-f', '--var-file',
                         action='store',
                         dest='varfilename',
@@ -72,6 +72,12 @@ def parse_args():
                         choices=['OL', 'AL'],
                         dest='oltype',
                         help='Build Oracle Linux or Autonomous Linux, mandatory.',
+                        required=True)
+    parser.add_argument('-r', '--release',
+                        action='store',
+                        choices=['7', '8'],
+                        dest='olrelease',
+                        help='Build OL7 or OL8 release, mandatory.',
                         required=True)
     parser._optionals.title = 'Arguments'
     args = parser.parse_args()
@@ -441,18 +447,10 @@ def select_image_id(config_dict, compartment_id, prompt):
         oci_imageclient = oci.core.ComputeClient(config_dict)
         # oci_images = oci_imageclient.list_images(compartment_id, operating_system='Oracle Linux')
         # oci_images = oci_imageclient.list_images(compartment_id, limit=500)
-        oci_images_data = oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-                                                                   compartment_id,
-                                                                   operating_system='Zero').data
-        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-                                                                    compartment_id,
-                                                                    operating_system='Custom').data
-        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-                                                                    compartment_id,
-                                                                    operating_system='Oracle Linux').data
-        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-                                                                    compartment_id,
-                                                                    operating_system='Oracle Autonomous Linux').data
+        oci_images_data = oci.pagination.list_call_get_all_results(oci_imageclient.list_images, compartment_id, operating_system='Zero').data
+        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images, compartment_id, operating_system='Custom').data
+        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images, compartment_id, operating_system='Oracle Linux').data
+        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images, compartment_id, operating_system='Oracle Autonomous Linux').data
     except oci.exceptions.ServiceError as e:
         print_g('*** AUTHORISATION ERROR ***')
         _logger.error('Authorisation error', exc_info=True)
@@ -633,37 +631,55 @@ def collect_build_parameters(config_data):
     #
     # Compartment ocid
     print_g('Instance Compartment.\n')
-    image_data['user_compartment_ocid'] = select_compartment_id(config_data, 'Select instance compartment.')
+    image_data['user_compartment_ocid'] \
+        = select_compartment_id(config_data, 'Select instance compartment.')
     _clear_term()
     #
     # Network compartment ocid
     print_g('Network Compartment.\n')
-    image_data['user_network_compartment_ocid'] = select_compartment_id(config_data, 'Select network compartment.')
+    image_data['user_network_compartment_ocid'] \
+        = select_compartment_id(config_data,
+                                'Select network compartment.')
     _clear_term()
     #
     # Virtual cloud network ocid
     print_g('Virtual Cloud Network.\n')
-    image_data['user_vcn_ocid'] = select_vcn_id(config_data, image_data['user_network_compartment_ocid'], 'Select virtual cloud network.')
+    image_data['user_vcn_ocid'] \
+        = select_vcn_id(config_data,
+                        image_data['user_network_compartment_ocid'],
+                        'Select virtual cloud network.')
     _clear_term()
     #
     # Subnet ocid
     print_g('Subnet.\n')
-    image_data['user_subnet_ocid'] = select_subnet_id(config_data, image_data['user_network_compartment_ocid'], image_data['user_vcn_ocid'], 'Select subnet.')
+    image_data['user_subnet_ocid'] \
+        = select_subnet_id(config_data,
+                           image_data['user_network_compartment_ocid'],
+                           image_data['user_vcn_ocid'], 'Select subnet.')
     _clear_term()
     #
     # Image ocid
     print_g('Image.\n')
-    image_data['user_base_image_ocid'] = select_image_id(config_data, image_data['user_compartment_ocid'], 'Select image.')
+    image_data['user_base_image_ocid'] \
+        = select_image_id(config_data,
+                          image_data['user_compartment_ocid'],
+                          'Select image.')
     _clear_term()
     #
     # Availability domain
     print_g('Availabiltiy Domain.\n')
-    image_data['user_availability_domain'] = select_availability_domain_name(config_data, image_data['user_compartment_ocid'], 'Select availability domain.')
+    image_data['user_availability_domain'] \
+        = select_availability_domain_name(config_data,
+                                          image_data['user_compartment_ocid'],
+                                          'Select availability domain.')
     _clear_term()
     #
     # Shape
     print_g('Shape.\n')
-    image_data['user_shape_name'] = select_shape(config_data, image_data['user_base_image_ocid'], 'Select shape')
+    image_data['user_shape_name'] \
+        = select_shape(config_data,
+                       image_data['user_base_image_ocid'],
+                       'Select shape')
     _clear_term()
     #
     # OL version
@@ -674,7 +690,7 @@ def collect_build_parameters(config_data):
     return image_data
 
 
-def collect_instance_parameters(image_data, ol_type):
+def collect_instance_parameters(image_data, ol_type, ol_release):
     """
     Callect the data from the operator required by packer to build the image.
 
@@ -684,6 +700,8 @@ def collect_instance_parameters(image_data, ol_type):
         The current data.
     ol_type: str
         [OL | AL]
+    ol_release: str
+        [7 | 8]
     Returns
     -------
         dict: the updated data.
@@ -697,14 +715,17 @@ def collect_instance_parameters(image_data, ol_type):
     #
     # flavor
     image_data['user_flavor'] = 'Autonomous' if ol_type == 'AL' else 'NonAutonomous'
+    print_g(msg='Flavor: %s' % image_data['user_flavor'])
     #
     # image name
-    image_data['user_image_name'] = 'AL-KVM-' + today_date_str if ol_type == 'AL' \
-        else 'OL-KVM-' + today_date_str
+    release_part = '-07-KVM-' + today_date_str if ol_release == '7' else '-08-KVM-' + today_date_str
+    image_data['user_image_name'] = 'AL' + release_part if ol_type == 'AL' else 'OL' + release_part
+    print_g(msg='Image name: %s' % image_data['user_image_name'])
     #
     # instance name
-    image_data['user_instance_name'] = 'AL-KVM-builder-' + today_timestamp if ol_type == 'AL' \
-        else 'OL-KVM-builder-' + today_timestamp
+    release_part = '-07-KVM-builder' + today_timestamp if ol_release == '7' else '-08-KVM-builder' + today_timestamp
+    image_data['user_instance_name'] = 'AL' + release_part if ol_type == 'AL' else 'OL' + release_part
+    print_g(msg='Instance name: %s' % image_data['user_instance_name'])
 
     return image_data
 
@@ -726,7 +747,7 @@ def build_data(image_data, dir_root):
     # look in directory tree for the custom_*sh scripts
     cs_path = None
     for custom_script in custom_kvm_build_scripts:
-        cs_path = glob.glob(dir_root + '/**/%s' % custom_script, recursive = True)
+        cs_path = glob.glob(dir_root + '/**/%s' % custom_script, recursive=True)
         if bool(cs_path):
             print_g(msg='script %s' % cs_path)
             script_name = os.path.basename(custom_script)
@@ -795,16 +816,6 @@ def main():
     # parse the commandline
     args = parse_args()
     #
-    # packer var file, create dir if not exits.
-    data_dir = operator_home + '/data' if args.datadir.startswith('~') else args.datadir
-    tfvarsfile = data_dir + '/' + args.varfilename + '.tfvars.json'
-    try:
-        os.makedirs(os.path.dirname(tfvarsfile))
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            sys.exit('Failed to create directory %s: %s' % (os.path.dirname(tfvarsfile), str(e)))
-    print_g(msg='%30s: %s' % ('Packer var file', tfvarsfile), term=True)
-    #
     # get configuration data
     ret, configuration = get_configdata(args.profile, args.configfile)
     if ret == 1:
@@ -827,10 +838,21 @@ def main():
     image_data = collect_build_parameters(configuration)
     #
     # data from operator
-    image_data = collect_instance_parameters(image_data, args.oltype)
+    image_data = collect_instance_parameters(image_data, args.oltype, args.olrelease)
     #
     # data for build
-    image_data = build_data(image_data, operator_home + '/scripts')
+    image_data = build_data(image_data, operator_home)
+    #
+    # packer var file, create dir if not exits.
+    data_dir = operator_home + '/imagebuild_data' if args.datadir.startswith('~') else args.datadir
+    # tfvarsfile = data_dir + '/' + args.varfilename + '_' + image_data['user_image_name'] + '.tfvars.json'
+    tfvarsfile = data_dir + '/' + args.varfilename + '.tfvars.json'
+    try:
+        os.makedirs(os.path.dirname(tfvarsfile))
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            sys.exit('Failed to create directory %s: %s' % (os.path.dirname(tfvarsfile), str(e)))
+    print_g(msg='%30s: %s' % ('Packer var file', tfvarsfile), term=True)
     #
     # validate
     show_parameters(image_data)
@@ -843,7 +865,7 @@ def main():
     try:
         with open(tfvarsfile, 'w') as tfvj:
             json.dump(image_data, tfvj, indent=4)
-        sys.exit(0)
+        return 0
     except Exception as e:
         raise Exception('Failed to write %s:' % tfvarsfile) from e
 
