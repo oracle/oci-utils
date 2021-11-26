@@ -22,6 +22,16 @@ variable "tenancy_ocid" {
   type = string
 }
 
+variable "compartment_ocid" {
+  description = "compartment identification."
+  type = string
+}
+
+variable "availability_domain" {
+  description = "availability domain name."
+  type = string
+}
+
 variable "user_ocid" {
   description = "user identification."
   type = string
@@ -42,30 +52,20 @@ variable "region" {
   type = string
 }
 
-variable "availability_domain" {
-  description = "availability domain name."
-  type = string
-}
-
-variable "compartment_ocid" {
-  description = "compartment identification."
-  type = string
-}
-
 variable "shape" {
   description = "shape selection."
   type = string
 }
 
-//FLEXvariable "instance_flex_memory_in_gbs" {
-//FLEX description = "instance memorry size in GB."
-//FLEX  type = number
-//FLEX}
+//YYYYvariable "instance_flex_memory_in_gbs" {
+//YYYY  description = "instance memorry size in GB."
+//YYYY  type = number
+//YYYY}
 
-//FLEXvariable "instance_flex_ocpus" {
-//FLEX  description = "amount of instance ocpus."
-//FLEX  type = number
-//FLEX}
+//YYYYvariable "instance_flex_ocpus" {
+//YYYY  description = "amount of instance ocpus."
+//YYYY  type = number
+//YYYY}
 
 variable "source_ocid" {
   description = "source identification."
@@ -122,8 +122,8 @@ variable "log_file_path" {
   type = string
 }
 
-variable "script_path" {
-  description = "path to bash script direcory"
+variable "initial_script_path" {
+  description = "path to initial bash script"
   type = string
 }
 
@@ -142,10 +142,11 @@ resource "oci_core_instance" "test_instance" {
   compartment_id      = var.compartment_ocid
   display_name        = var.instance_display_name
   shape               = var.shape
-//FLEX  shape_config {
-//FLEX    memory_in_gbs = var.instance_flex_memory_in_gbs
-//FLEX    ocpus         = var.instance_flex_ocpus
-//FLEX  }
+//YYYY  shape_config {
+//YYYY    memory_in_gbs = var.instance_flex_memory_in_gbs
+//YYYY    ocpus         = var.instance_flex_ocpus
+//YYYY  }
+
   create_vnic_details {
     subnet_id        = var.subnet_ocid
     display_name     = var.vnic_display_name
@@ -170,46 +171,34 @@ resource "oci_core_instance" "test_instance" {
 }
 
 // install repo.
-resource "null_resource" "install_repo" {
-  depends_on = [oci_core_instance.test_instance]
+resource "null_resource" "update_to_latest" {
+
+  provisioner "remote-exec" {
+    connection {
+      type = "ssh"
+      agent = false
+      user = var.remote_user
+      host = oci_core_instance.test_instance.*.XXXX_ip[0]
+      timeout = "15m"
+      private_key = file(var.ssh_private_key)
+    }
+    script = var.initial_script_path
+  }
+}
+
+resource "null_resource" "create_tail_log" {
+  connection {
+      type = "ssh"
+      agent = false
+      user = var.remote_user
+      host = oci_core_instance.test_instance.*.XXXX_ip[0]
+      timeout = "15m"
+      private_key = file(var.ssh_private_key)
+    }
+
   provisioner "file" {
-    source      = "/var/www/html/channel_rpms/${var.os_user}/"
-    destination = "/tmp/"
-    connection {
-      type = "ssh"
-      agent = false
-      user = var.remote_user
-      host = oci_core_instance.test_instance.*.PUBIP_ip[0]
-      timeout = "15m"
-      private_key = file(var.ssh_private_key)
-    }
-  }
-
-  provisioner "remote-exec" {
-    connection {
-      type = "ssh"
-      agent = false
-      user = var.remote_user
-      host = oci_core_instance.test_instance.*.PUBIP_ip[0]
-      timeout = "15m"
-      private_key = file(var.ssh_private_key)
-    }
-    script = "${var.script_path}/install_oci_utils_automation.sh"
-  }
-
-  provisioner "remote-exec" {
-    connection {
-      type = "ssh"
-      agent = false
-      user = var.remote_user
-      host = oci_core_instance.test_instance.*.PUBIP_ip[0]
-      timeout = "15m"
-      private_key = file(var.ssh_private_key)
-    }
-    inline = [
-      "/bin/sudo --preserve-env mkdir -p /logs",
-      "/bin/sudo --preserve-env chmod 777 /logs"
-      ]
+    content     = "rm -f /var/tmp/oci-utils.log; touch /var/tmp/oci-utils.log; clear; tail -f /var/tmp/oci-utils.log"
+    destination = "/tmp/tail_log"
   }
 }
 

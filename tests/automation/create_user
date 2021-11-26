@@ -22,12 +22,19 @@ CHOWN=$(which chown)
 GROUPID=1000
 USERSHELL="/bin/bash"
 BINDIR="bin"
-TESTDIR="tests"
+TESTDIR="autotests"
 CONFIGDIR="configuration"
 GITDIR="git_repo"
-GITCLONE="cloneociuitils"
 WORKDIR="oci_operations/tests/automation/configuration"
-DIRLIST=( "${BINDIR}" "${TESTDIR}" "${CONFIGDIR}" "${GITDIR}")
+# DIRLIST=( "${BINDIR}" "${TESTDIR}" "${CONFIGDIR}" "${GITDIR}")
+DIRLIST=( "${BINDIR}" "${TESTDIR}" "${GITDIR}")
+GITCLONE="cloneociutils"
+TESTINSTANCE="oci_utils_test_instance"
+CONFIGURETESTS="oci_utils_configure_tests"
+ISCSIDATA="oci_utils_iscsi_data"
+NETWORKDATA="oci_utils_network_data"
+POOLDATA="oci_utils_pool_data"
+BINLIST=( "${TESTINSTANCE}" "${CONFIGURETESTS}" "${ISCSIDATA}" "${NETWORKDATA}" "${POOLDATA}" )
 KEYFILENAME="oci_api_key.pem"
 #
 # todo:
@@ -43,7 +50,7 @@ Usage() {
   echo ""
   echo "Usage:"
   echo ""
-  echo "${0} <username> <userid> <sdk config> <key file>"
+  echo "${0} <username> <userid> <sdk config> <key file> <branch>"
   echo ""
   echo "  <username>   : the name of the user to be created."
   echo "  <userid>     : the userid for the user."
@@ -87,7 +94,7 @@ ExitOnError() {
 
 NBPAR="${#}"
 if [ ${NBPAR} -ne ${EXPECTEDNBPAR} ]; then
-  MessageErrBase "username, userid, config and/or key file missing"
+  MessageErrBase "username, userid, config, key file and/or branch missing"
   Usage
   exit 1
 fi
@@ -105,6 +112,8 @@ MessageStd "git branch ${GITBRANCH}"
 #
 HOMEDIR="/home/${USERNAME}"
 MessageStd "user home directory is ${HOMEDIR}"
+HOMEBINDIR="${HOMEDIR}/bin"
+MessageStd "user bin directory is ${HOMEBINDIR}"
 HOMEOCI="${HOMEDIR}/.oci"
 MessageStd ".oci is ${HOMEOCI}"
 HOMEOCICONFIG="${HOMEOCI}/config"
@@ -113,7 +122,9 @@ HOMESDKKEY="${HOMEOCI}/${KEYFILENAME}"
 MessageStd "sdk key file is ${HOMESDKKEY}"
 HOMEGITDIR=${HOMEDIR}/${GITDIR}
 MessageStd "git repositroy directory is ${HOMEGITDIR}"
-MASTERMAKE=${HOMEGITDIR}/tests/automation/Makefile
+HOMEAUTOMATION=${HOMEGITDIR}/tests/automation
+MessageStd "automation directory is ${HOMEAUTOMATION}"
+MASTERMAKE=${HOMEAUTOMATION}/Makefile
 MessageStd "Makefile location is ${MASTERMAKE}"
 #
 #
@@ -140,7 +151,7 @@ done
 ${SU} -l "${USERNAME}" -c "${MKDIR} ${HOMEOCI}"
 ExitOnError "${?}" "Failed to create ${HOMEOCI}" "${HOMEOCI} created successfully."
 #
-# copy oci sdk config in place.
+# chmode sdk config directory
 ${SU} -l "${USERNAME}" -c "${CHMOD} 700 ${HOMEOCI}"
 ExitOnError "${?}" "Failed to  ${CHMOD} 700 ${HOMEOCI}" "${HOMEOCI} permission set to 700 successfully."
 #
@@ -168,8 +179,9 @@ ${SU} -l "${USERNAME}" -c "${SED} -i /key_file/c\"key_file=${HOMESDKKEY}\" ${HOM
 #ExitOnError ${?} "Failed to checkout ${GITBRANCH}" "Checkout ${GITBRANCH} successfully"
 #
 # create clone script to ${HOME}/bin
-${CAT} << EOT > ${HOMEDIR}/bin/${GITCLONE}
+${CAT} << EOT > ${HOMEBINDIR}/${GITCLONE}
 #!/bin/bash
+# [ "$#" -ne 1 ] && echo "Usage: ${0} <git branch>" && exit
 THISGITBRANCH="\${1}"
 ${DELETE} ${HOMEGITDIR}
 https_proxy=${HTTPSPROXY} ${GIT} clone ${GITHUBURL} ${HOMEGITDIR}
@@ -182,7 +194,7 @@ ExitOnError "${?}" "Failed to create ${HOMEDIR}/bin/${GITCLONE}" "Created ${HOME
 #
 # chown ${GITCLONE}
 ${CHOWN} ${USERID}:${GROUPID} ${HOMEDIR}/bin/${GITCLONE}
-ExitOnError "${?}" "Failed to change owmer of  ${HOMEDIR}/bin/${GITCLONE}" "Changed owner of ${HOMEDIR}/bin/${GITCLONE}} successfully."
+ExitOnError "${?}" "Failed to change owmer of  ${HOMEDIR}/bin/${GITCLONE}" "Changed owner of ${HOMEDIR}/bin/${GITCLONE} successfully."
 #
 # chmod 755 ${GITCLONE}
 ${SU} -l "${USERNAME}" -c "${CHMOD} 755 ${HOMEDIR}/bin/${GITCLONE}"
@@ -195,3 +207,10 @@ ExitOnError ${?} "Failed to clone ${GITHUBURL} to  ${HOMEGITDIR}" "${GITHUBURL} 
 # copy Makefile
 ${SU} -l ${USERNAME} -c "${COPY} ${MASTERMAKE} ${HOMEDIR}"
 ExitOnError ${?} "Failed to copy ${MASTERMAKE} to ${HOMEDIR}" "Copied ${MASTERMAKE} to ${HOMEDIR} successfully."
+#
+# populate bin
+for thisbin in  "${BINLIST[@]}"
+do
+  ${SU} -l "${USERNAME}" -c "${COPY} ${HOMEAUTOMATION}/${thisbin}.py ${HOMEBINDIR}/${thisbin}"
+  ExitOnError "${?}" "Failed to  ${COPY} ${thisbin}.py to ${HOMEBINDIR}/${thisbin}" "Copied ${thisbin}.py to ${HOMEBINDIR}/${thisbin} successfully."
+done

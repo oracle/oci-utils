@@ -322,45 +322,117 @@ def do_show_vnics_information(vnics, mode, details=False):
         """ return network subnet information."""
         return '%s/%s' % (vnic.get_subnet().get_cidr_block(), vnic.get_subnet().get_display_name())
 
-    _title = 'VNICs Information'
-    _columns = [['Name', 32, 'get_display_name']]
-    _columns.append(['Private IP', 15, 'get_private_ip'])
-    _columns.append(['OCID', 90, 'get_ocid'])
-    _columns.append(['MAC', 17, 'get_mac_address'])
-    printerKlass = get_row_printer_impl(mode)
+    _cols = ['Name', 'Private IP', 'OCID', 'MAC']
+    _col_name = ['name', 'privateip', 'ocid', 'mac']
+    _cols_details = ['Primary', 'Subnet', 'NIC', 'Public IP', 'Availability Domain']
+    _col_detail_name = ['primary', 'subnet', 'nic', 'publicip', 'availabilitydomain']
     if details:
-        # printerKlass = get_row_printer_impl('text')
-        _columns.append(['Primary', 7, 'is_primary'])
-        # _columns.append(['Subnet', 25, 'get_subnet'])
-        _columns.append(['Subnet', 30, _display_subnet])
-        _columns.append(['NIC', 3, 'get_nic_index'])
-        _columns.append(['Public IP', 15, 'get_public_ip'])
-        _columns.append(['Availability domain', 20, 'get_availability_domain_name'])
+        _cols = [*_cols, *_cols_details]
+        _col_name = [*_col_name, *_col_detail_name]
 
-        ips_printer = TextPrinter(title='Private IP addresses:',
-                                  columns=(['IP address', 15, 'get_address'],
-                                           ['OCID', '90', 'get_ocid'],
-                                           ['Hostname', 25, 'get_hostname'],
-                                           ['Subnet', 30, _display_secondary_ip_subnet]),
-                                  printer=IndentPrinter(3))
+    _cols_len = list()
+    for col in _cols:
+        _cols_len.append(len(col))
+    _collen = { k:v for k, v in zip(_col_name, _cols_len)}
 
-    printer = printerKlass(title=_title, columns=_columns)
-    printer.printHeader()
+    _p_cols = ['IP address', 'OCID', 'Hostname', 'Subnet']
+    _p_col_name = ['ipaddress', 'ocid', 'hostname', 'subnet']
+    _p_cols_len = list()
+    for col in _p_cols:
+        _p_cols_len.append(len(col))
+    _p_collen = { k:v for k, v in zip(_p_col_name, _p_cols_len)}
+
+    vnic_data = list()
+    p_vnic_data = dict()
     for vnic in vnics:
+        _nic_data = dict()
+        # name
+        _nic_data['name'] = vnic.get_display_name()
+        _collen['name'] = max(len(_nic_data['name']), _collen['name'])
+        # private ip
+        _nic_data['privateip'] = vnic.get_private_ip()
+        _collen['privateip'] = max(len(_nic_data['privateip']), _collen['privateip'])
+        # ocid
+        _nic_data['ocid'] = vnic.get_ocid()
+        _collen['ocid'] = max(len(_nic_data['ocid']), _collen['ocid'])
+        # mac address
+        _nic_data['mac'] = vnic.get_mac_address()
+        _collen['mac'] = max(len(_nic_data['mac']), _collen['mac'])
+        if details:
+            # primary
+            _nic_data['primary'] = vnic.is_primary()
+            _nic_primary_len = 4 if _nic_data['primary'] else 5
+            _collen['primary'] = max(_nic_primary_len, _collen['primary'])
+            # subnet
+            _nic_data['subnet'] = _display_subnet(None, 'dummy')
+            _collen['subnet'] = max(len(_nic_data['subnet']), _collen['subnet'])
+            # nic index
+            _nic_data['nic'] = vnic.get_nic_index()
+            _collen['nic'] = max(3, _collen['nic'])
+            # public ip
+            _nic_data['publicip'] = vnic.get_public_ip()
+            _nic_publicip_len = 4 if _nic_data['publicip'] is None else len(_nic_data['publicip'])
+            _collen['publicip'] = max(_nic_publicip_len, _collen['publicip'])
+            # availability domain
+            _nic_data['availabilitydomain'] = vnic.get_availability_domain_name()
+            _collen['availabilitydomain'] = max(len(_nic_data['availabilitydomain']), _collen['availabilitydomain'])
+            # secondary addresses
+            _private_ips = vnic.all_private_ips()
+            # we do not print primary again
+            if len(_private_ips) > 1:
+                p_vnic_data[_nic_data['name']] = list()
+                for priv_ip in _private_ips:
+                    if not priv_ip.is_primary():
+                        _p_nic_data = dict()
+                        # ipaddress
+                        _p_nic_data['ipaddress'] = priv_ip.get_address()
+                        _p_collen['ipaddress'] = max(len(_p_nic_data['ipaddress']), _p_collen['ipaddress'])
+                        # ocid
+                        _p_nic_data['ocid'] = priv_ip.get_ocid()
+                        _p_collen['ocid'] = max(len(_p_nic_data['ocid']), _p_collen['ocid'])
+                        # hostname
+                        _hostname = priv_ip.get_hostname()
+                        _p_nic_data['hostname'] = '-' if _hostname is None else _hostname
+                        _p_collen['hostname'] = max(len(_p_nic_data['hostname']), _p_collen['hostname'])
+                        # subnet
+                        _p_nic_data['subnet'] = _display_secondary_ip_subnet(None, priv_ip)
+                        _p_collen['subnet'] = max(len(_p_nic_data['subnet']), _p_collen['subnet'])
+                        #
+                        p_vnic_data[_nic_data['name']].append(_p_nic_data)
+                        
+        #
+        vnic_data.append(_nic_data)
+
+    _title = 'VNICs Information'
+    _columns = list()
+    for i in range(len(_cols)):
+        _columns.append([_cols[i], _collen[_col_name[i]]+2, _col_name[i]])
+
+    _p_columns = list()
+    for i in range(len(_p_cols)):
+        _p_columns.append([_p_cols[i], _p_collen[_p_col_name[i]]+2, _p_col_name[i]])
+
+    printerKlass = get_row_printer_impl(mode)
+    printer = printerKlass(title=_title, columns=_columns)
+    printheader = False
+    for vnic in vnic_data:
+        if not printheader:
+            printer.printHeader()
+            printheader = True
         printer.rowBreak()
         printer.printRow(vnic)
         if details:
-            private_ips = vnic.all_private_ips()
-            if len(private_ips) > 1:
-                # private_ips include the primary we won't print (>1)
+            if vnic['name'] in p_vnic_data:
+                ips_printer = printerKlass(title='Private IP addresses:',
+                                          columns=_p_columns,
+                                          printer=IndentPrinter(3))
                 ips_printer.printHeader()
-                for p_ip in private_ips:
-                    if not p_ip.is_primary():
-                        # primary already displayed
-                        ips_printer.printRow(p_ip)
-                        ips_printer.rowBreak()
-            ips_printer.printFooter()
-            ips_printer.finish()
+                for p_ip in p_vnic_data[vnic['name']]:
+                    ips_printer.printRow(p_ip)
+                    ips_printer.rowBreak()
+                ips_printer.printFooter()
+                ips_printer.finish()
+                printheader = False
     printer.printFooter()
     printer.finish()
 
@@ -386,48 +458,122 @@ def do_show_information(vnic_utils, mode, details=False):
     vnics = sess.this_instance().all_vnics()
     network_config = vnic_utils.get_network_config()
 
-    def _display_subnet(_, interface):
+#    def _display_subnet(_, interface):
+#        """ return network subnet. if interface match a vnic return OCI vnic subnet """
+#        if interface['VNIC']:
+#            vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
+#            return '%s/%s (%s)' % (interface['SPREFIX'], interface['SBITS'], vnic.get_subnet().get_display_name())
+#        return '%s/%s' % (interface['SPREFIX'], interface['SBITS'])
+
+#    def _get_vnic_name(_, interface):
+#        """ if interface match a vnic return its display name """
+#        if interface['VNIC']:
+#            vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
+#            return vnic.get_display_name()
+#        return ' '
+
+#    def _get_hostname(_, interface):
+#        """ if interface match a vnic return its hostname """
+#        if interface['VNIC']:
+#            vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
+#            return vnic.get_hostname()
+#        return ' '
+
+    def _display_subnet(interface):
         """ return network subnet. if interface match a vnic return OCI vnic subnet """
         if interface['VNIC']:
-            vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
-            return '%s/%s (%s)' % (interface['SPREFIX'], interface['SBITS'], vnic.get_subnet().get_display_name())
+            for v in vnics:
+                if v.get_ocid() == interface['VNIC']:
+                    v_subnet = [interface['SPREFIX'], interface['SBITS']]
+                    return '%s/%s (%s)' % (v_subnet[0], v_subnet[1], v.get_subnet().get_display_name())
         return '%s/%s' % (interface['SPREFIX'], interface['SBITS'])
 
-    def _get_vnic_name(_, interface):
+    def _get_vnic_name(interface):
         """ if interface match a vnic return its display name """
         if interface['VNIC']:
-            vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
-            return vnic.get_display_name()
-        return ' '
+            for v in vnics:
+                 if v.get_ocid() == interface['VNIC']:
+                     return v.get_display_name()
+        return '-'
 
-    def _get_hostname(_, interface):
+    def _get_hostname(interface):
         """ if interface match a vnic return its hostname """
         if interface['VNIC']:
-            vnic = [v for v in vnics if v.get_ocid() == interface['VNIC']][0]
-            return vnic.get_hostname()
-        return ' '
+            for v in vnics:
+                if v.get_ocid() == interface['VNIC']:
+                    v_hostname = v.get_hostname()
+                    return 'None' if v_hostname is None else v_hostname
+        return '-'
 
-    _columns = []
-    _columns.append(['State', 6, 'CONFSTATE'])
-    _columns.append(['Link', 15, 'IFACE'])
-    _columns.append(['Status', 6, 'STATE'])
-    _columns.append(['IP address', 15, 'ADDR'])
-    _columns.append(['VNIC', 30, _get_vnic_name])
-    _columns.append(['MAC', 17, 'MAC'])
+
+    _cols = ['State', 'Link', 'Status', 'IP address', 'VNIC', 'MAC']
+    _col_name = ['state', 'link', 'status', 'ipaddress', 'vnic', 'mac']
+    _cols_details = ['Hostname', 'Subnet', 'Router IP', 'Namespace', 'Index', 'VLAN tag', 'VLAN']
+    _col_detail_name = ['hostname', 'subnet', 'routerip', 'namespace', 'index', 'vlantag', 'vlan']
+
     if details:
-        _columns.append(['Hostname', 25, _get_hostname])
-        _columns.append(['Subnet', 32, _display_subnet])
-        _columns.append(['Router IP', 15, 'VIRTRT'])
-        _columns.append(['Namespace', 10, 'NS'])
-        _columns.append(['Index', 5, 'IND'])
-        _columns.append(['VLAN tag', 8, 'VLTAG'])
-        _columns.append(['VLAN', 11, 'VLAN'])
+        _cols = [*_cols, *_cols_details]
+        _col_name = [*_col_name, *_col_detail_name]
+
+    _cols_len = list()
+    for col in _cols:
+        _cols_len.append(len(col))
+    _collen = { k:v for k, v in zip(_col_name, _cols_len)}
+
+    vnic_data = list()
+    for item in network_config:
+        _nic_data = dict()
+        # state
+        _nic_data['state'] = item['CONFSTATE']
+        _collen['state'] = max(len(_nic_data['state']), _collen['state'])
+        # link
+        _nic_data['link'] = item['IFACE']
+        _collen['link'] = max(len(_nic_data['link']), _collen['link'])
+        # status
+        _nic_data['status'] = item['STATE']
+        _collen['status'] = max(len(_nic_data['status']), _collen['status'])
+        # ipaddress
+        _nic_data['ipaddress'] = item['ADDR']
+        _collen['ipaddress'] = max(len(_nic_data['ipaddress']), _collen['ipaddress'])
+        # vnic
+        _nic_data['vnic'] = _get_vnic_name(item)
+        _collen['vnic'] = max(len(_nic_data['vnic']), _collen['vnic'])
+        # mac
+        _nic_data['mac'] = item['MAC']
+        _collen['mac'] = max(len(_nic_data['mac']), _collen['mac'])
+        if details:
+            # hostname
+            _nic_data['hostname'] = _get_hostname(item)
+            _collen['hostname'] = max(len(_nic_data['hostname']), _collen['hostname'])
+            # subnet
+            _nic_data['subnet'] = _display_subnet(item)
+            _collen['subnet'] = max(len(_nic_data['subnet']), _collen['subnet'])
+            # routerip
+            _nic_data['routerip'] = item['VIRTRT']
+            _collen['routerip'] = max(len(_nic_data['routerip']), _collen['routerip'])
+            # namespace
+            _nic_data['namespace'] = item['NS']
+            _collen['namespace'] = max(len(_nic_data['namespace']), _collen['namespace'])
+            # index
+            _nic_data['index'] = item['IND']
+            _collen['index'] = max(len(_nic_data['index']), _collen['index'])
+            # vlantag
+            _nic_data['vlantag'] = item['VLTAG']
+            _collen['vlantag'] = max(len(_nic_data['vlantag']), _collen['vlantag'])
+            # vlan
+            _nic_data['vlan'] = item['VLAN']
+            _collen['vlan'] = max(len(_nic_data['vlan']), _collen['vlan'])
+        vnic_data.append(_nic_data)
+
+    _columns = list()
+    for i in range(len(_cols)):
+        _columns.append([_cols[i], _collen[_col_name[i]]+2, _col_name[i]])
 
     printerKlass = get_row_printer_impl(mode)
     printer = printerKlass(title='Network configuration', columns=_columns)
 
     printer.printHeader()
-    for item in network_config:
+    for item in vnic_data:
         printer.printRow(item)
         printer.rowBreak()
     printer.printFooter()
@@ -460,14 +606,14 @@ def compat_show_vnics_information():
     if sess is None:
         _logger.error("Failed to get API session.")
         return
-    _logger.debug('getting instance ')
+    _logger.debug('Getting instance ')
     inst = sess.this_instance()
     if inst is None:
         _logger.error("Failed to get information from OCI.")
         return
-    _logger.debug('getting all vnics ')
+    _logger.debug('Getting all vnics ')
     vnics = inst.all_vnics()
-    _logger.debug('got for printing')
+    _logger.debug('Got for printing')
 
     _title = 'VNIC configuration for instance %s' % inst.get_display_name()
 

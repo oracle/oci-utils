@@ -64,6 +64,7 @@ help:
 	$(WRITE) " make show_vars"
 	$(WRITE) " make build_image VARFILENAME=<packer variable file name> TYPE=[$(OLTYPE)|$(ALTYPE)] RELEASE=[7|8]"
 	$(WRITE) " make all TYPE=[$(OLTYPE)|$(ALTYPE)] RELEASE=[7|8]"
+	$(WRITE) " make tarball"
 
 #
 # version info

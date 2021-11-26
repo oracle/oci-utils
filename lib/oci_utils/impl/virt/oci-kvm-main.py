@@ -498,16 +498,12 @@ def _list_pool_vm(args):
         _logger.info('No filesystem pools found.')
         return
 
-    _collen = {'name': 4,
-               'uuid': 4,
-               'autostart': 9,
-               'active': 6,
-               'persistent': 10,
-               'volumes': 7,
-               'state': 5,
-               'capacity': 8,
-               'allocation': 10,
-               'available': 9}
+    _cols = ['Name', 'UUID', 'Autostart', 'Active', 'Persistent', 'Volumes', 'State', 'Capacity', 'Allocation', 'Available']
+    _col_name = ['name', 'uuid', 'autostart', 'active', 'persistent', 'volumes', 'state', 'capacity', 'allocation', 'available']
+    _cols_len = list()
+    for col in _cols:
+        _cols_len.append(len(col))
+    _collen = { k:v for k, v in zip(_col_name, _cols_len)}
     #
     # format data and determine optimal lenght of fields.
     pool_data = list()
@@ -515,12 +511,10 @@ def _list_pool_vm(args):
         _sp_info = _sp.info()
         _sp_data = dict()
         # name
-        _sp_name_len = len(_sp.name())
-        _collen['name'] = max(_sp_name_len, _collen['name'])
+        _collen['name'] = max(len(_sp.name()), _collen['name'])
         _sp_data['name'] = _sp.name()
         # uuid
-        _sp_uuid_len = len(_sp.UUIDString())
-        _collen['uuid'] = max(_sp_uuid_len, _collen['uuid'])
+        _collen['uuid'] = max(len(_sp.UUIDString()), _collen['uuid'])
         _sp_data['uuid'] = _sp.UUIDString()
         # autostart
         _sp_data['autostart'] = yes_no[_sp.autostart()]
@@ -532,35 +526,23 @@ def _list_pool_vm(args):
         _sp_data['volumes'] = _sp.numOfVolumes()
         # total capacity
         _sp_data['capacity'] = _format_size(int(_sp_info[1]))
-        _sp_cap_len = len(_sp_data['capacity'])
-        _collen['capacity'] = max(_sp_cap_len, _collen['capacity'])
+        _collen['capacity'] = max(len(_sp_data['capacity']), _collen['capacity'])
         # state
         _sp_data['state'] = pool_states[_sp_info[0]]
-        _sp_state_len = len(_sp_data['state'])
-        _collen['state'] = max(_sp_state_len, _collen['state'])
+        _collen['state'] = max(len(_sp_data['state']), _collen['state'])
         # allocated space
         _sp_data['allocation'] = _format_size(int(_sp_info[2]))
-        _sp_alloc_len = len(_sp_data['allocation'])
-        _collen['allocation'] = max(_sp_alloc_len, _collen['allocation'])
+        _collen['allocation'] = max(len(_sp_data['allocation']), _collen['allocation'])
         # available space
         _sp_data['available'] = _format_size(int(_sp_info[3]))
-        _sp_avail_len = len(_sp_data['available'])
-        _collen['available'] = max(_sp_avail_len, _collen['available'])
-
+        _collen['available'] = max(len(_sp_data['available']), _collen['available'])
+        #
         pool_data.append(_sp_data)
 
     _title = 'VM pool Information'
     _columns = list()
-    _columns.append(['Name', _collen['name']+2, 'name'])
-    _columns.append(['UUID', _collen['uuid']+2, 'uuid'])
-    _columns.append(['Autostart', _collen['autostart']+2, 'autostart'])
-    _columns.append(['Active', _collen['active']+2, 'active'])
-    _columns.append(['Persistent', _collen['persistent']+2, 'persistent'])
-    _columns.append(['Volumes', _collen['volumes']+2, 'volumes'])
-    _columns.append(['State', _collen['state']+2, 'state'])
-    _columns.append(['Capacity', _collen['capacity']+2, 'capacity'])
-    _columns.append(['Allocation', _collen['allocation']+2, 'allocation'])
-    _columns.append(['Available', _collen['available']+2, 'available'])
+    for i in range(len(_cols)):
+        _columns.append([_cols[i], _collen[_col_name[i]] + 2, _col_name[i]])
 
     printerKlass = get_row_printer_impl(args.output_mode)
     printer = printerKlass(title=_title, columns=_columns)

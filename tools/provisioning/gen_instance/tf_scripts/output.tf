@@ -6,9 +6,9 @@ output "instance_private_ip" {
     value = module.base_instance.instance_private_ip
 }
 
-//PUBIPoutput "instance_public_ip" {
-//PUBIP    value = module.base_instance.instance_public_ip
-//PUBIP}
+//XXXXoutput "instance_public_ip" {
+//XXXX    value = module.base_instance.instance_public_ip
+//XXXX}
 
 output "boot_volume_ocid" {
     value = module.base_instance.boot_volume_ocid

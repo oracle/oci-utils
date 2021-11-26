@@ -6,7 +6,7 @@ build_image assists in building KVM images based on Linux images.
 
 ## Prerequisites
 
-1. The user running the build needs to have direct authenticaton configured. (Instance principal authentication is on the enthancement list.) 
+1. The user running the build needs to have direct authenticaton configured. (Instance principal authentication is on the enhancement list.) 
 2. The build_image uses only private ips. (Public ip is on the enhancement list.)
 
 ## Installation

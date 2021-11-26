@@ -1,6 +1,6 @@
 [oci-utils-automation]
 name=Oracle Linux $releasever - $basearch - latest
-baseurl=http://_YYYY_/yum/_XXXX_/OL7/$basearch/
+baseurl=http://_IPIP_/yum/_UUUU_/OL7/$basearch/
 gpgcheck=1
 enabled=1
 

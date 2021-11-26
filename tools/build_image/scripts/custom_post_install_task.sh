@@ -58,6 +58,8 @@ ${SUDO} ${SED} -i "/^GRUB_CMDLINE_LINUX=/s/\"$/ ${GRUB_STRING}\"/" ${GRUB_FILE}
 #
 # Enable nested virt (Intel only AMD is not suported yet)
 ${WRITE} 'options kvm-intel nested=Y'|${SUDO} tee /etc/modprobe.d/kvm_intel.conf >/dev/null
+# Experimental AMD nested virtualization
+${WRITE} 'options kvm-amd nested=1'|${SUDO} tee /etc/modprobe.d/kvm_amd.conf >/dev/null
 #
 # Enable tuned
 ${SUDO} systemctl enable tuned

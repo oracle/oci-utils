@@ -57,15 +57,15 @@ variable "shape" {
   type = string
 }
 
-//FLEXvariable "instance_flex_memory_in_gbs" {
-//FLEX  description = "instance memorry size in GB."
-//FLEX  type = number
-//FLEX}
+//YYYYvariable "instance_flex_memory_in_gbs" {
+//YYYY  description = "instance memorry size in GB."
+//YYYY  type = number
+//YYYY}
 
-//FLEXvariable "instance_flex_ocpus" {
-//FLEX  description = "amount of instance ocpus."
-//FLEX  type = number
-//FLEX}
+//YYYYvariable "instance_flex_ocpus" {
+//YYYY  description = "amount of instance ocpus."
+//YYYY  type = number
+//YYYY}
 
 variable "source_ocid" {
   description = "source identification."
@@ -122,8 +122,8 @@ variable "log_file_path" {
   type = string
 }
 
-variable "script_path" {
-  description = "path to bash script direcory"
+variable "initial_script_path" {
+  description = "path to initial bash script"
   type = string
 }
 
@@ -140,8 +140,8 @@ module "base_instance"{
   fingerprint = var.fingerprint
   region = var.region
   shape = var.shape
-//FLEX  instance_flex_memory_in_gbs = var.instance_flex_memory_in_gbs
-//FLEX  instance_flex_ocpus = var.instance_flex_ocpus
+//YYYY  instance_flex_memory_in_gbs = var.instance_flex_memory_in_gbs
+//YYYY  instance_flex_ocpus = var.instance_flex_ocpus
   source_ocid = var.source_ocid
   source_type = var.source_type
   instance_display_name = var.instance_display_name
@@ -153,5 +153,5 @@ module "base_instance"{
   remote_user = var.remote_user
   ssh_private_key = var.ssh_private_key
   log_file_path = var.log_file_path
-  script_path = var.script_path
+  initial_script_path = var.initial_script_path
 }

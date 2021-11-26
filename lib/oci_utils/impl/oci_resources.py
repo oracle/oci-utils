@@ -2010,7 +2010,8 @@ class OCIVolume(OCIAPIAbstractResource):
         #
         # GT
         # return self.att_data['iqn']
-        return self.att_data.iqn
+        # return self.att_data.iqn
+        return self.att_data.iqn if hasattr(self.att_data, 'iqn') else None
 
     def attach_to(self, instance_id, use_chap=False, display_name=None, wait=True):
         """

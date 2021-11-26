@@ -2,6 +2,8 @@
 // Licensed under the Universal Permissive License v 1.0 as shown
 // at http:/oss.oracle.com/licenses/upl.
 
-data "oci_identity_availability_domains" "ads" {
-  compartment_id = var.tenancy_ocid
+terraform {
+  required_providers {
+    oci = ">= 3.56.0"
+  }
 }

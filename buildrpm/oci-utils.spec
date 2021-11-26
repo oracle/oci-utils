@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.6
-Release: 4%{?dist}
+Release: 5%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -176,12 +176,18 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Fri Nov 26 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-5
+- LINUX-10151: oci-network-config show --details does not list secondary ip address; implemented in show-vnics
+- LINUX-10139: table print headers need to match the column widths
+- autotest update
+- provision update
+
 * Tue Oct 19 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-4
 - Correction in oci-iscsi-config man page
 - LINUX-9802 oci-iscsi-config --show does not show mount point nor file system data
 - Fixed oci-iscsi-config table formatting
 - Fixed oci-public-ip table formatting
-- Added oci-instance-id and oci-compartment-id scripts
+- Added oci-instanceid and oci-compartmentid scripts
 
 * Thu Oct 7 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-3
 - OL8 kvm image build automation

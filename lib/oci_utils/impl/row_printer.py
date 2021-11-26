@@ -190,27 +190,33 @@ class TablePrinter(ColumnsPrinter):
         keywords:
             text_truncate : yes/no (something evaluaet to True)
                             truncate if cell value greater than cell width, truncate the value
-
+            indent: int
+                indent the header.
         """
         super().__init__(**kargs)
         self.text_truncate = bool(kargs.get('text_truncate', True))
+        self.header_indent = kargs.get('indent', 0) * '  '
 
     def printHeader(self):
-        _buffer = StringIO()
-        _buffer.write(self.title)
-        _buffer.write(':\n')
-        # keep track of position before printing columns names
-        # in order to draw the line
-        _start = _buffer.tell()
+        # title
+        _h_title = StringIO()
+        _h_title.write(self.title)
+        print(_h_title.getvalue(), file=self.printer)
+        _h_title.close()
+        # header text
+        _h_header = StringIO()
         for idx in range(len(self.columnsNames)):
-            _buffer.write(self.columnsNames[idx].center(self.columnsWidths[idx]))
-            _buffer.write(self.columnsSeparator)
-        _buffer.write('\n')
+            _h_header.write(self.columnsNames[idx].center(self.columnsWidths[idx]))
+            _h_header.write(self.columnsSeparator)
+        print(_h_header.getvalue(), file=self.printer)
+        _start = _h_header.tell()
+        _h_header.close()
+        # subline
+        _h_subline = StringIO()
         # compute needed length for subline
-        _buffer.write((_buffer.tell()-_start-1)*'-')
-
-        print(_buffer.getvalue(), file=self.printer)
-        _buffer.close()
+        _h_subline.write((_start-1)*'-')
+        print(_h_subline.getvalue(), file=self.printer)
+        _h_subline.close()
 
     def _formatCell(self, cellWidth, cellValue):
         cellValue_s = str(cellValue)
@@ -251,6 +257,8 @@ class TablePrinter(ColumnsPrinter):
         print(_buffer.getvalue(), file=self.printer)
         _buffer.close()
 
+    def finish(self):
+        print("\n", file=self.printer)
 
 class ParsableTextPrinter(TablePrinter):
     _COLUMN_SEP = "#"

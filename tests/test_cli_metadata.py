@@ -153,8 +153,8 @@ class TestCliOciMetadata(OciTestCase):
                    + agentconfig_key_set \
                    + definedtags_key_set \
                    + metadata_key_set \
-                   + pluginsconfig_key_set \
-                   + oracletags_key_set :
+                   + pluginsconfig_key_set :
+#                   + oracletags_key_set :
             with self.subTest(key=key):
                 try:
                     key_data = subprocess.check_output([self.oci_metadata_path, '--get', key])

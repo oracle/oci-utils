@@ -11,7 +11,7 @@ resource "null_resource" "oci_sdk_config" {
       type = "ssh"
       user = var.remote_user
       agent = false
-      host = module.base_instance.instance_PUBIP_ip
+      host = module.base_instance.instance_XXXX_ip
       timeout = "15m"
       private_key = file(var.ssh_private_key)
     }
@@ -21,7 +21,7 @@ resource "null_resource" "oci_sdk_config" {
       type = "ssh"
       user = var.remote_user
       agent = false
-      host = module.base_instance.instance_PUBIP_ip
+      host = module.base_instance.instance_XXXX_ip
       timeout = "15m"
       private_key = file(var.ssh_private_key)
     }
