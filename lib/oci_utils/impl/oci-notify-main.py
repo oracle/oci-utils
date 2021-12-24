@@ -867,7 +867,6 @@ class NotificationMessage():
             publish_message_response = self._ons_client.publish_message(topic_id=self._topic,
                                                                         message_details=_message_details,
                                                                         opc_request_id=request_id)
-            #                                                             message_type='RAW_TEXT')
             if nbtot <= 1:
                 _logger.info("Published message '%s: %s'", self._instance_name, self._title)
             else:

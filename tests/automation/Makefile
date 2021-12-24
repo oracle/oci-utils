@@ -48,7 +48,7 @@ GREP=egrep
 AWKFOR=awk -F: '{print $$4}'
 CREATEREPO=createrepo -q -c 
 THISIP=$(shell hostname -I|tr -d '[:space:]')
-THISGROUP=$(shell ${GREP} $(USER) /etc/passwd | $(AWKFOR))
+THISGROUP=$(shell ${GREP} $(USER): /etc/passwd | $(AWKFOR))
 #
 # help
 #

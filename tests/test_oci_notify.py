@@ -124,7 +124,7 @@ class TestOciNotify(OciTestCase):
             No return value.
         """
         super(TestOciNotify, self).setUp()
-        self.oci_notify = self.properties.get_property('oci_notify')
+        self.oci_notify = self.properties.get_property('oci-notify')
         self.valid_topic = self.properties.get_property('valid_topic')
         self.non_exist_topic = self.properties.get_property('non_exist_topic')
         self.invalid_topic = self.properties.get_property('invalid_topic')
@@ -145,7 +145,7 @@ class TestOciNotify(OciTestCase):
 
 
     @skipUnlessRoot()
-    def test_config_valid(self):
+    def test_aaa_config_valid(self):
         """
         Tests oci notify configuration with a valid notification topic.
 
@@ -156,7 +156,7 @@ class TestOciNotify(OciTestCase):
         cmd = [self.oci_notify, 'config', self.valid_topic]
         try:
             valid_config_output = _run_step('Config with valid topic', cmd)
-            self.assertIn('Configured OCI notification service', str(valid_config_output, 'Failed to configure OCI notification service.'))
+            self.assertIn('Configured OCI notification service', str(valid_config_output), 'Failed to configure OCI notification service.')
         except Exception as e:
             self.fail('oci notification configuration failed.')
 
@@ -171,9 +171,9 @@ class TestOciNotify(OciTestCase):
         cmd = [self.oci_notify, 'config', self.invalid_topic]
         try:
             invalid_config_output = _run_step('Config with invalid topic', cmd)
-            self.assertIn('is a not valid notification topic id', str(invalid_config_output, 'oci-notify configure with invalid topic failed.'))
+            self.assertIn('is a not valid notification topic id', str(invalid_config_output), 'oci-notify configure with invalid topic failed.')
         except Exception as e:
-            self.fail('oci-notify configure with invalid topic failed.')
+            self.fail('oci notification with invalid topic failed.')
 
     def test_config_non_existent(self):
         """
@@ -186,9 +186,9 @@ class TestOciNotify(OciTestCase):
         cmd = [self.oci_notify, 'config', self.non_exist_topic]
         try:
             invalid_config_output = _run_step('Config with non existent topic', cmd)
-            self.assertIn('notification topic does not exist', str(invalid_config_output, 'oci-notify configure with non existent topic failed.'))
+            self.assertIn('notification topic does not exist', str(invalid_config_output), 'oci-notify configure with non existent topic failed.')
         except Exception as e:
-            self.fail('oci-notify configure with non existent topic failed.')
+            self.fail('oci notification with non existent topic failed.')
 
     def test_file_message_small(self):
         """
@@ -199,10 +199,10 @@ class TestOciNotify(OciTestCase):
             No return value
         """
         create_small_file(self.test_file)
-        cmd = [self.oci_notify, '--title', 'small file notification', '--message', '/tmp/small_file']
+        cmd = [self.oci_notify, 'message', '--title', 'small_file_notification', '--file', '/tmp/small_file']
         try:
             small_notification_output = _run_step('Send small file notification', cmd)
-            self.assertIn('Published message', small_notification_output, 'Sending small file message failed.')
+            self.assertIn('Published message', str(small_notification_output), 'Sending small file message failed.')
         except Exception as e:
             self.fail('Sending small file message failed.')
 
@@ -216,13 +216,12 @@ class TestOciNotify(OciTestCase):
             No return value
         """
         create_large_file(self.test_file)
-        cmd = [self.oci_notify, '--title', 'large file notification', '--message', '/tmp/large_file']
+        cmd = [self.oci_notify, 'message', '--title', 'large_file_notification', '--file', '/tmp/large_file']
         try:
             large_notification_output = _run_step('Send large file notification', cmd)
-            self.assertIn('Published message', large_notification_output, 'Sending large file message failed.')
+            self.assertIn('Published message', str(large_notification_output), 'Sending large file message failed.')
         except Exception as e:
             self.fail('Sending large file message failed.')
-
 
     def test_text_message_small(self):
         """
@@ -233,10 +232,10 @@ class TestOciNotify(OciTestCase):
             No return value
         """
         small_text = self.valid_topic
-        cmd = [self.oci_notify, '--title', 'small text notification', '--message', small_text]
+        cmd = [self.oci_notify, 'message', '--title', 'small_text_notification', '--file', small_text]
         try:
             small_text_output = _run_step('Send small text notification', cmd)
-            self.assertIn('Published message', small_text_output, 'Sending small text message failed.')
+            self.assertIn('Published message', str(small_text_output), 'Sending small text message failed.')
         except Exception as e:
             self.fail('Sending small text message failed.')
 
@@ -252,10 +251,10 @@ class TestOciNotify(OciTestCase):
         large_text = ''
         for _ in range(15):
             large_text += text
-        cmd = [self.oci_notify, '--title', 'large text notification', '--message', large_text]
+        cmd = [self.oci_notify, 'message', '--title', 'large_text_notification', '--file', large_text]
         try:
-            small_text_output = _run_step('Send large text notification', cmd)
-            self.assertIn('Published message', small_text_output, 'Sending large text message failed.')
+            large_text_output = _run_step('Send large text notification', cmd)
+            self.assertIn('Published message', str(large_text_output), 'Sending large text message failed.')
         except Exception as e:
             self.fail('Sending large text message failed.')
 

@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.6
-Release: 6%{?dist}
+Release: 7%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -176,15 +176,21 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Fri Dec 24 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-7
+- kvm autotest update
+- provisioning update
+- kvm provisioning update
+
 * Wed Dec 1 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-6
 - LINUX-9217: add testcases for oci-notify
 - LINUX-11400: verify the notification topic at configuration time.
+- LINUX-11773: oci-notify uses a deprecated parameter message_type in publishing a message.
 
 * Fri Nov 26 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-5
 - LINUX-10151: oci-network-config show --details does not list secondary ip address; implemented in show-vnics
 - LINUX-10139: table print headers need to match the column widths
 - autotest update
-- provision update
+- provisioning update
 
 * Tue Oct 19 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-4
 - Correction in oci-iscsi-config man page

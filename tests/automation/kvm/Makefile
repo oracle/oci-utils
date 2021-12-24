@@ -10,30 +10,32 @@
 #
 export no_proxy=169.254.169.254,.oraclecloud.com
 #
-CREATEINSTANCEPY=bin/create_instance.py
-CREATEINSTANCESH=bin/create_instance
-BINARIES=$(CREATEINSTANCEPY) $(CREATEINSTANCESH)
+HOSTLOCATION=host_instance
+GUESTLOCATON=guest_instance
 
-BASEDATATF=base_instance/data.tf
-BASEMAINTF=base_instance/main.tf
-BASEOUTPUTTF=base_instance/output.tf
+TERRAFORM4OCI=create_instance.py
+BINARIES=bin/$(TERRAFORM4OCI)
+
+BASEDATATF=$(HOSTLOCATION)/base_instance/data.tf
+BASEMAINTF=$(HOSTLOCATION)/base_instance/main.tf
+BASEOUTPUTTF=$(HOSTLOCATION)/base_instance/output.tf
 BASES=$(BASEDATATF) $(BASEMAINTF) $(BASEOUTPUTTF)
 
-TFAPITF=tf_scripts/api_key.tf
-TFDATATF=tf_scripts/data.tf
-TFMAINTF=tf_scripts/main.tf
-TFVERSION=tf_scripts/version.tf
-TFOUTPUTTF=tf_scripts/output.tf
+TFAPITF=$(HOSTLOCATION)/tf_scripts/api_key.tf
+TFDATATF=$(HOSTLOCATION)/tf_scripts/data.tf
+TFMAINTF=$(HOSTLOCATION)/tf_scripts/main.tf
+TFVERSION=$(HOSTLOCATION)/tf_scripts/version.tf
+TFOUTPUTTF=$(HOSTLOCATION)/tf_scripts/output.tf
 TFSCRIPTS=$(TFAPITF) $(TFDATATF) $(TFMAINTF) $(TFVERSION) $(TFOUTPUTTF)
 
-INITIALSCRIPT=gen_scripts/initial_config.sh
+INITIALSCRIPT=$(HOSTLOCATION)/scripts/initial_config.sh
 SHSCRIPTS=$(INITIALSCRIPT)
 #
 # files involved
 FILELIST=Makefile README.md $(BINARIES) $(BASES) $(TFSCRIPTS) $(SHSCRIPTS)
 #
 TARGET=create_instance
-VERSION=0.13_Dec_23_2021
+VERSION=0.8 Oct 26 2021
 WRITE=@echo
 CREATETAR=tar -cjvf
 EXPANDTAR=tar -xjvf
@@ -116,11 +118,7 @@ install: BIN $(HOMETFSCRIPTS) $(HOMEBASES) $(HOMESHSCRIPTS)
 	$(WRITE) "Installed"
 #
 # uninstall
-uninstallbins: $(BINARIES)
-	$(foreach var,$(BINARIES),$(DELETE) $(HOME)/$(var);)
-
-uninstalldata:
+uninstall:
 	$(RMFORCE) $(HOME)/$(TARGET)
-
-uninstall: uninstallbins uninstalldata
+	$(DELETE) $(HOME)/$(BINARIES)
 	$(WRITE) "Uninstalled"

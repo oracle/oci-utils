@@ -776,6 +776,8 @@ def main():
                     + ks_cmd \
                     + extra_args
     print_par_val('create vm', list_to_str(create_vm_cmd))
+    with open(hostname, 'w') as createvm:
+        createvm.write(create_vm_cmd)
     create_vm = run_cmd(create_vm_cmd)
     print_par_val('vm create', list_to_str(create_vm))
 

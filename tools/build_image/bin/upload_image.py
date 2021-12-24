@@ -18,7 +18,7 @@ from datetime import datetime
 
 import oci
 
-#logging.basicConfig(level=logging.DEBUG, filename='/tmp/upload_image.log', filemode='w', format='%(asctime)s - %(name)s - %(level)s : %(message)s', datefmt='%d-%b-%y %H:%M:%S')
+# logging.basicConfig(level=logging.DEBUG, filename='/tmp/upload_image.log', filemode='w', format='%(asctime)s - %(name)s - %(level)s : %(message)s', datefmt='%d-%b-%y %H:%M:%S')
 _logger = logging.getLogger(__name__)
 
 def parse_args():

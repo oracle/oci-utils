@@ -10,9 +10,9 @@
 #
 export no_proxy=169.254.169.254,.oraclecloud.com
 #
-CREATEINSTANCEPY=bin/create_instance.py
-CREATEINSTANCESH=bin/create_instance
-BINARIES=$(CREATEINSTANCEPY) $(CREATEINSTANCESH)
+CREATEKVMINSTANCEPY=bin/create_kvm_instance.py
+CREATEKVMINSTANCESH=bin/create_kvm_instance
+BINARIES=$(CREATEKVMINSTANCESH) $(CREATEKVMINSTANCEPY)
 
 BASEDATATF=base_instance/data.tf
 BASEMAINTF=base_instance/main.tf
@@ -32,8 +32,8 @@ SHSCRIPTS=$(INITIALSCRIPT)
 # files involved
 FILELIST=Makefile README.md $(BINARIES) $(BASES) $(TFSCRIPTS) $(SHSCRIPTS)
 #
-TARGET=create_instance
-VERSION=0.13_Dec_23_2021
+TARGET=create_kvm_instance
+VERSION=0.1_Dec_09_2021
 WRITE=@echo
 CREATETAR=tar -cjvf
 EXPANDTAR=tar -xjvf

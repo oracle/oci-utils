@@ -42,7 +42,7 @@ def _get_volume_data(volume_data):
             cnt = 0
             ind += 1
             for y in volume_data[ind:]:
-                if 'Volume name' in y:
+                if 'Volume Name' in y:
                     display_name = singlespace.sub(' ', y.split(': ', 1)[1]).strip()
                     cnt += 1
                 elif 'Volume OCID' in y:

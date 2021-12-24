@@ -522,8 +522,12 @@ def _list_pool_vm(args):
         _sp_data['active'] = yes_no[_sp.isActive()]
         # persistent
         _sp_data['persistent'] = yes_no[_sp.isPersistent()]
-        # number of volumes
-        _sp_data['volumes'] = _sp.numOfVolumes()
+        try:
+            # number of volumes
+            _sp_data['volumes'] = _sp.numOfVolumes()
+        except Exception as e:
+            _logger.debug('Unable to collect number of volumes: %s', str(e))
+            _sp_data['volumes'] = 0
         # total capacity
         _sp_data['capacity'] = _format_size(int(_sp_info[1]))
         _collen['capacity'] = max(len(_sp_data['capacity']), _collen['capacity'])

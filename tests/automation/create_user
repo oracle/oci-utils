@@ -181,7 +181,7 @@ ${SU} -l "${USERNAME}" -c "${SED} -i /key_file/c\"key_file=${HOMESDKKEY}\" ${HOM
 # create clone script to ${HOME}/bin
 ${CAT} << EOT > ${HOMEBINDIR}/${GITCLONE}
 #!/bin/bash
-# [ "$#" -ne 1 ] && echo "Usage: ${0} <git branch>" && exit
+[ "\$#" -ne 1 ] && echo "Usage: ${0} <git branch>" && exit
 THISGITBRANCH="\${1}"
 ${DELETE} ${HOMEGITDIR}
 https_proxy=${HTTPSPROXY} ${GIT} clone ${GITHUBURL} ${HOMEGITDIR}

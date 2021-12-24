@@ -19,8 +19,6 @@ else
 installrpm=$(which dnf)
 ${SUDO} --login ${installrpm} config-manager --set-enabled ol${OSVERSION}_developer
 fi
-${SUDO} --login  ${installrpm} clean all
-${SUDO} --login  ${installrpm} repolist
 
 ${SUDO} --login ${MKDIR} -p /root/test_data/test_rpms
 ${SUDO} --login ${MKDIR} -p /root/test_data/install_rpms
@@ -37,9 +35,14 @@ ${SUDO} --login ${installrpm} --assumeyes install tree strace tmux
 
 el=el$(rpm -q --queryformat '%{RELEASE}' rpm | grep -o [[:digit:]]*\$)
 ${SUDO} --login "${FIND}" /tmp -name "oci-utils*el${OSVERSION}*rpm" -exec ${installrpm} -y localinstall {} \;
-#
-# install packages to be tested
+
+${SUDO} --login  ${installrpm} clean all
+${SUDO} --login  ${installrpm} repolist
 ${SUDO} --login  ${installrpm} repository-packages oci-utils-automation install --assumeyes --nogpgcheck
 
 ${SUDO} --login ${SYSTEMCTL} enable ocid
 ${SUDO} --login ${SYSTEMCTL} start ocid
+
+#
+# kvm specific
+${SUDO} --login ${MKDIR} -p /isos

@@ -33,7 +33,7 @@ default_log = 'instance_config.log'
 config_log = ''
 
 default_values = {
-    "os_user" : "whocares",
+    "os_user": "whocares",
     "os_user_home": "whocares",
     "auth": "whocares",
     "user_ocid": "whocares",
@@ -1004,7 +1004,6 @@ def get_shape(cfg_dict, img_ocid):
     return shape.shape
 
 
-
 def get_flex_memory(shape):
     """
     Get the memory size for a flex shape.
@@ -1447,7 +1446,7 @@ def main():
         print_g40('Updated variables with operator data', 'ok')
     #
     # Instance compartment
-    image_data['compartment_ocid'] = get_compartment(cfg_dict, 'Select compartment for the instance:' )
+    image_data['compartment_ocid'] = get_compartment(cfg_dict, 'Select compartment for the instance:')
     #
     # Availability domain
     image_data['availability_domain'] = get_availability_domain(cfg_dict, image_data['compartment_ocid'])

@@ -31,7 +31,7 @@ lc_all = 'en_US.UTF8'
 tfvars_file = 'instance_variables'
 default_log = '/var/tmp/instance_config_'
 default_instance_dir = 'oci_instances'
-create_instance_source = 'create_instance'
+create_instance_source = 'create_kvm_instance'
 
 
 default_values = {
@@ -405,17 +405,10 @@ class autotesttfvars:
             self.jsondata['ssh_private_key'] = _from_stdin('ssh private key', default=priv_key)
         #
         # initial script
-        # self.jsondata['initial_script_path'] = self.jsondata['os_user_home'] \
-        #                                        + '/' \
-        #                                        + default_instance_dir \
-        #                                        + '/' \
-        #                                        + display_name \
-        #                                       + '/sh_scripts/initial_config.sh'
         self.jsondata['initial_script_path'] = os.path.join(self.jsondata['os_user_home'],
                                                             default_instance_dir,
                                                             display_name,
-                                                            'sh_scripts',
-                                                            'initial_config.sh')
+                                                            'sh_scripts/initial_config.sh')
         #
         # ip V4 address
         thisipv4 = socket.gethostbyname(socket.gethostname())
@@ -657,22 +650,21 @@ def select_image(config_dict, compartment_id):
     """
     try:
         oci_imageclient = oci.core.ComputeClient(config_dict)
-        oci_images_data_all = oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-                                                                       compartment_id).data
-
         # oci_images_data = oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-        #                                                            compartment_id,
-        #                                                            operating_system='Zero').data
-        # oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-        #                                                             compartment_id,
-        #                                                             operating_system='Custom').data
-        # oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-        #                                                             compartment_id,
-        #                                                             operating_system='Oracle Linux').data
-        # oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-        #                                                            compartment_id,
-        #                                                            operating_system='Oracle Autonomous Linux').data
+        #                                                            compartment_id).data
 
+        oci_images_data = oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
+                                                                   compartment_id,
+                                                                   operating_system='Zero').data
+        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
+                                                                    compartment_id,
+                                                                    operating_system='Custom').data
+        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
+                                                                    compartment_id,
+                                                                    operating_system='Oracle Linux').data
+        oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
+                                                                    compartment_id,
+                                                                    operating_system='Oracle Autonomous Linux').data
     except oci.exceptions.ServiceError as e:
         print_g('*** AUTHORISATION ERROR ***')
         _logger.error('Authorisation error', exc_info=True)
@@ -681,10 +673,6 @@ def select_image(config_dict, compartment_id):
         print_g('*** ERROR *** %s' % str(e))
         _logger.error('ERROR %s', str(e), exc_info=True)
         sys.exit(1)
-    oci_images_data = list()
-    for img in oci_images_data_all:
-        if 'Windows' not in img.operating_system:
-            oci_images_data.append(img)
     for image in oci_images_data:
         # print_g('%4d %-40s %s' % (oci_images_data.index(image), image.display_name, image.id))
         print_g('%4d %-40s %s' % (oci_images_data.index(image), image.display_name, image.operating_system))
