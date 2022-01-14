@@ -1,0 +1,31 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-compartmentid.1
+.\"
+.\" Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
+.\" Licensed under the Universal Permissive License v 1.0 as shown
+.\" at http://oss.oracle.com/licenses/upl.
+.\"
+.TH OCI-COMPARTMENTID 1 "JANUARY 2022" Linux "User Manuals"
+.SH NAME
+oci-compartmentid - Show the Oracle Cloud IDentifier of the compartment the instance is running.
+.SH SYNOPSIS
+.B oci-compartmentid
+
+
+.SH DESCRIPTION
+The
+.B oci-compartmentid 
+returns the ocid (oracle cloud identifier) of the compartment the current instance is running in.
+
+.B oci-compartmentid
+expects
+.B oci-sdk
+and
+.B oci-utils
+installed. Authentication is attempted via
+.B oci-sdk
+configuration. If direct authentication fails, the instance principal authentication is tried.
+
+.SH "SEE ALSO"
+.BR ocid (8)
+.BR oci-utils.conf.d (5)

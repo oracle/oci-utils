@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.6
-Release: 7%{?dist}
+Release: 8%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -176,6 +176,12 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Fri Jan 14 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-8
+- LINUX-11876: centralise cache files
+- refactor oci-iscsi-config-main attach and sync
+- updated oci-iscsi-config manpage for the sync option
+- LINUX-11228: oci-iscsi-config sync does not function as it is documented
+
 * Fri Dec 24 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-7
 - kvm autotest update
 - provisioning update
@@ -236,7 +242,6 @@ rm -rf %{buildroot}
 * Mon Aug 2 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-5
 - LINUX-9229 remove Error in message "Error: Local iscsi info not available
 - LINUX-9857 oci-network-config configure do not persist configuration
-- LINUX-11228 oci-iscsi-config sync does not funtion as documented
 - LINUX-11293 oci-iscsi-config chap secrets function
 - LINUX-11345 oci-iscsi-config show without sudo shows error
 

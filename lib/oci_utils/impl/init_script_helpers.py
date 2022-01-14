@@ -88,17 +88,17 @@ class InitScriptManager(InitScriptBase, ServiceManager):
         self.path = os.path.join(InitScriptBase._BASE_DIR, self.name)
 
     def start(self):
-        _logger.debug('starting the service')
+        _logger.debug('Starting the service')
         if sudo_utils.call([self.path, 'start']):
             raise Exception('start of init script has failed')
 
     def stop(self):
-        _logger.debug('stoping the service')
+        _logger.debug('Stoping the service')
         if sudo_utils.call([self.path, 'stop']):
             raise Exception('stop of init script has failed')
 
     def remove(self):
-        _logger.debug('removing file  %s' % self.path)
+        _logger.debug('Removing file  %s' % self.path)
         return sudo_utils.delete_file(self.path)
 
 

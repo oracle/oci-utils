@@ -8,11 +8,12 @@ This utility displays instance metadata when run on Oracle Cloud Infrastructure
 instances.  See the manual page for more information.
 """
 import argparse
-import collections
 import json
 import logging
 import os
 import sys
+# import collections
+from collections.abc import Mapping, Iterable
 
 import oci_utils
 from oci_utils import oci_regions
@@ -619,12 +620,12 @@ def convert_key_values_to_string(this_dict):
     # Recursively converts dictionary keys to strings.
     if isinstance(this_dict, str):
         return str(this_dict)
-    if isinstance(this_dict, collections.Mapping):
+    if isinstance(this_dict, Mapping):
         nd = {}
         for k, v in this_dict.items():
             nd[str(k)] = convert_key_values_to_string(v)
         return nd
-    if isinstance(this_dict, collections.Iterable):
+    if isinstance(this_dict, Iterable):
         return type(this_dict)(
             convert_key_values_to_string(x) for x in this_dict)
     return this_dict

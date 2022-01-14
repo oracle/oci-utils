@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2017, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -29,6 +29,7 @@ from oci_utils import _configuration as OCIUtilsConfiguration
 from oci_utils import _MAX_VOLUMES_LIMIT
 from oci_utils import vnicutils
 from oci_utils.cache import get_timestamp, load_cache, write_cache
+from oci_utils.cache import load_cache_11876, write_cache_11876
 from oci_utils.packages.stun import get_ip_info
 
 __ocid_logger = logging.getLogger('oci-utils.ocid')
@@ -285,10 +286,12 @@ def iscsi_func(context, func_logger):
 
     # Load the saved passwords
     chap_passwords = context['chap_pws']
-    if context['chap_pw_ts'] == 0 \
-            or get_timestamp(oci_utils.__chap_password_file) > context['chap_pw_ts']:
+    if context['chap_pw_ts'] == 0 or get_timestamp(oci_utils.__chap_password_file) > context['chap_pw_ts']:
         # the password file has changed or was never loaded
-        context['chap_pw_ts'], chap_passwords = load_cache(oci_utils.__chap_password_file)
+        # context['chap_pw_ts'], chap_passwords = load_cache(oci_utils.__chap_password_file)
+        context['chap_ps_ts'], chap_passwords = load_cache_11876(global_file=oci_utils.iscsiadm.CHAPSECRETS_CACHE,
+                                                                 global_file_11876=oci_utils.__chap_password_file)
+
     if chap_passwords is None:
         chap_passwords = {}
 
@@ -381,7 +384,9 @@ def iscsi_func(context, func_logger):
     if context['ignore_file_ts'] == 0 or get_timestamp(oci_utils.__ignore_file) > context['ignore_file_ts']:
         #
         # the list of detached volumes changed since last reading the file
-        context['ignore_file_ts'], ignore_iqns = load_cache(oci_utils.__ignore_file)
+        # context['ignore_file_ts'], ignore_iqns = load_cache(oci_utils.__ignore_file)
+        context['ignore_file_ts'], ignore_iqns = load_cache_11876(global_file=oci_utils.iscsiadm.IGNOREIQNS_CACHE,
+                                                                  global_file_11876=oci_utils.__ignore_file)
     if ignore_iqns is None:
         ignore_iqns = []
     #
@@ -389,7 +394,8 @@ def iscsi_func(context, func_logger):
     context['ignore_iqns'] = ignore_iqns
     #
     # volumes that failed to attach in an earlier iteration
-    attach_failed = context['attach_failed']
+    attached_volumes, attach_failed = load_cache(global_file=oci_utils.iscsiadm.ISCSIADM_CACHE)[1]
+    #attach_failed = context['attach_failed']
     #
     # do we need to cache files?
     cache_changed = False
@@ -523,11 +529,17 @@ def iscsi_func(context, func_logger):
 
     # rewrite changed cache files
     if ign_changed:
-        context['ignore_file_ts'] = \
-            write_cache(cache_content=ignore_iqns, cache_fname=oci_utils.__ignore_file)
+        # context['ignore_file_ts'] = write_cache(cache_content=ignore_iqns, cache_fname=oci_utils.__ignore_file)
+        context['ignore_file_ts'] = write_cache_11876(cache_content=ignore_iqns,
+                                                      cache_fname=oci_utils.iscsiadm.IGNOREIQNS_CACHE,
+                                                      cache_fname_11876=oci_utils.__ignore_file)
     if chap_changed:
-        context['chap_pw_ts'] = \
-            write_cache(cache_content=chap_passwords, cache_fname=oci_utils.__chap_password_file, mode=0o600)
+        # context['chap_pw_ts'] = \
+        #     write_cache(cache_content=chap_passwords, cache_fname=oci_utils.__chap_password_file, mode=0o600)
+        context['chap_pw_ts'] = write_cache_11876(cache_content=chap_passwords,
+                                                  cache_fname=oci_utils.iscsiadm.CHAPSECRETS_CACHE,
+                                                  cache_fname_11876=oci_utils.__chap_password_file,
+                                                  mode=0o600)
     if cache_changed or not os.path.exists(oci_utils.iscsiadm.ISCSIADM_CACHE):
         write_cache(cache_content=[all_iqns, attach_failed], cache_fname=oci_utils.iscsiadm.ISCSIADM_CACHE)
     else:

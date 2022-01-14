@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2017, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -18,7 +18,9 @@ from .impl.network_helpers import is_ip_reachable
 _iscsi_logger = logging.getLogger('oci-utils.iscsi')
 
 
-ISCSIADM_CACHE = get_cache_file_path("iscsiadm-cache")
+ISCSIADM_CACHE = get_cache_file_path('iscsiadm-cache')
+CHAPSECRETS_CACHE = get_cache_file_path('chapsecrets-cache')
+IGNOREIQNS_CACHE = get_cache_file_path('ignoreiqns-cache')
 
 
 def error_message_from_code(errorcode):
@@ -46,7 +48,7 @@ def error_message_from_code(errorcode):
                     5: 'generic iSCSI login failure',
                     6: 'error accessing/managing iSCSI DB',
                     7: 'invalid argument',
-                    8: 'connection timer exired  while  trying to connect',
+                    8: 'connection timer expired  while  trying to connect',
                     9: 'generic internal iscsid/kernel failure',
                     10: 'iSCSI logout failed',
                     11: 'iSCSI PDU timedout',

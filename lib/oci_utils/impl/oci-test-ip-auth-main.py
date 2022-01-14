@@ -43,6 +43,7 @@ def main():
     except Exception as e:
         print('\n--- ERROR --- Unable to authenticate correctly using Instance Principal Authentication '
               'using OCI SDK only. Verify the configuration or switch to Direct Authentication.\n')
+        print('Exception: ')
         sys.exit(1)
 
 

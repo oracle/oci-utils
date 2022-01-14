@@ -21,9 +21,13 @@ class VNICUtils:
     """Class for managing VNICs
     """
     # file with saved vnic information
+    VNICINFO_CACHE = cache.get_cache_file_path('vnic-info')
+    # kept here for compatiblity with pre-0.12.6 releases.
     __vnic_info_file = "/var/lib/oci-utils/vnic_info"
     # OBSOLETE: file with VNICs and stuff to exclude from automatic
     # configuration. only kept for migration
+    VNICEXCLUDE_CACHE = cache.get_cache_file_path('vnic-exclude')
+    # kept here for compatiblity with pre-0.12.6 releases.
     __net_exclude_file = "/var/lib/oci-utils/net_exclude"
 
     def __init__(self):
@@ -52,15 +56,20 @@ class VNICUtils:
             'sec_priv_ip': []}
 
         # migration from oci-utils 0.5's net_exclude file
-        excludes = cache.load_cache(VNICUtils.__net_exclude_file)[1]
+        excludes = cache.load_cache_11876(global_file=VNICUtils.VNICINFO_CACHE,
+                                          global_file_11876=VNICUtils.__net_exclude_file)[1]
         if excludes is not None:
             _vnic_info['exclude'] = excludes
-            cache.write_cache(cache_content=_vnic_info,
-                              cache_fname=VNICUtils.__vnic_info_file)
+            cache.write_cache_11876(cache_content=_vnic_info,
+                                    cache_fname=VNICUtils.VNICEXCLUDE_CACHE,
+                                    cache_fname_11876=VNICUtils.__vnic_info_file)
             try:
                 os.remove(VNICUtils.__net_exclude_file)
+                os.remove(VNICUtils.VNICEXCLUDE_CACHE)
             except Exception as e:
-                _logger.debug('Cannot remove file [%s]: %s', VNICUtils.__net_exclude_file, str(e))
+                _logger.debug('Cannot remove file [%s] or [%s]: %s', VNICUtils.__net_exclude_file,
+                              VNICUtils.VNICEXCLUDE_CACHE,
+                              str(e))
 
             _logger.debug('Excluded intf: %s ', excludes)
 
@@ -81,7 +90,8 @@ class VNICUtils:
         tuple (int, dict)
             (vnic info timestamp: datetime, vnic info: dict)
         """
-        self.vnic_info_ts, self.vnic_info = cache.load_cache(VNICUtils.__vnic_info_file)
+        self.vnic_info_ts, self.vnic_info = cache.load_cache_11876(global_file=VNICUtils.VNICINFO_CACHE,
+                                                                   global_file_11876=VNICUtils.__vnic_info_file)
         if self.vnic_info is None:
             # GT
             self.vnic_info = {'exclude': [],
@@ -107,7 +117,9 @@ class VNICUtils:
         """
         _logger.debug("Saving vnic_info.")
         # _ = cache.write_cache(cache_content=self.vnic_info, cache_fname=VNICUtils.__vnic_info_file)
-        return cache.write_cache(cache_content=self.vnic_info, cache_fname=VNICUtils.__vnic_info_file)
+        return cache.write_cache_11876(cache_content=self.vnic_info,
+                                       cache_fname=VNICUtils.VNICINFO_CACHE,
+                                       cache_fname_11876=VNICUtils.__vnic_info_file)
 
     def set_namespace(self, ns):
         """

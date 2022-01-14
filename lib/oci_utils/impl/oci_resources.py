@@ -1909,7 +1909,7 @@ class OCIVolume(OCIAPIAbstractResource):
             str or in
                 The size of the volume.
         """
-        # for compatibility raseon we check against key as string
+        # for compatibility reason we check against key as string
         assert format_str in [OCI_VOLUME_SIZE_FMT.HUMAN.name,
                               OCI_VOLUME_SIZE_FMT.GB.name, OCI_VOLUME_SIZE_FMT.MB.name], 'wrong format'
 

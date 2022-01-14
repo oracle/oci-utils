@@ -738,7 +738,7 @@ def do_create_vnic(create_options):
 
     Parameters
     ----------
-    create_options :
+    create_options:
         The VNIC configuration instance.
 
     Returns
@@ -750,6 +750,7 @@ def do_create_vnic(create_options):
         Exception
             if session cannot be acquired
     """
+    _logger.debug('_do_create_vnic: create options: %s', create_options)
     # needs the OCI SDK installed and configured
     sess = get_oci_api_session()
     if sess is None:

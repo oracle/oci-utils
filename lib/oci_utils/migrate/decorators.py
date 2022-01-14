@@ -54,7 +54,7 @@ def is_an_os_specific_method(some_method):
 
     Returns
     -------
-    Adds an atribute to the method.
+    Adds an attribute to the method.
     """
     some_method._execute_as_os_specific = True
     return some_method

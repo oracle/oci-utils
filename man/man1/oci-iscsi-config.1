@@ -63,7 +63,7 @@ instance.  The second version of the command can be used to create a new Oracle 
 assign it to the instance without the use of the Web-based Oracle Cloud Infrastructure Console,
 or to destroy a volume that is not attached to any instances.
 
-To install the Oracle Cloud Infrastructure Python SDK, use
+To install the Oracle Cloud Infrastructure Python SDK, use the appropriate install command:
 .PP
 .nf
 .RS
@@ -71,6 +71,15 @@ yum install python36-oci-sdk
 .RE
 .fi
 .PP
+or
+.PP
+.nf
+.RS
+dnf install python36-oci-sdk
+.RE
+.fi
+.PP
+or
 See https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
 for more information.
 
@@ -103,7 +112,11 @@ Do not truncate long values during output
 .RE
 .TP
 oci-iscsi-config sync
-Try to attach available block devices
+Try to attach available block devices: the devices which were detached explicitly and those whose attachment by the
+.BR ocid(8)
+service failed. An
+.BR ocid --refresh iscsi
+operation is always executed.
 .RS
 .TP
 .BI -a,--apply
