@@ -43,7 +43,7 @@ def parse_args():
                         type=str,
                         required=True,
                         choices=choicelist,
-                        help='The vnic field to select the vnic.')
+                        help='The volume field to select the volume.')
     parser.add_argument('-v', '--input-value',
                         action='store',
                         type=str,

@@ -11,22 +11,20 @@
 .B oci-growfs [-h] [-y|-n]
 
 .SH DESCRIPTION
-When a compute instance is created with a boot volume >= 50GB (default minimum size), or is resized to a larger size, the instance does not automatically use the entire volume.  By default, the boot volume will only extend to the minimum size (50GB).
+When a compute instance is created with a boot volume >= 50GB (default minimum size), or is resized to a larger size, the instance does not automatically use the entire volume. By default, the boot volume will only extend to the minimum size (50GB).
 
-The purpose of the
+The purpose of
 .B oci-growfs
-script is to expand the root partition to fully utilize the allocated boot volume size.
+is to expand the root partition to fully utilize the allocated boot volume size.
 When the partition already extends to the entire volume, no changes are made to the system.
-The script is normally called by
+The script is called by the
 .BR ocid
-when the instance boots, but it can be run manually.
-You can use the
+service if this option is enabled by the
 .B auto_resize
-setting in the
+flag in the
 .B [iscsi]
 section in
 .BR oci-utils.conf.d(5)
-to enable or disable this functionality.
 
 For LVM based root filesystem, oci-growfs only support Logical Volume created on Logical Group
 built with only one Physical volume.
@@ -34,15 +32,21 @@ built with only one Physical volume.
 .B oci-growfs
 must be run on a compute instance in the Oracle Cloud Infrastructure, and it requires root privilege.
 
-Note: in the current release only the root filesystem can be resized using
+Note: in the current release, only the root filesystem can be resized using
 .B oci-growfs.
 
+Note: in the current release, only
+.B xfs
+and
+.B ext4
+filesystems are supported.
+
 .SH OPTIONS
-.IP -h
+.IP -h | --help
 print the usage help information.
-.IP -y
+.IP -y | --yes
 answer 'y' to all questions.
-.IP -n
+.IP -n | --no
 answer 'n' to all questions.
 
 .SH DIAGNOSTICS

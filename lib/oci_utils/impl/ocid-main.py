@@ -393,8 +393,13 @@ def iscsi_func(context, func_logger):
     # save for next iteration
     context['ignore_iqns'] = ignore_iqns
     #
-    # volumes that failed to attach in an earlier iteration
-    attached_volumes, attach_failed = load_cache(global_file=oci_utils.iscsiadm.ISCSIADM_CACHE)[1]
+    # attched volumes and volumes which failed to attach in an earlier iteration
+    try:
+        attached_volumes, attach_failed = load_cache(global_file=oci_utils.iscsiadm.ISCSIADM_CACHE)[1]
+    except Exception as e:
+        __ocid_logger.debug('Failed to load cache %s: %s', oci_utils.iscsiadm.ISCSIADM_CACHE, str(e))
+        # attached_volumes = {}
+        attach_failed = {}
     #attach_failed = context['attach_failed']
     #
     # do we need to cache files?

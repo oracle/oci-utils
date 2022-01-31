@@ -64,7 +64,7 @@ if [ "${OSTYPE}" = "ol" ] || [ "${OSTYPE}" = "fedora" ] || [ "${OSTYPE}" = "redh
 elif [ "${OSTYPE}" = "debian" ] || [ "${OSTYPE}" = "ubuntu" ]; then
   installdeb=$(which apt)
   installdebprox="https_proxy=${HTTP_PROXY} http_proxy=${HTTP_PROXY} ${installdeb}"
-  APTLIST=( "tree" "strace" "tmux" "iotop" "psmisc" "net-tools" "git" "python3-pip" "python3-setuptools" "python3-wheel" )
+  APTLIST=( "tree" "strace" "tmux" "iotop" "psmisc" "net-tools" "git" "python3-pip" "python3-setuptools" "python3-wheel" "python3-netaddr" "python3-daemon" "python3-sdnotify")
   PIPLIST=( "cryptography" "oci")
   RET=1
   while [ ${RET} -ne 0 ]

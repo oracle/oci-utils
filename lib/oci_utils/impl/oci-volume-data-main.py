@@ -14,6 +14,7 @@ oci_volume_tag = 'ocid1.volume.'
 iqn_tag = 'iqn.'
 none_str = '--'
 
+
 def command_line():
     """
     parse the command line.
@@ -31,9 +32,23 @@ def command_line():
     parser.add_argument('-p', '--par',
                         action='store',
                         dest='par',
-                        choices=['name', 'iqn', 'ocid', 'portal', 'chap', 'avdomain', 'compartment', 'attached', 'size', 'state'],
+                        choices=['name',
+                                 'iqn',
+                                 'ocid',
+                                 'portal',
+                                 'chap',
+                                 'attachestate',
+                                 'avdomain',
+                                 'compartment',
+                                 'attached',
+                                 'size',
+                                 'state'],
                         default=None,
                         help='The parameter to show. If none is given, all are shown.')
+    parser.add_argument('-v', '--value-only',
+                        action='store_true',
+                        dest='value_only',
+                        help='Show only the value(s)')
     args = parser.parse_args()
     return args
 
@@ -68,6 +83,17 @@ def get_oci_api_session():
 
 
 def get_vol_ocid(vol):
+    """
+    Return the volume state.
+
+    Parameters
+    ----------
+    vol: OCIVolume
+
+    Returns
+    -------
+        str: the volume ocid
+    """
     try:
         the_ocid = vol.get_ocid()
     except Exception as e:
@@ -76,6 +102,17 @@ def get_vol_ocid(vol):
 
 
 def get_vol_iqn(vol):
+    """
+    Return the volume state.
+
+    Parameters
+    ----------
+    vol: OCIVolume
+
+    Returns
+    -------
+        str: the volume iqn.
+    """
     try:
         the_iqn = vol.get_iqn()
     except Exception as e:
@@ -84,6 +121,17 @@ def get_vol_iqn(vol):
 
 
 def get_vol_display_name(vol):
+    """
+    Return the volume state.
+
+    Parameters
+    ----------
+    vol: OCIVolume
+
+    Returns
+    -------
+        str: the volume display name.
+    """
     try:
         the_name = vol.get_display_name()
     except Exception as e:
@@ -92,6 +140,17 @@ def get_vol_display_name(vol):
 
 
 def get_vol_portalip(vol):
+    """
+    Return the volume state.
+
+    Parameters
+    ----------
+    vol: OCIVolume
+
+    Returns
+    -------
+        str: the iscsi portal ip
+    """
     try:
         the_portal_ip = vol.get_portal_ip()
     except Exception as e:
@@ -100,6 +159,17 @@ def get_vol_portalip(vol):
 
 
 def get_vol_portal_port(vol):
+    """
+    Return the volume state.
+
+    Parameters
+    ----------
+    vol: OCIVolume
+
+    Returns
+    -------
+        str: the iscsi portal port.
+    """
     try:
         the_portal_port = vol.get_portal_port()
     except Exception as e:
@@ -108,6 +178,17 @@ def get_vol_portal_port(vol):
 
 
 def get_vol_chap_user(vol):
+    """
+    Return the volume state.
+
+    Parameters
+    ----------
+    vol: OCIVolume
+
+    Returns
+    -------
+        str: the chap user.
+    """
     try:
         the_chap_user = vol.get_user()
     except Exception as e:
@@ -116,6 +197,17 @@ def get_vol_chap_user(vol):
 
 
 def get_vol_chap_pw(vol):
+    """
+    Return the volume state.
+
+    Parameters
+    ----------
+    vol: OCIVolume
+
+    Returns
+    -------
+        str: the chap password
+    """
     try:
         the_chap_pw = vol.get_password()
     except Exception as e:
@@ -124,6 +216,17 @@ def get_vol_chap_pw(vol):
 
 
 def get_vol_attachement_state(vol):
+    """
+    Return the volume state.
+
+    Parameters
+    ----------
+    vol: OCIVolume
+
+    Returns
+    -------
+        str: the attachment state
+    """
     try:
         the_attachement_state = vol.get_attachement_state()
     except Exception as e:
@@ -132,6 +235,17 @@ def get_vol_attachement_state(vol):
 
 
 def get_vol_compartment_id(vol):
+    """
+    Return the volume state.
+
+    Parameters
+    ----------
+    vol: OCIVolume
+
+    Returns
+    -------
+        str: the compartment ocid.
+    """
     try:
         the_compartment_id = vol.get_compartment_id()
     except Exception as e:
@@ -140,6 +254,17 @@ def get_vol_compartment_id(vol):
 
 
 def get_vol_attached_to(vol):
+    """
+    Return the volume state.
+
+    Parameters
+    ----------
+    vol: OCIVolume
+
+    Returns
+    -------
+        str: the instance the volume is attached to.
+    """
     try:
         the_attached_to = vol.get_instance().get_display_name()
     except Exception as e:
@@ -148,6 +273,17 @@ def get_vol_attached_to(vol):
 
 
 def get_vol_size(vol):
+    """
+    Return the volume state.
+
+    Parameters
+    ----------
+    vol: OCIVolume
+
+    Returns
+    -------
+        str: the size.
+    """
     try:
         the_size = vol.get_size(OCI_VOLUME_SIZE_FMT.HUMAN.name)
     except Exception as e:
@@ -156,6 +292,17 @@ def get_vol_size(vol):
 
 
 def get_vol_state(vol):
+    """
+    Return the volume state.
+
+    Parameters
+    ----------
+    vol: OCIVolume
+
+    Returns
+    -------
+        str: the state
+    """
     try:
         the_state = vol.get_state()
     except Exception as e:
@@ -228,19 +375,46 @@ def get_volume_data_from_(somekey, sess):
                 those_vols.append(this_vol)
                 found = False
         except Exception as e:
-            print('Get volume data for %s failed: %s'% (somekey, str(e)))
+            print('Get volume data for %s failed: %s' % (somekey, str(e)))
             continue
     if len(those_vols) == 0:
-        print('Volume with key %s not found.'% somekey)
+        print('Volume with key %s not found.' % somekey)
         return False
     elif len(those_vols) > 1:
-        print('Volume with key %s is not unique.'% somekey)
+        print('Volume with key %s is not unique.' % somekey)
     # else:
     #     print('Volume with key %s exists and is unique.'% somekey)
     return those_vols
 
 
-def display_volume(volume, par=None):
+def print_value(par, tag, name, value, only):
+    """
+    Prints a value for an iscsi volume metadata key.
+
+    Parameters
+    ----------
+    par: str
+        The parameter for which the value is requested.
+    tag: str
+        The dictionary key.
+    name: str
+        The name of the parameter.
+    value: str
+        The parameter value.
+    only: bool
+        If True, do not display the name, only the value.
+
+    Returns
+    -------
+
+    """
+    if not bool(par) or par == tag:
+        if not only:
+            print('%25s: ' % name, end='')
+        print('%s' % value)
+
+
+def display_volume(volume, par=None, only=False):
     """
     Display the data for volume vol.
 
@@ -250,51 +424,49 @@ def display_volume(volume, par=None):
         The volume data.
     par: str
         The parameter for which the value is requested.
+    only: bool
+        Show only the value if True.
     Returns
     -------
         No return value.
     """
-    if not bool(par) or par == 'name':
-        print('%25s:  %s' % ('display_name', volume['name']))
-    if not bool(par) or par == 'ocid':
-        print('%25s:  %s' % ('ocid', volume['ocid']))
-    if not bool(par) or par == 'iqn':
-        print('%25s:  %s' % ('iqn', volume['iqn']))
-    if not bool(par) or par == 'portal':
-        print('%25s:  %s' % ('portal ip', volume['portal_ip']))
-        print('%25s:  %s' % ('portal port', volume['portal_port']))
-    if not bool(par) or par == 'chap':
-        print('%25s:  %s' % ('chap user', volume['chap_user']))
-        print('%25s:  %s' % ('chap password', volume['chap_pw']))
-    if not bool(par):
-        print('%25s:  %s' % ('attachment state', volume['attachement_state']))
-    if not bool(par) or par == 'avdomain':
-        print('%25s:  %s' % ('availability domain', volume['availability_domain']))
-    if not bool(par) or par == 'compartment':
-        print('%25s:  %s' % ('compartment', volume['compartment']))
-        print('%25s:  %s' % ('compartment id', volume['compartment_id']))
-    if not bool(par) or par == 'attached':
-        print('%25s:  %s' % ('attached to', volume['attached_to']))
-    if not bool(par) or par == 'size':
-        print('%25s:  %s' % ('size', volume['size']))
-    if not bool(par) or par == 'state':
-        print('%25s:  %s' % ('state', volume['state']))
+    print_value(par, 'name', 'display name', volume['name'], only)
+    print_value(par, 'ocid', 'ocid', volume['ocid'], only)
+    print_value(par, 'iqn', 'iqn', volume['iqn'], only)
+    print_value(par, 'portal', 'portal ip', volume['portal_ip'], only)
+    print_value(par, 'portal', 'portal port', volume['portal_port'], only)
+    print_value(par, 'chap', 'chap user', volume['chap_user'], only)
+    print_value(par, 'chap', 'chap password', volume['chap_pw'], only)
+    print_value(par, 'avdomain', 'availability domain', volume['availability_domain'], only)
+    print_value(par, 'compartment', 'compartment', volume['compartment'], only)
+    print_value(par, 'compartment', 'compartment id', volume['compartment_id'], only)
+    print_value(par, 'attached', 'attached to', volume['attached_to'], only)
+    print_value(par, 'attachstate', 'attachment state', volume['attachement_state'], only)
+    print_value(par, 'size', 'size', volume['size'], only)
+    print_value(par, 'state', 'state', volume['state'], only)
     print('')
 
-choices=['name', 'iqn', 'ocid', 'portal', 'avdomain', 'compartment', 'attached', 'size', 'state'],
-def main():
 
+def main():
+    """
+    oci-volume-data displays metadata for an iscsi volume.
+
+    Returns
+    -------
+        No return value.
+    """
     args = command_line()
     oci_session = get_oci_api_session()
     if bool(oci_session):
         volumes = get_volume_data_from_(args.key, oci_session)
         if bool(volumes):
             for vol in volumes:
-                display_volume(vol, args.par)
+                display_volume(vol, args.par, args.value_only)
         else:
             print('No volumes found for [%s]' % args.key)
     else:
         print('Failed to create an oci sesion.')
+
 
 if __name__ == "__main__":
     sys.exit(main())

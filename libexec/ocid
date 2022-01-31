@@ -13,4 +13,4 @@
 _PY3=/usr/bin/python3
 s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))'`
 
-exec ${_PY3}  ${s_dir}/ocid-main.py $@
+exec ${_PY3}  ${s_dir}/ocid-main.py "$@"

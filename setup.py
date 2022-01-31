@@ -1,5 +1,5 @@
 
-# Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2020, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -410,6 +410,9 @@ setup(
                   'man/man1/oci-image-migrate-import.1',
                   'man/man1/oci-image-migrate-upload.1',
                   'man/man1/oci-notify.1',
+                  'man/man1/oci-instanceid.1',
+                  'man/man1/oci-compartmentid.1',
+                  'man/man1/oci-volume-data.1',
                   ]),
                 (os.path.join(sys.prefix, "share", "man", "man5"),
                  ['man/man5/oci-utils.conf.d.5',
@@ -441,6 +444,7 @@ setup(
              'bin/oci-compartmentid',
              'bin/oci-instanceid',
              'bin/oci-test-ip-auth',
+             'bin/oci-volume-data',
              ],
     classifiers=[
         "Development Status :: 3 - Alpha",

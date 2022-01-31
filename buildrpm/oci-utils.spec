@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.6
-Release: 8%{?dist}
+Release: 9%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -176,10 +176,15 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Mon Jan 31 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-9
+- LINUX--11928 oci-utils growfs should support more than xfs file systems; ext4 filesystem added.
+- oci-growfs ported to python code.
+
 * Fri Jan 14 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-8
 - LINUX-11876: centralise cache files
 - refactor oci-iscsi-config-main attach and sync
 - updated oci-iscsi-config manpage for the sync option
+- added oci-instanceid, oci-compartmentid, oci-volume-data as non-documented utilities
 - LINUX-11228: oci-iscsi-config sync does not function as it is documented
 
 * Fri Dec 24 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-7
@@ -302,7 +307,7 @@ rm -rf %{buildroot}
 - LINUX-10345 OCIVNIC cannot handle empty/absent attachement data
 - LINUX-10360 ocid service configures unconfigured vnics
 - LINUX-10363 oci-network-config --create-vnic --private-ip <ipv4> fails
-- LINUX-10373 oci-network-cofnig -X <vnic..> fails (as does -I)
+- LINUX-10373 oci-network-config -X <vnic..> fails (as does -I)
 - LINUX-10382 oci-image-cleanup: add tests for source exist before running rsync
 - LINUX-10426 oci-iscsi-config fails to attach/destroy volumes on r1 tenancy
 - LINUX-10428 oci-metadata --get /vnics/privateip fail
@@ -326,10 +331,10 @@ rm -rf %{buildroot}
 - update migrate
 
 * Tue Nov 10 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.12.0
- - LINUX-9546 - oci-image-cleanup --dry-run do not print the plan directly
- - oci-iscsi-config usage refactor
- - LINUX-9202 - oci-network-config error in oci_utils.exceptions.OCISDKError: Failed to fetch instance
- - LINUX-8946 - no warning when user select primary vnic
+- LINUX-9546 - oci-image-cleanup --dry-run do not print the plan directly
+- oci-iscsi-config usage refactor
+- LINUX-9202 - oci-network-config error in oci_utils.exceptions.OCISDKError: Failed to fetch instance
+- LINUX-8946 - no warning when user select primary vnic
 
 * Fri Oct 9 2020 Guido Tijskens <guido.tijskens@oracle.com> --0.11.6-1
 - oci-image-migrate code cleanup

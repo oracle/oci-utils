@@ -1,0 +1,148 @@
+#!/bin/bash -x
+#
+# Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown
+# at http://oss.oracle.com/licenses/upl.
+#
+# creates a volume of 51GB, creates a primary partition of 10GB, creates a logical volume with this partition as only
+# physical device and creates a filesystem on this logical volume; a destroy script is also created.
+#
+NBPAR="${#}"
+VALIDFS=(ext4 xfs)
+
+Usage() {
+  echo "Usage:"
+  echo "    ${0} [ext4|xfs] (volume name)"
+}
+# command line
+# file system type
+if [ "${NBPAR}" -lt 1 ]; then
+  echo "Invalid filesystem type: ext4|xfs."
+  Usage
+  exit 1
+else
+  FSTYPE=${1}
+  if [[ ! " ${VALIDFS[*]} " =~ ${FSTYPE} ]]; then
+    echo "Invalid file system type."
+    Usage
+  fi
+fi
+#
+# volume name
+if [ ${NBPAR} -lt 2 ]; then
+  VOLNAME=gtijsken_lvm_vol01
+else
+  VOLNAME="${2}"
+fi
+
+echo "${VOLNAME}"
+#
+oci-iscsi-config create --size 51 --volume-name "${VOLNAME}" --attach-volume
+#
+oci-iscsi-config show --details --no-truncate
+#
+VOL=$(oci-iscsi-config show --details --output-mode parsable |grep "${VOLNAME}")
+echo "${VOL}"
+#
+IFS='#'; arrVOL=(${VOL}); unset IFS;
+echo "${arrVOL}"
+DEVICE="/dev/${arrVOL[6]}"
+DISK="${arrVOL[6]}"
+echo "${DISK}"
+echo "${DEVICE}"
+#
+#fdisk "${DEVICE}" <<EOFF
+#n
+#p
+#1
+#
+#+10G
+#t
+#8e
+#p
+#w
+#EOFF
+
+parted "${DEVICE}" <<EOFF
+mklabel gpt
+print
+mkpart primary 1MB 10GB
+print
+set 1 lvm on
+print
+quit
+EOFF
+sleep 20
+#
+# physical volume
+PHYSICALVOL="${DEVICE}"1
+pvcreate --verbose 4 "${PHYSICALVOL}"
+pvscan
+pvdisplay "${PHYSICALVOL}"
+sleep 10
+#
+# volume group
+VOLGROUP="vg_${DISK}"
+vgcreate --verbose "${VOLGROUP}" "${PHYSICALVOL}"
+vgscan
+vgdisplay "${VOLGROUP}"
+sleep 10
+#
+# logical volume
+LVNAME="lv_${DISK}"
+lvcreate --verbose -l 100%FREE --name "${LVNAME}" "${VOLGROUP}"
+lvscan
+lvdisplay "${VOLGROUP}"
+sleep 10
+#
+# device name
+VGLV=$(pvs --noheadings ${PHYSICALVOL} --options vg_name,lv_name)
+IFS=' '; arrVGLV=(${VGLV}); unset IFS;
+MAPPERDEV=/dev/mapper/${arrVGLV[0]}-${arrVGLV[1]}
+MAPPERDEV=/dev/mapper/${VOLGROUP}-${LVNAME}
+LVDEV=/dev/${VOLGROUP}/${LVNAME}
+#
+# create filesystem
+if [ "${FSTYPE}" == "ext4" ]; then
+  mkfs.ext4 "${MAPPERDEV}"
+elif [ "${FSTYPE}" == "xfs" ]; then
+  mkfs.xfs "${MAPPERDEV}"
+else
+  echo "invalid file system type."
+  Usage
+  exit 1
+fi
+#
+# mount filesystem
+#MOUNTPOINT="/${arrVOL[6]}1"
+MOUNTPOINT="/${VOLGROUP}-${LVNAME}"
+mkdir -p "${MOUNTPOINT}"
+mount "${MAPPERDEV}" "${MOUNTPOINT}"
+oci-iscsi-config show --details --no-truncate
+df -h
+#
+# create destroyscript
+destroy_script="${HOME}/work/destroy_volume_${VOLNAME}"
+echo '#!/bin/bash -x' > "${destroy_script}"
+echo "umount ${MOUNTPOINT}" >> "${destroy_script}"
+IQN=$(oci-volume-data --key "${VOLNAME}" --par iqn --value-only)
+OCID=$(oci-volume-data --key "${VOLNAME}" --par ocid --value-only)
+#
+# destroy lv
+echo "lvchange --verbose -an ${MAPPERDEV}" >> "${destroy_script}"
+echo "lvscan" >> "${destroy_script}"
+echo "lvremove --yes --verbose ${LVDEV}" >> "${destroy_script}"
+echo "lvscan" >> "${destroy_script}"
+echo "vgremove --yes --verbose ${VOLGROUP}" >> "${destroy_script}"
+echo "vgscan" >> "${destroy_script}"
+echo "pvremove --yes --verbose ${PHYSICALVOL}" >> "${destroy_script}"
+echo "lvscan" >> "${destroy_script}"
+#
+echo "oci-iscsi-config detach -I ${IQN}" >> "${destroy_script}"
+echo "oci-iscsi-config destroy -O ${OCID} --yes" >> "${destroy_script}"
+echo "df -h" >> "${destroy_script}"
+echo "oci-iscsi-config show --details --no-truncate" >> "${destroy_script}"
+echo "rmdir ${MOUNTPOINT}" >> "${destroy_script}"
+chmod 755 "${destroy_script}"
+echo "created ${destroy_script}"
+ 

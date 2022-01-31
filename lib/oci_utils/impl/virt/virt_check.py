@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -166,7 +166,7 @@ def validate_block_device(dev_orig):
             True on success, False otherwise.
     """
     path_prefix = '/dev/disk/by-path'
-    devices = lsblk.list()
+    devices = lsblk.list_blk_dev()
     domains = virt_utils.get_domains_name()
     domain_disks = \
         {d: virt_utils.get_disks_from_domain(virt_utils.get_domain_xml(d))

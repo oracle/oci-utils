@@ -1,0 +1,288 @@
+title: ock-kvm stack input variable schema
+description: variable description for oci-kvm stack
+informationalText: Variables for creating an oci-kvm stack
+schemaVersion: 1.1.0
+version: "20211215"
+
+# URL of Logo Icon used on Application Information tab. Logo must be 130x130 pixels.
+# (Optional)
+logoUrl: https://cloudmarketplace.oracle.com/marketplace/content?contentId=53066708
+
+# Used in Application Information tab to Hyperlink Title and Logo to the Marketplace
+# Listing.
+# Also used to link to Listing Usage section for "View Instructions".
+# (Optional) If it is missing, Application Information uses the
+# "marketplace-listing-id" tag for the same purpose.
+# source:
+#   type: marketplace
+#  reference: 16132843
+
+locale: "en"
+
+variableGroups:
+  - title: "Hidden Variable Group"
+#    visible: false
+    variables:
+# variables used by Terraform but not necesarrily exposed exposed to end user
+      - tenancy_ocid
+      - region
+      - source_type
+      - current_user_ocid
+
+  - title: "Compute Node"
+    variables:
+      - instance_display_name
+      - compute_compartment_ocid
+
+  - title: "Placement"
+    variables:
+      - availability_domain
+
+  - title: "Image and Shape"
+    variables:
+      - source_image
+      - shape
+
+  - title: "Networking"
+    variables:
+      - vnic_display_name
+      - network_compartment_ocid
+      - subnet_ocid
+      - assign_public_ipv4
+      - private_ipv4
+      - dns_record
+      - hostname
+      - launch_options
+
+  - title: "Add SSH keys"
+    variables:
+      - ssh_public_key
+
+
+variables:
+  # datetime picker
+  expireDate:
+    type: datetime
+  # hidden
+  tenancy_ocid:
+    type: string
+    title: Tenancy ID
+    description: The Oracle Cloud Identifier (OCID) for your tenancy
+    required: true
+
+  region:
+    type: oci:identity:region:name
+    title: Region
+    description: The region in which to create all resources
+    required: true
+
+  source_type:
+    type: string
+    title: source type
+    default: "image"
+    description: The type of the source
+    required: true
+
+  # compute node
+  instance_display_name:
+    type: string
+    title: Instance Name
+    description: Instance display name
+    required: true
+
+  compute_compartment_ocid:
+    type: oci:identity:compartment:id
+    title: Compartment
+    description: The compartment OCID
+    default: compartment_ocid
+    required: true
+
+  # placement
+  availability_domain_number:
+    type: string
+    required: false
+    description: Availability Domain Number
+
+  availability_domain:
+    title: Region Availability Domain
+    description: The availabiltiy domain in the region.
+    type: oci:identity:availabilitydomain:name
+    default: 1
+    dependsOn:
+      compartmentId: compute_compartment_ocid
+
+  # image and shape
+  source_image:
+    type: oci:core:image:id
+    required: true
+    description: Source Image
+    dependsOn:
+      compartmentId: compute_compartment_ocid
+
+  shape:
+    title: Compute Shape
+    type: oci:core:instanceshape:name
+    default: VM.StandardE2.1
+    required: true
+    dependsOn:
+      compartmentId: compute_compartment_ocid
+      imageId: source_image
+
+  # networking
+  network_configuration_strategy:
+    visible: #($network_strategy  == ""Create New VCN and Subnet"")
+      eq:
+        - network_strategy
+        - "Create New VCN and Subnet"
+    type: enum
+    title: Configuration Strategy
+    description: Use recommended configuration or customize it
+    enum:
+      - "Use Recommended Configuration"
+      - "Customize Network Configuration"
+    required: true
+    default: "Use Recommended Configuration"
+
+  vcn_display_name:
+    visible: #($network_strategy  == ""Create New VCN and Subnet"") AND (network_configuration_strategy ==  "Customize Network Configuration")
+      and:
+        - eq:
+          - network_strategy
+          - "Create New VCN and Subnet"
+        - eq:
+          - network_configuration_strategy
+          - "Customize Network Configuration"
+    type: string
+    required: true
+    title: Name
+    description: The name of the new Virtual Cloud Network (VCN)
+
+  vcn_id:
+    visible: #($network_strategy  == "Use Existing VCN and Subnet")
+      eq:
+        - network_strategy
+        - "Use Existing VCN and Subnet"
+    type: oci:core:vcn:id
+    dependsOn:
+      compartmentId: network_compartment_ocid
+    required: true
+    title: Existing VCN
+    description: An existing Virtual Cloud Network (VCN) in which to create the compute instances, network resources, and load balancers. If not specified, a new VCN is created.
+
+  vcn_cidr_block:
+    visible: #($network_strategy  == ""Create New VCN and Subnet"") AND (network_configuration_strategy ==  "Customize Network Configuration")
+      and:
+        - eq:
+          - network_strategy
+          - "Create New VCN and Subnet"
+        - eq:
+          - network_configuration_strategy
+          - "Customize Network Configuration"
+    type: string
+    required: true
+    pattern: "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]).(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]).(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]).(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\/(3[0-2]|[1-2]?[0-9])$"
+    title: CIDR Block
+    description: The CIDR of the new Virtual Cloud Network (VCN). If you plan to peer this VCN with another VCN, the VCNs must not have overlapping CIDRs.
+
+  vcn_dns_label:
+    visible: #($network_strategy  == ""Create New VCN and Subnet"") AND (network_configuration_strategy ==  "Customize Network Configuration")
+      and:
+        - eq:
+          - network_strategy
+          - "Create New VCN and Subnet"
+        - eq:
+          - network_configuration_strategy
+          - "Customize Network Configuration"
+    type: string
+    required: true
+    title: DNS Label
+    maxLenght: 15
+    description: VCN DNS Label. Only letters and numbers, starting with a letter. 15 characters max.
+
+  network_compartment_ocid:
+    type: oci:identity:compartment:id
+    required: true
+    title: Network Compartment
+    description: The compartment in which to create all Network resources
+    default: compartment_ocid
+
+  ssh_public_key:
+    title: SSH Public Key
+    description: The public SSH key for the key-pair that you want to use, if you wish to login to the instances over SSH
+    type: oci:core:ssh:publickey
+    required: true
+
+
+
+  myVcn:
+    type: oci:core:vcn:id
+    dependsOn:
+      compartmentId: ${vcnCompartment}
+    visible:
+      or:
+        - ${useExistingVcn}
+        - and:
+          - and:
+            - true
+            - true
+          - not:
+            - false
+
+  subnetCompartment:
+    type: oci:identity:compartment:id
+    visible: ${useExistingVcn}
+
+  mySubnet:
+    type: oci:core:subnet:id
+    dependsOn:
+      compartmentId: ${subnetCompartment}
+      vcnId: ${myVcn}
+    visible: ${useExistingVcn}
+
+
+
+outputs:
+  controlCenterUrl:
+    type: link
+    title: Control Center
+    displayText: Control Center
+    visible: false
+
+  schemaRegistryUrl:
+    type: link
+    title: Schema Registry
+    displayText: Schema Registry
+
+  schemaRegistryPublicIps:
+    type: csv
+    title: Public IPs
+
+  schemaRegistryLoadBalancer:
+    type: ocid
+    title: Load Balancer
+
+  brokerPublicIps:
+    type: csv
+
+  connectUrl:
+    type: link
+    title: Connect
+    displayText: Connect
+
+  connectPublicIps:
+    type: csv
+    title: Public IPs
+
+  restUrl:
+    type: link
+    title: Rest API
+
+# primaryOutputButton is a reference to a link output that creates a primary button
+# on the Application Information tab.
+# (Optional) if not provided, no primary button is shown. Also, if the output
+# referenced is not a link output, no button is shown.
+primaryOutputButton: ${controlCenterUrl}
+
+# Used to group Outputs.  Any outputs not included in these defined groups, are
+# included in a default group labelled "Outputs".
+# (Optional) if not groups are given, outputs are not grouped at all.

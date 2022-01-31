@@ -241,7 +241,7 @@ def write_cache(cache_content, cache_fname, fallback_fname=None, mode=None):
     -------
     Return the cache timestamp for success, None for failure
     """
-    _logger.debug('_Writing cache %s.', cache_fname)
+    _logger.debug('_Writing cache file %s.', cache_fname)
     fname = cache_fname
     # try to save in cache_file first
     try:
