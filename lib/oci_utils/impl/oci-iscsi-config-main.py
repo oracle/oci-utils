@@ -551,7 +551,7 @@ def _display_oci_volume_list(volumes, output_mode, details, truncate):
                 _collen['availdomain'] = max(_vol_availdomain_len, _collen['availdomain'])
             volumes_data.append(_vol_data)
 
-        _title = 'Block volumes information'
+        _title = 'Block volumes information:'
         _columns = list()
         if truncate:
             _collen['name'] = 32
@@ -794,7 +794,8 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
     if len(volumes_data) == 0:
         print('No iSCSI devices attached.')
     else:
-        iscsi_dev_printer = get_row_printer_impl(output_mode)(title='Currently attached iSCSI devices',
+        _title = 'Currently attached iSCSI devices:'
+        iscsi_dev_printer = get_row_printer_impl(output_mode)(title=_title,
                                                               columns=_columns,
                                                               text_truncate=truncate)
     if bool(iscsi_dev_printer):
@@ -1107,7 +1108,7 @@ def api_display_available_block_volumes(sess, compartments, show_all, output_mod
         No return value.
     """
 
-    _title = "Other available storage volumes"
+    _title = "Other available storage volumes:"
     if sess is None:
         _logger.info("Failed to create session, unable to show available volumes.")
         return
@@ -1149,7 +1150,7 @@ def api_display_available_block_volumes(sess, compartments, show_all, output_mod
             avail_domain = sess.this_availability_domain()
             if comp is not None:
                 vols = comp.all_volumes(availability_domain=avail_domain)
-                _title = "Other available storage volumes %s/%s" % (comp.get_display_name(), avail_domain)
+                _title = "Other available storage volumes %s/%s:" % (comp.get_display_name(), avail_domain)
             else:
                 _logger.error("Compartment for this instance not found")
         except Exception as e:

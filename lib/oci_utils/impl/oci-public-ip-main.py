@@ -113,7 +113,7 @@ def _display_ip_list(ip_list, displayALL, outputMode, displayDetails):
         _vnicocid_len = len(_ip['vnic_ocid'])
         _collen['vnicocid'] = max(_vnicocid_len, _collen['vnicocid'])
 
-    _title = 'Public IPs information (primary on top)'
+    _title = 'Public IPs information (primary on top):'
 
     _columns = [['IP Address', _collen['ipaddress']+2, 'ip']]
     if displayDetails:

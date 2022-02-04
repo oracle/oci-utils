@@ -16,7 +16,8 @@ import sys
 import termios
 import tty
 
-from oci_utils import lsblk
+from oci_utils import find_exec_in_path
+from oci_utils.lsblk import lsblk_partition_data
 
 lc_all = 'en_US.UTF8'
 _logger = logging.getLogger("oci-utils.oci-network-config")
@@ -33,7 +34,7 @@ def parse_args():
         The command line namespace
     """
     parser = argparse.ArgumentParser(
-        description='Utility for expanding a filesystem to its configured size.',
+        description='Utility for expanding the root¶¶ filesystem to its configured size.',
                     add_help=False)
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-y', '--yes',
@@ -153,29 +154,29 @@ def is_root_user():
     return True
 
 
-def find_exec_in_path(exec_name):
-    """
-    Find an executable in the path.
-
-    Parameters
-    ----------
-    exec_name: str
-        The name of the executable.
-
-    Returns
-    -------
-        str: the full path of the executable.
-    """
-    path = os.getenv('PATH').split(':')
-    result = None
-    for rootdir in path:
-        for root, folder, files in os.walk(rootdir):
-            if exec_name in files:
-                result = os.path.join(root, exec_name)
-            break
-        if result:
-            break
-    return result
+# def find_exec_in_path(exec_name):
+#     """
+#     Find an executable in the path.
+#
+#     Parameters
+#     ----------
+#     exec_name: str
+#         The name of the executable.
+#
+#     Returns
+#     -------
+#        str: the full path of the executable.
+#     """
+#     path = os.getenv('PATH').split(':')
+#     result = None
+#     for rootdir in path:
+#         for root, folder, files in os.walk(rootdir):
+#             if exec_name in files:
+#                 result = os.path.join(root, exec_name)
+#             break
+#         if result:
+#             break
+#     return result
 
 
 def partition_growfs_X(partition_data, dry_run=True):
@@ -263,7 +264,7 @@ class MountPoint:
         #
 
         if bool(self.source):
-            self.partition_data = lsblk.partition_data(self.source)
+            self.partition_data = lsblk_partition_data(self.source)
             #
             # partition type (physical or lvm)
             self.type = self.partition_data['type']

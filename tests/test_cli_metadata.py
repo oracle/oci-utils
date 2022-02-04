@@ -507,7 +507,7 @@ class TestCliOciMetadata(OciTestCase):
         No return value.
         """
         try:
-            this_instance_id = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/id', '--value-only', '--trim']).decode('utf-8')
+            this_instance_id = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/id', '--value-only', '--trim']).decode('utf-8').strip()
 
             _ = subprocess.check_output([self.oci_metadata_path, '--get', 'instance', '--instance-id', this_instance_id])
             _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance', '--instance-id', this_instance_id])

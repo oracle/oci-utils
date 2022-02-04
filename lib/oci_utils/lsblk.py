@@ -12,6 +12,8 @@ import os
 import re
 import subprocess
 
+from oci_utils import find_exec_in_path
+
 _logger = logging.getLogger('oci-utils.lsblk')
 # _LSBLK_PATTERN = re.compile(r'^NAME="([^"]*)" FSTYPE="([^"]*)" MOUNTPOINT="([^"]*)" SIZE="([^"]*)" PKNAME="([^"]*)"', flags=re.UNICODE)
 
@@ -44,12 +46,12 @@ def list_blk_dev():
                 }
             }
     """
-    cmd = ['/bin/lsblk', '--scsi', '--pairs', '--noheadings', '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME,TYPE']
+    cmd = [find_exec_in_path('lsblk'), '--scsi', '--pairs', '--noheadings', '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME,TYPE']
     _logger.debug('Running %s', cmd)
     try:
         with open(os.devnull, 'w') as DEVNULL:
             output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
-            _logger.debug('output %s', output)
+            _logger.debug('subprocess output %s', output)
         devices = dict()
         # with python3, output id byte-like object, cast it to str
         for line in output.splitlines():
@@ -71,18 +73,18 @@ def list_blk_dev():
                     devices[pkname]['partitions'][dev] = devdict
                 else:
                     devices[dev] = devdict
-                thoseparts = partitions(dev)
+                thoseparts = lsblk_partitions(dev)
                 devices[dev]['partitions'] = dict()
                 for part in thoseparts:
-                    partdetail = partition_data(part)
+                    partdetail = lsblk_partition_data(part)
                     devices[dev]['partitions'][re.sub(r'/dev/', '', part)] = partdetail
         return devices
     except subprocess.CalledProcessError:
-        _logger.exception('Error running lsblk')
+        _logger.exception('Error running lsblk', exc_info=True, stack_info=True)
         return {}
 
 
-def partitions(device):
+def lsblk_partitions(device):
     """
     Collect the partitions of a device.
 
@@ -95,25 +97,25 @@ def partitions(device):
     -------
         list: The list of the partitons.
     """
-    cmd = ['/usr/sbin/fdisk', '-o', 'Device', '-l', '/dev/' + device]
+    cmd = [find_exec_in_path('lsblk'), '--pairs', '--noheadings', '-o', 'NAME,TYPE', '/dev/' + device]
     _logger.debug('Running %s', cmd)
     try:
         with open(os.devnull, 'w') as DEVNULL:
             output = subprocess.check_output(cmd, stderr=DEVNULL).decode('utf-8')
+        _logger.debug('subprocess output %s', output)
         partitions = list()
         for line in output.splitlines():
-            if not line.startswith('/'):
-                continue
-            part = line.split()[0]
-            if len(part) != 0:
-                partitions.append(part)
+            _logger.debug('__GT__ line %s', line)
+            if re.search(r'TYPE="([^"]*)"', line).group(1) == 'part':
+                partitions.append('/dev/' + re.search(r'^NAME="([^"]*)"', line).group(1))
+        _logger.debug('_GT_ partitions: %s', partitions)
         return partitions
     except subprocess.CalledProcessError:
-        _logger.exception('Error running fdisk')
+        _logger.exception('Error running fdisk', exc_info=True, stack_info=True)
         return []
 
 
-def partition_data(part):
+def lsblk_partition_data(part):
     """
     Collect the data of a partition.
 
@@ -129,12 +131,12 @@ def partition_data(part):
     if not bool(part) or not(os.path.exists(part)):
         _logger.error('Partition %s does not exist.', part)
         return {}
-    cmd = ['/bin/lsblk', '--pairs', '--noheadings', '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME,TYPE', part]
+    cmd = [find_exec_in_path('lsblk'), '--pairs', '--noheadings', '-o', 'NAME,FSTYPE,MOUNTPOINT,SIZE,PKNAME,TYPE', part]
     _logger.debug('Running %s', cmd)
     try:
         with open(os.devnull, 'w') as DEVNULL:
             output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
-            _logger.debug('output: %s', output)
+            _logger.debug('subprocess output %s', output)
         partdict = dict()
         for line in output.splitlines():
             match = _LSBLK_PATTERN.match(line.strip())
@@ -147,7 +149,7 @@ def partition_data(part):
                 pkname = match.group(5)
         return partdict
     except subprocess.CalledProcessError:
-        _logger.exception('Error running lsblk')
+        _logger.exception('Error running lsblk', exc_info=True, stack_info=True)
         return {}
 
 

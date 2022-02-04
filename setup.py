@@ -117,7 +117,7 @@ class oci_tests(TestCommand):
             self.tests_base = None
             log.warn('Warning: tests_base not found or missing !!')
         else:
-            from execution.store import (setCommandStore, Store)
+            from tools.execution.store import (setCommandStore, Store)
             setCommandStore(Store(os.path.join(self.tests_base, 'commands.xml')))
         if self.test_runner:
             import tools.decorators

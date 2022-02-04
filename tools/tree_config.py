@@ -68,19 +68,19 @@ class TreeConfigParser(configparser.ConfigParser):
         try:
             return self.get('DEFAULT', key)
         except configparser.NoOptionError as e:
-            _logger.warning('missing option [%s] in test configuration', key)
+            _logger.warning('Missing option [%s] in test configuration', key)
 
     def get(self, section, option, **kargs):
         try:
             return configparser.ConfigParser.get(self, section, option, **kargs)
         except(configparser.NoOptionError, configparser.NoSectionError) as e:
-            _logger.warning('missing option [%s/%s] in test configuration', section, option)
+            _logger.warning('Missing option [%s/%s] in test configuration', section, option)
 
     def items(self, section):
         try:
             return configparser.ConfigParser.items(self, section)
         except configparser.NoSectionError as e:
-            _logger.warning('missing option [%s] in test configuration', section)
+            _logger.warning('Missing option [%s] in test configuration', section)
 
     def write(self, fileobject):
         raise NotImplementedError('Not supported operation')

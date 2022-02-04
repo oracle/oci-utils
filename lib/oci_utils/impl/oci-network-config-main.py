@@ -427,7 +427,7 @@ def do_show_vnics_information(vnics, mode, details=False):
                                                                    dict(zip(_col_name, _cols_len)),
                                                                    dict(zip(_p_col_name, _p_cols_len)))
 
-    _title = 'VNICs Information'
+    _title = 'VNICs Information:'
     _columns = list()
     for i in range(len(_cols)):
         _columns.append([_cols[i], _collen[_col_name[i]]+2, _col_name[i]])
@@ -651,7 +651,7 @@ def compat_show_vnics_information():
     vnics = inst.all_vnics()
     _logger.debug('Got for printing')
 
-    _title = 'VNIC configuration for instance %s' % inst.get_display_name()
+    _title = 'VNIC configuration for instance %s:' % inst.get_display_name()
 
     _columns = (['Name', 32, _display_vnic_name],
                 ['Hostname', 25, 'get_hostname'],
@@ -706,7 +706,7 @@ def show_network_config(vnic_utils):
 
     ret = vnic_utils.get_network_config()
 
-    _title = "Operating System level network configuration"
+    _title = "Operating System level network configuration:"
     _columns = (['CONFIG', 6, 'CONFSTATE'],
                 ['ADDR', 15, 'ADDR'],
                 ['SUBNET', 15, 'SPREFIX'],

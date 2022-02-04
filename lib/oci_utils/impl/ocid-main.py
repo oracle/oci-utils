@@ -13,20 +13,21 @@ import argparse
 import logging
 import logging.handlers
 import os
+import select
 import subprocess
 import sys
 import threading
-import select
 
 import daemon
 import daemon.pidfile
-import sdnotify
 import oci_utils
 import oci_utils.iscsiadm
 import oci_utils.metadata
 import oci_utils.oci_api
-from oci_utils import _configuration as OCIUtilsConfiguration
+import sdnotify
+from lockfile import AlreadyLocked
 from oci_utils import _MAX_VOLUMES_LIMIT
+from oci_utils import _configuration as OCIUtilsConfiguration
 from oci_utils import vnicutils
 from oci_utils.cache import get_timestamp, load_cache, write_cache
 from oci_utils.cache import load_cache_11876, write_cache_11876
@@ -834,8 +835,12 @@ def main():
         os.unlink('/var/run/ocid.fifo')
         return 0
 
-    except Exception:
-        __ocid_logger.exception('Internal ERROR:')
+    except FileExistsError as fe_error:
+        __ocid_logger.debug('File exits %s', str(fe_error))
+    except AlreadyLocked as locked:
+        __ocid_logger.debug('ocid daemon is running: %s', str(locked))
+    except Exception as e:
+        __ocid_logger.exception('Internal ERROR: %s', str(e))
 
 
 if __name__ == "__main__":

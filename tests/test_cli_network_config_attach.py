@@ -7,6 +7,7 @@ import re
 import subprocess
 import time
 import unittest
+import uuid
 from ipaddress import ip_address
 
 import oci_utils.oci_api
@@ -62,7 +63,7 @@ class TestCliOciNetworkConfig(OciTestCase):
         except Exception:
             self.waittime = 20
         try:
-            self.vnic_name = self.properties.get_property('network-name')
+            self.vnic_name = self.properties.get_property('network-name-prefix') + uuid.uuid4().hex
         except Exception:
             self.vnic_name = 'some_vnic_display_name'
         try:

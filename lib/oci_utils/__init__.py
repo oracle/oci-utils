@@ -111,6 +111,31 @@ class OCI_VOLUME_SIZE_FMT(enum.Enum):
     MB = 2
 
 
+def find_exec_in_path(exec_name):
+    """
+    Find an executable in the path.
+
+    Parameters
+    ----------
+    exec_name: str
+        The name of the executable.
+
+    Returns
+    -------
+        str: the full path of the executable.
+    """
+    path = os.getenv('PATH').split(':')
+    result = None
+    for rootdir in path:
+        for root, folder, files in os.walk(rootdir):
+            if exec_name in files:
+                result = os.path.join(root, exec_name)
+            break
+        if result:
+            break
+    return result
+
+
 def _set_proxy():
     """
     Set the proxy for OCI metadata service access.

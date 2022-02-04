@@ -543,7 +543,7 @@ def _list_pool_vm(args):
         #
         pool_data.append(_sp_data)
 
-    _title = 'VM pool Information'
+    _title = 'VM pool Information:'
     _columns = list()
     for i in range(len(_cols)):
         _columns.append([_cols[i], _collen[_col_name[i]] + 2, _col_name[i]])

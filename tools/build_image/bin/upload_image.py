@@ -38,6 +38,18 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Utility to upload a file to object storage of '
                                                  'the Oracle Cloud Infrastructure.')
     #
+    parser.add_argument('-p', '--profile',
+                        action='store',
+                        dest='profile',
+                        type=str,
+                        default='DEFAULT',
+                        help='The profile from the config file, the default is DEFAULT.')
+    parser.add_argument('-c', '--config-file',
+                        action='store',
+                        dest='config_file',
+                        type=argparse.FileType('r'),
+                        default='~/.oci/config',
+                        help='The oci config file, the default = ~/.oci/config.')
     parser.add_argument('-f', '--file-name',
                         action='store',
                         dest='file_name',
@@ -281,20 +293,29 @@ def read_yn(prompt, yn=True, waitenter=False, suppose_yes=False):
     return bool(yn.upper() == 'Y')
 
 
-def get_oci_config():
+def get_oci_config(configfile, profile):
     """
     Read the oci-sdk configuration data from file.
+
+    configfile: str
+        The oci config file.
+    profile: str
+        The oci profile.
 
     Returns
     -------
         dict: The configuration on success, None otherwise.
     """
     try:
-        config = oci.config.from_file()
+        config = oci.config.from_file(file_location=configfile, profile_name=profile)
         return config
+    except oci.exceptions.ProfileNotFound as notfound:
+        print('  OCI configuration file %s not found.', configfile)
+    except oci.exceptions.ConfigFileNotFound as notfound:
+        print('  OCI profile %s not found.', profile)
     except Exception as e:
         print('  Failed to load oci configuration data: %s' % str(e))
-        return None
+    return None
 
 
 def bucket_exists(bucket_name, config):
@@ -401,7 +422,7 @@ def main():
     os.environ['LC_ALL'] = 'en_US.UTF8'
     args = parse_args()
     #
-    sdk_config = get_oci_config()
+    sdk_config = get_oci_config(args.config_file, args.profile)
     if sdk_config is None:
         sys.exit(1)
     #
