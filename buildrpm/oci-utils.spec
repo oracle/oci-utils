@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.6
-Release: 9%{?dist}
+Release: 10%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -176,6 +176,9 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Fri Feb 4 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-10
+- LINUX-12038 oci-utils-0.12.6-9.el7 oci-iscsi-config has errors Error running fdisk
+
 * Mon Jan 31 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-9
 - LINUX--11928 oci-utils growfs should support more than xfs file systems; ext4 filesystem added.
 - oci-growfs ported to python code.
