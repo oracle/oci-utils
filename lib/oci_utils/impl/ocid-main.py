@@ -536,7 +536,7 @@ def iscsi_func(context, func_logger):
     # rewrite changed cache files
     if ign_changed:
         # context['ignore_file_ts'] = write_cache(cache_content=ignore_iqns, cache_fname=oci_utils.__ignore_file)
-        context['ignore_file_ts'] = write_cache_11876(cache_content=ignore_iqns,
+        context['ignore_file_ts'] = write_cache_11876(cache_content=list(set(ignore_iqns)),
                                                       cache_fname=oci_utils.iscsiadm.IGNOREIQNS_CACHE,
                                                       cache_fname_11876=oci_utils.__ignore_file)
     if chap_changed:

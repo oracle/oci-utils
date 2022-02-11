@@ -1495,7 +1495,7 @@ def get_flex_data(data):
         sys.exit(1)
     #
     # cpus
-    data['instance_flex_ocpus'] = _read_nb('Number of OCPUs', default_val=2, max_val=18)
+    data['instance_flex_ocpus'] = _read_nb('Number of OCPUs', default_val=2, max_val=64)
     print_g(data['instance_flex_ocpus'], term=False)
     print_g('Selected number of OCPUs: %d' % data['instance_flex_ocpus'])
     if not _read_yn('Continue?', default_yn=True):

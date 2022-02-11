@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.6
-Release: 10%{?dist}
+Release: 12%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -176,6 +176,12 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Thu Feb 10 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-12
+- LINUX-12063 attach detach attach detach "is already detached" error
+
+* Tue Feb 8 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-11
+- fixed timing issue with ocid refresh
+
 * Fri Feb 4 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-10
 - LINUX-12038 oci-utils-0.12.6-9.el7 oci-iscsi-config has errors Error running fdisk
 

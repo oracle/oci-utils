@@ -14,7 +14,7 @@ import oci_utils.oci_api
 from tools.oci_test_case import OciTestCase
 
 os.environ['LC_ALL'] = 'en_US.UTF8'
-
+os.environ['_OCI_UTILS_DEBUG'] = '1'
 
 def _get_ip_from_response(response):
     """
@@ -63,7 +63,7 @@ class TestCliOciNetworkConfig(OciTestCase):
         except Exception:
             self.waittime = 20
         try:
-            self.vnic_name = self.properties.get_property('network-name-prefix') + uuid.uuid4().hex
+            self.vnic_name = self.properties.get_property('network-name-prefix') + uuid.uuid4().hex[:8]
         except Exception:
             self.vnic_name = 'some_vnic_display_name'
         try:

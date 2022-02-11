@@ -186,136 +186,10 @@ class TestCliOciIscsiConfig(OciTestCase):
                continue
        return None
 
-    @skipUnlessOCI()
-    @skipUnlessRoot()
-    def test_create_destroy(self):
-        """
-        Test block volume creation and destruction.
-
-        Returns
-        -------
-            No return value.
-        """
-        try:
-            #
-            # create
-            volume_name_a = self.vol_name_prefix + uuid.uuid4().hex
-            cmd_c = [self.iscsi_config_path, 'create', '--size', self.volume_size, '--volume-name', volume_name_a]
-            create_volume_data = subprocess.check_output(cmd_c).decode('utf-8').splitlines()
-            _show_res('Create Volume', create_volume_data)
-            time.sleep(self.waittime)
-            volume_data = self._get_iscsi_show()
-            _show_res('Volume data', volume_data)
-            new_ocid = self._get_ocid_from_volume_name(volume_name_a)
-            self._volumes_created.append({'display_name': volume_name_a, 'ocid': new_ocid})
-            #
-            # destroy
-            # _show_res('Volume data', volume_data)
-            _show_res('Volume ocid', [new_ocid])
-            cmd_d = [self.iscsi_config_path, 'destroy', '--ocids', new_ocid, '--yes']
-            destroy_volume_data = subprocess.check_output(cmd_d).decode('utf-8').splitlines()
-            _show_res('Destroy volume', destroy_volume_data)
-            time.sleep(self.waittime)
-        except Exception as e:
-            self.fail('oci-iscsi-config create/destroy has failed: %s' % str(e))
 
     @skipUnlessOCI()
     @skipUnlessRoot()
-    def test_create_attach_detach_destroy(self):
-        """
-        Test block volume creation attach and destruction.
-
-        Returns
-        -------
-            No return value.
-        """
-        try:
-            #
-            # create
-            volume_name_a = self.vol_name_prefix + uuid.uuid4().hex
-            cmd_c = [self.iscsi_config_path, 'create', '--size', self.volume_size, '--volume-name', volume_name_a]
-            create_volume_data = subprocess.check_output(cmd_c).decode('utf-8').splitlines()
-            _show_res('Create Volume', create_volume_data)
-            time.sleep(self.waittime)
-            volume_data = self._get_iscsi_show()
-            _show_res('Volume data', volume_data)
-            new_ocid = self._get_ocid_from_volume_name(volume_name_a)
-            self._volumes_created.append({'display_name': volume_name_a, 'ocid': new_ocid})
-            #
-            # attach
-            cmd_a = [self.iscsi_config_path, 'attach', '--iqns', new_ocid]
-            attach_volume_data = subprocess.check_output(cmd_a).decode('utf-8').splitlines()
-            _show_res('Attach Volume', attach_volume_data)
-            time.sleep(self.waittime)
-            volume_data = self._get_iscsi_show()
-            #
-            # detach
-            new_iqn = self._get_iqn_from_volume_name(volume_name_a)
-            cmd_d = [self.iscsi_config_path, 'detach', '--iqns', new_iqn]
-            detach_volume_data = subprocess.check_output(cmd_d).decode('utf-8').splitlines()
-            _show_res('Detach Volume', detach_volume_data)
-            time.sleep(self.waittime)
-            #
-            # destroy
-            # _show_res('Volume data', volume_data)
-            _show_res('Volume ocid', [new_ocid])
-            cmd_d = [self.iscsi_config_path, 'destroy', '--ocids', new_ocid, '--yes']
-            destroy_volume_data = subprocess.check_output(cmd_d).decode('utf-8').splitlines()
-            _show_res('Destroy volume', destroy_volume_data)
-            time.sleep(self.waittime)
-        except Exception as e:
-            self.fail('oci-iscsi-config create/attach/detach/destroy has failed: %s' % str(e))
-
-    @skipUnlessOCI()
-    @skipUnlessRoot()
-    def test_create_attach_chap_detach_destroy(self):
-        """
-        Test block volume creation attach and destruction.
-
-        Returns
-        -------
-            No return value.
-        """
-        try:
-            #
-            # create
-            volume_name_a = self.vol_name_prefix + uuid.uuid4().hex
-            cmd_c = [self.iscsi_config_path, 'create', '--size', self.volume_size, '--volume-name', volume_name_a]
-            create_volume_data = subprocess.check_output(cmd_c).decode('utf-8').splitlines()
-            _show_res('Create Volume', create_volume_data)
-            time.sleep(self.waittime)
-            volume_data = self._get_iscsi_show()
-            _show_res('Volume data', volume_data)
-            new_ocid = self._get_ocid_from_volume_name(volume_name_a)
-            self._volumes_created.append({'display_name': volume_name_a, 'ocid': new_ocid})
-            #
-            # attach
-            cmd_a = [self.iscsi_config_path, 'attach', '--iqns', new_ocid, '--chap']
-            attach_volume_data = subprocess.check_output(cmd_a).decode('utf-8').splitlines()
-            _show_res('Attach Volume', attach_volume_data)
-            time.sleep(self.waittime)
-            volume_data = self._get_iscsi_show()
-            #
-            # detach
-            new_iqn = self._get_iqn_from_volume_name(volume_name_a)
-            cmd_d = [self.iscsi_config_path, 'detach', '--iqns', new_iqn]
-            detach_volume_data = subprocess.check_output(cmd_d).decode('utf-8').splitlines()
-            _show_res('Detach Volume', detach_volume_data)
-            time.sleep(self.waittime)
-            #
-            # destroy
-            # _show_res('Volume data', volume_data)
-            _show_res('Volume ocid', [new_ocid])
-            cmd_d = [self.iscsi_config_path, 'destroy', '--ocids', new_ocid, '--yes']
-            destroy_volume_data = subprocess.check_output(cmd_d).decode('utf-8').splitlines()
-            _show_res('Destroy volume', destroy_volume_data)
-            time.sleep(self.waittime)
-        except Exception as e:
-            self.fail('oci-iscsi-config create/attach/chap/detach/destroy has failed: %s' % str(e))
-
-    @skipUnlessOCI()
-    @skipUnlessRoot()
-    def test_createattach_detach_destroy(self):
+    def test_createattach_detach_attach_detach_destroy(self):
         """
         Test block volume creation attach and destruction.
 
@@ -342,6 +216,26 @@ class TestCliOciIscsiConfig(OciTestCase):
             detach_volume_data = subprocess.check_output(cmd_d).decode('utf-8').splitlines()
             _show_res('Detach Volume', detach_volume_data)
             time.sleep(self.waittime)
+            volume_data = self._get_iscsi_show()
+            _show_res('Volume data', volume_data)
+            #
+            # attach
+            new_ocid = self._get_ocid_from_volume_name(volume_name_a)
+            cmd_e = [self.iscsi_config_path, 'attach', '--ocids', new_ocid]
+            attach_volume_data = subprocess.check_output(cmd_e).decode('utf-8').splitlines()
+            _show_res('Attach Volume', attach_volume_data)
+            time.sleep(self.waittime)
+            volume_data = self._get_iscsi_show()
+            _show_res('Volume data', volume_data)
+            #
+            # detach
+            new_iqn = self._get_iqn_from_volume_name(volume_name_a)
+            cmd_d = [self.iscsi_config_path, 'detach', '--iqns', new_iqn]
+            detach_volume_data = subprocess.check_output(cmd_d).decode('utf-8').splitlines()
+            _show_res('Detach Volume', detach_volume_data)
+            time.sleep(self.waittime)
+            volume_data = self._get_iscsi_show()
+            _show_res('Volume data', volume_data)
             #
             # destroy
             # _show_res('Volume data', volume_data)
@@ -355,7 +249,7 @@ class TestCliOciIscsiConfig(OciTestCase):
 
     @skipUnlessOCI()
     @skipUnlessRoot()
-    def test_createattachchap_detach_destroy(self):
+    def test_createattach_detach_attach_detach_destroy_comp(self):
         """
         Test block volume creation attach and destruction.
 
@@ -367,7 +261,7 @@ class TestCliOciIscsiConfig(OciTestCase):
             #
             # create
             volume_name_a = self.vol_name_prefix + uuid.uuid4().hex
-            cmd_c = [self.iscsi_config_path, 'create', '--size', self.volume_size, '--volume-name', volume_name_a, '--attach-volume', '--chap']
+            cmd_c = [self.iscsi_config_path, '-c', self.volume_size, '--volume-name', volume_name_a]
             create_volume_data = subprocess.check_output(cmd_c).decode('utf-8').splitlines()
             _show_res('Create Volume', create_volume_data)
             time.sleep(self.waittime)
@@ -378,10 +272,30 @@ class TestCliOciIscsiConfig(OciTestCase):
             #
             # detach
             new_iqn = self._get_iqn_from_volume_name(volume_name_a)
-            cmd_d = [self.iscsi_config_path, 'detach', '--iqns', new_iqn]
+            cmd_d = [self.iscsi_config_path, '-d', new_iqn]
             detach_volume_data = subprocess.check_output(cmd_d).decode('utf-8').splitlines()
             _show_res('Detach Volume', detach_volume_data)
             time.sleep(self.waittime)
+            volume_data = self._get_iscsi_show()
+            _show_res('Volume data', volume_data)
+            #
+            # attach
+            new_ocid = self._get_ocid_from_volume_name(volume_name_a)
+            cmd_e = [self.iscsi_config_path, 'attach', '--ocids', new_ocid]
+            attach_volume_data = subprocess.check_output(cmd_e).decode('utf-8').splitlines()
+            _show_res('Attach Volume', attach_volume_data)
+            time.sleep(self.waittime)
+            volume_data = self._get_iscsi_show()
+            _show_res('Volume data', volume_data)
+            #
+            # detach
+            new_iqn = self._get_iqn_from_volume_name(volume_name_a)
+            cmd_d = [self.iscsi_config_path, '-d', new_iqn]
+            detach_volume_data = subprocess.check_output(cmd_d).decode('utf-8').splitlines()
+            _show_res('Detach Volume', detach_volume_data)
+            time.sleep(self.waittime)
+            volume_data = self._get_iscsi_show()
+            _show_res('Volume data', volume_data)
             #
             # destroy
             # _show_res('Volume data', volume_data)
@@ -391,65 +305,8 @@ class TestCliOciIscsiConfig(OciTestCase):
             _show_res('Destroy volume', destroy_volume_data)
             time.sleep(self.waittime)
         except Exception as e:
-            self.fail('oci-iscsi-config createattachchap/detach/destroy has failed: %s' % str(e))
-
-    @skipUnlessOCI()
-    @skipUnlessRoot()
-    def test_createattach_iscsidetach_attach_detach_destroy(self):
-        """
-        Test block volume creation attach and destruction.
-
-        Returns
-        -------
-            No return value.
-        """
-        try:
-            #
-            # create
-            volume_name_a = self.vol_name_prefix + uuid.uuid4().hex
-            cmd_c = [self.iscsi_config_path, 'create', '--size', self.volume_size, '--volume-name', volume_name_a, '--attach-volume']
-            create_volume_data = subprocess.check_output(cmd_c).decode('utf-8').splitlines()
-            _show_res('Create Volume', create_volume_data)
-            time.sleep(self.waittime)
-            volume_data = self._get_iscsi_show()
-            _show_res('Volume data', volume_data)
-            new_ocid = self._get_ocid_from_volume_name(volume_name_a)
-            self._volumes_created.append({'display_name': volume_name_a, 'ocid': new_ocid})
-            #
-            # logoff from iscsi
-            new_ocid, new_iqn, new_ip, new_port = self._get_volume_data_from_name(volume_name_a)
-            new_port_s = str(new_port)
-            cmd_a = [self.iscsiadm_path, '-m', 'node', '-T', new_iqn, '-p', new_ip+':'+new_port_s, '-u']
-            logout_output = subprocess.check_output(cmd_a).decode('utf-8').splitlines()
-            _show_res('Logout', logout_output)
-            cmd_b = [self.iscsiadm_path, '-m', 'node', 'o', 'delete', '-T', new_iqn, '-p', new_ip+':'+new_port_s]
-            delete_output = subprocess.check_output(cmd_b).decode('utf-8').splitlines()
-            _show_res('Delete', logout_output)
-            time.sleep(self.waittime)
-            #
-            # attach iqn
-            cmd_d = [self.iscsi_config_path, 'attach', '--iqns', new_iqn]
-            attach_volume_data = subprocess.check_output(cmd_d).decode('utf-8').splitlines()
-            _show_res('Attach Volume', attach_volume_data)
-            time.sleep(self.waittime)
-            volume_data = self._get_iscsi_show()
-            time.sleep(self.waittime)
-            #
-            # detach
-            cmd_e = [self.iscsi_config_path, 'detach', '--iqns', new_iqn]
-            detach_volume_data = subprocess.check_output(cmd_e).decode('utf-8').splitlines()
-            _show_res('Detach Volume', detach_volume_data)
-            time.sleep(self.waittime)
-            #
-            # destroy
-            # _show_res('Volume data', volume_data)
-            _show_res('Volume ocid', [new_ocid])
-            cmd_f = [self.iscsi_config_path, 'destroy', '--ocids', new_ocid, '--yes']
-            destroy_volume_data = subprocess.check_output(cmd_f).decode('utf-8').splitlines()
-            _show_res('Destroy volume', destroy_volume_data)
-            time.sleep(self.waittime)
-        except Exception as e:
             self.fail('oci-iscsi-config createattach/detach/destroy has failed: %s' % str(e))
+
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestCliOciIscsiConfig)

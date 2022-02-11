@@ -12,7 +12,7 @@ from tools.oci_test_case import OciTestCase
 from tools.decorators import (skipUnlessOCI, skipUnlessRoot)
 
 os.environ['LC_ALL'] = 'en_US.UTF8'
-
+os.environ['_OCI_UTILS_DEBUG'] = '1'
 
 def _get_volume_data(volume_data):
     """

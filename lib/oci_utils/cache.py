@@ -155,6 +155,7 @@ def load_cache(global_file, user_file=None, max_age=None):
     cache_timestamp = get_timestamp(cache_fname)
     if max_age:
         if datetime.fromtimestamp(cache_timestamp) + max_age < datetime.now():
+            _logger.debug('Max age reached.')
             return 0, None
 
     try:
@@ -164,6 +165,7 @@ def load_cache(global_file, user_file=None, max_age=None):
         fcntl.lockf(cache_fd, fcntl.LOCK_SH)
     except IOError:
         # can't access file
+        _logger.debug('Failed to load cache %s', cache_fname)
         return 0, None
 
     try:
@@ -241,9 +243,12 @@ def write_cache(cache_content, cache_fname, fallback_fname=None, mode=None):
     -------
     Return the cache timestamp for success, None for failure
     """
-    _logger.debug('_Writing cache file %s.', cache_fname)
+    _logger.debug('_Writing to cache file')
+    _logger.debug('Cache file %s.', cache_fname)
+    _logger.debug('Cache content %s.', cache_content)
     fname = cache_fname
-    # try to save in cache_file first
+    #
+    # try to write in cache_file first
     try:
         cachedir = os.path.dirname(cache_fname)
         if not os.path.exists(cachedir):
@@ -254,6 +259,7 @@ def write_cache(cache_content, cache_fname, fallback_fname=None, mode=None):
             cache_fd = os.open(cache_fname, os.O_WRONLY | os.O_CREAT)
         cache_file = os.fdopen(cache_fd, 'w')
     except (OSError, IOError):
+        #
         # can't write to cache_fname, try fallback_fname
         if not fallback_fname:
             return None
@@ -268,6 +274,7 @@ def write_cache(cache_content, cache_fname, fallback_fname=None, mode=None):
             cache_file = os.fdopen(cache_fd, 'w')
             fname = fallback_fname
         except (OSError, IOError):
+            #
             # can't write to fallback file either, give up
             return None
     try:
@@ -286,6 +293,7 @@ def write_cache(cache_content, cache_fname, fallback_fname=None, mode=None):
     except Exception:
         fcntl.lockf(cache_fd, fcntl.LOCK_UN)
         cache_file.close()
+        _logger.debug('Failed to write cache %s', cache_fname)
         return None
 
     return cache_timestamp

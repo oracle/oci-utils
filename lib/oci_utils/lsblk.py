@@ -105,10 +105,8 @@ def lsblk_partitions(device):
         _logger.debug('subprocess output %s', output)
         partitions = list()
         for line in output.splitlines():
-            _logger.debug('__GT__ line %s', line)
             if re.search(r'TYPE="([^"]*)"', line).group(1) == 'part':
                 partitions.append('/dev/' + re.search(r'^NAME="([^"]*)"', line).group(1))
-        _logger.debug('_GT_ partitions: %s', partitions)
         return partitions
     except subprocess.CalledProcessError:
         _logger.exception('Error running fdisk', exc_info=True, stack_info=True)

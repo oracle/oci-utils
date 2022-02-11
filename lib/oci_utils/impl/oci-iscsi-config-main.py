@@ -17,6 +17,7 @@ import subprocess
 import sys
 from datetime import timedelta
 import termios
+import time
 import tty
 
 import oci_utils.oci_api
@@ -33,7 +34,8 @@ _logger = logging.getLogger("oci-utils.oci-iscsi-config")
 
 oci_volume_tag = 'ocid1.volume.'
 iqn_tag = 'iqn.'
-
+cache_loop = 10
+cache_delay = 65
 
 def volume_size_validator(value):
     """
@@ -677,6 +679,12 @@ def collect_volumes_data(oci_session, iscsi_session, disks, col_lengths):
                 # size
                 _vol_data['size'] = disks[device]['size']
                 col_lengths['size'] = max(len(_vol_data['size']), col_lengths['size'])
+                # mountpoint
+                _vol_data['mountpoint'] = disks[device]['mountpoint'] if disks[device]['mountpoint'] != '' else '-'
+                col_lengths['mountpoint'] = max(len(_vol_data['mountpoint']), col_lengths['mountpoint'])
+                # fstype
+                _vol_data['fstype'] = disks[device]['fstype'] if disks[device]['fstype'] != '' else '-'
+                col_lengths['fstype'] = max(len(_vol_data['fstype']), col_lengths['fstype'])
         _vol_dev_len = len(_vol_data['dev'])
         col_lengths['dev'] = max(_vol_dev_len, col_lengths['dev'])
         volumes_data.append(_vol_data)
@@ -684,7 +692,7 @@ def collect_volumes_data(oci_session, iscsi_session, disks, col_lengths):
     return volumes_data, col_lengths
 
 
-def get_columns(details, column_lengths):
+def get_columns(details, mode, column_lengths):
     """
     Set the column lenghts.
 
@@ -692,6 +700,8 @@ def get_columns(details, column_lengths):
     ----------
     details: bool
         If True, include the 'details'
+    mode: str
+        The output mode.
     column_lengths: list
         The column lengths.
 
@@ -710,6 +720,9 @@ def get_columns(details, column_lengths):
         columns.append(['Session State', column_lengths['s_state']+2, 's_state'])
     columns.append(['Attached Device', column_lengths['dev']+2, 'dev'])
     columns.append(['Size', column_lengths['size']+2, 'size'])
+    if details or mode in ['text', 'parsable']:
+        columns.append(['Mountpoint', column_lengths['mountpoint']+2, 'mountpoint'])
+        columns.append(['Filesystem', column_lengths['fstype']+2, 'fstype'])
     return columns
 
 
@@ -756,7 +769,9 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
              'Current Portal',
              'Session State',
              'Attached Device',
-             'Size']
+             'Size',
+             'Mountpoint',
+             'Filesystem']
     _col_name = ['target',
                  'name',
                  'ocid',
@@ -764,7 +779,9 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
                  'c_portal',
                  's_state',
                  'dev',
-                 'size']
+                 'size',
+                 'mountpoint',
+                 'fstype']
     _cols_len = list()
     for col in _cols:
         _cols_len.append(len(col))
@@ -779,9 +796,11 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
                    'c_portal': 20,
                    's_state': 13,
                    'dev': 15,
-                   'size': 6}
+                   'size': 6,
+                   'mountpoint': 12,
+                   'fstype': 12}
 
-    _columns = get_columns(details, _collen)
+    _columns = get_columns(details, output_mode, _collen)
 
     # this is only to be used used in compatibility mode, text mode or parsable mode, for now.
     partitionPrinter = get_row_printer_impl(output_mode)(title='\nPartitions:\n',
@@ -1195,7 +1214,6 @@ def _do_attach_oci_block_volume(sess, ocid, chap=False):
 
     if vol.is_attached():
         if vol.get_instance().get_ocid() == sess.this_instance().get_ocid():
-            # attached to this instance already
             _msg = 'Volume [%s] already attached to this instance' % ocid
         else:
             _msg = 'Volume [%s] already attached to instance %s [%s]' % (ocid,
@@ -1343,22 +1361,30 @@ def unmount_device(session, iqn, disks):
             True for success or the device is not mounted.
             False if the device is mount and unmounting failed.
     """
+    _logger.debug('_Unmount device %s', iqn)
     retval = True
+    #
     # find mountpoints
+    _logger.debug('')
     device = session[iqn]['device']
     if device not in disks:
         return True
-    if 'partitions' not in disks[device]:
-        if disks[device]['mountpoint'] != '':
+    if not bool(disks[device]['partitions']):
+        #
+        # no partitions, maybe device mounted.
+        if bool(disks[device]['mountpoint']):
+            #
             # volume has no partitions and is currently mounted
             if not do_umount(disks[device]['mountpoint']):
                 retval = False
         else:
-            _logger.debug('Volume %s not mounted', disks[device]['mountpoint'])
+            _logger.debug('Volume %s not mounted', iqn)
     else:
+        #
+        # partitions
         partitions = disks[device]['partitions']
         for part in list(partitions.keys()):
-            if partitions[part]['mountpoint'] != '':
+            if bool(partitions[part]['mountpoint']):
                 # the partition is mounted
                 _logger.debug('Volume %s mounted', partitions[part]['mountpoint'])
                 if not do_umount(partitions[part]['mountpoint']):
@@ -1368,7 +1394,7 @@ def unmount_device(session, iqn, disks):
     return retval
 
 
-def do_create_volume(sess, size, display_name, attach_it, chap_credentials, mode):
+def do_create_volume(sess, size, display_name, attach_it, detached, chap_credentials, mode):
     """
     Create a new OCI volume and attach it to this instance.
 
@@ -1382,6 +1408,8 @@ def do_create_volume(sess, size, display_name, attach_it, chap_credentials, mode
         The volume display name.
     attach_it: boolean
         Do we attach the newly created volume.
+    detached: list
+        The list of detached volumes.
     chap_credentials: boolean
         Use Chap Credentials Required if True
     mode: str
@@ -1389,7 +1417,7 @@ def do_create_volume(sess, size, display_name, attach_it, chap_credentials, mode
 
     Returns
     -------
-       nothing
+       No return value
     Raises
     ------
        Exception if something went wrong
@@ -1415,6 +1443,7 @@ def do_create_volume(sess, size, display_name, attach_it, chap_credentials, mode
         raise Exception("Failed to create volume") from e
 
     _logger.info("Volume [%s] created", vol.get_display_name())
+    _logger.debug("Volume [%s - %s] created", vol.get_display_name(), vol.get_ocid())
 
     if not attach_it:
         return
@@ -1422,8 +1451,10 @@ def do_create_volume(sess, size, display_name, attach_it, chap_credentials, mode
     compat_info_message(gen_msg="Attaching the volume to this instance", mode=mode)
     try:
         if chap_credentials:
+            _logger.debug('Attaching with chap secrets.')
             vol = vol.attach_to(instance_id=inst.get_ocid(), use_chap=True)
         else:
+            _logger.debug('Attaching without chap secrets.')
             vol = vol.attach_to(instance_id=inst.get_ocid(), use_chap=False)
     except Exception as e:
         _logger.debug('Cannot attach block volume', exc_info=True)
@@ -1447,13 +1478,27 @@ def do_create_volume(sess, size, display_name, attach_it, chap_credentials, mode
     compat_info_message(compat_msg="iscsiadm attach Result: %s" % iscsiadm.error_message_from_code(retval),
                         gen_msg="Volume [%s] is attached." % vol.get_display_name(), mode=mode)
     if retval == 0:
-        _logger.debug('Creation successful')
+        _logger.debug('Attachment successful')
         if chap_credentials:
             _logger.debug('Attachment OK: saving chap credentials.')
             add_chap_secret(vol_iqn, vol_username, vol_password)
+        #
+        # __GT__ is a new volume, should not be in detached list
+        if vol_iqn in detached:
+            _logger.debug('Volume %s should not be in detached volumes list.', vol_iqn)
+        #     detached.remove(vol_iqn)
+        #     write_cache_11876(cache_content=list(set(detached)),
+        #                       cache_fname=iscsiadm.IGNOREIQNS_CACHE,
+        #                       cache_fname_11876=__ignore_file)
+        #
+        ocid_refresh(wait=True)
+        #
+        # __GT__ might be a good idea if ocid service is running
+        # if not _wait_for_attached_cache(vol_iqn):
+        #     _logger.debug('%s did not show up.', vol_iqn)
         return
-
-    # here because of error case
+    #
+    # Something wrong if passing here.
     try:
         _logger.debug('Destroying the volume')
         vol.destroy()
@@ -1722,6 +1767,74 @@ def load_iscsi_admin_cache():
     return targets, attach_failed
 
 
+def _is_iqn_in_iscsiadm_cache(iqn):
+    """
+    Verify if iqn is in attached volumes cache.
+
+    Parameters
+    ----------
+    iqn: str
+        The iqn.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    _logger.debug('__Verifying if [%s] is in attched cache.', iqn)
+    iscsisadmcache, failedattached = load_iscsi_admin_cache()
+    if iscsisadmcache is None:
+        return False
+    for port, iqns in iscsisadmcache.items():
+        if iqn in iqns:
+            _logger.debug('Found %s in attached volume cache.', iqn)
+            return True
+    return False
+
+
+def _wait_for_attached_cache(iqn):
+    """
+    Waiting loop for iqn of a volume is going to show up in the attached volume cache.
+
+    Parameters
+    ----------
+    iqn: str
+        The iqn
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    for _ in range(cache_loop):
+        if _is_iqn_in_iscsiadm_cache(iqn):
+            return True
+        _logger.debug('%s in not in attached volumes list, wait for ocid refresh to complete and give it another try.', iqn)
+        time.sleep(cache_delay)
+    return False
+
+
+def _wait_for_detached_cache(iqn):
+    """
+    Waiting loop for iqn disappearing from detached volumes cache.
+
+    Parameters
+    ----------
+    iqn: str
+        The iqn.
+
+    Returns
+    -------
+        bool: True on success, False otherwise
+    """
+    for _ in range(cache_loop):
+        detachedvolumecache = load_detached_volumes_cache()
+        if iqn in detachedvolumecache:
+            _logger.debug('%s is still in detached volumes list, wait for ocid refresh to complete and give it another try.', iqn)
+            time.sleep(cache_delay)
+        else:
+            return True
+    return False
+
+
 def load_detached_volumes_cache():
     """
     Load the iqns of the detached volumes from the cache.
@@ -1910,7 +2023,7 @@ def sync_detached_devices(oci_session, detached_volumes, targets, apply=False, i
                                    default_yn=False)
                 if ans:
                     detached_volumes.remove(iqn)
-                    write_cache_11876(cache_content=detached_volumes,
+                    write_cache_11876(cache_content=list(set(detached_volumes)),
                                       cache_fname=iscsiadm.IGNOREIQNS_CACHE,
                                       cache_fname_11876=__ignore_file)
         else:
@@ -1934,7 +2047,7 @@ def sync_detached_devices(oci_session, detached_volumes, targets, apply=False, i
                         #                    passwd=this_volume_data['chap_pw'],
                         #                    iscsi_portal_ip=this_volume_data['portal_ip'])
                         detached_volumes.remove(this_volume_data['iqn'])
-                        write_cache_11876(cache_content=detached_volumes,
+                        write_cache_11876(cache_content=list(set(detached_volumes)),
                                       cache_fname=iscsiadm.IGNOREIQNS_CACHE,
                                       cache_fname_11876=__ignore_file)
                         did_something = True
@@ -1971,9 +2084,7 @@ def sync_failed_attached(oci_session, failed_volumes, targets, apply=False, inte
     retval = 0
     for iqn in list(failed_volumes.keys()):
         # display_detached_iscsi_device(iqn, targets, attach_failed)
-        _logger.debug('_GT_ iqn: %s', iqn)
         this_volume_data = get_volume_data_from_(iqn, oci_session)
-        _logger.debug('_GT_ volume data: %s', this_volume_data)
         if this_volume_data:
             _ = display_iscsi_device(this_volume_data)
             _attach_user_name = None
@@ -2135,7 +2246,7 @@ def main():
             #
             # would be better to execute ocid_refresh anyway.
         #    ocid_refresh()
-        ocid_refresh()
+        ocid_refresh(wait=True)
         return return_value_d + return_value_f
 
     if args.command == 'create':
@@ -2148,6 +2259,7 @@ def main():
                                  size=args.size,
                                  display_name=args.volume_name,
                                  attach_it=args.attach_volume,
+                                 detached = detached_volume_iqns,
                                  chap_credentials=args.chap,
                                  mode=compatibility_mode)
             else:
@@ -2158,7 +2270,7 @@ def main():
             _logger.error('Volume creation has failed: %s', str(e))
             return 1
 
-        ocid_refresh()
+        ocid_refresh(wait=True)
         return 0
 
     if args.command == 'destroy':
@@ -2192,7 +2304,7 @@ def main():
                         if _iqn in detached_volume_iqns:
                             detached_volume_iqns.remove(_iqn)
                             # write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
-                            write_cache_11876(cache_content=detached_volume_iqns,
+                            write_cache_11876(cache_content=list(set(detached_volume_iqns)),
                                               cache_fname=iscsiadm.IGNOREIQNS_CACHE,
                                               cache_fname_11876=__ignore_file)
                             _logger.debug('%s removed from cache.', _iqn)
@@ -2210,54 +2322,59 @@ def main():
         return_value = 0
         for iqn in args.iqns:
             retval = 0
-            if iqn in detached_volume_iqns:
+            if not _wait_for_detached_cache(iqn):
                 _logger.error("Target [%s] is already detached", iqn)
                 retval = 1
-                continue
+                # continue
             if iqn not in iscsiadm_session or 'device' not in iscsiadm_session[iqn]:
                 _logger.error("Target [%s] not found", iqn)
                 retval = 1
-                continue
-
-            _logger.debug('Unmounting the block volume')
-            if not unmount_device(iscsiadm_session, iqn, system_disks):
-                _logger.debug('Unmounting has failed')
-                if not args.force:
-                    # if not ask_yes_no("Failed to unmount volume, Continue detaching anyway?"):
-                    if not _read_yn('Failed to unmount volume, Continue detaching anyway?',
-                                    yn=True,
-                                    waitenter=True,
-                                    suppose_yes=False,
-                                    default_yn=False):
-                        continue
-                else:
-                    _logger.info('Unmount failed, force option selected,continue anyway.')
-            try:
-                if bool(oci_sess):
-                    _logger.debug('Detaching [%s]', iqn)
-                    do_detach_volume(oci_sess, iscsiadm_session, iqn, mode=compatibility_mode)
-                    compat_info_message(gen_msg="Volume [%s] is detached." % iqn, mode=compatibility_mode)
-                    detached_volume_iqns.append(iqn)
-                else:
-                    _logger.info('Unable to detach volume, failed to create a session.')
+                # continue
+            if retval == 0:
+                _logger.debug('Unmounting the block volume')
+                if not unmount_device(iscsiadm_session, iqn, system_disks):
+                    _logger.debug('Unmounting has failed')
+                    if not args.force:
+                        # if not ask_yes_no("Failed to unmount volume, Continue detaching anyway?"):
+                        if not _read_yn('Failed to unmount volume, Continue detaching anyway?',
+                                        yn=True,
+                                        waitenter=True,
+                                        suppose_yes=False,
+                                        default_yn=False):
+                            continue
+                    else:
+                        _logger.info('Unmount failed, force option selected,continue anyway.')
+                try:
+                    if bool(oci_sess):
+                        _logger.debug('Detaching [%s]', iqn)
+                        do_detach_volume(oci_sess, iscsiadm_session, iqn, mode=compatibility_mode)
+                        compat_info_message(gen_msg="Volume [%s] is detached." % iqn, mode=compatibility_mode)
+                        detached_volume_iqns.append(iqn)
+                        write_cache_11876(cache_content=list(set(detached_volume_iqns)),
+                                          cache_fname=iscsiadm.IGNOREIQNS_CACHE,
+                                          cache_fname_11876=__ignore_file)
+                    else:
+                        _logger.info('Unable to detach volume, failed to create a session.')
+                        retval = 1
+                except Exception as e:
+                    _logger.debug('Volume [%s] detach has failed: %s', iqn, str(e), stack_info=True, exc_info=True)
+                    _logger.error('Volume [%s] detach has failed: %s', iqn, str(e))
                     retval = 1
-            except Exception as e:
-                _logger.debug('Volume [%s] detach has failed: %s', iqn, str(e), stack_info=True, exc_info=True)
-                _logger.error('Volume [%s] detach has failed: %s', iqn, str(e))
-                retval = 1
 
             if retval == 0:
                 # compat_info_message(gen_msg="Updating detached volume cache file: remove %s"
                 # % iqn, mode=compatibility_mode)
                 # compat_info_message(gen_msg="Volume [%s] successfully detached." % iqn, mode=compatibility_mode)
                 # write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
-                write_cache_11876(cache_content=detached_volume_iqns,
-                                  cache_fname=iscsiadm.IGNOREIQNS_CACHE,
-                                  cache_fname_11876=__ignore_file)
+                # __GT__
+                pass
+                # write_cache_11876(cache_content=list(set(detached_volume_iqns)),
+                #                   cache_fname=iscsiadm.IGNOREIQNS_CACHE,
+                #                   cache_fname_11876=__ignore_file)
             else:
                 return_value = retval
         _logger.debug('Trigger ocid refresh')
-        ocid_refresh()
+        ocid_refresh(wait=True)
         return return_value
 
     if args.command == 'attach':
@@ -2314,8 +2431,17 @@ def main():
                                     passwd=attach_data['attachment_password'],
                                     iscsi_portal_ip=attach_data['iscsi_portal_ip'])
                 _logger.debug('Attachment of %s succeeded.', iqnorocid)
-                if iqnorocid in detached_volume_iqns:
-                    detached_volume_iqns.remove(iqnorocid)
+                if attach_data['iqn_to_use'] in detached_volume_iqns:
+                    _logger.debug('Volume %s was detached, remove from detached list.', iqnorocid)
+                    detached_volume_iqns.remove(attach_data['iqn_to_use'])
+                    write_cache_11876(cache_content=list(set(detached_volume_iqns)),
+                              cache_fname=iscsiadm.IGNOREIQNS_CACHE,
+                              cache_fname_11876=__ignore_file)
+                # __GT__
+                # if _save_chap_cred:
+                if args.chap:
+                    _logger.debug('Attachment OK: saving chap credentials.')
+                    add_chap_secret(iqnorocid, attach_data['attachment_username'], attach_data['attachment_password'])
             except Exception as e:
                 _logger.debug("Failed to attach target [%s]: %s", iqnorocid, str(e), exc_info=True, stack_info=True)
                 _logger.error("Failed to attach target [%s]: %s", iqnorocid, str(e))
@@ -2323,21 +2449,17 @@ def main():
                 retval = 1
                 continue
 
-            if _save_chap_cred:
-                _logger.debug('Attachment OK: saving chap credentials.')
-                add_chap_secret(iqnorocid, attach_data['attachment_username'], attach_data['attachment_password'])
-
         if retval == 0:
             #
             # update the detached volumes cache
             # write_cache(cache_content=detached_volume_iqns, cache_fname=__ignore_file)
-            write_cache_11876(cache_content=detached_volume_iqns,
-                              cache_fname=iscsiadm.IGNOREIQNS_CACHE,
-                              cache_fname_11876=__ignore_file)
+            # write_cache_11876(cache_content=list(set(detached_volume_iqns)),
+            #                   cache_fname=iscsiadm.IGNOREIQNS_CACHE,
+            #                 cache_fname_11876=__ignore_file)
             #
             # run ocid.refresh
             _logger.debug('Trigger ocid refresh.')
-            ocid_refresh()
+            ocid_refresh(wait=True)
 
         return retval
 

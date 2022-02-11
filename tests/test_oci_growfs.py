@@ -15,6 +15,7 @@ os.environ['_OCI_UTILS_DEBUG'] = '1'
 SMALL_CHUNK = 2048
 LARGE_CHUNK = 65536
 
+
 def _show_res(head, msg):
     """
     Prints a list line by line.

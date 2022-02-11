@@ -1,0 +1,154 @@
+#!/bin/bash
+
+# oci-utils
+#
+# Copyright (c) 2022, 2021 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+
+ASSUME_YES=0
+ASSUME_NO=0
+
+# Print usage message
+usage()
+{
+cat <<EOF
+Usage: $0 [OPTION]
+
+Expand the root filesystem to its configured size.
+
+Option:
+  -y                           Assume "yes" for all questions.
+  -n                           Assume "n" to all questions (used for preview).
+  -h                           Print this message.
+
+EOF
+
+}
+
+# Prompt for action confirmation
+confirm()
+{
+    [ ${ASSUME_YES} -eq 1 ] && return 0
+    [ ${ASSUME_NO} -eq 1 ] && return 1
+
+    while true
+    do
+        # force use of a tty, if we are inside a 'read loop' already the prompt is never displayed and we loop forever
+        read -p "Confirm? [y/n]" input < /dev/tty
+        case ${input} in
+            [yY][eE][sS]|[yY])
+                return 0;;
+            [nN][oO]|[nN])
+                return 1;;
+        esac
+    done
+}
+
+part_growfs_preview(){
+    if [ $# -ne 2 ]; then
+        echo "Invalid disk or partition."
+        exit 1
+    fi
+
+    growpart $1 $2 --dry-run
+    return $?
+}
+
+part_growfs_func(){
+    if [ $# -ne 2 ]; then
+        echo "Invalid disk or partition."
+        exit 1
+    fi
+
+    growpart $1 $2
+    if [ $? -eq 0 ]
+    then
+        xfs_growfs /
+    fi
+    return $?
+}
+
+if [ "$EUID" -ne 0 ]; then
+    echo "This script must be run with root privileges."
+    exit 1
+fi
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+    -n|-N)
+        ASSUME_NO=1
+        break
+        ;;
+    -y|-Y)
+        ASSUME_YES=1
+        break
+        ;;
+    -h)
+        usage
+        exit 0
+        ;;
+    -* | *)
+        echo "unknown option: $1" >&2;
+        usage;
+        exit 1
+        ;;
+    esac
+done
+
+
+# first get storage type used for root FS
+_storage=`/usr/bin/findmnt --canonicalize --noheadings --output SOURCE /`
+# expecting lvm or part,
+/usr/bin/lsblk --noheadings -o TYPE,NAME $_storage | while read _type _sto
+do
+    case "${_type}" in
+        part)
+            part_growfs_preview /dev/${_sto//[0-9]/} ${_sto//[^0-9]/} || exit 1
+            confirm
+            if [ $? -eq 0 ]
+            then
+                part_growfs_func /dev/${_sto//[0-9]/} ${_sto//[^0-9]/}
+                exit $?
+            else
+                exit 0
+            fi
+            ;;
+        lvm)
+            # 1. find LV and VG of the device
+            #     we pipe to  awk  to strip away any leading space
+            _root_vg=`/usr/sbin/lvs --noheadings --options vg_name --select lv_dm_path=$_storage | awk '{print $1}'`
+            echo "root VG: ${_root_vg}"
+            [ "${_root_vg}" == "" ] && echo "Cannot find root volume group." && exit 1
+
+            # 2. find all PVs involve in the VG used for root
+            for _pv in `/usr/sbin/pvs --noheadings --options pv_name --select vg_name=${_root_vg}`
+            do
+                # 3. find device of PVs
+                _device=`/usr/sbin/pvs --noheadings --options devices --select pv_name=${_pv}`
+                # device is suffixed with extne number like /dev/sda3(0) , just keep disk information parts
+                _device=${_device//([0-9]*)/}
+                # 3.1 extend the partittion
+                part_growfs_preview ${_device//[0-9]/} ${_device//[^0-9]/} || exit 1
+                confirm
+                if [ $? -eq 0 ]
+                then
+                    echo "calling part_growfs_func ${_device//[0-9]/} ${_device//[^0-9]/}"
+                    part_growfs_func ${_device//[0-9]/} ${_device//[^0-9]/}
+                    [ $? != 0 ] && echo "Cannot extend physical volume disk partition." && exit 1
+                else
+                    exit 0
+                fi
+                # 3.1 extend the PV
+                echo "calling /usr/sbin/pvresize ${_pv}"
+                /usr/sbin/pvresize ${_pv}
+                [ $? != 0 ] && echo "Cannot extend physical volume." && exit 1
+            done
+            # 4. extend the LV and the FS
+            _lv_path=`/usr/sbin/lvs --noheadings --options lv_path --select lv_dm_path=$_storage`
+            echo "calling /usr/sbin/lvextend -l +100%FREE --resizefs ${_lv_path}"
+            /usr/sbin/lvextend -l +100%FREE --resizefs ${_lv_path}
+            exit $?
+    esac
+done
+
+exit $?
