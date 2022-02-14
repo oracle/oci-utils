@@ -93,7 +93,7 @@ class InitScriptManager(InitScriptBase, ServiceManager):
             raise Exception('start of init script has failed')
 
     def stop(self):
-        _logger.debug('Stoping the service')
+        _logger.debug('Stopping the service')
         if sudo_utils.call([self.path, 'stop']):
             raise Exception('stop of init script has failed')
 
