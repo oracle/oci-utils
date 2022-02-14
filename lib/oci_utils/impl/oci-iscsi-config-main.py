@@ -761,6 +761,7 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
         print("List info from Cloud instead(No boot volume).")
         print("")
         _display_oci_volume_list(oci_vols, output_mode, details, truncate)
+        return
 
     _cols = ['Target',
              'Volume Name',
@@ -846,6 +847,7 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
             iscsi_dev_printer.rowBreak()
         iscsi_dev_printer.printFooter()
         iscsi_dev_printer.finish()
+    return
 
 
 # def display_detached_iscsi_device(iqn, targets, attach_failed=()):
