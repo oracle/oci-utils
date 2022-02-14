@@ -34,7 +34,7 @@ _logger = logging.getLogger("oci-utils.oci-iscsi-config")
 
 oci_volume_tag = 'ocid1.volume.'
 iqn_tag = 'iqn.'
-cache_loop = 10
+cache_loop = 3
 cache_delay = 65
 
 def volume_size_validator(value):
