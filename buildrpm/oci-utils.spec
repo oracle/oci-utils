@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.7
-Release: 12%{?dist}
+Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
