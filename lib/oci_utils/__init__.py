@@ -39,11 +39,12 @@ oci_regions = {
     'kix': 'kix - ap-osaka-1 (Osaka, Japan)',
     'lhr': 'lhr - uk-london-1 (London, UK)',
     'lin': 'lin - eu-milan-1 (Milan, Italy)',
-    'mct': 'mct - me-muscat-1 (Muscat, Oman)',
+    'mct': 'mct - me-dcc-muscat-1 (Muscat, Oman)',
     'mel': 'mel - ap-melbourne-1 (Melbourne, Australia)',
     'mrs': 'mrs - eu-marseille-1 (Marseille, France)',
     'mtz': 'mtz - il-jerusalem-1 (Jerusalem, Israel)',
     'nri2': 'nri2 - ap-osaka-2 (Osaka, Japan)',
+    'nri': 'nri - ap-ibaraki-1 (Osaka, Japan)',
     'nrt': 'nrt - ap-tokyo-1 (Tokyo, Japan)',
     'phx': 'phx - us-phoenix-1 (Phoenix, AZ, USA)',
     'scl': 'scl - sa-santiago-1 (Santiago, Chile)',
@@ -108,6 +109,31 @@ class OCI_VOLUME_SIZE_FMT(enum.Enum):
     HUMAN = 0
     GB = 1
     MB = 2
+
+
+def find_exec_in_path(exec_name):
+    """
+    Find an executable in the path.
+
+    Parameters
+    ----------
+    exec_name: str
+        The name of the executable.
+
+    Returns
+    -------
+        str: the full path of the executable.
+    """
+    path = os.getenv('PATH').split(':')
+    result = None
+    for rootdir in path:
+        for root, folder, files in os.walk(rootdir):
+            if exec_name in files:
+                result = os.path.join(root, exec_name)
+            break
+        if result:
+            break
+    return result
 
 
 def _set_proxy():

@@ -37,13 +37,13 @@ def parse_args():
         namespace parsed arguments.
     """
     choicelist = list(set(volume_all_fields + volume_attached_fields))
-    parser = argparse.ArgumentParser(description='Utility for collecting 1 attribute of 1 vnic')
+    parser = argparse.ArgumentParser(description='Utility for collecting 1 attribute of 1 volume.')
     parser.add_argument('-i', '--input_field',
                         action='store',
                         type=str,
                         required=True,
                         choices=choicelist,
-                        help='The vnic field to select the vnic.')
+                        help='The volume field to select the volume.')
     parser.add_argument('-v', '--input-value',
                         action='store',
                         type=str,

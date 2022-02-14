@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -97,11 +97,28 @@ def _display_ip_list(ip_list, displayALL, outputMode, displayDetails):
         # We assume that primary is the first one and we want to display only it
         _ip_list_to_display = ip_list[:1]
 
-    _title = 'Public IPs information (primary on top)'
-    _columns = [['IP Address', 15, 'ip']]
+    _collen = {'ipaddress': len('IP Address'),
+               'vnicname': len('vNIC name'),
+               'vnicocid': len('vNIC OCID')}
+
+    for _ip in ip_list:
+        # ip
+        _ip_len = len(_ip['ip'])
+        _collen['ipaddress'] = max(_ip_len, _collen['ipaddress'])
+        _collen['ipaddress'] = max(_ip_len, _collen['ipaddress'])
+        # vnic name
+        _vnicname_len = len(_ip['vnic_name'])
+        _collen['vnicname'] = max(_vnicname_len, _collen['vnicname'])
+        # vnic ocid
+        _vnicocid_len = len(_ip['vnic_ocid'])
+        _collen['vnicocid'] = max(_vnicocid_len, _collen['vnicocid'])
+
+    _title = 'Public IPs information (primary on top):'
+
+    _columns = [['IP Address', _collen['ipaddress']+2, 'ip']]
     if displayDetails:
-        _columns.append(['vNIC name', 15, 'vnic_name'])
-        _columns.append(['vNIC OCID', 90, 'vnic_ocid'])
+        _columns.append(['vNIC name', _collen['vnicname']+2, 'vnic_name'])
+        _columns.append(['vNIC OCID', _collen['vnicocid']+2, 'vnic_ocid'])
 
     printerKlass = get_row_printer_impl(outputMode)
 
@@ -157,24 +174,39 @@ def main():
 
     _all_p_ips = []
 
+    #
+    # successfully creating a session and getting the instance data is not enough to collect vnic data.
+    if _instance is not None:
+        try:
+            _all_p_ips = [{'ip': v.get_public_ip(),
+                           'vnic_name': v.get_display_name(),
+                           'vnic_ocid': v.get_ocid()} for v in _instance.all_vnics() if v.get_public_ip()]
+            stun_log.debug('%s ips retreived from sdk information', len(_all_p_ips))
+            if len(_all_p_ips) == 0:
+                stun_log.debug('No ips found, might be due to missing privilges, trying with stun servers')
+                _instance=None
+        except Exception as e:
+            stun_log.debug('Instance is missing privileges to collect ip data from OCI, falling back to stun servers.')
+            _instance = None
+
     if _instance is None:
         if args.instance_id is not None:
             # user specified a remote instance, there is no fallback to stun
             stun_log.error("Instance not found: %s", args.instance_id)
             return 1
         # can we really end up here ?
-        stun_log.debug("current Instance not found")
+        stun_log.debug("Current Instance not found")
         # fall back to pystun
         stun_log.debug('No ip found , fallback to STUN')
         _ip = get_ip_info(source_ip=args.sourceip, stun_host=args.stun_server)[1]
         stun_log.debug('STUN gave us : %s', _ip)
         if _ip:
             _all_p_ips.append({'ip': _ip})
-    else:
-        _all_p_ips = [{'ip': v.get_public_ip(),
-                       'vnic_name': v.get_display_name(),
-                       'vnic_ocid': v.get_ocid()} for v in _instance.all_vnics() if v.get_public_ip()]
-        stun_log.debug('%s ips retreived from sdk information', len(_all_p_ips))
+#    else:
+#        _all_p_ips = [{'ip': v.get_public_ip(),
+#                       'vnic_name': v.get_display_name(),
+#                       'vnic_ocid': v.get_ocid()} for v in _instance.all_vnics() if v.get_public_ip()]
+#        stun_log.debug('%s ips retreived from sdk information', len(_all_p_ips))
 
     if len(_all_p_ips) == 0:
         # none of the methods give us information

@@ -10,7 +10,7 @@ from tools.decorators import (skipUnlessOCI, skipUnlessRoot, skipItAsUnresolved)
 from tools.oci_test_case import OciTestCase
 
 os.environ['LC_ALL'] = 'en_US.UTF8'
-
+os.environ['_OCI_UTILS_DEBUG'] = '1'
 
 class TestIScsiAdm(OciTestCase):
     """ Test iscsiadm module.

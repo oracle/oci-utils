@@ -1,0 +1,59 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-volume-data.1
+.\"
+.\" Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
+.\" Licensed under the Universal Permissive License v 1.0 as shown
+.\" at http://oss.oracle.com/licenses/upl.
+.\"
+.TH OCI-VOLUME-DATA 1 "JANUARY 2022" Linux "User Manuals"
+.SH NAME
+oci-volume-data - Show data about an iscsi volume.
+.SH SYNOPSIS
+.B oci-volume-data [-k KEY|--key KEY] [-p {name,iqn,ocid,portal,chap,attachestate,avdomain,compartment,attached,size,state}| --par {name,iqn,ocid,portal,chap,attachestate,avdomain,compartment,attached,size,state}] [-v|--value-only]
+
+
+.SH DESCRIPTION
+The
+.B oci-volume-data
+utility shows metadata of an oci iscsi volume. The
+.b KEY
+argument is mandatory and can be a display name, an ocid (Oracle Cloud IDentifier) or on iqn (iScsi Qualified Name). The
+.b PAR argument, if provided, will shown only the values for the specified parameter. If absent, all values will be displayed. If the
+.b VALUE-ONLY flag is set, only the values are displayed, not the parameter names.
+
+.B oci-volume-data
+expects
+.B oci-sdk
+and
+.B oci-utils
+installed. Authentication is attempted via
+.B oci-sdk
+configuration. If direct authentication fails, the instance principal authentication is tried.
+
+.B oci-volume-data
+must be run with root privileges, either as user root or using
+.BR sudo(8).
+
+.SH EXAMPLES
+.PP
+.nf
+.RS
+# oci-volume-data --key debian_vol_b --par compartment
+              compartment: MyCompartment
+           compartment id: ocid1.compartment.oc1..aaaaaaaabbbbbbbccccccccdddddddddeeeeeeeeefffffffff0011223344
+.RE
+.fi
+.PP
+shows the compartment name and compartment ocid of the specified volume.
+.PP
+.nf
+.RS
+# oci-volume-data --key debian_vol_b --par size --value-only
+51GB
+.RE
+.fi
+.PP
+only shows the size of the volume.
+.SH "SEE ALSO"
+.BR ocid (8)
+.BR oci-utils.conf.d (5)

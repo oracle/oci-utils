@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import time
+import uuid
 import unittest
 from ipaddress import ip_address
 
@@ -13,7 +14,7 @@ import oci_utils.oci_api
 from tools.oci_test_case import OciTestCase
 
 os.environ['LC_ALL'] = 'en_US.UTF8'
-
+os.environ['_OCI_UTILS_DEBUG'] = '1'
 
 def _get_ip_from_response(response):
     """
@@ -62,7 +63,7 @@ class TestCliOciNetworkConfigConfigure(OciTestCase):
         except Exception:
             self.waittime = 20
         try:
-            self.vnic_name = self.properties.get_property('network-name')
+            self.vnic_name = self.properties.get_property('network-name-prefix') + uuid.uuid4().hex[:8]
         except Exception:
             self.vnic_name = 'some_vnic_display_name'
         try:
@@ -162,7 +163,7 @@ class TestCliOciNetworkConfigConfigure(OciTestCase):
             print(exclude_output)
             time.sleep(self.waittime)
             #self.assertIn('EXCL', exclude_output, 'Exclusion of %s failed' % new_ipv4)
-            include_output = subprocess.check_output([self.oci_net_config, 'configure', '--inlude', new_ipv4]).decode('utf-8')
+            include_output = subprocess.check_output([self.oci_net_config, 'configure', '--include', new_ipv4]).decode('utf-8')
             print(include_output)
             time.sleep(self.waittime)
             print(subprocess.check_output([self.oci_net_config, 'show']).decode('utf-8'))

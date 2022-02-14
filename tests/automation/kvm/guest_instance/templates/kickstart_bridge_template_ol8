@@ -14,11 +14,10 @@ keyboard --vckeymap=us --xlayouts=''
 lang en_US.UTF-8
 
 # Network information
-network  --bootproto=static --device=ens2 --gateway=__GATEWAY__ --ip=__IPADDRESS__ --nameserver=__NAMESERVER__ --netmask=__NETMASK__ --ipv6=auto --activate
+network  --bootproto=static --device=link --gateway=__GATEWAY__ --ip=__IPADDRESS__ --nameserver=__NAMESERVER__ --netmask=__NETMASK__ --ipv6=auto --activate
 network  --hostname=__HOSTNAME__
 
-repo --name="Server-HighAvailability" --baseurl=file:///run/install/repo/addons/HighAvailability
-repo --name="Server-ResilientStorage" --baseurl=file:///run/install/repo/addons/ResilientStorage
+repo --name="AppStream" --baseurl=file:///run/install/sources/mount-0001-cdrom/AppStream
 # Root password
 rootpw --plaintext '__ROOTPASSWORD__'
 # System services
@@ -26,7 +25,7 @@ services --enabled="chronyd"
 # Do not configure the X Window System
 skipx
 # System timezone
-timezone Europe/Brussels --isUtc
+timezone Europe/Brussels --utc
 user --groups=wheel --name=__USERNAME__ --password='__USERPASSWORD__' --plaintext --gecos="__USERNAME__"
 # System bootloader configuration
 bootloader --append=" crashkernel=auto" --location=mbr --boot-drive=vda
@@ -35,21 +34,19 @@ autopart --type=lvm
 clearpart --all --initlabel --drives=vda
 # Firewall configuration
 firewall --enabled --ssh
-#
+# reboot after install
 reboot
 
 %packages
 @core
 chrony
 kexec-tools
-python3
 tmux
 psmisc
+firewalld
+python3
 strace
 tree
-firewalld
-system-config-firewall-base
-
 %end
 
 %addon com_redhat_kdump --enable --reserve-mb='auto'

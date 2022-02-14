@@ -515,7 +515,7 @@ class OCIInstance(OCIAPIAbstractResource):
             # instance_id=self._ocid)
         except oci_sdk.exceptions.ServiceError as e:
             OCIInstance._logger.debug('SDK call failed', exc_info=True)
-            OCIInstance._logger.warning('SDK call failed [%s]', str(e))
+            # OCIInstance._logger.warning('SDK call failed [%s]', str(e))
             return []
         for v_a_data in vnic_atts.data:
             try:
@@ -1909,7 +1909,7 @@ class OCIVolume(OCIAPIAbstractResource):
             str or in
                 The size of the volume.
         """
-        # for compatibility raseon we check against key as string
+        # for compatibility reason we check against key as string
         assert format_str in [OCI_VOLUME_SIZE_FMT.HUMAN.name,
                               OCI_VOLUME_SIZE_FMT.GB.name, OCI_VOLUME_SIZE_FMT.MB.name], 'wrong format'
 
@@ -2010,7 +2010,8 @@ class OCIVolume(OCIAPIAbstractResource):
         #
         # GT
         # return self.att_data['iqn']
-        return self.att_data.iqn
+        # return self.att_data.iqn
+        return self.att_data.iqn if hasattr(self.att_data, 'iqn') else None
 
     def attach_to(self, instance_id, use_chap=False, display_name=None, wait=True):
         """

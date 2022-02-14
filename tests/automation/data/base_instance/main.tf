@@ -57,6 +57,16 @@ variable "shape" {
   type = string
 }
 
+//FLEXvariable "instance_flex_memory_in_gbs" {
+//FLEX description = "instance memorry size in GB."
+//FLEX  type = number
+//FLEX}
+
+//FLEXvariable "instance_flex_ocpus" {
+//FLEX  description = "amount of instance ocpus."
+//FLEX  type = number
+//FLEX}
+
 variable "source_ocid" {
   description = "source identification."
   type = string
@@ -70,6 +80,11 @@ variable "source_type" {
 variable "instance_display_name" {
   description = "instance display name."
   type = string
+}
+
+variable "assign_public_ip" {
+  description = "assign a public ip."
+  type = bool
 }
 
 variable "vnic_display_name" {
@@ -88,7 +103,7 @@ variable "ssh_public_key" {
 }
 
 variable "remote_user" {
-  description = "user to connect to remote with sudo priviliges."
+  description = "user to connect to remote with sudo privileges."
   type = string
 }
 
@@ -107,6 +122,11 @@ variable "log_file_path" {
   type = string
 }
 
+variable "script_path" {
+  description = "path to bash script direcory"
+  type = string
+}
+
 provider "oci" {
   tenancy_ocid = var.tenancy_ocid
   user_ocid = var.user_ocid
@@ -122,11 +142,14 @@ resource "oci_core_instance" "test_instance" {
   compartment_id      = var.compartment_ocid
   display_name        = var.instance_display_name
   shape               = var.shape
-
+//FLEX  shape_config {
+//FLEX    memory_in_gbs = var.instance_flex_memory_in_gbs
+//FLEX    ocpus         = var.instance_flex_ocpus
+//FLEX  }
   create_vnic_details {
     subnet_id        = var.subnet_ocid
     display_name     = var.vnic_display_name
-    assign_public_ip = false
+    assign_public_ip = var.assign_public_ip
   }
 
   source_details {
@@ -156,7 +179,7 @@ resource "null_resource" "install_repo" {
       type = "ssh"
       agent = false
       user = var.remote_user
-      host = oci_core_instance.test_instance.*.private_ip[0]
+      host = oci_core_instance.test_instance.*.PUBIP_ip[0]
       timeout = "15m"
       private_key = file(var.ssh_private_key)
     }
@@ -167,11 +190,11 @@ resource "null_resource" "install_repo" {
       type = "ssh"
       agent = false
       user = var.remote_user
-      host = oci_core_instance.test_instance.*.private_ip[0]
+      host = oci_core_instance.test_instance.*.PUBIP_ip[0]
       timeout = "15m"
       private_key = file(var.ssh_private_key)
     }
-    script = "../scripts/install_oci_utils_automation.sh"
+    script = "${var.script_path}/install_oci_utils_automation.sh"
   }
 
   provisioner "remote-exec" {
@@ -179,7 +202,7 @@ resource "null_resource" "install_repo" {
       type = "ssh"
       agent = false
       user = var.remote_user
-      host = oci_core_instance.test_instance.*.private_ip[0]
+      host = oci_core_instance.test_instance.*.PUBIP_ip[0]
       timeout = "15m"
       private_key = file(var.ssh_private_key)
     }

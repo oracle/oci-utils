@@ -60,11 +60,24 @@ volume_all_fields = ['name',
                      'compartment',
                      'availabilitydomain']
 
+ks_templates = {
+    'ol7':
+        {
+            'passthrough': 'kickstart_direct_template_ol7',
+            'bridge' : 'kickstart_bridge_template_ol7'
+        },
+    'ol8':
+        {
+            'passthrough': 'kickstart_direct_template_ol8',
+            'bridge': 'kickstart_bridge_template_ol8'
+        }
+}
+
 user_name = 'guest'
 user_password = 'fXV[E<,8'
 root_password = 'fXV[E<,8'
 disk_name_prefix = 'oci_kvm_vm_disk_'
-pool_name = 'oci-kvm-image-test-pool'
+pool_name = 'kvm-image-test-pool'
 pool_size = '128'
 disk_size = '51'
 vcpus = '2'
@@ -83,13 +96,19 @@ def parse_args():
         namespace parsed arguments.
     """
     parser = argparse.ArgumentParser(description='Create kvm guest on kvm image.')
+    parser.add_argument('-d', '--distro',
+                        action='store',
+                        type=str,
+                        choices=['ol7', 'ol8'],
+                        required=True,
+                        help='Distribution to be installed, [ol7|ol8]')
     parser.add_argument('-t', '--network-type',
                         action='store',
                         type=str,
                         choices=['bridge', 'passthrough'],
                         required=True,
                         help='Type of network connection to vm, bridged or passthrough')
-    parser.add_argument('-d', '--disk-type',
+    parser.add_argument('-s', '--storage-type',
                         action='store',
                         type=str,
                         choices=['disk', 'pool'],
@@ -240,6 +259,24 @@ def get_netmask(route_info, ifc):
     return None
 
 
+def validate_os_variant(variant):
+    """
+    Verify if the supplied os variant is valid on this server.
+
+    Parameters
+    ----------
+    variant: str
+        The os short variant.
+
+    Returns
+    -------
+        bool: True or False.
+    """
+    cmd = ['osinfo-query', '--fields', 'short-id', 'os']
+    os_variants = [x.strip() for x in run_cmd(cmd)]
+    return variant in os_variants
+
+
 def create_vnic(name):
     """
     Create a vnic.
@@ -253,8 +290,7 @@ def create_vnic(name):
     -------
         str: create vnic output.
     """
-    cmd = [oci_network_path, 'attach-vnic',
-           '--name', name]
+    cmd = [oci_network_path, 'attach-vnic', '--name', name]
     return subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8').splitlines()
 
 
@@ -321,7 +357,8 @@ def bridge_exists(bridge_name):
     -------
         bool
     """
-    cmd = ['/sbin/brctl', 'show']
+    # cmd = ['/sbin/brctl', 'show']
+    cmd = ['/usr/sbin/bridge', 'link', 'show']
     bridges = run_cmd(cmd)
     for bridge in bridges:
         if bridge_name in bridge:
@@ -433,8 +470,7 @@ def get_pool_data(index, val, field):
     -------
         str: the requested value, None if absent.
     """
-    cmd = [oci_kvm_path, 'list-pool',
-           '--output-mode', 'parsable']
+    cmd = [oci_kvm_path, 'list-pool', '--output-mode', 'parsable']
     all_pool_data = run_cmd(cmd)
 
     for pool in all_pool_data:
@@ -580,8 +616,13 @@ def main():
     hostname = 'guest_' + uuid.uuid4().hex[:6]
     log_output = '/var/tmp/' + hostname + '.log'
     #
+    #
+    # verify os variant
+    if not validate_os_variant(args.os_variant):
+        sys.exit('%s is not a valid os variant.' % args.os_variant)
+    #
     print_par_val('network type', args.network_type)
-    print_par_val('network type', args.disk_type)
+    print_par_val('network type', args.storage_type)
     print_par_val('hostname', hostname)
     domain_cmd = ['--domain', hostname]
     print_par_val('domain cmd', list_to_str(domain_cmd))
@@ -641,7 +682,7 @@ def main():
         net_cmd = ['--virtual-network', network_name]
     #
     # passthrough
-    else:
+    elif args.network_type == 'direct':
         #
         # vnic ip
         vnic_ip = get_vnic_data('vnic', vnic_name, 'ipaddress')
@@ -651,10 +692,14 @@ def main():
         vnic_ip = get_vnic_data('vnic', vnic_name, 'ipaddress')
         print_par_val('vnic_ip', vnic_ip)
         net_cmd = ['--net', vnic_ip]
+    #
+    # false
+    else:
+        sys.exit('Invalid network type')
     print_par_val('network cmd', list_to_str(net_cmd))
     #
     # if disk, create disk
-    if args.disk_type == 'disk':
+    if args.storage_type == 'disk':
         name = disk_name_prefix + uuid.uuid4().hex[:6]
         create_disk_data = create_disk(name, disk_size)
         print_par_val('create disk', list_to_str(create_disk_data))
@@ -698,11 +743,11 @@ def main():
         '__USERNAME__': user_name,
         '__USERPASSWORD__': user_password
     }
-    ks_template = 'templates/kickstart_direct_template'
+    ks_template = 'templates/%s' % ks_templates[args.distro][args.network_type]
+    print_par_val('kickstart template', ks_template)
     create_kickstart(ks_file, ks_template, params)
     ks_path = os.getcwd() + '/' + ks_file
     print_par_val('kickstart file path', ks_path)
-
     virt_cmd = ['--virt', '--vcpus', vcpus, '--memory', memory, '--boot', 'cdrom,hd']
     print_par_val('virt cmd', list_to_str(virt_cmd))
     iso_cmd = ['--location', '/isos/' + args.iso_file]
@@ -713,9 +758,11 @@ def main():
     print_par_val('os variant', list_to_str(os_cmd))
     ks_cmd = ['--initrd-inject', ks_path]
     print_par_val('ks cmd', list_to_str(ks_cmd))
-    ks_str = 'ks=file:%s' % ks_file
+    ks_str = 'inst.ks=file:/%s' % ks_file
     extra_args = ['--extra-args="%s"' % ks_str, '--extra-args="console=ttyS0,115200n8"']
     print_par_val('extra args', list_to_str(extra_args))
+    autoconsole_cmd = ['--noautoconsole']
+    print_par_val('autoconsole', list_to_str(autoconsole_cmd))
     create_vm_cmd = [oci_kvm_path, 'create'] \
                     + domain_cmd \
                     + disk_cmd \
@@ -723,12 +770,16 @@ def main():
                     + net_cmd \
                     + virt_cmd \
                     + iso_cmd \
+                    + autoconsole_cmd \
                     + console_cmd \
                     + os_cmd \
                     + ks_cmd \
                     + extra_args
     print_par_val('create vm', list_to_str(create_vm_cmd))
-    _ = run_cmd(create_vm_cmd)
+    with open(hostname, 'w') as createvm:
+        createvm.write(create_vm_cmd)
+    create_vm = run_cmd(create_vm_cmd)
+    print_par_val('vm create', list_to_str(create_vm))
 
 
 if __name__ == "__main__":

@@ -73,7 +73,7 @@ Returns an exit status of 0 for success or 1 if an error occured.
 .PP
 .nf
 .RS
-oci-image-migrate -i /data/images/Ubuntu1804.qcow2 -b MyObjectStorage -o Ubuntu1804LTS -v
+oci-image-migrate -i /data/images/Ubuntu1804.qcow2
 .RE
 .fi
 .PP
@@ -81,8 +81,7 @@ Verifies if the conditions for import of the image file /data/images/Ubuntu1804.
 in the
 .B Oracle Cloud Infrastructure
 are met, updates the network configuration, installs the cloud-init package,
-sets a default cloud user and uploads the modified file to the object storage
-MyObjectStorage as Ubuntu1804LTS.
+sets a default cloud user.
 
 .SH FILES
 .B /etc/oci-utils/oci-migrate-conf.yaml
@@ -137,4 +136,4 @@ rebuilding again after first boot with the necessary ones.
 
 
 .SH COPYRIGHT
-Copyright (c) 2018, 2020 Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.

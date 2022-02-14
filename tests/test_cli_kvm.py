@@ -11,6 +11,7 @@ from tools.oci_test_case import OciTestCase
 from tools.decorators import (skipUnlessOCI, skipUnlessRoot)
 
 os.environ['LC_ALL'] = 'en_US.UTF8'
+os.environ['_OCI_UTILS_DEBUG'] = '1'
 
 def _show_res(head, msg):
     """
@@ -463,7 +464,7 @@ class TestCliKvm(OciTestCase):
 
     @skipUnlessOCI()
     @skipUnlessRoot()
-    def test_create_long_network(self):
+    def test_create_long_network_LINUX_11442(self):
         """
         Test the creation of an oci-kvm network, kvm network longer than 14 chars should fail.
 

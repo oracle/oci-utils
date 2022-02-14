@@ -7,30 +7,42 @@
 #
 INSTALLPACKER=install_packer.py
 CONFIGUREIMAGE=configure_image.py
-BINARIES=bin/$(INSTALLPACKER) bin/$(CONFIGUREIMAGE)
+UPLOADIMAGE=upload_image.py
+BINARIES=bin/$(INSTALLPACKER) bin/$(CONFIGUREIMAGE) bin/$(UPLOADIMAGE)
 TEMPLATES=templates/ol-kvm-image-template.json templates/al-kvm-image-template.json
-SCRIPTS=scripts/custom_firstboot.sh scripts/custom_post_install_task.sh
+SCRIPTS=scripts/custom_firstboot.sh scripts/custom_post_install_task.sh scripts/custom_install.sh
+MAKEFILE=Makefile
+MAKE=$(MAKEFILE)
+README=README.md
+DOCS=$(README)
 
 #
 TARGET=build-kvm-image
-VERSION=0.6
+VERSION=0.7
 OLTYPE=OL
 ALTYPE=AL
 VALIDTYPES=$(OLTYPE) $(ALTYPE)
+REL7=7
+REL8=8
+VALIDRELEASES=$(REL7) $(REL8)
 WRITE=@echo
 CAT=cat
-MKDIR=-mkdir -p
-COPYA=cp -a
-INSTALL=install --mode=755
+MKDIR=-mkdir --parents
+COPYA=cp --archive
 PACKER=/usr/local/bin/packer
+HOMEROOT=$(HOME)/imagebuild
 HOMEBINS=$(HOME)/bin
-HOMETEMPLATES=$(HOME)/templates
-HOMESCRIPTS=$(HOME)/scripts
+HOMETEMPLATES=$(HOMEROOT)/templates
+HOMESCRIPTS=$(HOMEROOT)/scripts
+HOMEDOC=$(HOMEROOT)/doc
+HOMEMAKE=$(HOMEROOT)
 HOMEBIN=$(HOME)/bin
 SUDO=sudo
 PROFILE=DEFAULT
+TAR=tar -cjvf imagebuild.tar.bz2
+INSTALL=install --verbose --mode=755 --target=${HOMEBINS}
 CONFIG=$(HOME)/.oci/config
-DATADIR=$(HOME)/data
+DATADIR=$(HOMEROOT)/data
 VARFILENAME=image_vars
 #
 # proxy
@@ -46,28 +58,39 @@ help:
 	$(WRITE) " make show_version"
 	$(WRITE) " make install"
 	$(WRITE) " make install_packer"
-	$(WRITE) " make configure PROFILE=<profile> CONFIG=<config> DATADIR=<data directory> VARFILENAME=<packer variable file name> TYPE=[$(OLTYPE)|$(ALTYPE)]"
-	$(WRITE) "          only TYPE=[$(OLTYPE)|$(ALTYPE)] is mandatory"
+	$(WRITE) " make configure PROFILE=<profile> CONFIG=<config> DATADIR=<data directory> VARFILENAME=<packer variable file name> TYPE=[$(OLTYPE)|$(ALTYPE)] RELEASE=[7|8]"
+	$(WRITE) "          TYPE=[$(OLTYPE)|$(ALTYPE)] and RELEASE=[7|8] are mandatory"
 	$(WRITE) " make configure TYPE=[$(OLTYPE)|$(ALTYPE)]"
 	$(WRITE) " make show_vars"
-	$(WRITE) " make build_image VARFILENAME=<packer variable file name> TYPE=[$(OLTYPE)|$(ALTYPE)] "
-	$(WRITE) " make all TYPE=[$(OLTYPE)|$(ALTYPE)] "
+	$(WRITE) " make build_image VARFILENAME=<packer variable file name> TYPE=[$(OLTYPE)|$(ALTYPE)] RELEASE=[7|8]"
+	$(WRITE) " make all TYPE=[$(OLTYPE)|$(ALTYPE)] RELEASE=[7|8]"
+	$(WRITE) " make tarball"
 
 #
 # version info
-.PHONY: showversion ${SOURCEFILES}
+.PHONY: showversion
 show_version:
-	$(WRITE) "version of $(TARGET) source is $(VERSION)"
+	$(WRITE) "Version of $(TARGET) source is $(VERSION)"
+#
+# tarball
+tarball:
+	$(TAR) ./*
 #
 # directories
 bindir:
 	$(MKDIR) $(HOME)/bin
 
 templatedir:
-	$(MKDIR) $(HOME)/templates
+	$(MKDIR) $(HOMEROOT)/templates
 
 scriptdir:
-	$(MKDIR) $(HOME)/scripts
+	$(MKDIR) $(HOMEROOT)/scripts
+
+docdir:
+	$(MKDIR) $(HOMEROOT)/doc
+
+makedir:
+	$(MKDIR) $(HOMEROOT)
 #
 # lists
 $(SCRIPTS): scriptdir
@@ -78,6 +101,12 @@ $(TEMPLATES): templatedir
 
 $(BINARIES): bindir
 	$(WRITE) $(BINARIES)
+
+$(DOCS): docdir
+	$(WRITE) $(DOCS)
+
+$(MAKE): makedir
+	$(WRITE) $(MAKE)
 #
 # install
 $(HOMESCRIPTS): $(SCRIPTS)
@@ -87,13 +116,22 @@ $(HOMETEMPLATES): $(TEMPLATES)
 	$(COPYA) $^ $@
 
 $(HOMEBINS): $(BINARIES)
-	$(INSTALL) $^ $@
+	$(INSTALL) $^
 
-install: $(HOMESCRIPTS) $(HOMETEMPLATES) $(HOMEBINS)
+$(HOMEDOC): $(DOCS)
+	$(COPYA) $^ $@
+
+$(HOMEMAKE): $(MAKE)
+	$(COPYA) $^ $@
+
+copymakefile:
+	$(COPYA) $(MAKE) $(HOME)
+
+install: $(HOMESCRIPTS) $(HOMETEMPLATES) $(HOMEBINS) $(HOMEDOC) copymakefile
 	$(WRITE) "Installed"
 #
 # install packer
-install_packer: install
+install_packer:
 	sudo $(HOMEBIN)/$(INSTALLPACKER)
 #
 # configure build
@@ -106,30 +144,37 @@ config:
 	$(WRITE) "config: $(CONFIG)"
 
 datadir:
-	DATADIR=?"~/data"
+	DATADIR=?"~/imagebuild/data"
 	$(WRITE) "datadir: $(DATADIR)"
 
 varfile:
 	VARFILE=?"image_vars"
 
 type:
-	@[ "${TYPE}" ] || ( echo "TYPE [$(OLTYPE)|$(ALTYPE)] is not set"; exit 1 )
+	@[ "$(TYPE)" ] || ( echo "TYPE [$(OLTYPE)|$(ALTYPE)] is not set"; exit 1 )
 
-configure: install_packer profile config datadir varfile type
-	$(WRITE) "$(HOMEBIN)/$(CONFIGUREIMAGE) --profile $(PROFILE) --config $(CONFIG) --data-directory $(DATADIR) --var-file $(VARFILENAME) --type $(TYPE)"
-	$(HOMEBIN)/$(CONFIGUREIMAGE) --profile $(PROFILE) --config $(CONFIG) --data-directory $(DATADIR) --var-file $(VARFILENAME) --type $(TYPE)
+release:
+	@[ "$(RELEASE)" ] || ( echo "RELEASE [7|8] is not set"; exit 1 )
+
+configure: install_packer profile config datadir varfile type release
+	$(WRITE) "$(HOMEBIN)/$(CONFIGUREIMAGE) --profile $(PROFILE) --config $(CONFIG) --data-directory $(DATADIR) --var-file $(VARFILENAME) --type $(TYPE) --release $(RELEASE)"
+	$(HOMEBIN)/$(CONFIGUREIMAGE) --profile $(PROFILE) --config $(CONFIG) --data-directory $(DATADIR) --var-file $(VARFILENAME) --type $(TYPE) --release $(RELEASE)
 #
 # show variables file
 show_vars:
 	$(CAT) $(DATADIR)/$(VARFILENAME).tfvars.json
 #
 # build image
-build_image: VARFILEPATH=$(DATADIR)/$(VARFILENAME).tfvars.json
+# build_image: VARFILEPATH=$(DATADIR)/$(VARFILENAME).tfvars.json
 varfilepath: datadir varfile
+	VARFILEPATH=$(DATADIR)/$(VARFILENAME).tfvars.json
 	$(WRITE) "variable file path: $(VARFILEPATH)"
 
 type_validation: type
-	VALIDTYPE=$(or $(filter ${TYPE},${VALIDTYPES}),$(error $$TYPE [${TYPE}] must be one of ${VALIDTYPES}))
+	VALIDTYPE=$(or $(filter $(TYPE),$(VALIDTYPES)),$(error $$TYPE [$(TYPE)] must be one of $(VALIDTYPES)))
+
+release_validation: release
+	VALIDRELEASE=$(or $(filter $(RELEASE),$(VALIDRELEASES)),$(error $$RELEASE [$(RELEASE)] must be one of $(VALIDRELEASES)))
 
 ifeq ($(TYPE),$(OLTYPE))
 TEMPLATEPATH=$(HOMETEMPLATES)/ol-kvm-image-template.json
@@ -140,10 +185,10 @@ endif
 template:
 	$(WRITE) $(TEMPLATEPATH)
 
-build_image: type_validation varfilepath template
+build_image: type_validation release_validation varfilepath template
 	$(WRITE) "no proxy: $${no_proxy}"
-	$(WRITE) "$(PACKER) build --on-error=ask -var-file=$(VARFILEPATH) $(TEMPLATEPATH)"
-	$(PACKER) build --on-error=ask -var-file=$(VARFILEPATH) $(TEMPLATEPATH)
+	$(WRITE) "$(PACKER) build --on-error=ask -var-file=$(DATADIR)/$(VARFILENAME).tfvars.json $(TEMPLATEPATH)"
+	$(PACKER) build --on-error=ask -var-file=$(DATADIR)/$(VARFILENAME).tfvars.json $(TEMPLATEPATH)
 
 all: configure build_image
-	$(WRITE) "build $(TYPE) kvm image.}"
+	$(WRITE) "build $(TYPE) kvm image."

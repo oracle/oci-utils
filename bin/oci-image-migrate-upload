@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -12,4 +12,4 @@ _PY3=/usr/bin/python3
 s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
 
 
-exec ${_PY3}  ${s_dir}/migrate/oci-image-migrate-upload-main.py $@
+exec ${_PY3}  ${s_dir}/migrate/oci-image-migrate-upload-main.py "$@"

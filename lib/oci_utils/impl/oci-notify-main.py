@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -10,7 +10,7 @@ This utility assists with sending messages to an Oracle Cloud Infrastructure
 notification service.
 
 The length of the message title is limited to MAX_MESSAGE_TITLE_LEN bytes. The
-message file is split in CHUNK_SIZEKB chunks and send as separate messages.
+message file is split in CHUNK_SIZEByte chunks and send as separate messages.
 The number of chunks is limited to MAX_MESSAGE_CHUNKS.
 The message file can be a flat file, a url or a string.
 
@@ -76,8 +76,7 @@ def parse_args():
     _logger.debug('_parse_args')
     extra_descr = ''
     for helpline in __doc__.splitlines():
-        extra_descr += '%s\n' % (helpline.replace('MAX_MESSAGE_TITLE_LEN',
-                                                  str(MAX_MESSAGE_TITLE_LEN))
+        extra_descr += '%s\n' % (helpline.replace('MAX_MESSAGE_TITLE_LEN', str(MAX_MESSAGE_TITLE_LEN))
                                  .replace('CHUNK_SIZE', str(CHUNK_SIZE))
                                  .replace('MAX_MESSAGE_CHUNKS', str(MAX_MESSAGE_CHUNKS)))
     parser = argparse.ArgumentParser(description='%s' % extra_descr)
@@ -202,6 +201,7 @@ class NotificationException(Exception):
         message: str
             The exception message.
         """
+        super().__init__()
         self._message = message
         assert (self._message is not None), 'No exception message given'
 
@@ -218,6 +218,204 @@ class NotificationException(Exception):
             The error message.
         """
         return str(self._message)
+
+
+class OnsIdentity:
+    """ Class to manage ons identity
+    """
+    def __init__(self, oci_config_file='~/.oci/config', oci_config_profile='DEFAULT', authentication_method=None):
+        self._oci_config_file = oci_config_file
+        self._oci_config_profile = oci_config_profile
+        self._oci_authentication = authentication_method
+        self._identity_client = None
+        self._ons_control_client = None
+        self._ons_data_client = None
+        self._signer = None
+        self._oci_config = None
+        self._auth_method = self.get_auth_method()
+
+    @staticmethod
+    def _read_oci_config(fname, profile='DEFAULT'):
+        """
+        Read the OCI config file.
+
+        Parameters
+        ----------
+        fname : str
+            The OCI configuration file name.
+            # the file name should be ~/<fname> ?
+        profile : str
+            The user profile.
+
+        Returns
+        -------
+        dictionary
+            The oci configuration.
+
+        Raises
+        ------
+        Exception
+            If the configuration file does not exist or is not readable.
+        """
+        _logger.debug('_read_oci_config')
+        full_fname = os.path.expanduser(fname)
+        try:
+            oci_config = oci_sdk.config.from_file(full_fname, profile)
+            return oci_config
+        except oci_sdk.exceptions.ConfigFileNotFound as e:
+            _logger.debug('Unable to read OCI config file: %s', str(e))
+            raise Exception('Unable to read OCI config file') from e
+
+    def get_auth_method(self, authentication_method=None):
+        """
+        Determine how (or if) we can authenticate. If auth_method is
+        provided, and is not AUTO then test if the given auth_method works.
+        Return one of oci_api.DIRECT, oci_api.PROXY, oci_api.IP or
+        oci_api.NONE (IP is instance principals).
+
+        Parameters
+        ----------
+        authentication_method : [NONE | DIRECT | PROXY | AUTO | IP]
+            if specified, the authentication method to be tested.
+
+        Returns
+        -------
+        One of the oci_api.DIRECT, oci_api.PROXY, oci_api.IP or oci_api.NONE,
+        the authentication method which passed or NONE.
+            [NONE | DIRECT | PROXY | AUTO | IP]
+        """
+        _logger.debug('_get_auth_method')
+        if authentication_method is None:
+            auth_method = OCIUtilsConfiguration.get('auth', 'auth_method')
+        else:
+            auth_method = authentication_method
+
+        _logger.debug('auth method retrieved from conf: %s', auth_method)
+
+        # order matters
+        _auth_mechanisms = {
+            DIRECT: self._direct_authenticate,
+            IP: self._ip_authenticate,
+            PROXY: self._proxy_authenticate}
+
+        if auth_method in _auth_mechanisms:
+            # user specified something, respect that choice
+            try:
+                _logger.debug('Trying %s auth', auth_method)
+                _auth_mechanisms[auth_method]()
+                _logger.debug('%s auth ok', auth_method)
+                return auth_method
+            except Exception as e:
+                _logger.debug(' %s auth has failed: %s', auth_method, str(e))
+                return NONE
+
+        _logger.debug('Nothing specified trying to find an auth method')
+        for method in _auth_mechanisms:
+            try:
+                _logger.debug('Trying %s auth', method)
+                _auth_mechanisms[method]()
+                _logger.debug('%s auth ok', method)
+                return method
+            except Exception as e:
+                _logger.debug('%s auth has failed: %s', method, str(e))
+
+        # no options left
+        return NONE
+
+    def _proxy_authenticate(self):
+        """
+        Use the auth helper to get config settings and keys
+        Return True for success, False for failure
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        Exception
+            The authentication using direct mode is noit possible
+        """
+        _logger.debug('_proxy_authenticate')
+        if os.geteuid() != 0:
+            raise Exception('Must be root to use Proxy authentication')
+
+        sdk_user = OCIUtilsConfiguration.get('auth', 'oci_sdk_user')
+        try:
+            proxy = OCIAuthProxy(sdk_user)
+            self._oci_config = proxy.get_config()
+            self._identity_client = oci_sdk.identity.IdentityClient(self._oci_config)
+            self._ons_control_client = oci_sdk.ons.NotificationControlPlaneClient(config=self._oci_config)
+            self._ons_data_client = oci_sdk.ons.NotificationDataPlaneClient(config=self._oci_config)
+        except Exception as e:
+            _logger.debug('Proxy authentication failed: %s', str(e))
+            raise Exception('Proxy authentication failed') from e
+
+    def _direct_authenticate(self):
+        """
+        Authenticate with the OCI SDK.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        Exception
+            The authentication using direct mode is not possible
+        """
+        _logger.debug('_direct_authenticate')
+        try:
+            self._oci_config = self._read_oci_config(fname=self._oci_config_file, profile=self._oci_config_profile)
+            self._identity_client = oci_sdk.identity.IdentityClient(self._oci_config)
+            self._ons_control_client = oci_sdk.ons.NotificationControlPlaneClient(config=self._oci_config)
+            self._ons_data_client = oci_sdk.ons.NotificationDataPlaneClient(config=self._oci_config)
+        except Exception as e:
+            _logger.debug('Direct authentication failed: %s', str(e))
+            raise Exception('Direct authentication failed') from e
+
+    def _ip_authenticate(self):
+        """
+        Authenticate with the OCI SDK using instance principal .
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        Exception
+            If IP authentication fails.
+        """
+        _logger.debug('_ip_authenticate')
+        try:
+            self._signer = oci_sdk.auth.signers.InstancePrincipalsSecurityTokenSigner()
+            self._identity_client = oci_sdk.identity.IdentityClient(config={}, signer=self._signer)
+            self._ons_control_client = oci_sdk.ons.NotificationControlPlaneClient(config={}, signer=self._signer)
+            self._ons_data_client = oci_sdk.ons.NotificationDataPlaneClient(config={}, signer=self._signer)
+        except Exception as e:
+            _logger.debug('Instance Principals authentication failed: %s', str(e))
+            raise Exception('Instance Principals authentication failed') from e
+
+    def ons_control_client(self):
+        """
+        Get the control client.
+
+        Returns
+        -------
+            class: oci.ons.notification_data_plane_client.NotificationDataPlaneClient
+        """
+        return self._ons_control_client
+
+    def ons_data_client(self):
+        """
+        Get the data client.
+
+        Returns
+        -------
+            class: oci.ons.notification_control_plane_client.NotificationControlPlaneClient
+        """
+        return self._ons_data_client
 
 
 class NotificationConfig:
@@ -237,7 +435,55 @@ class NotificationConfig:
         """
         self._topic = topic
         self._config_file = config_file
+        self._identity_client = None
         self._instance_name = InstanceMetadata().refresh()['instance']['displayName']
+        self._compartment_id = InstanceMetadata().refresh()['instance']['compartmentId']
+
+    @staticmethod
+    def _get_ons_control_client():
+        """
+        Get the ons control client.
+
+        Returns
+        -------
+            class: oci.ons.notification_control_plane_client.NotificationControlPlaneClient
+        """
+        _logger.debug('_get_ons_control_client')
+        identity_client = OnsIdentity()
+        return identity_client.ons_control_client()
+
+    def _get_topic_list(self):
+        """
+        Get the list af available topic-id's in this compartment.
+
+        Returns
+        -------
+            list: List of available topics.
+        """
+        _logger.debug('_get_topic_list')
+        try:
+            ons_topics = self._get_ons_control_client().list_topics(compartment_id=self._compartment_id).data
+            topics_list = [topic.topic_id for topic in ons_topics]
+            return topics_list
+        except Exception as e:
+            raise NotificationException('Failed to get topic list.') from e
+
+    def _topic_exist(self, notification_topic):
+        """
+        Verify if the topic exists.
+
+        Parameters
+        ----------
+        notification_topic: str
+                The topic id to verify.
+
+        Returns
+        -------
+            bool: True on success, False otherwise.
+        """
+        _logger.debug('_topic_exist')
+        topics = self._get_topic_list()
+        return bool(notification_topic in topics)
 
     def get_notification_topic(self):
         """
@@ -323,13 +569,16 @@ class NotificationConfig:
         try:
             ocid_check = re.compile(r'^ocid[0-9]\.onstopic\.')
         except Exception as e:
-            raise NotificationException('Failed to find notification topic in %s' % notification_ocid)
+            raise NotificationException('Failed to find notification topic in %s: %s' % (notification_ocid, str(e)))
 
         if ocid_check.match(notification_ocid):
             _logger.debug('%s is a valid notification topic id.', notification_ocid)
         else:
             _logger.debug('%s is a not valid notification topic id.', notification_ocid)
             raise NotificationException('%s is a not valid notification topic id.' % notification_ocid)
+
+        if not self._topic_exist(notification_ocid):
+            raise NotificationException('%s notification topic does not exist.' % notification_ocid)
 
         _logger.debug('Set notification service topic to %s.', notification_ocid)
         config_title = 'oci-utils: Notification enabled on instance %s' % self._instance_name
@@ -369,9 +618,7 @@ class NotificationConfig:
             notify_config_parse.set('NOTIFICATION', 'topic', notification_ocid)
             with open(self._config_file, 'w') as cfgfile:
                 notify_config_parse.write(cfgfile)
-            #
-            # todo:
-            # 1. run test if notification topic is valid
+
             _logger.info('Configured OCI notification service topic OCID.')
             return config_title, config_message
         except Exception as e:
@@ -410,178 +657,25 @@ class NotificationMessage():
             _logger.info("Cutting title to '[%s]'", self._title)
         self._message = message
         self._subject = ''
-        # self._topic = self.get_notification_topic()
         self._topic = None
         self._oci_config_file = oci_config_file
         self._oci_config_profile = oci_config_profile
-        self._oci_authentication = authentication_method
         self._message_type_str = False
-        self._signer = None
-        self._ons_client = None
-        self._identity_client = None
-        self._oci_config = None
         self._instance_name = InstanceMetadata().refresh()['instance']['displayName']
-        self._auth_method = self.get_auth_method()
+        self._ons_client = None
 
     @staticmethod
-    def _read_oci_config(fname, profile='DEFAULT'):
+    def _get_ons_data_client():
         """
-        Read the OCI config file.
+         Get the ons data client.
 
-        Parameters
-        ----------
-        fname : str
-            The OCI configuration file name.
-            # the file name should be ~/<fname> ?
-        profile : str
-            The user profile.
-
-        Returns
-        -------
-        dictionary
-            The oci configuration.
-
-        Raises
-        ------
-        Exception
-            If the configuration file does not exist or is not readable.
-        """
-        _logger.debug('_read_oci_config')
-        full_fname = os.path.expanduser(fname)
-        try:
-            oci_config = oci_sdk.config.from_file(full_fname, profile)
-            return oci_config
-        except oci_sdk.exceptions.ConfigFileNotFound as e:
-            _logger.debug('Unable to read OCI config file: %s', str(e))
-            raise Exception('Unable to read OCI config file') from e
-
-    def get_auth_method(self, authentication_method=None):
-        """
-        Determine how (or if) we can authenticate. If auth_method is
-        provided, and is not AUTO then test if the given auth_method works.
-        Return one of oci_api.DIRECT, oci_api.PROXY, oci_api.IP or
-        oci_api.NONE (IP is instance principals).
-
-        Parameters
-        ----------
-        authentication_method : [NONE | DIRECT | PROXY | AUTO | IP]
-            if specified, the authentication method to be tested.
-
-        Returns
-        -------
-        One of the oci_api.DIRECT, oci_api.PROXY, oci_api.IP or oci_api.NONE,
-        the authentication method which passed or NONE.
-            [NONE | DIRECT | PROXY | AUTO | IP]
-        """
-        _logger.debug('_get_auth_method')
-        if authentication_method is None:
-            auth_method = OCIUtilsConfiguration.get('auth', 'auth_method')
-        else:
-            auth_method = authentication_method
-
-        _logger.debug('auth method retrieved from conf: %s', auth_method)
-
-        # order matters
-        _auth_mechanisms = {
-            DIRECT: self._direct_authenticate,
-            IP: self._ip_authenticate,
-            PROXY: self._proxy_authenticate}
-
-        if auth_method in _auth_mechanisms.keys():
-            # user specified something, respect that choice
-            try:
-                _logger.debug('Trying %s auth', auth_method)
-                _auth_mechanisms[auth_method]()
-                _logger.debug('%s auth ok', auth_method)
-                return auth_method
-            except Exception as e:
-                _logger.debug(' %s auth has failed: %s', auth_method, str(e))
-                return NONE
-
-        _logger.debug('Nothing specified trying to find an auth method')
-        for method in _auth_mechanisms:
-            try:
-                _logger.debug('Trying %s auth', method)
-                _auth_mechanisms[method]()
-                _logger.debug('%s auth ok', method)
-                return method
-            except Exception as e:
-                _logger.debug('%s auth has failed: %s', method, str(e))
-
-        # no options left
-        return NONE
-
-    def _proxy_authenticate(self):
-        """
-        Use the auth helper to get config settings and keys
-        Return True for success, False for failure
-
-        Returns
-        -------
-        None
-
-        Raises
-        ------
-        Exception
-            The authentication using direct mode is noit possible
-        """
-        _logger.debug('_proxy_authenticate')
-        if os.geteuid() != 0:
-            raise Exception('Must be root to use Proxy authentication')
-
-        sdk_user = OCIUtilsConfiguration.get('auth', 'oci_sdk_user')
-        try:
-            proxy = OCIAuthProxy(sdk_user)
-            self._oci_config = proxy.get_config()
-            self._identity_client = oci_sdk.identity.IdentityClient(self._oci_config)
-            self._ons_client = oci_sdk.ons.NotificationDataPlaneClient(config=self._oci_config)
-        except Exception as e:
-            _logger.debug('Proxy authentication failed: %s', str(e))
-            raise Exception('Proxy authentication failed') from e
-
-    def _direct_authenticate(self):
-        """
-        Authenticate with the OCI SDK.
-
-        Returns
-        -------
-        None
-
-        Raises
-        ------
-        Exception
-            The authentication using direct mode is not possible
-        """
-        _logger.debug('_direct_authenticate')
-        try:
-            self._oci_config = self._read_oci_config(fname=self._oci_config_file, profile=self._oci_config_profile)
-            self._identity_client = oci_sdk.identity.IdentityClient(self._oci_config)
-            self._ons_client = oci_sdk.ons.NotificationDataPlaneClient(config=self._oci_config)
-        except Exception as e:
-            _logger.debug('Direct authentication failed: %s', str(e))
-            raise Exception('Direct authentication failed') from e
-
-    def _ip_authenticate(self):
-        """
-        Authenticate with the OCI SDK using instance principal .
-
-        Returns
-        -------
-        None
-
-        Raises
-        ------
-        Exception
-            If IP authentication fails.
-        """
-        _logger.debug('_ip_authenticate')
-        try:
-            self._signer = oci_sdk.auth.signers.InstancePrincipalsSecurityTokenSigner()
-            self._identity_client = oci_sdk.identity.IdentityClient(config={}, signer=self._signer)
-            self._ons_client = oci_sdk.ons.NotificationDataPlaneClient(config={}, signer=self._signer)
-        except Exception as e:
-            _logger.debug('Instance Principals authentication failed: %s', str(e))
-            raise Exception('Instance Principals authentication failed') from e
+         Returns
+         -------
+             class: oci.ons.notification_data_plane_client.NotificationDataPlaneClient
+         """
+        _logger.debug('_get_ons_data_client')
+        identity_client = OnsIdentity()
+        return identity_client.ons_data_client()
 
     def _get_topic(self):
         """
@@ -713,6 +807,7 @@ class NotificationMessage():
             raise NotificationException('Failed to get notification topic.') from e
 
         try:
+            self._ons_client = self._get_ons_data_client()
             m_type, m_access, m_size, m_fn = self._message_data()
             if m_access:
                 # accessible
@@ -726,7 +821,7 @@ class NotificationMessage():
                     msg_cnt_tot = msg_cnt_tot_tuple[0] + 1 if msg_cnt_tot_tuple[1] != 0 else msg_cnt_tot_tuple[0]
                     while True:
                         msg_chunk = m_fb.read(CHUNK_SIZE).decode('utf-8')
-                        if not msg_chunk:
+                        if not bool(msg_chunk):
                             break
                         msg_cnt += 1
                         _logger.debug('Sending %d/%d', msg_cnt, msg_cnt_tot)
@@ -764,16 +859,14 @@ class NotificationMessage():
                 thistitle = self._title
             else:
                 _logger.info("Publishing message '[%d/%d] %s: %s'", nb, nbtot, self._instance_name, self._title)
-                thistitle = self._title + ' [%d/%d]' % (nb,nbtot)
-            _message_details = oci_sdk.ons.models.MessageDetails(body=chunk, title=self._instance_name
-                                                                                   + ':'
-                                                                                   + thistitle)
+                thistitle = self._title + ' [%d/%d]' % (nb, nbtot)
+            _message_details = oci_sdk.ons.models.MessageDetails(body=chunk,
+                                                                 title=self._instance_name + ':' + thistitle)
             request_id = uuid.uuid4().hex
             _logger.debug('Message request id: %s', request_id)
             publish_message_response = self._ons_client.publish_message(topic_id=self._topic,
                                                                         message_details=_message_details,
-                                                                        opc_request_id=request_id,
-                                                                        message_type='RAW_TEXT')
+                                                                        opc_request_id=request_id)
             if nbtot <= 1:
                 _logger.info("Published message '%s: %s'", self._instance_name, self._title)
             else:
@@ -781,7 +874,7 @@ class NotificationMessage():
             _logger.debug('Published response: %s', publish_message_response.data)
             return True
         except Exception as e:
-            err_msg = e.message if hasattr(e, 'message') else e.code
+            err_msg = e.message if hasattr(e, 'message') else str(e)
             _logger.debug('Failed to publish %s: %s', self._title, e.args)
             _logger.error('Failed to publish %s: %s', self._title, err_msg)
             raise NotificationException('Failed to publish %s' % self._title) from e
@@ -816,7 +909,8 @@ def main():
         if not res:
             raise NotificationException('Failed to execute %s' % sub_commands[args.mode])
     except Exception as e:
-        _logger.debug('*** ERROR *** %s', str(e), stack_info=True, exc_info=True)
+        # :w
+        # _logger.debug('*** ERROR *** %s', str(e), stack_info=True, exc_info=True)
         _logger.error('*** ERROR *** %s', str(e))
         sys.exit(1)
 

@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2020, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -54,7 +54,7 @@ def is_an_os_specific_method(some_method):
 
     Returns
     -------
-    Adds an atribute to the method.
+    Adds an attribute to the method.
     """
     some_method._execute_as_os_specific = True
     return some_method

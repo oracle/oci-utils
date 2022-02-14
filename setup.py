@@ -1,5 +1,5 @@
 
-# Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2020, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -117,7 +117,7 @@ class oci_tests(TestCommand):
             self.tests_base = None
             log.warn('Warning: tests_base not found or missing !!')
         else:
-            from execution.store import (setCommandStore, Store)
+            from tools.execution.store import (setCommandStore, Store)
             setCommandStore(Store(os.path.join(self.tests_base, 'commands.xml')))
         if self.test_runner:
             import tools.decorators
@@ -364,7 +364,7 @@ if sys.version_info.major < 3:
 
 setup(
     name="oci-utils",
-    version="0.12.6",
+    version="0.12.7",
     author="Laszlo Peter, Qing Lin, Guido Tijskens, Emmanuel Jannetti",
     author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com, emmanuel.jannetti@oracle.com",
     description="Oracle Cloud Infrastructure utilities",
@@ -410,6 +410,9 @@ setup(
                   'man/man1/oci-image-migrate-import.1',
                   'man/man1/oci-image-migrate-upload.1',
                   'man/man1/oci-notify.1',
+                  'man/man1/oci-instanceid.1',
+                  'man/man1/oci-compartmentid.1',
+                  'man/man1/oci-volume-data.1',
                   ]),
                 (os.path.join(sys.prefix, "share", "man", "man5"),
                  ['man/man5/oci-utils.conf.d.5',
@@ -419,14 +422,11 @@ setup(
                   'man/man8/oci-growfs.8',
                   'man/man8/oci-image-cleanup.8',
                   ]),
-                (os.path.join("/opt", "oci-utils", "tools"),
-                 get_content(get_reloc_path('tools'), '*.py', False)),
-                (os.path.join("/opt", "oci-utils", "tools", "execution"),
-                 get_content(get_reloc_path('tools/execution'), '*', False)),
-                (os.path.join("/opt", "oci-utils", "tests"),
-                 get_content(get_reloc_path('tests'), '*', False)),
-                (os.path.join("/opt", "oci-utils", "tests", "data"),
-                 get_content(get_reloc_path('tests/data'), '*')),
+                (os.path.join("/opt", "oci-utils", "tools"), get_content(get_reloc_path('tools'), '*.py', False)),
+                (os.path.join("/opt", "oci-utils", "tools", "execution"), get_content(get_reloc_path('tools/execution'), '*', False)),
+                (os.path.join("/opt", "oci-utils", "tests"), get_content(get_reloc_path('tests'), '*', False)),
+                (os.path.join("/opt", "oci-utils", "tests", "data"), get_content(get_reloc_path('tests/data'), '*')),
+                #(os.path.join("/opt", "oci-utils", "tests", "automation"), get_content(get_reloc_path('tests/automation'), '*')),
                 ],
     scripts=['bin/oci-public-ip',
              'bin/oci-metadata',
@@ -438,7 +438,10 @@ setup(
              'bin/oci-image-migrate-import',
              'bin/oci-image-migrate-upload',
              'bin/oci-notify',
+             'bin/oci-compartmentid',
+             'bin/oci-instanceid',
              'bin/oci-test-ip-auth',
+             'bin/oci-volume-data',
              ],
     classifiers=[
         "Development Status :: 3 - Alpha",

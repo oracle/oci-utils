@@ -57,6 +57,16 @@ variable "shape" {
   type = string
 }
 
+//FLEXvariable "instance_flex_memory_in_gbs" {
+//FLEX  description = "instance memorry size in GB."
+//FLEX  type = number
+//FLEX}
+
+//FLEXvariable "instance_flex_ocpus" {
+//FLEX  description = "amount of instance ocpus."
+//FLEX  type = number
+//FLEX}
+
 variable "source_ocid" {
   description = "source identification."
   type = string
@@ -70,6 +80,11 @@ variable "source_type" {
 variable "instance_display_name" {
   description = "instance display name."
   type = string
+}
+
+variable "assign_public_ip" {
+  description = "assign a public ip."
+  type = bool
 }
 
 variable "vnic_display_name" {
@@ -107,6 +122,11 @@ variable "log_file_path" {
   type = string
 }
 
+variable "script_path" {
+  description = "path to bash script direcory"
+  type = string
+}
+
 module "base_instance"{
   source = "../base_instance"
   os_user = var.os_user
@@ -120,14 +140,18 @@ module "base_instance"{
   fingerprint = var.fingerprint
   region = var.region
   shape = var.shape
+//FLEX  instance_flex_memory_in_gbs = var.instance_flex_memory_in_gbs
+//FLEX  instance_flex_ocpus = var.instance_flex_ocpus
   source_ocid = var.source_ocid
   source_type = var.source_type
   instance_display_name = var.instance_display_name
   vnic_display_name = var.vnic_display_name
+  assign_public_ip = var.assign_public_ip
   subnet_ocid = var.subnet_ocid
   ssh_public_key = var.ssh_public_key
   oci_private_key = var.oci_private_key
   remote_user = var.remote_user
   ssh_private_key = var.ssh_private_key
   log_file_path = var.log_file_path
+  script_path = var.script_path
 }

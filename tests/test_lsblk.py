@@ -9,7 +9,7 @@ import oci_utils.lsblk
 from tools.oci_test_case import OciTestCase
 
 os.environ['LC_ALL'] = 'en_US.UTF8'
-
+os.environ['_OCI_UTILS_DEBUG'] = '1'
 
 class TestLsBlk(OciTestCase):
     """ Test the lsblk module.
@@ -17,13 +17,13 @@ class TestLsBlk(OciTestCase):
 
     def test_list_root(self):
         """
-        Tests lsblk.list give us the root filesystem.
+        Tests lsblk.list_blk_dev give us the root filesystem.
 
         Returns
         -------
             No return value.
         """
-        dev_list = oci_utils.lsblk.list()
+        dev_list = oci_utils.lsblk.list_blk_dev()
         self.assertIsNotNone(dev_list, 'None returned as device list.')
         self.assertTrue(len(dev_list), 'Empty device list returned.')
 

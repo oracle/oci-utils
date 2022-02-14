@@ -14,7 +14,7 @@ from oci_utils.cache import get_newer, get_timestamp, load_cache, write_cache
 from tools.oci_test_case import OciTestCase
 
 os.environ['LC_ALL'] = 'en_US.UTF8'
-
+os.environ['_OCI_UTILS_DEBUG'] = '1'
 
 class testOciCache(OciTestCase):
     """ OCI cache test case.

@@ -17,7 +17,7 @@ _logger = logging.getLogger('oci-utils.network_interface')
 
 class _intf_dict(dict):
     """
-    Creates a new dictionnary representing an interface
+    Creates a new dictionary representing an interface
     keys are
         CONFSTATE  'uncfg' indicates missing IP config,
                    'missing' missing VNIC,

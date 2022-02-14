@@ -197,25 +197,67 @@ Display list of pools as table, using json format, simple text or using parsable
 
 .SH EXAMPLES
 
-oci-kvm create-pool --disk /dev/sdb
+oci-kvm create-pool --disk /dev/sdb --name vm_pool
 .RS 3
-Creates a storage pool on disk /dev/sdb with the name
-.I sdb.
+Creates a storage pool on disk
+.I /dev/sdb
+with the name
+.I vm_pool.
 .RE
 
 oci-kvm create-pool --netfshost 192.168.10.9 --path /FileSystem-20190405-1454 --name guest_pool
 .RS 3
-Creates a storage pool on NFS resource FileSystem-20190405-1454 on NFS server 192.168.10.9.
+Creates a storage pool on NFS resource
+.I FileSystem-20190405-1454
+on NFS server
+.I 192.168.10.9
+with name
+.I guest_pool
 .RE
 
-oci-kvm create --disk-size 128 --pool guest_pool --net 10.0.0.64 -D foo  --virt --vcpu 1 --memory 8g --pxe
+oci-kvm create-network --network-name vnic003 --net 100.100.251.95 --ip-bridge 192.168.200.1 --ip-start 192.168.200.10 --ip-end 192.168.200.100 --ip-prefix 24
 .RS 3
-Creates a guest with a root disk of 128GB on storage pool named foo.
+Creates a virtual network named
+.I vnic003
+on VNIC with
+.I 100.110.251.95
+as the IP address.
 .RE
 
-oci-kvm create-network --network-name=mynet0 --net=10.0.1.2 --ip-bridge=192.168.10.9 --ip-start=192.168.10.10 --ip-end=192.168.10.30 --ip-prefix=24
+oci-kvm create --domain guestol79 --pool vm_pool --virtual-network vnic003 --disk-size=24 --virt --vcpus 4 --memory 8192 --boot cdrom,hd --location /isos/ol79_x86_64.iso --nographics --console pty,target_type=serial --console pty,target_type=virtio --noautoconsole --os-variant=ol7.9 --extra-args="console=ttyS0,115200n8"
 .RS 3
-Creates a virtual network named mynet0 on VNIC with 10.0.1.2 as the IP address.
+Creates a guest
+.I guestol79
+with a root disk of
+.I 24GB
+on storage pool
+.I vm_pool
+using network
+.I vnic003
+with
+.I 4
+cpus,
+.I 8GB
+memory.
+.RE
+
+oci-kvm create --domain guestol7 --pool kvm-pool --net 100.200.10.20  --disk-size=16 --virt --vcpus 4 --memory 8192 --boot cdrom,hd --location /isos/ol79_x86_64.iso --nographics --console pty,target_type=serial --console pty,target_type=virtio --noautoconsole --os-variant=ol7.9 --initrd-inject /root/guestol7_002_ks.cfg --extra-args="ks=file:guestol7_ks.cfg console=ttyS0,115200n8"
+.RS 3
+Creates a guest
+.I
+guestol7
+on pool
+.I
+kvm-pool
+using passthrough network
+.I 100.200.10.20
+on a
+.I 16GB
+disk with
+.I 4
+cpus and
+.I 8GB
+memory and using a kickstart file.
 .RE
 
 oci-kvm list-pool --output-mode json

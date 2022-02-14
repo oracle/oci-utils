@@ -1,0 +1,31 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-instanceid.1
+.\"
+.\" Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
+.\" Licensed under the Universal Permissive License v 1.0 as shown
+.\" at http://oss.oracle.com/licenses/upl.
+.\"
+.TH OCI-COMPARTMENTID 1 "JANUARY 2022" Linux "User Manuals"
+.SH NAME
+oci-instanceid - Show the Oracle Cloud IDentifier of the instance.
+.SH SYNOPSIS
+.B oci-instanceid
+
+
+.SH DESCRIPTION
+The
+.B oci-instanceid 
+returns the ocid (oracle cloud identifier) of the instanceid the current instance.
+
+.B oci-instanceid
+expects
+.B oci-sdk
+and
+.B oci-utils
+installed. Authentication is attempted via
+.B oci-sdk
+configuration. If direct authentication fails, the instance principal authentication is tried.
+
+.SH "SEE ALSO"
+.BR ocid (8)
+.BR oci-utils.conf.d (5)

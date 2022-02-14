@@ -6,11 +6,13 @@
 #
 #
 TARGET=oci-utils-automation
-DOCFILES=README.txt BUILD.txt
-USRFILES=oci-utils-automation.repo-7 oci-utils-automation.repo-8
+CONFIGDIR=git_repo/tests/automation/configuration
+# CONFIGDIR=configuration
+DOCFILES=$(CONFIGDIR)/README.txt $(CONFIGDIR)/BUILD.txt
+USRFILES=$(CONFIGDIR)/oci-utils-automation.repo-7 $(CONFIGDIR)/oci-utils-automation.repo-8
 DISTRIBUTIONS=OL7 OL8
-GPGFILES=RPM-GPG*
-RELDATA=oci-utils-automation.spec
+GPGFILES=$(CONFIGDIR)/RPM-GPG*
+RELDATA=$(CONFIGDIR)/oci-utils-automation.spec
 #
 VER=$(shell sed -n "/Version:/p" ${RELDATA} |sed -e 's/Version:\ *//')
 REL=$(shell sed -n "/Release:/p" ${RELDATA} |sed -e 's/Release:\ *//'| sed -e 's/\%.*//')
@@ -21,6 +23,7 @@ NOW=$(shell date +%d%m%Y_%H%M)
 #
 DESTDIR=/var/www/html/channel_rpms/$(USER)
 YUMDIR=/var/www/html/yum/$(USER)
+ISODIR=/var/www/html/isos
 #
 MKDIR=-mkdir -p
 SUMKDIR=sudo mkdir -p
@@ -45,7 +48,7 @@ GREP=egrep
 AWKFOR=awk -F: '{print $$4}'
 CREATEREPO=createrepo -q -c 
 THISIP=$(shell hostname -I|tr -d '[:space:]')
-THISGROUP=$(shell ${GREP} $(USER) /etc/passwd | $(AWKFOR))
+THISGROUP=$(shell ${GREP} $(USER): /etc/passwd | $(AWKFOR))
 #
 # help
 #
@@ -58,11 +61,12 @@ help:
 	$(WRITE) " make distro"
 	$(WRITE) " make directorystructure"
 	$(WRITE) " make rpms"
-	$(WRITE) " make publish"
 	$(WRITE) " make repos"
+	$(WRITE) " make publish"
 	$(WRITE) " make clean"
 	$(WRITE) " for adding rpm $(RPM) to repository for distro ${DISTR}"
 	$(WRITE) " make copyrpm RPM=[path|url to rpm] DISTRO=[OL7|OL8]"
+	$(WRITE) " make isodir"
 	$(WRITE) " make cleanrepo"
 
 #
@@ -76,8 +80,8 @@ showversion:
 distro: $(USRFILES)
 	${RECREM} $(TMPDIR)
 	${MKDIR} $(TMPDIR)
-	${SED} s/_XXXX_/$(USER)/ $^
-	${SED} s/_YYYY_/$(THISIP)/ $^
+	${SED} s/_UUUU_/$(USER)/ $^
+	${SED} s/_IPIP_/$(THISIP)/ $^
 	${COPYR} ${USRFILES} $(TMPDIR)
 	$(COPYA) ${RELDATA} $(TMPDIR)
 	$(COPYA) Makefile $(TMPDIR)
@@ -98,7 +102,7 @@ directorystructure: distro
 	${MKDIR} rpmbuild/BUILDROOT
 	${MKDIR} rpmbuild/SPECS
 	$(COPYA) $(TARGET)-$(VERSIONRPM).tar.gz rpmbuild/SOURCES
-	$(COPYA) $(TARGET).spec rpmbuild/SPECS
+	$(COPYA) $(CONFIGDIR)/$(TARGET).spec rpmbuild/SPECS
 	$(WRITE) "created directory structure"
 #
 #
@@ -152,6 +156,12 @@ endif
 else
 	$(WRITE) "RPM missing"
 endif
+#
+#
+# make directory for storing iso's with respect to oci-kvm rpm and oci-kvm image tests
+isodir:
+	${SUMKDIR} $(ISODIR)
+	sudo chcon -R -t httpd_sys_content_t $(ISODIR)
 #
 #
 # clean up repositories

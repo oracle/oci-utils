@@ -14,7 +14,7 @@ directories if they do not exist yet.
 
 usage:
 - pull the software tree
-- change directory to the sotware root
+- change directory to the software root
 - run 'make publish'
 - run 'make clean'
 - run 'make copyrpm RPM=[path|url] DISTRO=[OL7|OL8]'

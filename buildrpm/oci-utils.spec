@@ -1,5 +1,5 @@
 Name: oci-utils
-Version: 0.12.6
+Version: 0.12.7
 Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
@@ -149,12 +149,6 @@ rm -rf %{buildroot}
 %exclude /opt/oci-utils/tests/test_mig*
 /opt/oci-utils
 
-%post
-%systemd_post ocid.service
-
-%preun
-%systemd_post ocid.service
-
 %post kvm
 %systemd_post oci-kvm-config.service
 
@@ -182,7 +176,62 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
-* Tue Sep 07 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5.10
+* Thu Feb 10 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-12
+- LINUX-12063 attach detach attach detach "is already detached" error
+
+* Tue Feb 8 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-11
+- fixed timing issue with ocid refresh
+
+* Fri Feb 4 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-10
+- LINUX-12038 oci-utils-0.12.6-9.el7 oci-iscsi-config has errors Error running fdisk
+
+* Mon Jan 31 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-9
+- LINUX--11928 oci-utils growfs should support more than xfs file systems; ext4 filesystem added.
+- oci-growfs ported to python code.
+
+* Fri Jan 14 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-8
+- LINUX-11876: centralise cache files
+- refactor oci-iscsi-config-main attach and sync
+- updated oci-iscsi-config manpage for the sync option
+- added oci-instanceid, oci-compartmentid, oci-volume-data as non-documented utilities
+- LINUX-11228: oci-iscsi-config sync does not function as it is documented
+
+* Fri Dec 24 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-7
+- kvm autotest update
+- provisioning update
+- kvm provisioning update
+
+* Wed Dec 1 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-6
+- LINUX-9217: add testcases for oci-notify
+- LINUX-11400: verify the notification topic at configuration time.
+- LINUX-11773: oci-notify uses a deprecated parameter message_type in publishing a message.
+
+* Fri Nov 26 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-5
+- LINUX-10151: oci-network-config show --details does not list secondary ip address; implemented in show-vnics
+- LINUX-10139: table print headers need to match the column widths
+- autotest update
+- provisioning update
+
+* Tue Oct 19 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-4
+- Correction in oci-iscsi-config man page
+- LINUX-9802 oci-iscsi-config --show does not show mount point nor file system data
+- Fixed oci-iscsi-config table formatting
+- Fixed oci-public-ip table formatting
+- Added oci-instanceid and oci-compartmentid scripts
+
+* Thu Oct 7 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-3
+- OL8 kvm image build automation
+
+* Wed Sep 29 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-2
+- Removed message_type from publish message call.
+
+* Tue Sep 28 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-1
+- Back out ocid service enabled at install.
+
+* Wed Sep 08 2021 guido tijskens <guido.tijskens@oracle.com> - 0.12.6-0
+- release 0.12.6-0
+
+* Tue Sep 07 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-10
 - LINUX-11499: oci-metadata --value-only returning null
 
 * Fri Aug 27 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5.9
@@ -207,7 +256,6 @@ rm -rf %{buildroot}
 * Mon Aug 2 2021 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.5-5
 - LINUX-9229 remove Error in message "Error: Local iscsi info not available
 - LINUX-9857 oci-network-config configure do not persist configuration
-- LINUX-11228 oci-iscsi-config sync does not funtion as documented
 - LINUX-11293 oci-iscsi-config chap secrets function
 - LINUX-11345 oci-iscsi-config show without sudo shows error
 
@@ -268,7 +316,7 @@ rm -rf %{buildroot}
 - LINUX-10345 OCIVNIC cannot handle empty/absent attachement data
 - LINUX-10360 ocid service configures unconfigured vnics
 - LINUX-10363 oci-network-config --create-vnic --private-ip <ipv4> fails
-- LINUX-10373 oci-network-cofnig -X <vnic..> fails (as does -I)
+- LINUX-10373 oci-network-config -X <vnic..> fails (as does -I)
 - LINUX-10382 oci-image-cleanup: add tests for source exist before running rsync
 - LINUX-10426 oci-iscsi-config fails to attach/destroy volumes on r1 tenancy
 - LINUX-10428 oci-metadata --get /vnics/privateip fail
@@ -292,10 +340,10 @@ rm -rf %{buildroot}
 - update migrate
 
 * Tue Nov 10 2020 Emmanuel Jannetti <emmanuel.jannetti@oracle.com> --0.12.0
- - LINUX-9546 - oci-image-cleanup --dry-run do not print the plan directly
- - oci-iscsi-config usage refactor
- - LINUX-9202 - oci-network-config error in oci_utils.exceptions.OCISDKError: Failed to fetch instance
- - LINUX-8946 - no warning when user select primary vnic
+- LINUX-9546 - oci-image-cleanup --dry-run do not print the plan directly
+- oci-iscsi-config usage refactor
+- LINUX-9202 - oci-network-config error in oci_utils.exceptions.OCISDKError: Failed to fetch instance
+- LINUX-8946 - no warning when user select primary vnic
 
 * Fri Oct 9 2020 Guido Tijskens <guido.tijskens@oracle.com> --0.11.6-1
 - oci-image-migrate code cleanup

@@ -145,25 +145,24 @@ class levelsFilter(logging.Filter):
 
 def setup_logging(forceDebug=False):
     """
-    General function to setup logger.
-    Everything from debug to stdout message is handle by loggers.
-    stdout logger handle info and warning message to STDOUT
-    stderr logger handle error and critical message to stderr
-    anything else is for debug logger which log everything to /var/tmp/oci-utils.log
+    General function to setup the logger.
+    Everything from debug to stdout message is handled by loggers.
+    stdout logger handles info and warning message to STDOUT
+    stderr logger handles error and critical message to stderr
+    Everything else is for debug logger which logs everything to /var/tmp/oci-utils.log
     """
 
     flatFormatter = logging.Formatter('%(message)s')
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s(%(module)s:%(lineno)s) - %(message)s')
     handler = None
     if os.environ.get('_OCI_UTILS_SYSLOG'):
-        handler = logging.handlers.SysLogHandler(address='/dev/log',
-                                                 facility=logging.handlers.SysLogHandler.LOG_DAEMON)
+        handler = logging.handlers.SysLogHandler(address='/dev/log', facility=logging.handlers.SysLogHandler.LOG_DAEMON)
     else:
         if forceDebug:
             try:
                 handler = logging.handlers.RotatingFileHandler('/var/tmp/oci-utils.log',
                                                                mode='a',
-                                                               maxBytes=1024 * 1024,
+                                                               maxBytes=1024*1024,
                                                                backupCount=3)
                 handler.setFormatter(formatter)
                 handler.setLevel(logging.NOTSET)

@@ -16,5 +16,11 @@ include data/10-oci-kvm.conf
 include data/91-oci-kvm.preset
 include data/91-oci-utils.preset
 include data/oci-image-cleanup.conf
+include data/oci-migrate-conf.yaml
+include tools/build_image/bin/*
+include tools/build_image/scripts/*
+include tools/build_image/templates/*
+include tools/build_image/Makefile
+include tools/build_image/README.md
 include buildrpm/*.spec
 include man/man?/*.[158]

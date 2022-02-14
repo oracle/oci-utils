@@ -10,6 +10,7 @@ from tools.oci_test_case import OciTestCase
 
 
 os.environ['LC_ALL'] = 'en_US.UTF8'
+os.environ['_OCI_UTILS_DEBUG'] = '1'
 
 instance_key_set = ('availabilitydomain',
                     'faultdomain',
@@ -153,8 +154,8 @@ class TestCliOciMetadata(OciTestCase):
                    + agentconfig_key_set \
                    + definedtags_key_set \
                    + metadata_key_set \
-                   + pluginsconfig_key_set \
-                   + oracletags_key_set :
+                   + pluginsconfig_key_set :
+#                   + oracletags_key_set :
             with self.subTest(key=key):
                 try:
                     key_data = subprocess.check_output([self.oci_metadata_path, '--get', key])
@@ -507,7 +508,7 @@ class TestCliOciMetadata(OciTestCase):
         No return value.
         """
         try:
-            this_instance_id = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/id', '--value-only', '--trim']).decode('utf-8')
+            this_instance_id = subprocess.check_output([self.oci_metadata_path, '--get', '/instance/id', '--value-only', '--trim']).decode('utf-8').strip()
 
             _ = subprocess.check_output([self.oci_metadata_path, '--get', 'instance', '--instance-id', this_instance_id])
             _ = subprocess.check_output([self.oci_metadata_path, '--get', '/instance', '--instance-id', this_instance_id])

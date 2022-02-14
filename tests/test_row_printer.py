@@ -8,6 +8,7 @@ from  oci_utils.impl.row_printer import (TablePrinter, ParsableTextPrinter,CSVPr
 from tools.oci_test_case import OciTestCase
 
 os.environ['LC_ALL'] = 'en_US.UTF8'
+os.environ['_OCI_UTILS_DEBUG'] = '1'
 
 class foo():
         def attr1(self): return 'john'
