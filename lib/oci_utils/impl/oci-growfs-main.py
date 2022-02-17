@@ -33,9 +33,9 @@ def parse_args():
     -------
         The command line namespace
     """
-    parser = argparse.ArgumentParser(
-        description='Utility for expanding the root¶¶ filesystem to its configured size.',
-                    add_help=False)
+    parser = argparse.ArgumentParser(prog='oci-growfs',
+                                     description='Utility for expanding the root¶¶ filesystem to its configured size.',
+                                     add_help=False)
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-y', '--yes',
                         action='store_true',

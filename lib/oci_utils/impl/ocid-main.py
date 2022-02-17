@@ -133,7 +133,7 @@ class OcidThread(threading.Thread):
         self.thr_logger = logging.getLogger('oci-utils.ocid.workers.%s.%s' % (self.name, self.thread_name))
         # evt used to wait between iterations and for worker mgr to ask us to stop
         self.blocking_evt = threading.Event()
-        # evt used by worker mgr to wiat for first iteration to be completed
+        # evt used by worker mgr to wait for first iteration to be completed
         self.first_iteration_evt = threading.Event()
 
     def __str__(self):
@@ -764,13 +764,13 @@ def daemon_main(arguments):
         sys.exit(result)
 
     threads = start_threads(arguments, repeat=True)
-    __ocid_logger.debug('threads started')
+    __ocid_logger.debug('Threads started')
     # wait for every thread to complete the ocid func at least once
     for th in list(threads.keys()):
-        __ocid_logger.debug('waiting for first iteration of %s to complete', threads[th].getName())
+        __ocid_logger.debug('Waiting for first iteration of %s to complete', threads[th].getName())
         threads[th].wait_first_iteration()
 
-    __ocid_logger.debug('all threads finished the first iteration')
+    __ocid_logger.debug('All threads finished the first iteration')
 
     if os.path.exists('/var/run/ocid.fifo'):
         # should not happen, but ...
@@ -783,11 +783,11 @@ def daemon_main(arguments):
     __ocid_logger.debug('systemd notifier notified')
 
     try:
-        __ocid_logger.debug('selecting on signal...')
+        __ocid_logger.debug('Selecting on signal...')
         r, _, _ = select.select([os.open('/var/run/ocid.fifo', os.O_RDONLY | os.O_NONBLOCK)], [], [])
-        __ocid_logger.debug('out of selecting for [%s]', str(r))
+        __ocid_logger.debug('Out of selecting for [%s]', str(r))
     except Exception as e:
-        __ocid_logger.debug('error selecting: %s', str(e))
+        __ocid_logger.debug('Error selecting: %s', str(e))
 
     for th in list(threads.keys()):
         threads[th].request_stop()

@@ -27,11 +27,9 @@ def parse_args():
     -------
         The argparse namespace.
     """
-    parser = argparse.ArgumentParser(description='Utility for exploring '
-                                                 'the network, its subnets '
-                                                 'and ips assigned for a '
-                                                 'given compartment or '
-                                                 'network.')
+    parser = argparse.ArgumentParser(prog='oci-network-inspector',
+                                     description='Utility for exploring the network, its subnets and ips assigned '
+                                                 'for a given compartment or network.')
     parser.add_argument('-C', '--compartment',
                         metavar='OCID',
                         action='store',

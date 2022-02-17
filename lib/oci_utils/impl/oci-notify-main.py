@@ -79,7 +79,8 @@ def parse_args():
         extra_descr += '%s\n' % (helpline.replace('MAX_MESSAGE_TITLE_LEN', str(MAX_MESSAGE_TITLE_LEN))
                                  .replace('CHUNK_SIZE', str(CHUNK_SIZE))
                                  .replace('MAX_MESSAGE_CHUNKS', str(MAX_MESSAGE_CHUNKS)))
-    parser = argparse.ArgumentParser(description='%s' % extra_descr)
+    parser = argparse.ArgumentParser(prog='oci-notify',
+                                     description='%s' % extra_descr)
     sub_parser = parser.add_subparsers(dest='mode')
 
     config_parser = sub_parser.add_parser('config', help='Configure the notification server.')

@@ -23,7 +23,8 @@ def command_line():
     -------
         The commandline argparse namespace.
     """
-    parser = argparse.ArgumentParser(description='Tool to display the oci properties of an iscsi volume.')
+    parser = argparse.ArgumentParser(prog='oci-volume-data',
+                                     description='Tool to display the oci properties of an iscsi volume.')
     parser.add_argument('-k', '--key',
                         action='store',
                         required=True,

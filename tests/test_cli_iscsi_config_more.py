@@ -428,12 +428,12 @@ class TestCliOciIscsiConfig(OciTestCase):
             time.sleep(self.waittime)
             #
             # attach iqn
-            cmd_d = [self.iscsi_config_path, 'attach', '--iqns', new_iqn]
-            attach_volume_data = subprocess.check_output(cmd_d).decode('utf-8').splitlines()
-            _show_res('Attach Volume', attach_volume_data)
-            time.sleep(self.waittime)
-            volume_data = self._get_iscsi_show()
-            time.sleep(self.waittime)
+            # cmd_d = [self.iscsi_config_path, 'attach', '--iqns', new_iqn]
+            # attach_volume_data = subprocess.check_output(cmd_d).decode('utf-8').splitlines()
+            # _show_res('Attach Volume', attach_volume_data)
+            # time.sleep(self.waittime)
+            # volume_data = self._get_iscsi_show()
+            # time.sleep(self.waittime)
             #
             # detach
             cmd_e = [self.iscsi_config_path, 'detach', '--iqns', new_iqn]

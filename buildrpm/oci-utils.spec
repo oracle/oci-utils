@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.7
-Release: 0%{?dist}
+Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -176,6 +176,10 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Wed Feb 16 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.7-1
+- LINUX-12109 Local iSCSI info not available" after running oci-iscsi-config sync
+- LINUX-12114 oci-utils help info contains ref to python main module iso the command
+
 * Thu Feb 10 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.6-12
 - LINUX-12063 attach detach attach detach "is already detached" error
 
