@@ -30,9 +30,10 @@ def parse_args():
     -------
         The command line namespace
     """
-    parser = argparse.ArgumentParser(
-        description='Utility for displaying the public IP address of the '
-                    'current OCI instance.', add_help=False)
+    parser = argparse.ArgumentParser(prog='oci-public-ip',
+                                     description='Utility for displaying the public IP address of the '
+                                                 'current OCI instance.',
+                                     add_help=False)
     group = parser.add_mutually_exclusive_group()
 
     # deprecated option
@@ -155,7 +156,8 @@ def main():
         for server in STUN_SERVERS:
             print(server)
         return 0
-
+    #
+    # Try to create a functional oci session
     _instance = None
     try:
         sess = oci_api.OCISession()
@@ -181,12 +183,12 @@ def main():
             _all_p_ips = [{'ip': v.get_public_ip(),
                            'vnic_name': v.get_display_name(),
                            'vnic_ocid': v.get_ocid()} for v in _instance.all_vnics() if v.get_public_ip()]
-            stun_log.debug('%s ips retreived from sdk information', len(_all_p_ips))
+            stun_log.debug('%s ips retrieved from sdk information', len(_all_p_ips))
             if len(_all_p_ips) == 0:
-                stun_log.debug('No ips found, might be due to missing privilges, trying with stun servers')
+                stun_log.info('No public ip(s) found from OCI, trying the stun servers.')
                 _instance=None
         except Exception as e:
-            stun_log.debug('Instance is missing privileges to collect ip data from OCI, falling back to stun servers.')
+            stun_log.info('Instance is missing privileges to collect ip data from OCI, falling back to stun servers.')
             _instance = None
 
     if _instance is None:

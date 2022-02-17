@@ -132,7 +132,8 @@ def get_args_parser():
     -------
         The commandline argparse namespace.
     """
-    parser = argparse.ArgumentParser(description='Utility for listing or configuring iSCSI devices on an OCI instance.')
+    parser = argparse.ArgumentParser(prog='oci-iscsi-config',
+                                     description='Utility for listing or configuring iSCSI devices on an OCI instance.')
     subparser = parser.add_subparsers(dest='command')
     #
     # sync
@@ -757,6 +758,8 @@ def display_attached_volumes(oci_sess, iscsiadm_session, disks, output_mode, det
         _logger.debug('Cannot get all volumes of this instance : %s', str(e))
 
     if not iscsiadm_session and len(oci_vols) > 0:
+        #
+        # iscsiadm does not show volumes, oci_api.session does, attached volumes but not connected.
         print("Local iSCSI info not available.")
         print("List info from Cloud instead(No boot volume).")
         print("")
@@ -1869,6 +1872,20 @@ def get_max_volumes():
     return max_vol
 
 
+def get_iscsiadm_session():
+    """
+    Find the attached block volumes with exception of the boot volume.
+
+    Returns
+    -------
+        dict: the attached block volumes and their data.
+    """
+
+    all_volumes = iscsiadm.session()
+    iscsiadmsession = dict((iqn, all_volumes[iqn]) for iqn in all_volumes if 'boot:uefi' not in iqn)
+    return iscsiadmsession
+
+
 def do_oci_vol_attach_ocid(oci_session, compatibility_mode, volume_iqn, use_chap_secrets):
     """
     Collect data for attaching an iSCSI volume to this instance based on an ocid.
@@ -2196,6 +2213,9 @@ def main():
     #
     # collect iscsi volume information
     system_disks = lsblk.list_blk_dev()
+    #
+    # we are not touching boot volume in iscsi config
+    # iscsiadm_session = get_iscsiadm_session()
     iscsiadm_session = iscsiadm.session()
     #
     # the show option

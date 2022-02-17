@@ -62,7 +62,8 @@ def get_arg_parser():
     -------
         The argparse namespace.
     """
-    parser = argparse.ArgumentParser(description='Utility for configuring network interfaces on an instance running '
+    parser = argparse.ArgumentParser(prog='oci-network-config',
+                                     description='Utility for configuring network interfaces on an instance running '
                                                  'in the Oracle Cloud Infrastructure.')
     parser.add_argument('--quiet', '-q',
                         action='store_true',

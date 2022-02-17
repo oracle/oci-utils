@@ -106,7 +106,8 @@ def parse_args():
     -------
         The argparse namespace.
     """
-    parser = argparse.ArgumentParser(description='Utility for displaying metadata for an instance running in '
+    parser = argparse.ArgumentParser(prog='oci-metadata',
+                                     description='Utility for displaying metadata for an instance running in '
                                                  'the Oracle Cloud Infrastructure.',
                                      add_help=False)
     parser.add_argument('-h', '--human-readable', action='store_true',

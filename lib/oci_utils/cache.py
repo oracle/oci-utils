@@ -125,7 +125,7 @@ def load_cache_11876(global_file, global_file_11876=None, user_file=None, max_ag
     else:
         # cache file does not yet exists
         _logger.debug('Cache file %s does not exist.', global_file)
-    return None, None
+    return 0, None
 
 
 def load_cache(global_file, user_file=None, max_age=None):
