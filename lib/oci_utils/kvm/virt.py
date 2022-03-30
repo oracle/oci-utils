@@ -30,7 +30,6 @@ from ..metadata import InstanceMetadata
 from ..impl.init_script_helpers import SystemdServiceGenerator
 from ..impl.init_script_helpers import SystemdServiceManager
 
-
 _logger = logging.getLogger('oci-utils.kvm.virt')
 
 
@@ -865,7 +864,10 @@ def create_fs_pool(disk, name):
     _uuid = sudo_utils.call_output([LSBLK_CMD, '--output', 'uuid', '--noheadings', _new_part])
     _uuid = _uuid.decode().strip()
 
-    if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-define-as', '--name=%s' % name, '--type=fs', '--source-dev=/dev/disk/by-uuid/%s' % _uuid, '--target=/oci-%s' % name]):
+    if sudo_utils.call([VIRSH_CMD, '--quiet', 'pool-define-as',
+                        '--name=%s' % name, '--type=fs',
+                        '--source-dev=/dev/disk/by-uuid/%s' % _uuid,
+                        '--target=/oci-%s' % name]):
         _logger.error('Failed to define pool')
         return 1
 

@@ -77,9 +77,9 @@ def get_arg_parser():
     #
     # show
     show_parser = subparser.add_parser('show',
-                                       description="Shows the current Virtual Interface Cards provisioned in the "
-                                                   "Oracle Cloud Infrastructure and configured on this instance. "
-                                                   "This is the default action if no options are given.")
+                                       description='Shows the current Virtual Interface Cards provisioned in the '
+                                                   'Oracle Cloud Infrastructure and configured on this instance. '
+                                                   'This is the default action if no options are given.');
     show_parser.add_argument('-I', '--include',
                              metavar='ITEM',
                              action='append',
@@ -690,8 +690,7 @@ def compat_show_vnics_information():
 
 def show_network_config(vnic_utils):
     """
-    Display the current network interface configuration as well as the
-    VNIC configuration from OCI.
+    Display the current network interface configuration as well as the VNIC configuration from OCI.
 
     Parameters
     ----------

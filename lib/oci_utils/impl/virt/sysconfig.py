@@ -8,6 +8,7 @@
 """
 import os
 import logging
+import stat
 from .. import sudo_utils
 from ..network_helpers import network_prefix_to_mask
 
@@ -16,7 +17,9 @@ _logger = logging.getLogger('oci-utils.sysconfig')
 __sysconfig = '/etc/sysconfig'
 __netscripts = __sysconfig + '/network-scripts'
 __iface_prefix = 'ifcfg-'
-
+__ifup = '/usr/sbin/ifup'
+__ifdown = '/usr/sbin/ifdown'
+__nmcli = '/bin/nmcli'
 
 def parse_env_file(f):
     """
@@ -264,6 +267,25 @@ def _not_used_apply_network_config():
     return True
 
 
+def _is_exec(command):
+    """
+    Verify if a filename exists and is executable.
+
+    Parameters
+    ----------
+    command: str
+        The filename.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    if os.path.exists(command) and os.access(command, os.F_OK | os.X_OK) and not os.path.isdir(command):
+        cmd_mod = os.stat(command).st_mode
+        return bool(cmd_mod & stat.S_IXUSR or cmd_mod & stat.S_IXGRP or cmd_mod & stat.S_IXOTH)
+    return False
+
+
 def interfaces_up(ifaces):
     """
     Bring the interfaces up.
@@ -278,12 +300,20 @@ def interfaces_up(ifaces):
         bool
             True on success, False otherwise.
     """
-    for i in ifaces:
-        if sudo_utils.call(['/usr/sbin/ifup', i],True):
-            _logger.debug('Cannot bring up the interface')
-            return False
 
-    return True
+    if _is_exec(__ifup):
+        for i in ifaces:
+            if sudo_utils.call([__ifup, i],True):
+                _logger.debug('Cannot bring up interface %s', i)
+                return False
+        return True
+    elif _is_exec(__nmcli):
+        for i in ifaces:
+            if sudo_utils.call([__nmcli, 'connection', 'up',i], True):
+                _logger.debug('Cannot bring up interface %s', i)
+                return False
+        return True
+    return False
 
 
 def delete_directory_files(path, files, fmt=None):
@@ -323,8 +353,14 @@ def delete_virtual_interfaces(data):
     -------
         No return value.
     """
-    for name in data:
-        sudo_utils.call(['/usr/sbin/ifdown', name])
+    if _is_exec(__ifdown):
+        for name in data:
+            sudo_utils.call([__ifdown, name])
+            _logger.debug('interface %s down.', name)
+    elif _is_exec(__nmcli):
+        for name in data:
+            sudo_utils.call([__nmcli, 'connection', 'down', name])
+            _logger.debug('interface %s down.', name)
 
 
 def delete_network_config(data):

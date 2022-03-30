@@ -21,7 +21,7 @@ import time
 import tty
 
 import oci_utils.oci_api
-from oci_utils import __ignore_file, iscsiadm, lsblk
+from oci_utils import __ignore_file, iscsiadm, lsblk, is_root_user
 from oci_utils import _configuration as OCIUtilsConfiguration
 from oci_utils import OCI_VOLUME_SIZE_FMT
 from oci_utils.cache import load_cache_11876, write_cache_11876
@@ -160,6 +160,18 @@ def get_args_parser():
                              action='store_true',
                              default=False,
                              help=argparse.SUPPRESS)
+    #
+    # show all volumes all details
+    show_all_parser = subparser.add_parser('show-all',
+                                           description='Show all volumes with details '
+                                                       'in this availability domain.')
+    show_all_parser.add_argument('-t', '--truncate',
+                                 action='store_true',
+                                 help=argparse.SUPPRESS)
+    show_all_parser.add_argument('--output-mode',
+                                 choices=('parsable', 'table', 'json', 'text'),
+                                 help='Set output mode.',
+                                 default='table')
     #
     # show
     show_parser = subparser.add_parser('show',
@@ -1683,20 +1695,6 @@ def show_volumes(oci_session, iscsiadm_session, system_disks, args):
     return True
 
 
-def is_root_user():
-    """
-    Verify if operator has root privileges.
-
-    Returns
-    -------
-        bool: True if root, False otherwise.
-    """
-    if os.geteuid() != 0:
-        _logger.error("This program needs to be run with root privileges.")
-        return False
-    return True
-
-
 def get_this_instance_ocid(session):
     """
     Get the ocid of the current instance, via the api or via the metadata.
@@ -2209,6 +2207,7 @@ def main():
     #
     # starting from here, nothing works if we are not root
     if not is_root_user():
+        _logger.error('This program needs to be run with root privileges.')
         return 1
     #
     # collect iscsi volume information
@@ -2220,6 +2219,16 @@ def main():
     #
     # the show option
     if args.command == 'show':
+        _ = show_volumes(oci_session=oci_sess, iscsiadm_session=iscsiadm_session, system_disks=system_disks, args=args)
+        return 0
+    #
+    # the show-all option
+    if args.command == 'show-all':
+        args.all = True
+        # args.output_mode = 'table'
+        args.no_truncate = not args.truncate
+        args.compartments = ()
+        args.details = True
         _ = show_volumes(oci_session=oci_sess, iscsiadm_session=iscsiadm_session, system_disks=system_disks, args=args)
         return 0
     #

@@ -7,6 +7,7 @@ import os
 import random
 import re
 import socket
+import stat
 import subprocess
 import sys
 import uuid
@@ -124,6 +125,9 @@ def parse_args():
                         type=str,
                         required=True,
                         help='os-variant for kvm.')
+    parser.add_argument('-b', '--bare-metal',
+                        action='store_true',
+                        help='Is a bare-metal host.')
     return parser
 
 
@@ -404,6 +408,7 @@ def create_bridge(name, net, bridge_ipx):
     -------
         str: create command output.
     """
+    print_par_val('create bridge', 'name %s net %s bridge_ipx %s' % (name, net, bridge_ipx))
     net_link = get_vnic_data('vnic', name, 'link')
     if net_link is None:
         bridge_ip_int = int(IPv4Address(bridge_ipx))
@@ -439,17 +444,20 @@ def get_vnic_data(index, val, field):
         -------
             str: the requested value, None if absent.
     """
-    cmd = [oci_network_path, 'show',
-           '--details',
-           '--output-mode', 'parsable']
+    print_par_val('get vnic data', 'index %s val %s field %s' % (index, val, field))
+    cmd = [oci_network_path, 'show', '--details', '--output-mode', 'parsable']
     all_vnic_data = run_cmd(cmd)
 
-    for vnic in all_vnic_data:
-        vnic_list = vnic.split('#')
-        if index not in vnic_fields or field not in vnic_fields:
-            return None
-        if vnic_list[vnic_fields.index(index)] == val:
-            return vnic_list[vnic_fields.index(field)]
+    try:
+        for vnic in all_vnic_data:
+            vnic_list = vnic.split('#')
+            # write_log('vnic list: %s' % vnic_list)
+            if index not in vnic_fields or field not in vnic_fields:
+                return None
+            if vnic_list[vnic_fields.index(index)] == val:
+                return vnic_list[vnic_fields.index(field)]
+    except IndexError:
+        return None
     return None
 
 
@@ -470,11 +478,13 @@ def get_pool_data(index, val, field):
     -------
         str: the requested value, None if absent.
     """
+    print_par_val('get pool data', 'index %s val %s field %s' % (index, val, field))
     cmd = [oci_kvm_path, 'list-pool', '--output-mode', 'parsable']
     all_pool_data = run_cmd(cmd)
 
     for pool in all_pool_data:
         pool_list = pool.split('#')
+        # write_log('pool list: %s' % pool_list)
         if index not in pool_fields or field not in pool_fields:
             return None
         if pool_list[pool_fields.index(index)] == val:
@@ -499,11 +509,8 @@ def get_volume_data(index, val, field):
     -------
         str: the requested value, None if absent.
     """
-    cmd = [oci_iscsi_path, 'show',
-           '--detail',
-           '--no-truncate',
-           '--output-mode', 'parsable',
-           '--all']
+    print_par_val('get volume data', 'index %s val %s field %s' % (index, val, field))
+    cmd = [oci_iscsi_path, 'show', '--detail', '--no-truncate', '--output-mode', 'parsable', '--all']
     all_volume_data = run_cmd(cmd)
 
     for vol in all_volume_data:
@@ -589,8 +596,24 @@ def print_par_val(parameter, value):
     global log_output
     logdata = '%25s: %s' % (parameter, value)
     print(logdata)
+    write_log(logdata)
+
+
+def write_log(msg):
+    """
+    Write a line to the logfile.
+
+    Parameters
+    ----------
+    msg: str
+        The message.
+
+    Returns
+    -------
+        No return value
+    """
     with open(log_output, 'a') as log:
-        log.write('%s\n' % logdata)
+        log.write('%s\n' % msg)
         log.flush()
 
 
@@ -607,23 +630,25 @@ def main():
     parser = parse_args()
     args = parser.parse_args()
     #
-    # verify if iso exists
-    iso_file = '/isos/' + args.iso_file
-    if not os.path.exists(iso_file):
-        sys.exit('%s not found' % iso_file)
-    #
     # hostname
     hostname = 'guest_' + uuid.uuid4().hex[:6]
     log_output = '/var/tmp/' + hostname + '.log'
     #
+    # verify if iso exists
+    iso_file = '/isos/' + args.iso_file
+    if not os.path.exists(iso_file):
+        sys.exit('%s not found' % iso_file)
+    print_par_val('iso file', iso_file)
+    print_par_val('hostname', hostname)
     #
     # verify os variant
     if not validate_os_variant(args.os_variant):
         sys.exit('%s is not a valid os variant.' % args.os_variant)
+    print_par_val('os variant', args.os_variant)
     #
     print_par_val('network type', args.network_type)
     print_par_val('network type', args.storage_type)
-    print_par_val('hostname', hostname)
+    #
     domain_cmd = ['--domain', hostname]
     print_par_val('domain cmd', list_to_str(domain_cmd))
     #
@@ -656,12 +681,6 @@ def main():
     # create vnic
     vnic_name='vnic_' + uuid.uuid4().hex[:4]
     print_par_val('vnic name', vnic_name)
-    # vnic_output = create_vnic(vnic_name)
-    # print_par_val('vnic_output', list_to_str(vnic_output))
-    #
-    # vnic ip
-    # vnic_ip = get_vnic_data('vnic', vnic_name, 'ipaddress')
-    # print_par_val('vnic_ip', vnic_ip)
     #
     # if bridged, create network, if not already exists.
     if args.network_type == 'bridge':
@@ -682,16 +701,21 @@ def main():
         net_cmd = ['--virtual-network', network_name]
     #
     # passthrough
-    elif args.network_type == 'direct':
+    elif args.network_type == 'passthrough':
+        #
+        # vnic link
+        vnic_output = create_vnic(vnic_name)
+        print_par_val('vnic_output', list_to_str(vnic_output))
+        vnic_link = get_vnic_data('vnic', vnic_name, 'link')
+        print_par_val('vnic_link', vnic_link)
+        # net_cmd = ['--net', vnic_link]
         #
         # vnic ip
         vnic_ip = get_vnic_data('vnic', vnic_name, 'ipaddress')
         print_par_val('vnic_ip', vnic_ip)
-        vnic_output = create_vnic(vnic_name)
-        print_par_val('vnic_output', list_to_str(vnic_output))
-        vnic_ip = get_vnic_data('vnic', vnic_name, 'ipaddress')
-        print_par_val('vnic_ip', vnic_ip)
-        net_cmd = ['--net', vnic_ip]
+        #
+        # network option
+        net_cmd = ['--net', vnic_ip] if args.bare_metal else ['--net', vnic_link]
     #
     # false
     else:
@@ -776,10 +800,21 @@ def main():
                     + ks_cmd \
                     + extra_args
     print_par_val('create vm', list_to_str(create_vm_cmd))
-    with open(hostname, 'w') as createvm:
-        createvm.write(create_vm_cmd)
-    create_vm = run_cmd(create_vm_cmd)
-    print_par_val('vm create', list_to_str(create_vm))
+
+    try:
+       createvm = open(hostname, 'w')
+       createvm.write('%s \n'% list_to_str(create_vm_cmd))
+       createvm.write('virsh console %s\n' % hostname)
+       os.chmod(hostname, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+    except Exception as e:
+       print('*** ERROR *** failed to write to %s' % hostname)
+    finally:
+        createvm.close()
+
+
+    # create_vm = run_cmd(create_vm_cmd)
+    # print_par_val('vm create', list_to_str(create_vm))
+    print('\n run bash %s/%s\n' % (os.getcwd(), hostname))
 
 
 if __name__ == "__main__":

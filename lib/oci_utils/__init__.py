@@ -5,6 +5,7 @@
 # at http://oss.oracle.com/licenses/upl.
 
 import logging
+import re
 import os
 import os.path
 
@@ -134,6 +135,46 @@ def find_exec_in_path(exec_name):
         if result:
             break
     return result
+
+
+def is_root_user():
+    """
+    Verify if operator has root privileges.
+
+    Returns
+    -------
+        bool: True if root, False otherwise.
+    """
+    if os.geteuid() != 0:
+        return False
+    return True
+
+
+def get_os_release_data():
+    """
+    Collect information on the linux operating system and release.
+    Currently is only able to handle linux type os.
+
+    Returns
+    -------
+        ostype: str
+            The os type
+        major_release: str
+            the major release
+        dict: Dictionary containing the os and version data on success,
+            None otherwise.
+    """
+    osdata = '/etc/os-release'
+    try:
+        with open(osdata, 'r') as f:
+            osreleasedata = [line.strip() for line in f.read().splitlines() if '=' in line]
+        osdict = dict([re.sub(r'"', '', kv).split('=') for kv in osreleasedata])
+    except Exception as e:
+        return None, None, None
+    os_type = osdict['ID']
+    major_release = re.split('\\.', osdict['VERSION_ID'])[0]
+
+    return os_type, major_release, osdict
 
 
 def _set_proxy():

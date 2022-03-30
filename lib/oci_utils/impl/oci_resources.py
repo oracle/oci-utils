@@ -252,7 +252,7 @@ class OCICompartment(OCIAPIAbstractResource):
         # GT
         # if OCI_COMPARTEMENT_STATE[self._data['lifecycle_state']] != OCI_COMPARTEMENT_STATE.ACTIVE:
         if OCI_COMPARTEMENT_STATE[self._data.lifecycle_state] != OCI_COMPARTEMENT_STATE.ACTIVE:
-            OCICompartment._logger.debug('current state not active')
+            OCICompartment._logger.debug('Current state not active')
             return []
 
         nc = self._oci_session.get_network_client()

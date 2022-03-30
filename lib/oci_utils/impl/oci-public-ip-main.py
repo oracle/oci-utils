@@ -100,16 +100,24 @@ def _display_ip_list(ip_list, displayALL, outputMode, displayDetails):
 
     _collen = {'ipaddress': len('IP Address'),
                'vnicname': len('vNIC name'),
+               'vnicprivate': len('vNIC private IP'),
+               'vnicmac': len('vNIC mac address'),
+               'vnicprimary': 7,
                'vnicocid': len('vNIC OCID')}
 
-    for _ip in ip_list:
+    for _ip in _ip_list_to_display:
         # ip
         _ip_len = len(_ip['ip'])
-        _collen['ipaddress'] = max(_ip_len, _collen['ipaddress'])
         _collen['ipaddress'] = max(_ip_len, _collen['ipaddress'])
         # vnic name
         _vnicname_len = len(_ip['vnic_name'])
         _collen['vnicname'] = max(_vnicname_len, _collen['vnicname'])
+        # private ip 
+        _vnicprivate_len = len(_ip['vnic_private_ip'])
+        _collen['vnicprivate'] = max(_vnicprivate_len, _collen['vnicprivate'])
+        # vnic mac address
+        _vnicmac_len = len(_ip['vnic_mac_address'])
+        _collen['vnicmac'] = max(_vnicmac_len, _collen['vnicmac'])
         # vnic ocid
         _vnicocid_len = len(_ip['vnic_ocid'])
         _collen['vnicocid'] = max(_vnicocid_len, _collen['vnicocid'])
@@ -119,13 +127,17 @@ def _display_ip_list(ip_list, displayALL, outputMode, displayDetails):
     _columns = [['IP Address', _collen['ipaddress']+2, 'ip']]
     if displayDetails:
         _columns.append(['vNIC name', _collen['vnicname']+2, 'vnic_name'])
+        _columns.append(['vNIC private ip', _collen['vnicprivate']+2, 'vnic_private_ip'])
+        _columns.append(['vNIC mac address', _collen['vnicmac']+2, 'vnicmac'])
+        _columns.append(['primary', _collen['vnicprimary']+2, 'primary'])
         _columns.append(['vNIC OCID', _collen['vnicocid']+2, 'vnic_ocid'])
 
     printerKlass = get_row_printer_impl(outputMode)
 
     _printer = printerKlass(title=_title, columns=_columns)
     _printer.printHeader()
-    for _ip in ip_list:
+    _sorted_list_of_pubips = sorted(_ip_list_to_display, key=lambda ip: ip['primary'], reverse=True)
+    for _ip in _sorted_list_of_pubips:
         _printer.printRow(_ip)
     _printer.printFooter()
     _printer.finish()
@@ -152,6 +164,7 @@ def main():
         args.output_mode = 'json'
 
     if args.list_servers:
+        #
         # print the list of known STUN servers and exit
         for server in STUN_SERVERS:
             print(server)
@@ -175,23 +188,33 @@ def main():
         stun_log.debug("Error getting information of current instance: %s", str(e))
 
     _all_p_ips = []
-
     #
     # successfully creating a session and getting the instance data is not enough to collect vnic data.
     if _instance is not None:
+        z = _instance.all_vnics()
         try:
             _all_p_ips = [{'ip': v.get_public_ip(),
                            'vnic_name': v.get_display_name(),
+                           'vnic_private_ip': v.get_private_ip(),
+                           'vnic_mac_address': v.get_mac_address(),
+                           'primary' : v.is_primary(),
                            'vnic_ocid': v.get_ocid()} for v in _instance.all_vnics() if v.get_public_ip()]
             stun_log.debug('%s ips retrieved from sdk information', len(_all_p_ips))
             if len(_all_p_ips) == 0:
-                stun_log.info('No public ip(s) found from OCI, trying the stun servers.')
+                stun_log.info('No public ip addresses found from OCI, falling back to the stun servers.')
                 _instance=None
         except Exception as e:
-            stun_log.info('Instance is missing privileges to collect ip data from OCI, falling back to stun servers.')
+            stun_log.info('Instance is missing privileges to collect ip data from OCI, '
+                          'falling back to the stun servers.')
             _instance = None
 
     if _instance is None:
+        stun_log.info('No public ip addresses found from OCI, falling back to the stun servers.')
+        stun_log.info('The stun servers do not provide details on the vNIC and '
+                      'might find only the primary IP address.\n')
+        #
+        # stun servers just give the ip address
+        args.details = False
         if args.instance_id is not None:
             # user specified a remote instance, there is no fallback to stun
             stun_log.error("Instance not found: %s", args.instance_id)
@@ -203,12 +226,14 @@ def main():
         _ip = get_ip_info(source_ip=args.sourceip, stun_host=args.stun_server)[1]
         stun_log.debug('STUN gave us : %s', _ip)
         if _ip:
-            _all_p_ips.append({'ip': _ip})
-#    else:
-#        _all_p_ips = [{'ip': v.get_public_ip(),
-#                       'vnic_name': v.get_display_name(),
-#                       'vnic_ocid': v.get_ocid()} for v in _instance.all_vnics() if v.get_public_ip()]
-#        stun_log.debug('%s ips retreived from sdk information', len(_all_p_ips))
+            _all_p_ips.append({'ip': _ip,
+                               'vnic_name': '',
+                               'primary': True,
+                               'vnic_private_ip': '',
+                               'vnic_mac_address': '',
+                               'vnic_ocid': ''})
+        else:
+            stun_log.info('No public IP addresses found via the stun servers.')
 
     if len(_all_p_ips) == 0:
         # none of the methods give us information

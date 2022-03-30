@@ -16,7 +16,7 @@ import sys
 import termios
 import tty
 
-from oci_utils import find_exec_in_path
+from oci_utils import is_root_user, find_exec_in_path
 from oci_utils.lsblk import lsblk_partition_data
 
 lc_all = 'en_US.UTF8'
@@ -138,45 +138,6 @@ def _read_yn(prompt, yn=True, waitenter=False, suppose_yes=False, suppose_no=Fal
     if bool(yn_i):
         yn = yn_i
     return bool(yn.upper() == 'Y')
-
-
-def is_root_user():
-    """
-    Verify if operator has root privileges.
-
-    Returns
-    -------
-        bool: True if root, False otherwise.
-    """
-    if os.geteuid() != 0:
-        _logger.error("This program needs to be run with root privileges.")
-        return False
-    return True
-
-
-# def find_exec_in_path(exec_name):
-#     """
-#     Find an executable in the path.
-#
-#     Parameters
-#     ----------
-#     exec_name: str
-#         The name of the executable.
-#
-#     Returns
-#     -------
-#        str: the full path of the executable.
-#     """
-#     path = os.getenv('PATH').split(':')
-#     result = None
-#     for rootdir in path:
-#         for root, folder, files in os.walk(rootdir):
-#             if exec_name in files:
-#                 result = os.path.join(root, exec_name)
-#             break
-#         if result:
-#             break
-#     return result
 
 
 def partition_growfs_X(partition_data, dry_run=True):
@@ -698,6 +659,7 @@ def main():
     #
     # root privileges are required.
     if not is_root_user():
+        _logger.error('This program needs to be run with root privileges')
         sys.exit(1)
     #
     # the command line.
