@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: oci-utils
-Version: 0.10.2
+Version: 0.12.7
 Summary: Oracle Cloud Infrastructure utilities
 Home-page: http://github.com/oracle/oci-utils/
 Author: Laszlo Peter
@@ -16,7 +16,7 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
 Classifier: Natural Language :: English
 Classifier: Operating System :: POSIX
-Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.6
 Classifier: Topic :: System :: Installation/Setup
 Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities

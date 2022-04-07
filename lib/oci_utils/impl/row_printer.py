@@ -260,6 +260,7 @@ class TablePrinter(ColumnsPrinter):
     def finish(self):
         print("\n", file=self.printer)
 
+
 class ParsableTextPrinter(TablePrinter):
     _COLUMN_SEP = "#"
     _MISSING_ATTR = ''

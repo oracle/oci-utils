@@ -16,6 +16,7 @@ import xml.dom.minidom
 import libvirt
 import oci_utils.kvm.virt
 from oci_utils.impl.row_printer import get_row_printer_impl
+from oci_utils import is_root_user, get_os_release_data
 
 _logger = logging.getLogger("oci-utils.oci-kvm")
 
@@ -26,6 +27,9 @@ _create_pool = 'create-pool'
 _list_pool = 'list-pool'
 _create_network = 'create-network'
 _delete_network = 'delete-network'
+
+_fs_pool = 128
+_netfs_pool = 256
 
 
 def _disk_size_in_gb(_string):
@@ -339,7 +343,6 @@ def _delete_network_vm(args):
         if not input('Really destroy this network ?').strip().lower() in ('y', 'yes'):
             return 1
     return oci_utils.kvm.virt.delete_virtual_network(network_name=args.network_name)
-    return 1
 
 
 def _create_network_vm(args):
@@ -432,7 +435,53 @@ def _create_pool_vm(args):
         return oci_utils.kvm.virt.create_netfs_pool(args.netfshost, args.path, _pool_name)
 
 
-def _format_size(size):
+def _get_pools():
+    """
+    Find libvirt pools.
+
+    Returns
+    -------
+        tuple: file system pools, net file system pools.
+    """
+    conn = libvirt.open(None)
+    try:
+        _spsfs = list()
+        _spsnetfs = list()
+        if conn:
+            # file system pool
+            _spsfs = conn.listAllStoragePools(flags=128)
+            # nfs pool
+            _spsnetfs = conn.listAllStoragePools(flags=256)
+        else:
+            _logger.error('Failed to contact hypervisor')
+            raise ValueError('Failed to contact hypervisor.')
+    except Exception as e:
+        _logger.error('Failed to collect vm pool data: %s', str(e))
+        raise ValueError('Failed to collect vm pool data.') from e
+    finally:
+        conn.close()
+    return _spsfs, _spsnetfs
+
+
+def initalise_column_lengths(coldata):
+    """
+    Initialise the columns structure.
+
+    Parameters
+    ----------
+    coldata: dict
+        The column structure.
+
+    Returns
+    -------
+        dict: the updated columns structure, added initial lengths of the columns, determined by the header lenght.
+    """
+    for key, _ in coldata.items():
+        coldata[key]['collen'] = len(coldata[key]['head'])
+    return coldata
+
+
+def format_size(size):
     """
     Format a size in bytes as a sting Tib, Gib, Mib.
 
@@ -451,11 +500,127 @@ def _format_size(size):
         size_gb = size_mb/1024
         size_str = '%10.2f GiB' % size_gb
     else:
-        return size_str
+        return size_str.strip()
     if size_gb > 1024:
         size_tb = size_gb/1024
         size_str = '%10.2f TiB' % size_tb
     return size_str.strip()
+
+
+def get_length(val):
+    """
+    Return the length of the value of a variable.
+
+    Parameters
+    ----------
+    val:
+        The variable.
+
+    Returns
+    -------
+        int: the length
+    """
+    if isinstance(val, str):
+        return len(val)
+    if isinstance(val, int):
+        return len('%8s' % val)
+    if isinstance(val, float):
+        return len('%15.4f' % val)
+    if isinstance(val, bool):
+        return 5
+
+
+def get_value_data(struct, data):
+    """
+    Return the value and length of an attribute function of a struct.
+
+    Parameters
+    ----------
+    struct: dict
+        The data.
+    data: dict
+        The data structure.
+
+    Returns
+    -------
+        tuple:value and length
+    """
+    func = data['func']
+    value = '-'
+    if func is not None:
+        try:
+            val = getattr(struct, func)()
+        except Exception as e:
+            _logger.debug('Failed to collect %s: %s', func, str(e))
+            return '-', 1
+
+        if data['type'] == 'str':
+            value = data['convert'](val) if 'convert' in data else val
+        if data['type'] == 'int':
+            value = data['convert'](val) if 'convert' in data else val
+        if data['type'] == 'float':
+            value = data['convert'](val) if 'convert' in data else val
+        if data['type'] == 'list':
+            value = data['convert'](val[data['index']]) if 'convert' in data else val[data['index']]
+        if data['type'] == 'yesno':
+            value = get_yesno(val)
+        if data['type'] == 'bool':
+            value = data['convert'](val) if 'convert' in data else val
+        return value, get_length(value)
+    return None, 4
+
+
+def get_pool_state(state):
+    """
+    Canvert state id to state name.
+
+    Parameters
+    ----------
+    state: int
+        The state id
+
+    Returns
+    -------
+        str: the state name
+    """
+    pool_states = ['inactive',
+                   'initializing',
+                   'running',
+                   'degraded',
+                   'inaccessible']
+    return pool_states[state]
+
+
+def get_yesno(yesno):
+    """
+    Convert a yes/no id to yes/no string.
+
+    Parameters
+    ----------
+    yesno: int
+        The yes/no id
+
+    Returns
+    -------
+        str: [yes|no]
+    """
+    return 'yes' if yesno == 1 else 'no'
+
+
+def get_truefalse(truefalse):
+    """
+    Convert a bool to True or False string.
+
+    Parameters
+    ----------
+    truefalse: bool
+        true or false
+
+    Returns
+    -------
+        str: ['True'|'False']
+    """
+    return 'True' if truefalse else 'False'
 
 
 def _list_pool_vm(args):
@@ -471,93 +636,81 @@ def _list_pool_vm(args):
         No return value.
     """
     _logger.debug('_list_pool_vm')
-
-    pool_states = ['inactive',
-                   'initializing',
-                   'running',
-                   'degraded',
-                   'inaccessible']
-    yes_no = ['no',
-              'yes']
-
-    conn = libvirt.open(None)
-    try:
-        _sps = list()
-        if conn:
-            _sps = conn.listAllStoragePools()
-        else:
-            _logger.error('Failed to contact hypervisor')
-            raise ValueError('Failed to contact hypervisor.')
-    except Exception as e:
-        _logger.error('Failed to collect vm pool data: %s', str(e))
-        raise ValueError('Failed to collect vm pool data.') from e
-    finally:
-        conn.close()
-
-    if len(_sps) == 0:
-        _logger.info('No filesystem pools found.')
-        return
-
-    _cols = ['Name', 'UUID', 'Autostart', 'Active', 'Persistent', 'Volumes', 'State', 'Capacity', 'Allocation', 'Available']
-    _col_name = ['name', 'uuid', 'autostart', 'active', 'persistent', 'volumes', 'state', 'capacity', 'allocation', 'available']
-    _cols_len = list()
-    for col in _cols:
-        _cols_len.append(len(col))
-    _collen = { k:v for k, v in zip(_col_name, _cols_len)}
     #
-    # format data and determine optimal lenght of fields.
+    #
+    _data_struct = {'name':       {'head': 'Name',       'func': 'name',         'type': 'str'},
+                    'uuid':       {'head': 'UUID',       'func': 'UUIDString',   'type': 'str'},
+                    'autostart':  {'head': 'Autostart',  'func': 'autostart',    'type': 'yesno', 'convert': get_yesno},
+                    'active':     {'head': 'Active',     'func': 'isActive',     'type': 'yesno', 'convert': get_yesno},
+                    'persistent': {'head': 'Persistent', 'func': 'isPersistent', 'type': 'yesno', 'convert': get_yesno},
+                    'volumes':    {'head': 'Volumes',    'func': 'numOfVolumes', 'type': 'int'},
+                    'state':      {'head': 'State',      'func': 'info',         'type': 'list', 'index': 0, 'convert': get_pool_state},
+                    'capacity':   {'head': 'Capacity',   'func': 'info',         'type': 'list', 'index': 1, 'convert': format_size},
+                    'allocation': {'head': 'Allocation', 'func': 'info',         'type': 'list', 'index': 2, 'convert': format_size},
+                    'available':  {'head': 'Available',  'func': 'info',         'type': 'list', 'index': 3, 'convert': format_size},
+                    'type':       {'head': 'Type',       'func': None,           'type': 'str'}
+                    }
+    #
+    # get the pools
+    _sps_fs, _sps_netfs = _get_pools()
+    _sps = _sps_fs + _sps_netfs
+    if len(_sps) == 0:
+        _logger.info('No pools found.')
+        return
+    #
+    # initialise the column widths
+    _data_struct = initalise_column_lengths(_data_struct)
+    #
+    # column cantains only 'fs' or 'net fs'
+    _data_struct['type']['len'] = 6
+    #
+    # format data and determine optimal length of fields.
     pool_data = list()
     for _sp in _sps:
-        _sp_info = _sp.info()
         _sp_data = dict()
-        # name
-        _collen['name'] = max(len(_sp.name()), _collen['name'])
-        _sp_data['name'] = _sp.name()
-        # uuid
-        _collen['uuid'] = max(len(_sp.UUIDString()), _collen['uuid'])
-        _sp_data['uuid'] = _sp.UUIDString()
-        # autostart
-        _sp_data['autostart'] = yes_no[_sp.autostart()]
-        # active
-        _sp_data['active'] = yes_no[_sp.isActive()]
-        # persistent
-        _sp_data['persistent'] = yes_no[_sp.isPersistent()]
-        try:
-            # number of volumes
-            _sp_data['volumes'] = _sp.numOfVolumes()
-        except Exception as e:
-            _logger.debug('Unable to collect number of volumes: %s', str(e))
-            _sp_data['volumes'] = 0
-        # total capacity
-        _sp_data['capacity'] = _format_size(int(_sp_info[1]))
-        _collen['capacity'] = max(len(_sp_data['capacity']), _collen['capacity'])
-        # state
-        _sp_data['state'] = pool_states[_sp_info[0]]
-        _collen['state'] = max(len(_sp_data['state']), _collen['state'])
-        # allocated space
-        _sp_data['allocation'] = _format_size(int(_sp_info[2]))
-        _collen['allocation'] = max(len(_sp_data['allocation']), _collen['allocation'])
-        # available space
-        _sp_data['available'] = _format_size(int(_sp_info[3]))
-        _collen['available'] = max(len(_sp_data['available']), _collen['available'])
-        #
+        for key, value in _data_struct.items():
+            value_data = get_value_data(_sp, _data_struct[key])
+            _sp_data[key] = value_data[0]
+            val_length = value_data[1]
+            _data_struct[key]['collen'] = max(val_length, _data_struct[key]['collen'])
+        _sp_data['type'] = 'fs' if _sp in _sps_fs else 'net fs'
         pool_data.append(_sp_data)
-
+    #
+    # compose data
     _title = 'VM pool Information:'
     _columns = list()
-    for i in range(len(_cols)):
-        _columns.append([_cols[i], _collen[_col_name[i]] + 2, _col_name[i]])
-
+    for key, value in _data_struct.items():
+        _columns.append([value['head'], value['collen']+2, key])
+    #
     printerKlass = get_row_printer_impl(args.output_mode)
     printer = printerKlass(title=_title, columns=_columns)
     printer.printHeader()
-
+    #
+    # print
     for _sp in pool_data:
         printer.rowBreak()
         printer.printRow(_sp)
     printer.printFooter()
     printer.finish()
     return
+
+
+def verify_support():
+    """
+    Verify if the instance os and release are supported to run this code.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    ostype, majorrelease, _ = get_os_release_data()
+    if ostype not in ['ol', 'redhat', 'centos']:
+        _logger.info('OS type %s is not supported.', ostype)
+        return False
+    if majorrelease not in ['7']:
+        _logger.info('OS %s %s is not supported', ostype, majorrelease)
+        return False
+    return True
 
 
 def main():
@@ -569,6 +722,12 @@ def main():
         int
             0 on success, 1 otherwise.
     """
+    if not is_root_user():
+        _logger.error('This program needs to be run with root privileges')
+        sys.exit(1)
+    if not verify_support():
+        sys.exit(1)
+
     subcommands = {_create: create_vm,
                    _destroy: destroy_vm,
                    _create_pool: _create_pool_vm,

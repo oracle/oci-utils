@@ -19,6 +19,9 @@ usage
 show [-h|--help] [-C COMP|--compartments COMP] [-A|--all] [--output-mode MODE] [--details] [--no-truncate]
 
 .B oci-iscsi-config
+show-all [-h|--help] [--output-mode MODE]
+
+.B oci-iscsi-config
 create [-h|--help] [-S SIZE|--size SIZE] [-v NAME |--volume-name NAME] [--output-mode MODE] [--attach-volume ] [-c | --chap ]
 
 .B oci-iscsi-config
@@ -109,6 +112,15 @@ Display detailed information
 .TP
 .BI --no-truncate
 Do not truncate long values during output
+.RE
+.TP
+oci-iscsi-config show-all
+Show block storage information, shortcut for oci-iscsi-config show --all --details --no-truncate.
+.RS
+.TP
+.BI --output-mode={parsable,table,json,text}
+Display list of block volumes as table, using json format, simple text or using parsable output
+(default is table)
 .RE
 .TP
 oci-iscsi-config sync

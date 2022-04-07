@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.12.7
-Release: 1%{?dist}
+Version: 0.12.8
+Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -18,23 +18,35 @@ BuildRequires: systemd
 BuildRequires: python3-devel
 BuildRequires: python3-setuptools
 Requires: python3
-Requires: python3-daemon
-Requires: python3-sdnotify
+#
 Requires: xfsprogs
 Requires: cloud-utils-growpart
 # for lsblk
 Requires: util-linux
 # for iscsiadm
 Requires: iscsi-initiator-utils
-Requires: python36-oci-sdk
+#
+%if 0%{?rhel} == 9
+Requires: python39-oci-sdk
+Requires: python3-netaddr
+Requires: python3-daemon
+Requires: python3-sdnotify
+%endif
+#
+%if 0%{?rhel} == 8
+Requires: network-scripts
+Requires: python3-netaddr
+Requires: python3-daemon
+Requires: python3-sdnotify
+%endif
 #
 %if 0%{?rhel} == 7
 Requires: python36-netaddr
-%else
-Requires: network-scripts
-Requires: python3-netaddr
+Requires: python36-oci-sdk
+Requires: python3-daemon
+Requires: python3-sdnotify
 %endif
-
+#
 %description
 A package with useful scripts for querying/validating the state of Oracle Cloud Infrastructure instances running Oracle Linux and facilitating some common configuration tasks.
 
@@ -42,10 +54,16 @@ A package with useful scripts for querying/validating the state of Oracle Cloud 
 Summary: Utilitizes for managing virtualization in Oracle Cloud Infrastructure
 Group: Development/Tools
 Requires: %{name} = %{version}-%{release}
-
-%if 0%{?rhel} >= 8
+#
+%if 0%{?rhel} == 9
 Requires: python3-libvirt
-%else
+%endif
+#
+%if 0%{?rhel} == 8
+Requires: python3-libvirt
+%endif
+#
+%if 0%{?rhel} == 7
 Requires: python36-libvirt
 %endif
 
@@ -66,14 +84,25 @@ Requires: util-linux
 Requires: parted
 Requires: bind-utils
 Requires: qemu-img >= 15:2.12
-# for upload and import
-Requires: python36-oci-cli
-%if 0%{?rhel} == 7
-Requires: python36-pyyaml
-%else
+#
+%if 0%{?rhel} == 9
+Requires: python3
+Requires: python39-oci-cli
 Requires: python3-pyyaml
-Requires: python36
 %endif
+#
+%if 0%{?rhel} == 8
+Requires: python3
+Requires: python36-oci-cli
+Requires: python3-pyyaml
+%endif
+#
+%if 0%{?rhel} == 7
+Requires: python36
+Requires: python36-pyyaml
+Requires: python36-oci-cli
+%endif
+#
 %description migrate
 Utilities for migrating on-premise guests to Oracle Cloud Infrastructure.
 
@@ -176,6 +205,18 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Wed Mar 30 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.7-3
+- spec file fixed for ol9 builds of oci-kvm and oci-migrate
+- tests for instance distribution and version
+
+* Wed Mar 09 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.7-2
+- LINUX-11994 oci-utils for OL9
+- adjust oci-kvm guest test
+- show-all option for oci-iscsi-config
+- LINUX-12111 oci-public-ip (oci-utils) does not show the reason why no public ip's are returned.
+- LINUX-12119 oci-public-ip does not have the correct ordering in "primary on top"
+- update oci-kvm
+
 * Wed Feb 16 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.7-1
 - LINUX-12109 Local iSCSI info not available" after running oci-iscsi-config sync
 - LINUX-12114 oci-utils help info contains ref to python main module iso the command

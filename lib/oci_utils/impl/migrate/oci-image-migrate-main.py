@@ -221,6 +221,51 @@ def qemu_img_version():
     return 0
 
 
+def get_os_release_data():
+    """
+    Collect information on the linux operating system and release.
+    Currently is only able to handle linux type os.
+
+    Returns
+    -------
+        ostype: str
+            The os type
+        major_release: str
+            the major release
+        dict: Dictionary containing the os and version data on success,
+            None otherwise.
+    """
+    osdata = '/etc/os-release'
+    try:
+        with open(osdata, 'r') as f:
+            osreleasedata = [line.strip() for line in f.read().splitlines() if '=' in line]
+        osdict = dict([re.sub(r'"', '', kv).split('=') for kv in osreleasedata])
+    except Exception as e:
+        return None, None, None
+    os_type = osdict['ID']
+    major_release = re.split('\\.', osdict['VERSION_ID'])[0]
+
+    return os_type, major_release, osdict
+
+
+def verify_support():
+    """
+    Verify if the instance os and release are supported to run this code.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    ostype, majorrelease, _ = get_os_release_data()
+    if ostype not in ['ol', 'redhat', 'centos']:
+        _logger.info('OS type %s is not supported.', ostype)
+        return False
+    if majorrelease not in ['7', '8']:
+        _logger.info('OS %s %s is not supported', ostype, majorrelease)
+        return False
+    return True
+
+
 def main():
     """
     Main
@@ -248,6 +293,10 @@ def main():
         _logger.debug('User is root.')
     else:
         exit_with_msg('  *** ERROR *** This program needs to be run with root privileges.')
+    #
+    # Verify if instance is supported to run this code.
+    if not verify_support():
+        sys.exit(1)
     #
     # Verbose mode is False by default
     migrate_data.verbose_flag = args.verbose_flag

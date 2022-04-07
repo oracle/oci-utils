@@ -9,6 +9,17 @@ include libexec/oci-kvm-upgrade
 include libexec/oci-kvm-config.sh
 include libexec/oci-kvm-network-script
 include tests/*.py
+include tests/data/*.cfg
+include tests/data/tests/createattachdetachattachdetachdestroy/*.cfg
+include tests/data/tests/test_cli_kvm/*.cfg
+include tests/data/tests/test_cli_network_config/*.cfg
+include tests/data/tests/test_cli_network_config_attach/*.cfg
+include tests/data/tests/test_cli_network_config_configure/*.cfg
+include tests/data/tests/test_exec_helpers/*.cfg
+include tests/data/tests/test_exec_ocid/*.cfg
+include tests/data/tests/test_iscsiadm/*.cfg
+include tests/data/tests/test_network_helpers/*.cfg
+include tests/data/tests/test_oci_notify/*.cfg
 include data/*.service
 include data/oci-image-cleanup.conf
 include data/00-oci-utils.conf
@@ -22,5 +33,7 @@ include tools/build_image/scripts/*
 include tools/build_image/templates/*
 include tools/build_image/Makefile
 include tools/build_image/README.md
+include tools/*.py
+include tools/execution/*
 include buildrpm/*.spec
 include man/man?/*.[158]
