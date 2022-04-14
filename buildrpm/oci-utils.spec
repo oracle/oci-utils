@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.12.8
-Release: 0%{?dist}
+Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -36,6 +36,7 @@ Requires: python3-sdnotify
 %if 0%{?rhel} == 8
 Requires: network-scripts
 Requires: python3-netaddr
+Requires: python36-oci-sdk
 Requires: python3-daemon
 Requires: python3-sdnotify
 %endif
@@ -205,6 +206,9 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Thu Apr 14 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.8-1
+- fixed oci-public-ip all flag: removed
+
 * Wed Mar 30 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.7-3
 - spec file fixed for ol9 builds of oci-kvm and oci-migrate
 - tests for instance distribution and version
