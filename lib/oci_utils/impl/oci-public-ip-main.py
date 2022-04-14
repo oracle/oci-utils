@@ -57,7 +57,8 @@ def parse_args():
                         help="display details information")
     parser.add_argument('-a', '--all',
                         action='store_true',
-                        help='list all of the public IP addresses for the instance.')
+                        # help='list all of the public IP addresses for the instance.')
+                        help = argparse.SUPPRESS)
     parser.add_argument('-s', '--sourceip',
                         action='store',
                         default="0.0.0.0",
@@ -92,10 +93,10 @@ def _display_ip_list(ip_list, displayALL, outputMode, displayDetails):
       displayDetails : display detailed information ?
     """
 
+    _sorted_list_of_pubips = sorted(ip_list, key=lambda ip: ip['primary'], reverse=True)
     if displayALL:
         _ip_list_to_display = ip_list
     else:
-        # We assume that primary is the first one and we want to display only it
         _ip_list_to_display = ip_list[:1]
 
     _collen = {'ipaddress': len('IP Address'),
@@ -136,7 +137,7 @@ def _display_ip_list(ip_list, displayALL, outputMode, displayDetails):
 
     _printer = printerKlass(title=_title, columns=_columns)
     _printer.printHeader()
-    _sorted_list_of_pubips = sorted(_ip_list_to_display, key=lambda ip: ip['primary'], reverse=True)
+    # _sorted_list_of_pubips = sorted(_ip_list_to_display, key=lambda ip: ip['primary'], reverse=True)
     for _ip in _sorted_list_of_pubips:
         _printer.printRow(_ip)
     _printer.printFooter()
@@ -201,7 +202,7 @@ def main():
                            'vnic_ocid': v.get_ocid()} for v in _instance.all_vnics() if v.get_public_ip()]
             stun_log.debug('%s ips retrieved from sdk information', len(_all_p_ips))
             if len(_all_p_ips) == 0:
-                stun_log.info('No public ip addresses found from OCI, falling back to the stun servers.')
+                # stun_log.info('No public ip addresses found from OCI, falling back to the stun servers.')
                 _instance=None
         except Exception as e:
             stun_log.info('Instance is missing privileges to collect ip data from OCI, '
@@ -247,7 +248,8 @@ def main():
         for ip in _all_p_ips:
             print('%16s' % ip['ip'])
     else:
-        _display_ip_list(_all_p_ips, args.all, args.output_mode, args.details)
+        # _display_ip_list(_all_p_ips, args.all, args.output_mode, args.details)
+        _display_ip_list(_all_p_ips, True, args.output_mode, args.details)
 
     return 0
 
