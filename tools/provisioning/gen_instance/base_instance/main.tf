@@ -77,6 +77,11 @@ variable "source_type" {
   type = string
 }
 
+variable "boot_volume_size_in_gbs" {
+  description = "size of boot volume in GBits"
+  type = number
+}
+
 variable "instance_display_name" {
   description = "instance display name."
   type = string
@@ -156,7 +161,8 @@ resource "oci_core_instance" "test_instance" {
   source_details {
     source_type = var.source_type
     source_id   = var.source_ocid
-  }
+    boot_volume_size_in_gbs = var.boot_volume_size_in_gbs
+}
 
   preserve_boot_volume = false
 

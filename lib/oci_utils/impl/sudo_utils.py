@@ -145,15 +145,13 @@ def call_popen_output(cmd, log_output=True):
     """
     _c = _prepare_command(cmd)
     try:
-        p = subprocess.Popen(' '.join(_c), shell=True, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
+        p = subprocess.Popen(' '.join(_c), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return p.communicate()[0]
     except OSError:
         return 404
     except subprocess.CalledProcessError as e:
         if log_output:
             if _logger.isEnabledFor(logging.DEBUG):
-                # pylint: disable=logging-not-lazy,logging-format-interpolation
                 _logger.debug("Error executing {}: {}\n{}\n".format(_c, e.returncode, e.output))
         return None
 
@@ -250,7 +248,7 @@ def create_file(path, mode=None):
         The return code fo the cat(1) command.
     """
     _logger.debug("Creating file : %s", path)
-    res = call([TOUCH_CMD,  path])
+    res = call([TOUCH_CMD, path])
     if res == 0 and mode is not None:
         res = set_file_mode(path, mode)
     return res

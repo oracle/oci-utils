@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -12,7 +12,11 @@ export no_proxy=169.254.169.254,.oraclecloud.com
 #
 CREATEINSTANCEPY=bin/create_instance.py
 CREATEINSTANCESH=bin/create_instance
-BINARIES=$(CREATEINSTANCEPY) $(CREATEINSTANCESH)
+MODIFYINSTANCEPY=bin/modify_instance.py
+MODIFYINSTANCESH=bin/modify_instance
+OCIGPY=bin/ocig.py
+OCIGSH=bin/ocig
+BINARIES=$(CREATEINSTANCEPY) $(CREATEINSTANCESH) $(MODIFYINSTANCEPY) $(MODIFYINSTANCESH) $(OCIGPY) $(OCIGSH)
 
 BASEDATATF=base_instance/data.tf
 BASEMAINTF=base_instance/main.tf
@@ -20,11 +24,13 @@ BASEOUTPUTTF=base_instance/output.tf
 BASES=$(BASEDATATF) $(BASEMAINTF) $(BASEOUTPUTTF)
 
 TFAPITF=tf_scripts/api_key.tf
+TFRSA=tf_scripts/rsa_key.tf
+TFRSAPUB=tf_scripts/rsa_pub_key.tf
 TFDATATF=tf_scripts/data.tf
 TFMAINTF=tf_scripts/main.tf
 TFVERSION=tf_scripts/version.tf
 TFOUTPUTTF=tf_scripts/output.tf
-TFSCRIPTS=$(TFAPITF) $(TFDATATF) $(TFMAINTF) $(TFVERSION) $(TFOUTPUTTF)
+TFSCRIPTS=$(TFAPITF) $(TFDATATF) $(TFMAINTF) $(TFVERSION) $(TFOUTPUTTF) $(TFRSA) $(TFRSAPUB)
 
 INITIALSCRIPT=gen_scripts/initial_config.sh
 SHSCRIPTS=$(INITIALSCRIPT)
@@ -33,7 +39,7 @@ SHSCRIPTS=$(INITIALSCRIPT)
 FILELIST=Makefile README.md $(BINARIES) $(BASES) $(TFSCRIPTS) $(SHSCRIPTS)
 #
 TARGET=create_instance
-VERSION=0.13_Dec_23_2021
+VERSION=0.14_May_05_2022
 WRITE=@echo
 CREATETAR=tar -cjvf
 EXPANDTAR=tar -xjvf
@@ -71,6 +77,8 @@ show_version:
 #
 # create tarball
 tarball:
+	$(WRITE) $(BINARIES)
+	$(WRITE) $(FILELIST)
 	$(CREATETAR) $(TARBALL) $(FILELIST)
 #
 # create directories

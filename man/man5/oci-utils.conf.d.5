@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tascii oci-utils.conf.d.5
 .\"
-.\" Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
+.\" Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 .\"
 .TH OCI-UTILS-CONF-D 5 "MAY 2018" Linux "User Manuals"
 .SH NAME
@@ -13,9 +13,12 @@ oci-utils can be configured using configuration files in the
 .I /etc/oci-utils.conf.d
 directory.  The oci-utils package installs a file called
 .I 00-oci-utils.conf
-in this directory.  This file lists all configuration options and explains their use.  All setting are commented out using a semicolon at the start of the line.  You can change the oci-utils configuration by uncommenting a setting and changing its value, however, it is better practice to create a new configuration file in
+in this directory.  This file lists all configuration options and explains their use.  All setting are commented out
+using a semicolon at the start of the line.  You can change the oci-utils configuration by uncommenting a setting
+and changing its value, however, it is better practice to create a new configuration file in
 .I /etc/oci-utils.conf.d
-that contains the changed configration setting only and comments that explain why the change was made.  The new file must include the section header (e.g. [vnic]) above the changed configuration setting.
+that contains the changed configuration setting only and comments that explain why the change was made.  The
+new file must include the section header (e.g. [vnic]) above the changed configuration setting.
 
 Configuration files in
 .I /etc/oci-utils.conf.d

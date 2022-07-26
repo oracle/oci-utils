@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -35,9 +35,6 @@ class OCIAPIAbstractResource:
         self._oci_session = session
         # While doing recursive things we may have to instantiate simple dict as OCIAPIAbstractResource
         # in that case we do not have 'id'.
-        #
-        # GT
-        # self._ocid = self._data['id']
         self._ocid = getattr(self._data, 'id', None)
 
     def __dict__(self):
@@ -57,8 +54,7 @@ class OCIAPIAbstractResource:
 
         Returns
         -------
-            str
-                The OCID.
+            str: The OCID.
         """
         return self._ocid
 
@@ -80,9 +76,6 @@ class OCIAPIAbstractResource:
                   TERMINATED,
                   UNKNOWN_ENUM_VALUE
         """
-        #
-        # GT
-        # return self._data['lifecycle_state']
         return self._data.lifecycle_state
 
     def _get_dict_recursive(self):
@@ -91,8 +84,7 @@ class OCIAPIAbstractResource:
 
         Returns
         -------
-            dict
-                The recursive object dictionary.
+            dict: The recursive object dictionary.
         """
         try:
             data_dict = {}
@@ -115,7 +107,7 @@ class OCIAPIAbstractResource:
                     data_dict[key] = value
             return data_dict
         except Exception as e:
-            OCIAPIAbstractResource._logger.debug('error processing dict recursive: %s', str(e), stack_info=True)
+            OCIAPIAbstractResource._logger.debug('Error processing dict recursive: %s', str(e), stack_info=True)
             return None
 
     def get_display_name(self):
@@ -124,11 +116,8 @@ class OCIAPIAbstractResource:
 
         Returns
         -------
-            str
-                The display name.
+            str: The display name.
         """
-        # GT
-        # return self._data['display_name']
         return self._data.display_name
 
     def get_availability_domain_name(self):
@@ -137,12 +126,8 @@ class OCIAPIAbstractResource:
 
         Returns
         -------
-            str
-                The domain name.
+            str: The domain name.
         """
-        #
-        # GT
-        # return self._data['availability_domain']
         return self._data.availability_domain
 
     def get_compartment_id(self):
@@ -151,12 +136,9 @@ class OCIAPIAbstractResource:
 
         Returns
         -------
-            str
-                The compartment id
+            str: The compartment id
         """
         #
-        # GT
-        # return self._data['compartment_id']
         return self._data.compartment_id
 
     def get_compartment(self):
@@ -165,12 +147,9 @@ class OCIAPIAbstractResource:
 
         Returns
         -------
-            str
-                The compartment id.
+            str: The compartment id.
         """
         #
-        # GT
-        # return self._oci_session.get_compartment(ocid=self._data['compartment_id'])
         return self._oci_session.get_compartment(ocid=self._data.compartment_id)
 
     def __str__(self):

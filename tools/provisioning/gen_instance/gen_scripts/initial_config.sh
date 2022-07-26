@@ -60,11 +60,24 @@ if [ "${OSTYPE}" = "ol" ] || [ "${OSTYPE}" = "fedora" ] || [ "${OSTYPE}" = "redh
     ${SUDO} --login ${installrpm} repolist 2>&1 >> ${INITIALLOG}
     RET=${?}
   done
-  ${SUDO} --login ${installrpm} --assumeyes install tree strace tmux iotop psmisc net-tools 2>&1 >> ${INITIALLOG}
+  ${SUDO} --login ${installrpm} --assumeyes install tree strace tmux iotop psmisc net-tools git traceroute 2>&1 >> ${INITIALLOG}
+  RPMLIST=("python3-pip" "python3-setuptools" "python3-wheel" "python3-netaddr" "python3-daemon" "python3-sdnotify" )
+  for rpmpack in "${RPMLIST[@]}"
+  do
+    RET=1
+    # while [ ${RET} -ne 0 ]
+    # do
+      sleep 5
+      echo ${rpmpack}
+      ${SUDO} --login ${installrpm} --assumeyes install ${rpmpack} 2>&1 >> ${INITIALLOG}
+      RET=${?}
+    # done
+  done
+  ${SUDO} --login ${installrpm} --assumeyes install  git python3-pip python3-setuptools python3-wheel python3-netaddr python3-daemon python3-sdnotify traceroute 2>&1 >> ${INITIALLOG}
 elif [ "${OSTYPE}" = "debian" ] || [ "${OSTYPE}" = "ubuntu" ]; then
   installdeb=$(which apt)
   installdebprox="https_proxy=${HTTP_PROXY} http_proxy=${HTTP_PROXY} ${installdeb}"
-  APTLIST=( "tree" "strace" "tmux" "iotop" "psmisc" "net-tools" "git" "python3-pip" "python3-setuptools" "python3-wheel" "python3-netaddr" "python3-daemon" "python3-sdnotify")
+  APTLIST=( "tree" "strace" "tmux" "iotop" "psmisc" "net-tools" "git" "python3-pip" "python3-setuptools" "python3-wheel" "python3-netaddr" "python3-daemon" "python3-sdnotify" "traceroute")
   PIPLIST=( "cryptography" "oci")
   RET=1
   while [ ${RET} -ne 0 ]

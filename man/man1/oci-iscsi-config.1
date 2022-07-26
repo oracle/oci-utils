@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tascii oci-iscsi-config.1
 .\"
-.\" Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
+.\" Copyright (c) 2017, 2022 Oracle and/or its affiliates. All rights reserved.
 .\" Licensed under the Universal Permissive License v 1.0 as shown
 .\" at http://oss.oracle.com/licenses/upl.
 .\"
@@ -33,6 +33,38 @@ detach [-h|--help] [-I IQNS|--iqns IQNS] [-f | --force]
 .B oci-iscsi-config
 destroy [-h|--help] [-O OCIDS |--ocids OCIDS] [-y | --yes]
 
+.SH INSTALLATION and AUTHORIZATION
+
+.B oci-network-config
+requires the services of the python
+.B oci-sdk
+package.
+
+
+The
+.B oci-utils
+package has a dependency on the
+.B oci-sdk
+package and the correct version of the python
+.B oci-sdk
+package is installed at
+.B oci-utils
+install time.
+
+To use the Oracle Cloud Infrastructure services authorization is required. One option is direct authentication via a
+config file.  See https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
+for more information.
+
+.B oci-utils
+can be configured to allow root to use a non-privileged user's Oracle Cloud Infrastructure configuration files.
+
+Another option for authorizing the use of Oracle Cloud Infrastructure services from an instance is
+using Instance Principals.  The Oracle Cloud Infrastructure SDK does not need configuration on the
+instance when the instance is part of a dynamic group that was granted access
+to Oracle Cloud Infrastructure services.
+See https://docs.us-phoenix-1.oraclecloud.com/Content/Identity/Tasks/callingservicesfrominstances.htm for further details.
+
+
 .SH DESCRIPTION
 The
 .B oci-iscsi-config
@@ -49,11 +81,12 @@ must be run with root privileges, either as user root or using
 
 While
 .B oci-iscsi-config
-can be run by itself, it works best in conjunction with
-.BR ocid(8).
-When
+can be run by itself, it works best in conjunction with the
 .BR ocid(8)
-is running, it keeps track of iSCSI devices and caches the information for
+service.
+When the
+.BR ocid(8)
+service is running, it keeps track of iSCSI devices and caches the information for
 .B oci-iscsi-config,
 which is then able to display all information without root privileges.
 It also attaches/detaches devices automatically if they do not require
@@ -66,59 +99,29 @@ instance.  The second version of the command can be used to create a new Oracle 
 assign it to the instance without the use of the Web-based Oracle Cloud Infrastructure Console,
 or to destroy a volume that is not attached to any instances.
 
-To install the Oracle Cloud Infrastructure Python SDK, use the appropriate install command:
-.PP
-.nf
-.RS
-yum install python36-oci-sdk
-.RE
-.fi
-.PP
-or
-.PP
-.nf
-.RS
-dnf install python36-oci-sdk
-.RE
-.fi
-.PP
-or
-See https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
-for more information.
-
-Another option for authorizing the use of Oracle Cloud Infrastructure services from an instance is
-using Instance Principals.  The Oracle Cloud Infrastructure SDK does not need configuration on the
-instance when the instance is part of a dynamic group that was granted access
-to Oracle Cloud Infrastructure services.  See https://docs.us-phoenix-1.oraclecloud.com/Content/Identity/Tasks/callingservicesfrominstances.htm for further details.
 
 .TP
 oci-iscsi-config show
 Show block storage information
 .RS
-.TP
-.BI -C,--compartments=COMP
+.IP -C,--compartments=COMP
 Display iSCSI devices in the given comma separated list of comparment(s) or
 all compartments if COMP is "all".
-.TP
-.BI -A,--all
+.IP -A,--all
 Display all iSCSI devices. By default only devices that are not attached to an instance are listed.
-.TP
-.BI --output-mode={parsable,table,json,text}
+.IP --output-mode={parsable,table,json,text}
 Display list of block volumes as table, using json format, simple text or using parsable output
 (default is table)
-.TP
-.BI --details
+.IP --details
 Display detailed information
-.TP
-.BI --no-truncate
+.IP --no-truncate
 Do not truncate long values during output
 .RE
 .TP
 oci-iscsi-config show-all
 Show block storage information, shortcut for oci-iscsi-config show --all --details --no-truncate.
 .RS
-.TP
-.BI --output-mode={parsable,table,json,text}
+.IP --output-mode={parsable,table,json,text}
 Display list of block volumes as table, using json format, simple text or using parsable output
 (default is table)
 .RE
@@ -130,11 +133,9 @@ service failed. An
 .BR ocid --refresh iscsi
 operation is always executed.
 .RS
-.TP
-.BI -a,--apply
+.IP -a,--apply
 Perform needed operation, not just list them
-.TP
-.BI -y,--yes
+.IP -y,--yes
 Assume 'yes' to all questions
 .RE
 .TP
@@ -144,17 +145,13 @@ Display usage
 oci-iscsi-config create
 Creates a block volume
 .RS
-.TP
-.BI -S,--size=SIZE
+.IP -S,--size=SIZE
 Size of the block volume to create in GB
-.TP
-.BI -v,--volume-name=VOLUME_NAME
+.IP -v,--volume-name=VOLUME_NAME
 Name of the block volume to create
-.TP
-.BI --attach-volume
+.IP --attach-volume
 Attach the volume after creation
-.TP
-.BI -c,--chap
+.IP -c,--chap
 Attach the volume with 'Require Chap Credentials' flag
 .RE
 .TP
@@ -167,17 +164,13 @@ volumes  using  their  OCID.   This  option can be used multiple
 times to attach multiple devices at  the  same  time.   Requires
 root privileges.
 .RS
-.TP
-.BI -I,--iqns=IQNS
+.IP -I,--iqns=IQNS
 Comma separated list of OCID(s) or IQN(s) of the iSCSI devices to be attached
-.TP
-.BI -u,--username=USER
+.IP -u,--username=USER
 Use USER as the user name when attaching a device that requires CHAP authentication
-.TP
-.BI -p,--password=PASSWORD
+.IP -p,--password=PASSWORD
 Use PASSWD as the password when attaching a device that requires CHAP authentication
-.TP
-.BI -c,--chap
+.IP -c,--chap
 Attach the volume with 'Require Chap Credentials' flag
 .RE
 .TP
@@ -188,11 +181,9 @@ attempt  to  unmount  it  first.  This option can be used
 multiple times to detach multiple  devices  at  the  same
 time. Requires root privileges.
 .RS
-.TP
-.BI -I,--iqns=IQNS
+.IP -I,--iqns=IQNS
 Comma separated list of OCID(s) of the iSCSI devices to be detached
-.TP
-.BI -f,--force
+.IP -f,--force
 Continue detaching even if device cannot be unmounted
 .RE
 .TP
@@ -201,11 +192,9 @@ Destroy the block storage volume  with  the  given  OCID.
 Warning: this is irreversible.  The volume must not be
 attached to any instances.
 .RS
-.TP
-.BI -O,--ocids=OCIDS
+.IP -O,--ocids=OCIDS
 OCID(s) of volumes to be destroyed
-.TP
-.BI -y,--yes
+.IP -y,--yes
 Assume yes, otherwise be interactive
 
 

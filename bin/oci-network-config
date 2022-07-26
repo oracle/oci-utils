@@ -8,6 +8,7 @@
 # Infrastructure instances.  See the manual page for more information.
 
 _PY3=/usr/bin/python3
+_PY_CMD=oci_network_config_main.py
 s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
 
 declare COMMAND
@@ -36,10 +37,10 @@ then
   if [ $# -eq 0 ]
   then
    # former behavior : no option means '--show'
-   exec ${_PY3} ${s_dir}/oci-network-config-main.py show --compat-output
+   exec ${_PY3} ${s_dir}/${_PY_CMD} show --compat-output
   fi
    # execute as is as the command line do not start with an option dash-<something>
-   exec ${_PY3} ${s_dir}/oci-network-config-main.py $@
+   exec ${_PY3} ${s_dir}/${_PY_CMD} $@
 fi
 
 
@@ -195,12 +196,12 @@ fi
 
 if [ $post_operation_show -eq 1  ]
 then
-  ${_PY3} ${s_dir}/oci-network-config-main.py $COMMAND ${cmd_line}
+  ${_PY3} ${s_dir}/${_PY_CMD} $COMMAND ${cmd_line}
   # print things as we used to do : include system interface as table , vnic as list etc..
   if [ $? -eq 0 ]
   then
-     exec ${_PY3} ${s_dir}/oci-network-config-main.py show --compat-output
+     exec ${_PY3} ${s_dir}/${_PY_CMD} show --compat-output
   fi
 else
-  exec ${_PY3} ${s_dir}/oci-network-config-main.py $COMMAND ${cmd_line}
+  exec ${_PY3} ${s_dir}/${_PY_CMD} $COMMAND ${cmd_line}
 fi

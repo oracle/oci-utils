@@ -197,7 +197,9 @@ Use the following methods for creating/destroying OCI artifacts:
 
 * new VNIC: OCIInstance.attach_vnic()
 
-* new Private IP: OCIVNIC.add_private_ip()
+* new Private IPv4: OCIVNIC.add_private_ipv4()
+
+* new Private IPv6: OCIVNIC.add_private_ipv6()
 
 * delete Private IP: OCIPrivateIP.delete()
 

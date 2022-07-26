@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# Copyright (c) 2017, 2022 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+
+
+# utility assists with configuring iscsi storage on Oracle Cloud
+# Infrastructure instances.  See the manual page for more information.
+
+
+_PY3=/usr/bin/python3
+s_dir=${HOME}/bin
+
+
+exec ${_PY3}  ${s_dir}/create_guest_vm.py "$@"

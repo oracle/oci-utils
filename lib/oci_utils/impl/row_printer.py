@@ -14,6 +14,18 @@ _logger = logging.getLogger("oci-utils.row_printer")
 
 
 def get_row_printer_impl(mode):
+    """
+    Get the printer type to be called.
+
+    Parameters
+    ----------
+    mode: str
+        [table|parsable|json|csv|html|text|compat]
+
+    Returns
+    -------
+        str: the printer name.
+    """
     if mode == 'table':
         return TablePrinter
     if mode == 'parsable':
@@ -56,7 +68,7 @@ class ColumnsPrinter:
                                 be called with columns name as first argument and object as passed to printRow()
                         ex: (['name',10,'getName'])
                            This will produce a column of 10 characters width.
-                           'getName' method will be called on each objects passed to printRow()
+                           'getName' method will be called on each object passed to printRow()
                         ex:  (['foo',10, bar])
                             a call to printRow(o) produce a call to bar('foo',o)
         """
@@ -86,17 +98,17 @@ class ColumnsPrinter:
         self.printer = kargs.get('printer', sys.stdout)
 
     def printHeader(self):
-        """ Prints the header of the array, depend of the implementation
+        """ Prints the header of the array, depending upon the implementation
         """
 
     def printRow(self, o):
         """
         Prints a new row
         o can be an arbitrary instance on which all columns attribute will be called
-        if o is an dictionary columns attribute are used as key of the dictionary
+        if o is a dictionary columns attribute are used as key of the dictionary
         if o is a list all elements' string representation will be printed in order
         if o is an instance, defined callback or attribute will be called
-        depend of the implementation
+        depending upon the implementation
         """
 
     def rowBreak(self):
@@ -107,14 +119,14 @@ class ColumnsPrinter:
     def printKeyValue(self, attrName, attrValue):
         """
         static method to print a key value pair
-        depend of the implementation
+        depending upon the implementation
         """
         print("%s%c %s" % (attrName, ColumnsPrinter._DEFAULT_SEP, attrValue), file=self.printer)
 
     def printFooter(self):
         """
         prints the footer of the array
-        depend of the implementation
+        depending upon the implementation
         """
 
     def finish(self):
@@ -125,7 +137,7 @@ class ColumnsPrinter:
     def _getValueForColumn(self, columnIdx, _object):
         """
         Common helper to be used by subclass to fetch the value
-        to be printed for a given column from a object pass
+        to be printed for a given column from an object pass
         :param columnIdx: current column index
         :param _object: Object as accepted by printRow
         raise LookupError is value cannot be found
@@ -133,7 +145,7 @@ class ColumnsPrinter:
         If current column attribute is a function , call it with _object
         If _object is a list or a tuple, returns the columnIdx'th element of it
         If _object is a dictionary, returns the value associated with key defined in column attribute
-        If _object is a Object
+        If _object is an Object
            If corresponding column attribute define a callback, returns result of cb being called on that object
            If corresponding column attribute define a method name, returns result of this Object method
         """
@@ -148,7 +160,8 @@ class ColumnsPrinter:
                 raise LookupError("Error calling callback [%s] in obj %s: %s"
                                   % (_columnAttr, _object, e.args[0])) from e
 
-        if isinstance(_object, list) or isinstance(_object, tuple):
+        # if isinstance(_object, list) or isinstance(_object, tuple):
+        if isinstance(_object, (list, tuple)):
             #
             # list case : return the columnIdx'th element
             if len(_object) <= columnIdx:
@@ -222,8 +235,8 @@ class TablePrinter(ColumnsPrinter):
         cellValue_s = str(cellValue)
         if cellWidth > 0:
             # cellWidth - 4 : '...'
-            if self.text_truncate and len(cellValue_s) > cellWidth:
-                return '%s...' % cellValue_s[:cellWidth - 3]
+            if self.text_truncate and len(cellValue_s) > cellWidth-2:
+                return ' %s... ' % cellValue_s[:cellWidth - 5]
             # enough place: we just center it
             return cellValue_s.center(cellWidth)
         return cellValue_s
@@ -262,6 +275,8 @@ class TablePrinter(ColumnsPrinter):
 
 
 class ParsableTextPrinter(TablePrinter):
+    """Parsable text printer
+    """
     _COLUMN_SEP = "#"
     _MISSING_ATTR = ''
 
@@ -283,12 +298,16 @@ class ParsableTextPrinter(TablePrinter):
 
 
 class CSVPrinter(ParsableTextPrinter):
+    """CSV printer, not implemented
+    """
     def __init__(self, **kargs):
         ParsableTextPrinter.__init__(self, **kargs)
         self.columnsSeparator = ';'
 
 
 class JSONPrinter(ColumnsPrinter):
+    """ JSON printer
+    """
     def __init__(self, **kargs):
         ColumnsPrinter.__init__(self, **kargs)
         self.jsonArray = []
@@ -316,7 +335,8 @@ class JSONPrinter(ColumnsPrinter):
 
 
 class HtmlPrinter(ColumnsPrinter):
-
+    """ HTML, not implemented
+    """
     def printHeader(self):
         _buffer = StringIO()
         _buffer.write('<HTML>\n')
@@ -385,6 +405,7 @@ class HtmlPrinter(ColumnsPrinter):
             vals.append(newCell)
 
         self._printElements(vals)
+        return 1
 
     def _printElements(self, strlist):
         """

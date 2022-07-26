@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -25,7 +25,7 @@ def get_phys_device():
         The primary ethernet device name.
     """
     try:
-        # TODO : it seesm that it is private_ip now
+        # TODO : it seems that it is private_ip now
         private_ip = InstanceMetadata().refresh()['vnics'][0]['privateIp']
     except Exception as e:
         _logger.debug('error checking metadata: %s', str(e))

@@ -364,7 +364,7 @@ if sys.version_info.major < 3:
 
 setup(
     name="oci-utils",
-    version="0.12.8",
+    version="0.14.0",
     author="Laszlo Peter, Qing Lin, Guido Tijskens, Emmanuel Jannetti",
     author_email="laszlo.peter@oracle.com, qing.lin@oracle.com, guido.tijskens@oracle.com, emmanuel.jannetti@oracle.com",
     description="Oracle Cloud Infrastructure utilities",
@@ -429,6 +429,7 @@ setup(
                 #(os.path.join("/opt", "oci-utils", "tests", "automation"), get_content(get_reloc_path('tests/automation'), '*')),
                 ],
     scripts=['bin/oci-public-ip',
+             'bin/oci-show-config',
              'bin/oci-metadata',
              'bin/oci-iscsi-config',
              'bin/oci-network-config',

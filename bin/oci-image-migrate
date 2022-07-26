@@ -9,7 +9,8 @@
 # Infrastructure instances.  See the manual page for more information.
 
 _PY3=/usr/bin/python3
+_PY_CMD=oci_image_migrate_main.py
 s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
 
 
-exec ${_PY3}  ${s_dir}/migrate/oci-image-migrate-main.py "$@"
+exec ${_PY3}  ${s_dir}/migrate/${_PY_CMD} "$@"
