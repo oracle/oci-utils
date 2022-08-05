@@ -38,6 +38,13 @@ SUBNET_PREFIX = ['ocid1.subnet.oc']
 VNIC_PREFIX = ['ocid1.vnic.oc']
 
 
+class NameWithSpaces(argparse.Action):
+    """    Handle argparse arguments containing spaces.
+    """
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, " ".join(values))
+
+
 def def_show_parser(s_parser):
     """
     Define the show subparser.
@@ -117,7 +124,8 @@ def def_show_vnics_parser(s_parser):
                                    help='Show information of VNIC matching ocid.')
     show_vnics_parser.add_argument('--name',
                                    type=str,
-                                   action='store',
+                                   action=NameWithSpaces,
+                                   nargs='+',
                                    metavar='VNIC_NAME',
                                    help='Show information of VNIC matching name.')
     show_vnics_parser.add_argument('--ip-address',
@@ -185,7 +193,8 @@ def def_show_vcn_parser(s_parser):
                                  help='Show information of VCN matching ocid.')
     show_vcn_parser.add_argument('--name',
                                  type=str,
-                                 action='store',
+                                 action=NameWithSpaces,
+                                 nargs='+',
                                  metavar='VCN_NAME',
                                  help='Show information of VCN matching name.')
     show_vcn_parser.add_argument('--no-truncate',
@@ -224,8 +233,9 @@ def def_show_subnet_parser(s_parser):
                                     help='Show information of subnet matching ocid.')
     show_subnet_parser.add_argument('--name',
                                     type=str,
-                                    action='store',
-                                    metavar='VCN_NAME',
+                                    action=NameWithSpaces,
+                                    nargs='+',
+                                    metavar='SUBNET_NAME',
                                     help='Show information of subnet matching name.')
     show_subnet_parser.add_argument('--no-truncate',
                                     action='store_true',
@@ -339,12 +349,6 @@ def def_attach_vnic_parser(s_parser):
                                     metavar='IP_ADDR',
                                     type=ip_address_validator,
                                     help="Private IP to be assigned to the new VNIC.")
-    # attach_vnic_parser.add_argument('--ipv',
-    #                                 action='store',
-    #                                 type=int,
-    #                                 choices=[4, 6],
-    #                                 default=4,
-    #                                 help='Add an ipv4 or ipv6 address.')
     ipv = attach_vnic_parser.add_mutually_exclusive_group()
     ipv.add_argument('-ipv4', '--ipv4',
                      action='store_true',
@@ -367,7 +371,8 @@ def def_attach_vnic_parser(s_parser):
                                     # type=subnet_ocid_validator,
                                     help='Connect the new VNIC to the subnet with the given OCID.')
     attach_vnic_parser.add_argument('-n', '--name',
-                                    action='store',
+                                    action=NameWithSpaces,
+                                    nargs='+',
                                     metavar='NAME',
                                     help='Use NAME as the display name of the new VNIC.')
     attach_vnic_parser.add_argument('--assign-public-ip',

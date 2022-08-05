@@ -44,8 +44,7 @@ then
 fi
 
 
-
-PARSED_ARGUMENTS=$(getopt -a  --quiet -o hsacde:n:rX:I:q --long help,show,create-vnic,nic-index:,detach-vnic:,add-private-ip,del-private-ip:,private-ip:,subnet:,vnic-name:,assign-public-ip,vnic:,auto,configure,deconfigure,ns,sshd,exclude:,include:,quiet -- "$@")
+PARSED_ARGUMENTS=$(getopt -a  --quiet -o hsacde:n:rX:I:q --long help,show,create-vnic,nic-index:,ipv4,ipv6,detach-vnic:,add-private-ip,del-private-ip:,private-ip:,subnet:,vnic-name:,assign-public-ip,vnic:,auto,configure,deconfigure,ns,sshd,exclude:,include:,quiet -- "$@")
 eval set -- "$PARSED_ARGUMENTS"
 while :
 do
@@ -94,6 +93,8 @@ do
         --subnet)                 cmd_line="${cmd_line} --subnet=$2"                                       ; shift 2 ;;
         --nic-index)              cmd_line="${cmd_line} --nic-index=$2"                                    ; shift 2 ;;
         --private-ip)             PRIVATE_IP=$2                                                            ; shift 2 ;;
+        --ipv4)                   echo ""; echo "--ipv4 ia an invalid option in compatible mode"; echo ""; COMMAND="usage"; post_operation_show=0; break ;;
+        --ipv6)                   echo ""; echo "--ipv6 ia an invalid option in compatible mode"; echo ""; COMMAND="usage"; post_operation_show=0; break ;;
         --help)
                               if [ -z ${COMMAND} ]
                               then
@@ -110,6 +111,7 @@ do
 
     esac
 done
+
 shift $((OPTIND-1))
 read -r -a LEFT_OVERS <<<"$@"
 # special case for -e option. former syntax was '-e IP VNIC'. This cannot be handle
