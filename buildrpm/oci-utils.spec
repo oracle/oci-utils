@@ -1,6 +1,6 @@
 Name: oci-utils
-Version: 0.12.8
-Release: 1%{?dist}
+Version: 0.14.0
+Release: 0%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -206,6 +206,18 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Mon Jul 25 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.14.0-0
+- support for ipv6:
+- LINUX-9259 add ipv6 support in oci-metadata
+- OLDIS-6914 IPv6 support for oci-utils
+
+* Thu Jun 9 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.9-1
+- renamed dashed python files to underscore python files
+- extended instance principal test code with listing attached volunes, all volumes, attached volumes, available notification topics, vcns, subnets, vnics.
+
+* Tue May 24 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.8-2
+- modified fatal error on retrieving notify topic list to a warning
+
 * Thu Apr 14 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.12.8-1
 - fixed oci-public-ip all flag: removed
 

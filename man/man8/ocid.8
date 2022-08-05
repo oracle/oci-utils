@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tascii ocid.8
 .\"
-.\" Copyright (c) 2017 Oracle and/or its affiliates. All rights reserved.
+.\" Copyright (c) 2017, 2022 Oracle and/or its affiliates. All rights reserved.
 .\"
 .TH OCID 8 "DECEMBER 2017" Linux "System Administration Manuals"
 .SH NAME
@@ -31,58 +31,74 @@ automatically during system boot.
 
 When
 .BR ocid(8)
-starts it restores the VNIC and iSCSI configuration to the last saved state.  Systemd will not start services that depend on the ocid service until this is complete.
+starts it restores the VNIC and iSCSI configuration to the last saved state.  Systemd will not start services that
+depend on the ocid service until this is complete.
 
-After this, the service periodically scans for changes in the iSCSI device or VNIC configuration and attempts to automatically attach/detach devices as they appear or disappear.
+After this, the service periodically scans for changes in the iSCSI device or VNIC configuration and attempts
+to automatically attach/detach devices as they appear or disappear.
 
 If
 .BR ocid(8)
-has access to the Oracle Cloud Infrastructure APIs (see below for configuration details), it can automatically detect changes in secondary private IP address configuration and can also get the CHAP credentials for iSCSI attachments from Oracle Cloud Infrastructure when needed.  However, without the Oracle Cloud Infrastructure APIs
-iSCSI device connections will fail when they require CHAP authentication and the user has to supply the username and password using
+has access to the Oracle Cloud Infrastructure APIs (see below for configuration details), it can automatically
+detect changes in secondary private IP address configuration and can also get the CHAP credentials for iSCSI
+attachments from Oracle Cloud Infrastructure when needed.  However, without the Oracle Cloud Infrastructure APIs
+iSCSI device connections will fail when they require CHAP authentication and the user has to supply the
+username and password using
 .BR oci-iscsi-config(1).
 It will also be unable to detect secondary private IP configuration changes and they have to be performed manually using
 .BR oci-network-config(1).
 
-.BR
-ocid(8)
+.BR ocid(8)
 also caches the public IP address of the Oracle Cloud Infrastructure instance.
 
 To allow
 .BR ocid(8)
-to use Oracle Cloud Infrastructure APIs it requires Oracle Cloud Infrastructure Python SDK, which is available in the python36-oci-sdk package.
+to use Oracle Cloud Infrastructure APIs it requires Oracle Cloud Infrastructure Python SDK.
 
-To install the Oracle Cloud Infrastructure Python SDK, use
+Install the Oracle Cloud Infrastructure Python SDK packages
 .PP
 .nf
 .RS
-yum install python36-oci-sdk python-oci-cli
+python36-oci-sdk
 .RE
 .fi
 .PP
-The python-oci-cli package contains the oci command line utility.  You can
-use the oci utility for configuring the Oracle Cloud Infrastructure Python SDK:
+on Oracle Linux 7 and 8,
 .PP
 .nf
 .RS
-oci setup config
+python39-oci-sdk
 .RE
 .fi
 .PP
-See https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
-for more information.
+on Oracle Linux 9 using the appropriate command.
 
-Another option for authorizing the use of Oracle Cloud Infrastructure services from an instance is using Instance Principals.  The Oracle Cloud Infrastructure SDK still needs to be installed, but it does not need configuration on the instance when the instance is part of a dynamic group that was granted access to Oracle Cloud Infrastructure services.  See https://docs.us-phoenix-1.oraclecloud.com/Content/Identity/Tasks/callingservicesfrominstances.htm for further details.
+The
+.B oci-utils
+package has a dependency on the
+.B oci-sdk
+package and the correct version of the python
+.B oci-sdk
+package is installed at
+.B oci-utils
+install time.
 
 .BR ocid(8)
-requires root privileges.  In order to make API calls as root one of the following authentication methods must be used:
-.IP "Oracle Cloud Infrastructure SDK configuration files"
-Run the
-.BR "oci setup config"
-command as root to create configuration files for root.
-.IP "Instance Principals"
-Add the instance to a dynamic group that was granted access to Oracle Cloud Infrastructure services
-.IP "Use a dedicated user's configuration"
-oci-utils can be configured to allow root to use a non-privileged user's Oracle Cloud Infrastructure configuration files.
+requires root privileges. In order to make API calls as root,
+Oracle Cloud Infrastructure services authorization is required. One option is direct authentication via a
+config file.  See https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
+for more information.
+
+.B oci-utils
+can be configured to allow root to use a non-privileged user's Oracle Cloud Infrastructure configuration files.
+See
+.B oci-utils.conf.d(5)
+
+Another option for authorizing the use of Oracle Cloud Infrastructure services from an instance is
+using Instance Principals.  The Oracle Cloud Infrastructure SDK does not need configuration on the
+instance when the instance is part of a dynamic group that was granted access
+to Oracle Cloud Infrastructure services.
+See https://docs.us-phoenix-1.oraclecloud.com/Content/Identity/Tasks/callingservicesfrominstances.htm for further details.
 
 See
 .BR oci-utils.conf.d(5)

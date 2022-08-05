@@ -7,7 +7,8 @@
 # utility to collect metadata of an iscsi volume.
 
 _PY3=/usr/bin/python3
+_PY_CMD=oci_volume_data.py
 s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
 
-exec ${_PY3}  ${s_dir}/oci-volume-data-main.py "$@"
+exec ${_PY3}  ${s_dir}/${_PY_CMD} "$@"
 

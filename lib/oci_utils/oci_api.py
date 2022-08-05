@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -11,6 +11,7 @@ import logging
 import os
 import re
 import oci as oci_sdk
+from oci_utils import where_am_i
 from . import metadata
 from . import _configuration as OCIUtilsConfiguration
 from . import OCI_RESOURCE_STATE
@@ -84,6 +85,7 @@ class OCISession:
         -------
             str: the tenancy ocid
         """
+        _logger.debug('%s', where_am_i())
         #
         # try the oci sdk config file
         if bool(self.oci_config):
@@ -127,6 +129,7 @@ class OCISession:
         Exception
             If the configuration file does not exist or is not readable.
         """
+        _logger.debug('%s', where_am_i())
         full_fname = os.path.expanduser(fname)
         try:
             oci_config = oci_sdk.config.from_file(full_fname, profile)
@@ -142,6 +145,7 @@ class OCISession:
         --------
           shape as with content of metadata as string
         """
+        _logger.debug('%s', where_am_i())
         return self._metadata['instance']['shape']
 
     def _get_auth_method(self, authentication_method=None):
@@ -162,12 +166,13 @@ class OCISession:
         the authentication method which passed or NONE.
             [NONE | DIRECT | PROXY | AUTO | IP]
         """
+        _logger.debug('%s', where_am_i())
         if authentication_method is None:
             auth_method = OCIUtilsConfiguration.get('auth', 'auth_method')
         else:
             auth_method = authentication_method
 
-        _logger.debug('auth method retrieved from conf: %s', auth_method)
+        _logger.debug('Authentication method retrieved from conf: %s', auth_method)
 
         # order matters
         _auth_mechanisms = {
@@ -178,7 +183,7 @@ class OCISession:
         if auth_method in _auth_mechanisms.keys():
             # user specified something, respect that choice
             try:
-                _logger.debug('trying %s auth', auth_method)
+                _logger.debug('Trying %s auth', auth_method)
                 _auth_mechanisms[auth_method]()
                 _logger.debug('%s auth ok', auth_method)
                 return auth_method
@@ -186,10 +191,10 @@ class OCISession:
                 _logger.debug(' %s auth has failed: %s', auth_method, str(e))
                 return NONE
 
-        _logger.debug('nothing specified trying to find an auth method')
+        _logger.debug('Nothing specified trying to find an auth method')
         for method in _auth_mechanisms:
             try:
-                _logger.debug('trying %s auth', method)
+                _logger.debug('Trying %s auth', method)
                 _auth_mechanisms[method]()
                 _logger.debug('%s auth ok', method)
                 return method
@@ -213,6 +218,7 @@ class OCISession:
         Exception
             The authentication using direct mode is noit possible
         """
+        _logger.debug('%s', where_am_i())
         if os.geteuid() != 0:
             raise Exception("Must be root to use Proxy authentication")
 
@@ -238,6 +244,7 @@ class OCISession:
         Exception
             The authentication using direct mode is not possible
         """
+        _logger.debug('%s', where_am_i())
         try:
             self.oci_config = self._read_oci_config(fname=self.config_file, profile=self.config_profile)
             self._identity_client = oci_sdk.identity.IdentityClient(self.oci_config)
@@ -258,6 +265,7 @@ class OCISession:
         Exception
             If IP authentication fails.
         """
+        _logger.debug('%s', where_am_i())
         try:
             self.signer = oci_sdk.auth.signers.InstancePrincipalsSecurityTokenSigner()
             self._identity_client = oci_sdk.identity.IdentityClient(config={}, signer=self.signer)
@@ -274,19 +282,16 @@ class OCISession:
         list
             List of compartements.
         """
+        _logger.debug('%s', where_am_i())
         _compartments = []
         try:
-            compartments_data = oci_sdk.pagination.list_call_get_all_results(
-                self._identity_client.list_compartments,
-                compartment_id=self.tenancy_ocid).data
+            compartments_data = oci_sdk.pagination.list_call_get_all_results(self._identity_client.list_compartments,
+                                                                             compartment_id=self.tenancy_ocid).data
         except Exception as e:
             _logger.error('%s', e)
             return _compartments
 
         for c_data in compartments_data:
-            #
-            # GT
-            # _compartments.append(OCICompartment(session=self, compartment_data=oci_sdk.util.to_dict(c_data)))
             _compartments.append(OCICompartment(session=self, compartment_data=c_data))
         return _compartments
 
@@ -326,6 +331,7 @@ class OCISession:
         list
             A list of matching vcn-s
         """
+        _logger.debug('%s', where_am_i())
         dn_re = re.compile(display_name)
         vcns = []
         for vcn in self.all_vcns():
@@ -342,6 +348,7 @@ class OCISession:
         -------
             A instance of oci.core.ComputeClient
         """
+        _logger.debug('%s', where_am_i())
         if self._compute_client is None:
             if self.signer is not None:
                 self._compute_client = \
@@ -359,6 +366,7 @@ class OCISession:
         -------
             A instance of oci.core.VirtualNetworkClient
         """
+        _logger.debug('%s', where_am_i())
         if self._network_client is None:
             if self.signer is not None:
                 self._network_client = \
@@ -376,6 +384,7 @@ class OCISession:
         -------
             A instance of oci.core.blockstorage_client.BlockStorageClient
         """
+        _logger.debug('%s', where_am_i())
         if self._block_storage_client is None:
             if self.signer is not None:
                 self._block_storage_client = \
@@ -393,6 +402,7 @@ class OCISession:
         -------
             An instance of oci.object_storage.object_storage_client.ObjectStorageClient.
         """
+        _logger.debug('%s', where_am_i())
         if self._object_storage_client is None:
             if self.signer is not None:
                 self._object_storage_client = \
@@ -412,7 +422,7 @@ class OCISession:
         list
             List of OCIInstance object, can be empty
         """
-
+        _logger.debug('%s', where_am_i())
         instances = []
         for compartment in self.all_compartments():
             comp_instances = compartment.all_instances()
@@ -437,6 +447,7 @@ class OCISession:
         Oci_Metadata:
             Updated metadata.
         """
+        _logger.debug('%s', where_am_i())
         if instance_id is None:
             try:
                 instance_id = self._metadata['instance']['id']
@@ -480,6 +491,7 @@ class OCISession:
         list
             The list of instances.
         """
+        _logger.debug('%s', where_am_i())
         dn_re = re.compile(display_name)
         instances = []
         for instance in self.all_instances():
@@ -505,6 +517,7 @@ class OCISession:
         list
             The list of matching volumes
         """
+        _logger.debug('%s', where_am_i())
         if display_name is None and iqn is None:
             return []
         dn_re = None
@@ -534,6 +547,7 @@ class OCISession:
         list
             A list of subnets.
         """
+        _logger.debug('%s', where_am_i())
         subnets = []
         for compartment in self.all_compartments():
             comp_subnets = compartment.all_subnets()
@@ -555,6 +569,7 @@ class OCISession:
         list
             The list of matching subnets.
         """
+        _logger.debug('%s', where_am_i())
         dn_re = re.compile(display_name)
         subnets = []
         for subnet in self.all_subnets():
@@ -572,6 +587,7 @@ class OCISession:
         list
             list of OCIVCN object, can be empty
         """
+        _logger.debug('%s', where_am_i())
         _vcns = []
         for compartment in self.all_compartments():
             _vcns.extend(compartment.all_vcns())
@@ -587,6 +603,7 @@ class OCISession:
         list
             list of OCIVolume object, can be empty
         """
+        _logger.debug('%s', where_am_i())
         volumes = []
         for compartment in self.all_compartments():
             comp_volumes = compartment.all_volumes()
@@ -607,6 +624,7 @@ class OCISession:
         ------
         Exception : fetching instance has failed
         """
+        _logger.debug('%s', where_am_i())
         try:
             my_instance_id = self._metadata['instance']['id']
         except Exception as e:
@@ -629,6 +647,7 @@ class OCISession:
             A OCICompartment instance or None if no compartement
             information is found.
         """
+        _logger.debug('%s', where_am_i())
         if self._metadata is None:
             _logger.warning('Metadata is None !')
             # TODO: should it severe error case instead ??
@@ -651,6 +670,7 @@ class OCISession:
             The availability domain name or None if no information
             is found in metadata.
         """
+        _logger.debug('%s', where_am_i())
         if self._metadata is None:
             # TODO: should it severe error case instead ??
             return None
@@ -665,6 +685,7 @@ class OCISession:
         str
             The OCID.
         """
+        _logger.debug('%s', where_am_i())
         return self.tenancy_ocid
 
     def this_region(self):
@@ -676,6 +697,7 @@ class OCISession:
         str
             The region name or None if no information is found in metadata.
         """
+        _logger.debug('%s', where_am_i())
         if self._metadata is None:
             _logger.warning('metadata is None !')
             # TODO: should it severe error case instead ??
@@ -703,12 +725,10 @@ class OCISession:
         ------
         Exception : fetching instance has failed
         """
+        _logger.debug('%s', where_am_i())
         try:
             cc = self.get_compute_client()
             instance_data = cc.get_instance(instance_id=instance_id).data
-            #
-            # GT
-            # return OCIInstance(self, oci_sdk.util.to_dict(instance_data))
             return OCIInstance(self, instance_data)
         except Exception as e:
             _logger.debug('Failed to fetch instance: %s. Check your connection and settings.', e)
@@ -728,12 +748,10 @@ class OCISession:
             OCISubnet
             The subnet object or None if not found.
         """
+        _logger.debug('%s', where_am_i())
         nc = self.get_network_client()
         try:
             sn_data = nc.get_subnet(subnet_id=subnet_id).data
-            #
-            # GT
-            # return OCISubnet(self, subnet_data=oci_sdk.util.to_dict(sn_data))
             return OCISubnet(self, subnet_data=sn_data)
         except oci_sdk.exceptions.ServiceError:
             _logger.debug('failed to get subnet', exc_info=True)
@@ -755,6 +773,7 @@ class OCISession:
         dict
             The volume object or None if not found.
         """
+        _logger.debug('%s', where_am_i())
         bsc = self.get_block_storage_client()
         cc = self.get_compute_client()
 
@@ -786,10 +805,6 @@ class OCISession:
                 continue
             if v_att.time_created > v_att_data.time_created:
                 v_att_data = v_att
-
-        #
-        # GT
-        # return OCIVolume(self, volume_data=oci_sdk.util.to_dict(vol_data),
         # attachment_data=oci_sdk.util.to_dict(v_att_data))
         return OCIVolume(self, volume_data=vol_data, attachment_data=v_att_data)
 
@@ -805,15 +820,13 @@ class OCISession:
         -------
             OCICompartment
         """
+        _logger.debug('%s', where_am_i())
         if 'ocid' not in kargs:
             # for now make it mandatory
             raise Exception('ocid must be provided')
 
         try:
             c_data = self._identity_client.get_compartment(compartment_id=kargs['ocid']).data
-            #
-            # GT
-            # return OCICompartment(session=self, compartment_data=oci_sdk.util.to_dict(c_data))
             return OCICompartment(session=self, compartment_data=c_data)
         except Exception as e:
             if hasattr(e, 'code'):
@@ -838,6 +851,7 @@ class OCISession:
         OCIVCN
             The OCI VCN  or None if it is not found.
         """
+        _logger.debug('%s', where_am_i())
         for c in self.all_vcns():
             if c.get_ocid() == vcn_id:
                 return c
@@ -858,6 +872,7 @@ class OCISession:
             The OCI VNIC  or None if it is not found.
             The returned VNIC does not have any attachment information
         """
+        _logger.debug('%s', where_am_i())
         nc = self.get_network_client()
         cc = self.get_compute_client()
         all_comps = self.all_compartments()
@@ -873,7 +888,9 @@ class OCISession:
                             return OCIVNIC(self, vnic_data=vnic_dat, attachment_data=vnic_att)
                     except Exception as e:
                         if hasattr(e, 'code'):
-                            _logger.debug('Failed to collect vnic data for %s: %s', vnic_att.vnic_id, getattr(e, 'code'))
+                            _logger.debug('Failed to collect vnic data for %s: %s',
+                                          vnic_att.vnic_id,
+                                          getattr(e, 'code'))
                             pass
             except Exception as e:
                 if hasattr(e, 'code'):
@@ -910,6 +927,7 @@ class OCISession:
         Exception
             If the creation of the volume fails for any reason.
         """
+        _logger.debug('%s', where_am_i())
         bsc = self.get_block_storage_client()
         cvds = oci_sdk.core.models.CreateVolumeDetails(availability_domain=availability_domain,
                                                        compartment_id=compartment_id,
@@ -920,10 +938,6 @@ class OCISession:
             if wait:
                 get_vol_state = bsc.get_volume(volume_id=vol_data.id)
                 oci_sdk.wait_until(bsc, get_vol_state, 'lifecycle_state', 'AVAILABLE')
-            #
-            # GT
-            # return OCIVolume(self, oci_sdk.util.to_dict(vol_data))
-            # ocivol = OCIVolume(self, oci_sdk.util.to_dict(vol_data))
             ocivol = OCIVolume(self, vol_data)
             return ocivol
         except oci_sdk.exceptions.ServiceError as e:

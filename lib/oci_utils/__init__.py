@@ -5,6 +5,7 @@
 # at http://oss.oracle.com/licenses/upl.
 
 import logging
+import inspect
 import re
 import os
 import os.path
@@ -19,8 +20,8 @@ __ignore_file = "/var/lib/oci-utils/ignore_iqns"
 # file with chap user names and passwords
 __chap_password_file = "/var/lib/oci-utils/chap_secrets"
 
-_METADATA_ENDPOINT = '169.254.169.254'
-_MAX_VOLUMES_LIMIT = 32
+METADATA_ENDPOINT = '169.254.169.254'
+MAX_VOLUMES_LIMIT = 32
 _configuration = read_configuration()
 
 oci_regions = {
@@ -48,6 +49,7 @@ oci_regions = {
     'nri': 'nri - ap-ibaraki-1 (Osaka, Japan)',
     'nrt': 'nrt - ap-tokyo-1 (Tokyo, Japan)',
     'phx': 'phx - us-phoenix-1 (Phoenix, AZ, USA)',
+    'qro': 'qro - mx-queretaro-1 (Queretaro, Mexico)',
     'scl': 'scl - sa-santiago-1 (Santiago, Chile)',
     'sin': 'sin - ap-singapore-1 (Singapore, Singapore)',
     'sjc': 'sjc - us-sanjose-1 (San Jose, CA, USA)',
@@ -137,6 +139,17 @@ def find_exec_in_path(exec_name):
     return result
 
 
+def where_am_i():
+    """
+    Get the current method name.
+
+    Returns
+    -------
+        str: the method name.
+    """
+    return '__%s' % inspect.stack()[1][3]
+
+
 def is_root_user():
     """
     Verify if operator has root privileges.
@@ -192,9 +205,9 @@ def _set_proxy():
     """
     #
     if 'NO_PROXY' in os.environ:
-        os.environ['NO_PROXY'] += ',%s' % _METADATA_ENDPOINT
+        os.environ['NO_PROXY'] += ',%s' % METADATA_ENDPOINT
     else:
-        os.environ['NO_PROXY'] = _METADATA_ENDPOINT
+        os.environ['NO_PROXY'] = METADATA_ENDPOINT
 
     # check if there are proxy settings in the config files
     try:

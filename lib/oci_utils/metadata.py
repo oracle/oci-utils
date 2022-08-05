@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2017, 2019 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -14,7 +14,7 @@ import urllib.request
 import urllib.error
 import urllib.parse
 
-from oci_utils import _METADATA_ENDPOINT
+from oci_utils import METADATA_ENDPOINT
 
 _logger = logging.getLogger('oci-utils.oci-metadata')
 
@@ -508,7 +508,7 @@ class InstanceMetadata:
     _metadata = None
 
     # metadata service URL
-    _oci_metadata_api_url = 'http://%s/opc/v2/' % _METADATA_ENDPOINT
+    _oci_metadata_api_url = 'http://%s/opc/v2/' % METADATA_ENDPOINT
 
     def __init__(self, oci_metadata=None):
         """
@@ -538,9 +538,9 @@ class InstanceMetadata:
         """
         metadata = {}
 
-        # disable proxy for _METADATA_ENDPOINT
+        # disable proxy for METADATA_ENDPOINT
         save_no_proxy = os.environ.get('no_proxy', '')
-        os.environ['no_proxy'] = _METADATA_ENDPOINT + ',%s' % save_no_proxy
+        os.environ['no_proxy'] = METADATA_ENDPOINT + ',%s' % save_no_proxy
 
         # read the instance metadata
         try:

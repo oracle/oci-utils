@@ -1,0 +1,245 @@
+#!/bin/bash
+#
+# Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown
+# at http://oss.oracle.com/licenses/upl.
+#
+# creates the kvmhost user
+#
+
+
+USERNAME=kvmhost
+EXPECTEDNBPAR=6
+USERADD=$(which useradd)
+GETENT=$(which getent)
+PASSWD=$(which passwd)
+SU=$(which su)
+SED=$(which sed)
+COPY=$(which cp)
+MOVE=$(which mv)
+CAT=$(which cat)
+CHDIR="cd"
+MKDIR=$(which mkdir)
+DELETE="$(which rm) -rf"
+CHMOD=$(which chmod)
+CHOWN=$(which chown)
+TAR="$(which tar) -jxvf"
+RMDIR="$(which rm) -rf"
+GROUPID=1000
+USERSHELL="/bin/bash"
+BINDIR="bin"
+BASEDIR="base_instance"
+WORKDIR="work"
+WORKGUEST=${WORKDIR}/guest_instance
+WORKHOST=${WORKDIR}/host_instance
+SCRIPTDIR="sh_scripts"
+TFDIR="tf_scripts"
+DIRLIST=( "${BINDIR}" "${BASEDIR}" "${WORKDIR}" "${SCRIPTDIR}" "${TFDIR}")
+BINFILES=( "create_kvm_host.py" "create_kvm_host" )
+BASEFILES=( "data.tf" "main.tf" "output.tf")
+SCRIPTFILES=( "initial_config.sh")
+TFFILES=( "api_key.tf" "rsa_key.tf" "rsa_pub_key.tf" "data.tf" "main.tf" "output.tf" "version.tf" )
+OTHERFILES=( "Makefile" "README.md")
+KEYFILENAME="oci_api_key.pem"
+#
+# http(s) proxy
+HTTPPROXY="http://www-proxy-hqdc.us.oracle.com:80"
+HTTPSPROXY="http://www-proxy-hqdc.us.oracle.com:80"
+
+Usage() {
+  echo ""
+  echo "Usage:"
+  echo ""
+  echo "${0} <userid> <sdk config> <key file> <private key file> <public key file> <tar file>"
+  echo ""
+  echo "  <userid>         : the userid for the user."
+  echo "  <sdk config>     : the sdk config file."
+  echo "  <key file>       : the sdk key file."
+  echo "  <id_rsa file     : the rsa private key file"
+  echo "  <id_rsa.pub file : the rsa public key file"
+  echo "  <tar file>       : the tar file with the tool."
+  echo ""
+  echo " Creates a user with name kvmhost and userid <userid>"
+  echo " with groupid 1000 and in group wheel with home"
+  echo " directory /home/kvmhost; configures the oci-sdk for direct authentication."
+  echo ""
+}
+
+MessageStd() {
+ local MSGNOW=$(date '+%d-%b-%Y %H:%M:%S')
+ echo "${MSGNOW} --- MSG --- ${1}"
+}
+
+MessageErrBase() {
+ local MSGNOW=$(date '+%d-%b-%Y %H:%M:%S')
+ echo "${MSGNOW} --- ERR --- ${1}"
+}
+
+MessageErrFatal() {
+  RETVAL="${1}"
+  MSG="${2}"
+  if [ "${RETVAL}" -ne 0 ]; then
+    MessageErrBase "${MSG}: ${RETVAL}"
+    exit 1
+  fi
+}
+
+ExitOnError() {
+  RETV="${1}"
+  ERRORMESSAGE="${2}"
+  SUCCESSMESSAGE="${3}"
+  MessageErrFatal "${RETV}" "${ERRORMESSAGE}"
+  MessageStd "${SUCCESSMESSAGE}"
+}
+
+NBPAR="${#}"
+if [ ${NBPAR} -ne ${EXPECTEDNBPAR} ]; then
+  MessageErrBase "username, userid, config, key file, private key, public key and/or tar file missing"
+  Usage
+  exit 1
+fi
+
+USERID=${1}
+SDKCONFIG=${2}
+KEYFILE=${3}
+PRIVKEYFILE=${4}
+PUBKEYFILE=${5}
+TARFILE=${6}
+MessageStd "Username is ${USERNAME}"
+MessageStd "UserID is ${USERID}"
+MessageStd "SDK config file is ${SDKCONFIG}"
+MessageStd "SDK key file ${KEYFILE}"
+MessageStd "Private key file ${PRIVKEYFILE}"
+MessageStd "Public key file ${PUBKEYFILE}"
+MessageStd "TAR file ${TARFILE}"
+#
+HOMEDIR="/home/${USERNAME}"
+MessageStd "user home directory is ${HOMEDIR}"
+HOMEOCI="${HOMEDIR}/.oci"
+MessageStd ".oci is ${HOMEOCI}"
+HOMERSA="${HOMEDIR}/.ssh"
+MessageStd ".ssh is ${HOMERSA}"
+HOMEOCICONFIG="${HOMEOCI}/config"
+MessageStd "config file is ${HOMEOCICONFIG}"
+HOMESDKKEY="${HOMEOCI}/$(basename ${KEYFILE})"
+MessageStd "sdk key file is ${HOMESDKKEY}"
+HOMEPRIVKEY="${HOMERSA}/$(basename ${PRIVKEYFILE})"
+MessageStd "private key file is ${HOMEPRIVKEY}"
+HOMEPUBKEY="${HOMERSA}/$(basename ${PUBKEYFILE})"
+MessageStd "public key file is ${HOMEPUBKEY}"
+HOMEAUTHKEYS=${HOMERSA}/authorized_keys
+#MASTERMAKE=${HOMEGITDIR}/tests/automation/Makefile
+#MessageStd "Makefile location is ${MASTERMAKE}"
+#
+#
+${GETENT} passwd "${USERNAME}" > /dev/null 2>&1
+RETVAL=${?}
+if [ ${RETVAL} -eq 0 ]; then
+  MessageErrFatal "${USERNAME} already exists"
+fi
+#
+# add user
+${USERADD} -c "user ${USERNAME}" -d "${HOMEDIR}" -g ${GROUPID} -G wheel -m -s "${USERSHELL}" -u "${USERID}" "${USERNAME}"
+ExitOnError "${?}" "Failed to create user ${USERNAME}" "${USERNAME} created successfully."
+${PASSWD} "${USERNAME}"
+ExitOnError "${?}" "Failed to set password for ${USERNAME}" "Password for ${USERNAME} set successfully."
+#
+# create automation directories
+for thisdir in  "${DIRLIST[@]}"
+do
+  ${SU} -l "${USERNAME}" -c "${MKDIR} -p ${thisdir}"
+  ExitOnError ${?} "Failed to create ${thisdir}" "Created ${thisdir} successfully."
+done
+#
+# create oci sdk config directory
+${SU} -l "${USERNAME}" -c "${MKDIR} ${HOMEOCI}"
+ExitOnError "${?}" "Failed to create ${HOMEOCI}" "${HOMEOCI} created successfully."
+#
+# set permissions on oci sdk directory.
+${SU} -l "${USERNAME}" -c "${CHMOD} 700 ${HOMEOCI}"
+ExitOnError "${?}" "Failed to  ${CHMOD} 700 ${HOMEOCI}" "${HOMEOCI} permission set to 700 successfully."
+#
+# copy sdk config file
+${SU} -l "${USERNAME}" -c "${COPY} ${SDKCONFIG} ${HOMEOCICONFIG}"
+ExitOnError "${?}" "Failed to  ${COPY} ${SDKCONFIG} to ${HOMEOCICONFIG}" "Copied ${SDKCONFIG} to ${HOMEOCICONFIG} successfully."
+${SU} -l "${USERNAME}" -c "${CHMOD} 600 ${HOMEOCICONFIG}"
+ExitOnError "${?}" "Failed to ${CHMOD} 600 ${HOMEOCICONFIG}" "${HOMEOCICONFIG} permissions set to 600 successfully."
+#
+# copy key files and update config file
+${SU} -l "${USERNAME}" -c "${COPY} ${KEYFILE} ${HOMEOCI}"
+ExitOnError "${?}"  "Failed to  ${COPY} ${KEYFILE} to ${HOMEOCI}" "Copied ${KEYFILE} to ${HOMEOCI} successfully."
+${SU} -l "${USERNAME}" -c "${CHMOD} 600 ${HOMESDKKEY}"
+ExitOnError "${?}" "Failed to ${CHMOD} 600 ${HOMESDKKEY}" "Executed ${CHMOD} 600 ${HOMESDKKEY} successfully"
+# "${SED} -i /key_file/c\"key_file=${HOMESDKKEY}\" ${HOMEOCICONFIG}"
+${SU} -l "${USERNAME}" -c "${SED} -i /key_file/c\"key_file=${HOMESDKKEY}\" ${HOMEOCICONFIG}"
+ExitOnError "${?}" "Failed to update ${HOMEOCICONFIG}" "Updated ${HOMEOCICONFIG} successfully"
+#
+# create ssh directory
+${SU} -l "${USERNAME}" -c "${MKDIR} ${HOMERSA}"
+ExitOnError "${?}" "Failed to create ${HOMERSA}" "${HOMERSA} created successfully."
+#
+# set permission on ssh directory
+${SU} -l "${USERNAME}" -c "${CHMOD} 700 ${HOMERSA}"
+ExitOnError "${?}" "Failed to  ${CHMOD} 700 ${HOMERSA}" "${HOMERSA} permission set to 700 successfully."
+#
+# copy private key file in place
+${SU} -l "${USERNAME}" -c "${COPY} ${PRIVKEYFILE} ${HOMERSA}"
+ExitOnError "${?}" "Failed to  ${COPY} ${PRIVKEYFILE} to ${HOMERSA}" "Copied ${PRIVKEYFILE} to ${HOMERSA} successfully."
+${SU} -l "${USERNAME}" -c "${CHMOD} 600 ${HOMEPRIVKEY}"
+ExitOnError "${?}" "Failed to ${CHMOD} 600 ${HOMEPRIVKEY}" "${HOMEPRIVKEY} permissions set to 600 successfully."
+#
+# copy public key file in place
+${SU} -l "${USERNAME}" -c "${COPY} ${PUBKEYFILE} ${HOMERSA}"
+ExitOnError "${?}" "Failed to  ${COPY} ${PUBKEYFILE} to ${HOMERSA}" "Copied ${PUBKEYFILE} to ${HOMERSA} successfully."
+${SU} -l "${USERNAME}" -c "${CHMOD} 600 ${HOMEPUBKEY}"
+ExitOnError "${?}" "Failed to ${CHMOD} 600 ${HOMEPUBKEY}" "${HOMEPUBKEY} permissions set to 600 successfully."
+#
+# authorized_keys
+${SU} -l "${USERNAME}" -c "${COPY} ${PUBKEYFILE} ${HOMEAUTHKEYS}"
+ExitOnError "${?}" "Failed to  ${COPY} ${PUBKEYFILE} to ${HOMEAUTHKEYS}" "Copied ${PUBKEYFILE} to ${HOMEAUTHKEYS} successfully."
+#
+# expand tar file
+${SU} -l "${USERNAME}" -c "${CHDIR} ${WORKDIR}; ${TAR} ${TARFILE}"
+ExitOnError "${?}" "Failed to expand ${TARFILE}" "${TARFILE} successfully expanded"
+#
+# copy bin in place
+for binfile in "${BINFILES[@]}"
+do
+  ${SU} -l "${USERNAME}" -c "${MOVE} ${HOMEDIR}/${WORKHOST}/bin/${binfile}  ${HOMEDIR}/bin"
+  ExitOnError ${?} "Failed to copy ${binfile} in place." "Copied ${binfile} in place successfully"
+done
+#
+# copy scripts in place
+for scriptfile in "${SCRIPTFILES[@]}"
+do
+  ${SU} -l "${USERNAME}" -c "${MOVE} ${HOMEDIR}/${WORKHOST}/sh_scripts/${scriptfile}  ${HOMEDIR}/sh_scripts"
+  ExitOnError ${?} "Failed to copy ${scriptfile} in place." "Copied ${scriptfile} in place successfully"
+done
+#
+# copy basefiles in place
+for basefile in "${BASEFILES[@]}"
+do
+  ${SU} -l "${USERNAME}" -c "${MOVE} ${HOMEDIR}/${WORKHOST}/base_instance/${basefile}  ${HOMEDIR}/base_instance"
+  ExitOnError ${?} "Failed to copy ${basefile} in place." "Copied ${basefile} in place successfully"
+done
+#
+# copy tffiles in place
+for tffile in "${TFFILES[@]}"
+do
+  ${SU} -l "${USERNAME}" -c "${MOVE} ${HOMEDIR}/${WORKHOST}/tf_scripts/${tffile}  ${HOMEDIR}/tf_scripts"
+  ExitOnError ${?} "Failed to copy ${tffile} in place." "Copied ${tffile} in place successfully"
+done
+#
+# copy Makefile and README.md
+for otherfile in "${OTHERFILES[@]}"
+do
+  ${SU} -l "${USERNAME}" -c "${MOVE} ${HOMEDIR}/${WORKDIR}/${otherfile}  ${HOMEDIR}"
+  ExitOnError ${?} "Failed to copy ${otherfile} in place." "Copied ${otherfile} in place successfully"
+done
+#
+# cleanup
+${SU} -l "${USERNAME}" -c "${RMDIR} ${HOMEDIR}/${WORKDIR}/*"
+ExitOnError ${?} "Failed to cleanup ${HOMEDIR}/${WORKDIR}." "Cleaned up ${HOMEDIR}/${WORKDIR} successfully"
+#
+# done
+MessageStd "Completed successfully"

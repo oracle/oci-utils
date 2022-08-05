@@ -11,13 +11,14 @@
 
 
 _PY3=/usr/bin/python3
+_PY_CMD=oci_notify_main.py
 s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
 
 declare COMMAND
 declare -A TOPICOCID
 declare -A MSGDATA
 declare -A MSGTITLE
-declare notify_exec="${s_dir}/oci-notify-main.py"
+declare notify_exec="${s_dir}/${_PY_CMD}"
 
 if [ "${1:0:1}" != '-' ]
 then

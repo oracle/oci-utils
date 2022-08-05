@@ -154,6 +154,9 @@ class TestCliOciNetworkConfig(OciTestCase):
             _ = subprocess.check_output([self.oci_net_config, 'usage', '--help'])
             _ = subprocess.check_output([self.oci_net_config, 'show', '--help'])
             _ = subprocess.check_output([self.oci_net_config, 'show-vnics', '--help'])
+            _ = subprocess.check_output([self.oci_net_config, 'show-vnics-all', '--help'])
+            _ = subprocess.check_output([self.oci_net_config, 'show-vcns', '--help'])
+            _ = subprocess.check_output([self.oci_net_config, 'show-subnets', '--help'])
             _ = subprocess.check_output([self.oci_net_config, 'configure', '--help'])
             _ = subprocess.check_output([self.oci_net_config, 'unconfigure', '--help'])
             _ = subprocess.check_output([self.oci_net_config, 'attach-vnic', '--help'])
@@ -194,6 +197,45 @@ class TestCliOciNetworkConfig(OciTestCase):
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 
+    def test_show_vcns_no_check(self):
+        """
+        Test basic run of show-vcns command. We do not check out.
+
+        Returns
+        -------
+            No return value.
+        """
+        try:
+            print(subprocess.check_output([self.oci_net_config, 'show-vcns']).decode('utf-8'))
+            print(subprocess.check_output([self.oci_net_config, 'show-vcns', '--details']).decode('utf-8'))
+            print(subprocess.check_output([self.oci_net_config, 'show-vcns', '--details', '--output-mode', 'parsable']).decode('utf-8'))
+            print(subprocess.check_output([self.oci_net_config, 'show-vcns', '--details', '--output-mode', 'table']).decode('utf-8'))
+            print(subprocess.check_output([self.oci_net_config, 'show-vcns', '--details', '--output-mode', 'json']).decode('utf-8'))
+            print(subprocess.check_output([self.oci_net_config, 'show-vcns', '--details', '--output-mode', 'text']).decode('utf-8'))
+
+        except Exception as e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_show_subnets_no_check(self):
+        """
+        Test basic run of show-subnets command. We do not check out.
+
+        Returns
+        -------
+            No return value.
+        """
+        try:
+            print(subprocess.check_output([self.oci_net_config, 'show-subnets']).decode('utf-8'))
+            print(subprocess.check_output([self.oci_net_config, 'show-subnets', '--details']).decode('utf-8'))
+            print(subprocess.check_output([self.oci_net_config, 'show-subnets', '--details', '--output-mode', 'parsable']).decode('utf-8'))
+            print(subprocess.check_output([self.oci_net_config, 'show-subnets', '--details', '--output-mode', 'table']).decode('utf-8'))
+            print(subprocess.check_output([self.oci_net_config, 'show-subnets', '--details', '--output-mode', 'json']).decode('utf-8'))
+            print(subprocess.check_output([self.oci_net_config, 'show-subnets', '--details', '--output-mode', 'text']).decode('utf-8'))
+
+        except Exception as e:
+            self.fail('Execution has failed: %s' % str(e))
+
+
     def test_show_vnics_no_check(self):
         """
         Test basic run of show-vnic command. We do not check out.
@@ -221,6 +263,30 @@ class TestCliOciNetworkConfig(OciTestCase):
                 [self.oci_net_config, 'show-vnics', '--name', self._get_vnic()[0].get_display_name(), '--details']).decode('utf-8'))
             print(subprocess.check_output(
                 [self.oci_net_config, 'show-vnics', '--ip-address', self._get_vnic()[0].get_private_ip(), '--details']).decode('utf-8'))
+        except Exception as e:
+            self.fail('Execution has failed: %s' % str(e))
+
+    def test_show_vnics_all_no_check(self):
+        """
+        Test basic run of show-vnic command. We do not check out.
+
+        Returns
+        -------
+            No return value.
+        """
+        try:
+            print(subprocess.check_output(
+                [self.oci_net_config, 'show-vnics-all']).decode('utf-8'))
+            print(subprocess.check_output(
+                [self.oci_net_config, 'show-vnics-all']).decode('utf-8'))
+            print(subprocess.check_output(
+                [self.oci_net_config, 'show-vnics-all', '--output-mode', 'parsable']).decode('utf-8'))
+            print(subprocess.check_output(
+                [self.oci_net_config, 'show-vnics-all', '--output-mode', 'table']).decode('utf-8'))
+            print(subprocess.check_output(
+                [self.oci_net_config, 'show-vnics-all', '--output-mode', 'json']).decode('utf-8'))
+            print(subprocess.check_output(
+                [self.oci_net_config, 'show-vnics-all', '--output-mode', 'text']).decode('utf-8'))
         except Exception as e:
             self.fail('Execution has failed: %s' % str(e))
 

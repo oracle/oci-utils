@@ -57,6 +57,7 @@ default_values = {
     "shape": "whocares",
     # "authentication": "whocares",
     "source_type": "whocares",
+    "boot_volume_size_in_gbs": 51,
     "remote_user": "whocares",
     # "autotest_root": "whocares",
     "log_file_path": "/logs",
@@ -1179,6 +1180,8 @@ def update_public_ip(data, public_ip):
     base_instance_dir = data['base_instance_dir']
     tf_scripts_dir = data['def_tf_scripts_dir']
     api_key = tf_scripts_dir + '/api_key.tf'
+    rsa_key = tf_scripts_dir + '/rsa_key.tf'
+    rsa_pub_key = tf_scripts_dir + '/rsa_pub_key.tf'
     output_b = base_instance_dir + '/output.tf'
     output_t = tf_scripts_dir + '/output.tf'
     main_b = base_instance_dir + '/main.tf'
@@ -1186,6 +1189,8 @@ def update_public_ip(data, public_ip):
     print_g('operator home     %s' % operator_home, term=False)
     print_g('base instance dir %s' % base_instance_dir, term=False)
     print_g('api key           %s' % api_key, term=False)
+    print_g('rsa key           %s' % rsa_key, term=False)
+    print_g('rsa_pub key       %s' % rsa_pub_key, term=False)
     print_g('output b          %s' % output_b, term=False)
     print_g('main b            %s' % main_b, term=False)
     print_g('iptype            %s' % iptype, term=False)
@@ -1198,6 +1203,24 @@ def update_public_ip(data, public_ip):
         fx.seek(0)
         fx.write(api_text)
         print_g('api text: %s' % api_text, term=False)
+        fx.truncate()
+    #
+    # tf_scripts/rsa_key
+    with open(rsa_key, 'r+') as fx:
+        rsa_text = fx.read()
+        rsa_text = re.sub('XXXX', iptype, rsa_text)
+        fx.seek(0)
+        fx.write(rsa_text)
+        print_g('api text: %s' % rsa_text, term=False)
+        fx.truncate()
+    #
+    # tf_scripts/rsa_pub_key
+    with open(rsa_pub_key, 'r+') as fx:
+        rsa_pub_text = fx.read()
+        rsa_pub_text = re.sub('XXXX', iptype, rsa_pub_text)
+        fx.seek(0)
+        fx.write(rsa_pub_text)
+        print_g('api text: %s' % rsa_pub_text, term=False)
         fx.truncate()
     #
     # base_instance/main
@@ -1504,6 +1527,29 @@ def get_flex_data(data):
     return data
 
 
+def get_boot_volume_size(data):
+    """
+    Get the size of the boot volume in GigaBytes.
+
+    Parameters
+    ----------
+    data: dict
+        The configuration data.
+
+    Returns
+    -------
+        dict: the configuration data.
+    """
+    _ = _clear()
+    print_g('Boot Volume Size in GigaBytes', term=True)
+    data['boot_volume_size_in_gbs'] = _read_nb('Boot Volume Size', default_val=51, max_val=2048)
+    print_g(data['boot_volume_size_in_gbs'], term=False)
+    print_g('Selected boot volume size: %dGB' % data['boot_volume_size_in_gbs'])
+    if not _read_yn('Continue?', default_yn=True):
+        sys.exit(1)
+    #
+    return data
+
 def print_config_data(xx):
     """
     Print dict.
@@ -1666,6 +1712,10 @@ def main():
     # Shape
     config_data = get_shape(config_data)
     image_data['shape'] = config_data['shape'].shape
+    #
+    # Boot volume size
+    config_data = get_boot_volume_size(config_data)
+    image_data['boot_volume_size_in_gbs'] = config_data['boot_volume_size_in_gbs']
     #
     # is shape Flex?
     if bool(re.search('Flex', image_data['shape'])):

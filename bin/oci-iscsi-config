@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2017, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -9,6 +9,7 @@
 # Infrastructure instances.  See the manual page for more information.
 
 _PY3=/usr/bin/python3
+_PY_CMD=oci_iscsi_config_main.py
 s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
 
 declare -A IQNS
@@ -26,7 +27,7 @@ declare -i post_operation_show=0
 if [ "${1:0:1}" != '-' ]
 then
    # execute as is as the command line do not start with an option dash-<something>
-   exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py "$@"
+   exec ${_PY3} ${s_dir}/${_PY_CMD} "$@"
 fi
 
 PARSED_ARGUMENTS=$(getopt -a  --quiet -o sC:iAd:a:c:yf --long show,compartment:,interactive,all,detach:,attach:,create-volume:,destroy-volume:,volume-name:,username:,password:,help,yes,attach-volume,force -- "$@")
@@ -115,11 +116,11 @@ then
 fi
 if [ $post_operation_show -eq 1  ]
 then
-    ${_PY3} ${s_dir}/oci-iscsi-config-main.py $COMMAND ${cmd_line} --compat
+    ${_PY3} ${s_dir}/${_PY_CMD} $COMMAND ${cmd_line} --compat
     if [ $? -eq 0 ]
     then
-        exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py show --compat
+        exec ${_PY3} ${s_dir}/${_PY_CMD} show --compat
     fi
 else
-  exec ${_PY3} ${s_dir}/oci-iscsi-config-main.py $COMMAND ${cmd_line} --compat
+  exec ${_PY3} ${s_dir}/${_PY_CMD} $COMMAND ${cmd_line} --compat
 fi

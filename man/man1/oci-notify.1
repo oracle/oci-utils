@@ -26,11 +26,19 @@ are split into 64KB chunks. It is the responsibility of the notification service
 configuration where and how the messages are delivered.
 
 .B oci-notify
-expects
+requires the services of the python
 .B oci-sdk
-installed. Authentication is attempted via
+package.
+
+The
+.B oci-utils
+package has a dependency on the
 .B oci-sdk
-configuration. If direct authentication fails, the instance principal authentication is tried.
+package and the correct version of the python
+.B oci-sdk
+package is installed at
+.B oci-utils
+install time.
 
 .B oci-notify
 expects the configuration files by default in

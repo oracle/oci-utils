@@ -196,7 +196,7 @@ def session():
         return {}
     except subprocess.CalledProcessError as e:
         if e.returncode in (15, 21):
-            # non fatal error that we should not warn the user about
+            # non-fatal error that we should not warn the user about
             # see ISCSIADM(8)
             _iscsi_logger.debug('Error running /usr/sbin/iscsiadm [%s]', str(e))
         else:
