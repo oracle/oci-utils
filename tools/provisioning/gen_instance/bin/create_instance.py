@@ -101,7 +101,8 @@ def parse_args():
     -------
         The command line namespace.
     """
-    parser = argparse.ArgumentParser(description='Configure oci utils auto test.')
+    parser = argparse.ArgumentParser(prog='create_instance',
+                                     description='Configure oci utils auto test.')
     parser.add_argument('-n', '--name',
                         action='store',
                         dest='display_name',

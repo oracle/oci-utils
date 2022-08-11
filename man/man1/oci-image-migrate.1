@@ -88,14 +88,16 @@ sets a default cloud user.
 
 .SH KNOWN ISSUES
 
-.IP \[bu] 2 "The cloud-init service does not start at first boot in OCI."
+IP "The cloud-init service does not start at first boot in OCI." 0.4i
+
 The cloud-init service, although enabled does not start at first boot in
 OCI. This was noticed on ubuntu18 server and is probably related to
 the situation described in https://bugs.launchpad.net/bugs/1669675.
+
 The workaround:
 .nr step 1 1
 .RS
-.IP \n[step]
+.IP \n[step] 5
 connect to the instance using vnc or serial console.
 .IP \n+[step]
 delete the contents of /var/lib/cloud.
@@ -109,24 +111,55 @@ reboot the instance.
 or run the script
 .B /usr/local/bin/reinitialise_cloud_init.sh and reboot.
 .RE
-.IP \[bu] "/dev/disk/by-id entries in /etc/fstab are not supported."
+.IP "/dev/disk/by-id entries in /etc/fstab are not supported."
 Entries in /etc/fstab as /dev/disk/by-id are not supported yet.
+
 The workaround:
 .RS
 .IP \[bu]
 update the /etc/fstab file so it refers to partitions via label, uuid, logical volume.
 .RE
-.IP \[bu] "The instance fails to find boot disk."
+.IP "The instance fails to find boot disk."
 The instance created from a migrated image does not boot, is unable to find boot disk because
 .B initramfs
 does not include the correct kernel module to recognise the bootable partition. The issue
 is being worked on.
+
 The workaround:
 .RS
 .IP \[bu]
 Rebuild initramfs before migration so it includes all modules and
-rebuilding again after first boot with the necessary ones.
+rebuilding again after first boot with the necessary ones only.
 .RE
+.IP  "Images with an xfs version 5.15.0 or higher fail to convert from an instance with xfs 5.4.0 (or lower)"
+.B oci-image-migrate
+fails with
+
+.B Failed to mount /dev/nbd[npm], missing driver, filesystem corruption...: Mount /dev/nbd3p3 failed: 32
+
+Boot and/or root partition of an image created with
+.B xfs-progs 5.15.0
+or higher fails to mount on an instance with
+.B xfs-progs 5.4.0
+installed.
+.B xfs-progs 5.15.0
+comes with the
+.B UEK7 kernel
+which is the default on
+.B Oracle Linux 9
+and optional on
+.B Oracle Linux 8
+but not available on
+.B Oracle Linux 7.
+
+The workaround:
+.RS
+.IP \[bu]
+Install
+.B oci-utils-migrate
+on a system with
+.B UEK7
+kernel installed and run the migrate from there.
 
 .SH SEE ALSO
 .BR oci-image-migrate-upload(1)

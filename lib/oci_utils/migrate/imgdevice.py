@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019, 2020 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -30,6 +30,7 @@ from oci_utils.migrate import system_tools
 from oci_utils.migrate import terminal_dimension
 from oci_utils.migrate.exception import OciMigrateException
 from oci_utils.migrate.migrate_tools import get_config_data
+from pprint import pformat
 
 _logger = logging.getLogger('oci-utils.imgdevice')
 
@@ -433,7 +434,8 @@ class DeviceData():
             self.update_image()
             return True
         except Exception as e:
-            _logger.critical('   Image %s handling failed: %s', self.image_info['img_name'], str(e), exc_info=True)
+            _logger.debug('   Image %s handling failed: %s', self.image_info['img_name'], str(e), exc_info=True)
+            _logger.critical('\n   Image %s handling failed: %s', self.image_info['img_name'], str(e))
             return False
         finally:
             _, nbcols = terminal_dimension()
@@ -958,8 +960,7 @@ class DeviceData():
             """
             part_p = 'na'
             mount_p = 'na'
-            for partition, partdata in list(
-                    self.image_info['partitions'].items()):
+            for partition, partdata in list(self.image_info['partitions'].items()):
                 if self.skip_partition(partdata):
                     _logger.debug('Skipping %s', partition)
                 elif 'ID_FS_UUID' in list(partdata.keys()):
@@ -1072,6 +1073,7 @@ class DeviceData():
     def get_grub_data(self, loopdir):
         """
         Collect data related to boot and grub.
+
         Parameters:
         ----------
             loopdir: str
@@ -1107,9 +1109,39 @@ class DeviceData():
                     _logger.debug('No grub config file in %s', grubroot)
             return grub_path
 
+        def find_boot_loader_entries_dir():
+            """
+            Verify if the directory /boot/loader/entries exists and contains files.
+
+            Returns
+            -------
+                str: the path of the boot loader entries.
+            """
+            _logger.debug('__ Looking for /boot/loader/entries')
+            boot_loader_entries = os.path.join(loopdir, 'boot/loader/entries')
+            if os.path.exists(boot_loader_entries):
+                if os.listdir(boot_loader_entries):
+                    return boot_loader_entries
+            return None
+
+        def find_grubenv_dir():
+            """
+            Verify if the grubenv file exists.
+
+            Returns
+            -------
+                str: the path of the grubenv file.
+            """
+            _logger.debug('__ Looking for /boot/grub2/grubenv')
+            grubenvpath = os.path.join(loopdir, 'boot/grub2/grubenv')
+            if os.path.exists(grubenvpath):
+                return grubenvpath
+            return None
+
         def find_efi_boot_config():
             """
             Find out if the image is using BIOS or UEFI boot.
+
             Returns
             -------
                 str: [BIOS|UEFI]
@@ -1146,6 +1178,10 @@ class DeviceData():
             raise OciMigrateException('No grub config file found in %s' % self._fn)
         result_msg(msg='Grub config file: %s' % grub_cfg_path, result=False)
         #
+        # verify if a boot loader entries is present
+        boot_loader_entries_path = find_boot_loader_entries_dir()
+        grub_env_path = find_grubenv_dir()
+        #
         # investigate boot type
         self.image_info['boot_type'] = find_efi_boot_config()
         result_msg(msg='Image boot type: %s' % self.image_info['boot_type'])
@@ -1153,50 +1189,102 @@ class DeviceData():
         # get grub config contents
         grubdata = list()
         grub2 = False
+        grubby = True if boot_loader_entries_path else False
         grubentry = dict()
         grubefi = dict()
         kernelversion = '0'
         kernellist = list()
         _logger.debug('Initialised grub structure')
-        try:
-            #
-            # check for grub2 data
-            mentry = False
-            with open(grub_cfg_path, 'r') as f:
-                for ffsline in f:
-                    fsline = ffsline.strip()
-                    fsline_split = re.split('[ "]', fsline)
-                    if bool(fsline.split()):
-                        _logger.debug('%s', fsline)
-                        if fsline_split[0] == 'menuentry':
-                            mentry = True
-                            grub2 = True
-                            if grubentry:
-                                grubdata.append(grubentry)
-                            grubentry = {'menuentry': [fsline]}
-                            _logger.debug('grub line: %s', fsline)
-                        elif fsline_split[0] == 'search':
-                            if mentry:
-                                grubentry['menuentry'].append(fsline)
-                                _logger.debug('Grub line: %s', grubentry['menuentry'])
+
+        if not grubby:
+            try:
+                #
+                # check for grub2 data
+                mentry = False
+                with open(grub_cfg_path, 'r') as f:
+                    for ffsline in f:
+                        fsline = ffsline.strip()
+                        fsline_split = re.split('[ "]', fsline)
+                        if bool(fsline.split()):
+                            _logger.debug('%s', fsline)
+                            if fsline_split[0] == 'menuentry':
+                                mentry = True
+                                grub2 = True
+                                if grubentry:
+                                    grubdata.append(grubentry)
+                                grubentry = {'menuentry': [fsline]}
+                                _logger.debug('grub line: %s', fsline)
+                            elif fsline_split[0] == 'search':
+                                if mentry:
+                                    grubentry['menuentry'].append(fsline)
+                                    _logger.debug('Grub line: %s', grubentry['menuentry'])
+                                else:
+                                    _logger.debug('Not a menuentry, skipping %s', fsline)
+                            elif fsline_split[0] == 'set':
+                                if 'default_kernelopts' in fsline_split[1]:
+                                    grubefi = {'grubefi': [fsline]}
+                                    _logger.debug('efi line: %s', fsline)
                             else:
-                                _logger.debug('Not a menuentry, skipping %s', fsline)
-                        elif fsline_split[0] == 'set':
-                            if 'default_kernelopts' in fsline_split[1]:
-                                grubefi = {'grubefi': [fsline]}
-                                _logger.debug('efi line: %s', fsline)
-                        else:
-                            _logger.debug('Skipping %s', fsline)
-            if bool(grubentry):
-                grubdata.append(grubentry)
-            if bool(grubefi):
-                grubdata.append(grubefi)
-        except Exception as e:
-            _logger.error('   Errors during reading %s: %s', grub_cfg_path, str(e))
-            raise OciMigrateException('Errors during reading %s:' % grub_cfg_path) from e
-        if grub2:
+                                _logger.debug('Skipping %s', fsline)
+                if bool(grubentry):
+                    grubdata.append(grubentry)
+                if bool(grubefi):
+                    grubdata.append(grubefi)
+            except Exception as e:
+                _logger.error('   Errors during reading %s: %s', grub_cfg_path, str(e))
+                raise OciMigrateException('Errors during reading %s:' % grub_cfg_path) from e
+
+        if grubby:
+            _logger.debug('Found /boot/loader/entries')
+            result_msg(msg='Found /boot/loader/entries directory.', result=False)
+            #
+            # find all kernels defined in loader entries directory.
+            kernellist = system_tools.get_grubby_kernels(boot_loader_entries_path)
+            _logger.debug('Kernels defined in boot laoder entries: %s', kernellist)
+            if grub_env_path:
+                kernelversion = system_tools.get_grubby_default_kernel(grub_env_path)
+                _logger.debug('Default kernel: %s', kernelversion)
+            kernelopts = ''
+            try:
+                # find kernel options
+                with open(grub_cfg_path, 'r') as f:
+                    for ffsline in f:
+                        fsline = ffsline.strip()
+                        fsline_split = re.split('[ "]', fsline)
+                        if bool(fsline.split()):
+                            if fsline_split[0] == 'set':
+                                if 'kernelopts' in fsline_split[1]:
+                                    kernelopts = ' '.join(fsline_split[1:])
+                                    break
+                for _, _, files in os.walk(boot_loader_entries_path):
+                    for name in files:
+                        with open(os.path.join(boot_loader_entries_path, name), 'r') as f:
+                            for ffsline in f:
+                                fsline = ffsline.strip()
+                                if len(fsline) > 0:
+                                    _logger.debug('%s', fsline)
+                                    if fsline.split()[0] == 'title':
+                                        if grubentry:
+                                            grubdata.append(grubentry)
+                                        grubentry = {'title': [fsline]}
+                                        _logger.debug('grub line: %s', fsline)
+                                    elif fsline.split()[0] == 'linux':
+                                        grubentry['title'].append(fsline)
+                                        _logger.debug('grub line: %s', grubentry['title'])
+                                    else:
+                                        _logger.debug('skipping %s', fsline)
+                        if grubentry:
+                            if kernelopts:
+                                grubentry['title'].append(kernelopts)
+                            grubdata.append(grubentry)
+
+            except Exception as e:
+                _logger.error('   Errors during reading %s: %s', boot_loader_entries_path, str(e))
+                raise OciMigrateException('Errors during reading %s:' % boot_loader_entries_path) from e
+
+        elif grub2:
             _logger.debug('Found grub2 configuration file.')
-            result_msg(msg='Found grub2 configuration file', result=False)
+            result_msg(msg='Found grub2 configuration file.', result=False)
             #
             # find all kernels defined in grub(1) config file.
             kernellist = system_tools.get_grub2_kernels(grub_cfg_path)
@@ -1237,6 +1325,9 @@ class DeviceData():
                 _logger.error('   Errors during reading %s: %s', grub_cfg_path, str(e))
                 raise OciMigrateException('Errors during reading %s:' % grub_cfg_path) from e
 
+        _logger.debug('grubdata:\n %s', pformat(grubdata, indent=4))
+        _logger.debug('kernellist\n %s', pformat(kernellist, indent=4))
+        _logger.debug('kernelversion\n %s', kernelversion)
         return grubdata, kernelversion, kernellist
 
     def get_os_release(self):
@@ -1459,23 +1550,25 @@ class DeviceData():
                                     msg='grub2 line ->%s<- specifies boot partition via UUID.' % le)
                         elif l_split[0] == 'kernel':
                             grub_l += 1
-                            if len([a for a in l_split
-                                    if any(b in a for b in ['root=UUID=', 'root=/dev/mapper/'])]) == 0:
-                                _logger.debug('grub line ->%s<- does not specify boot partition via '
-                                              'UUID nor LVM2.', le)
-                                grub_fail += 1
-                            else:
-                                result_msg(msg='grub line ->%s<- specifies boot partition via UUID or LVM2.'
-                                               % le, result=True)
-                        elif 'default_kernelopts' in l_split[1]:
-                            grub_l += 1
-                            if len([a for a in l_split
-                                    if any(b in a for b in ['root=UUID=', 'root=/dev/mapper/'])]) == 0:
+                            if len([a for a in l_split if any(b in a for b in ['root=UUID=', 'root=/dev/mapper/'])]) == 0:
                                 _logger.debug('grub line ->%s<- does not specify boot partition via UUID nor LVM2.', le)
                                 grub_fail += 1
                             else:
-                                result_msg(msg='grub line ->%s<- specifies boot partition via UUID or LVM2.'
-                                               % le, result=True)
+                                result_msg(msg='grub line ->%s<- specifies boot partition via UUID or LVM2.' % le,)
+                        elif 'default_kernelopts' in l_split[1]:
+                            grub_l += 1
+                            if len([a for a in l_split if any(b in a for b in ['root=UUID=', 'root=/dev/mapper/'])]) == 0:
+                                _logger.debug('grub line ->%s<- does not specify boot partition via UUID nor LVM2.', le)
+                                grub_fail += 1
+                            else:
+                                result_msg(msg='grub line ->%s<- specifies boot partition via UUID or LVM2.' % le)
+                        elif l_split[0] == 'kernelopts=':
+                            grub_l += 1
+                            if len([a for a in l_split if any(b in a for b in ['root=UUID=', 'root=/dev/mapper/'])]) == 0:
+                                _logger.debug('grub line ->%s<- does not specify boot partition via UUID nor LVM2.', le)
+                                grub_fail += 1
+                            else:
+                                result_msg(msg='grub line ->%s<- specifies boot partition via UUID or LVM2.' % le)
                         else:
                             _logger.debug('skipping %s', l_split)
             if grub_l == 0:
@@ -1486,6 +1579,7 @@ class DeviceData():
                 failmsg += '\n  - grub config file does not guarantee booting using UUID or LVM2.'
             else:
                 _logger.debug('Grub config file ok.')
+                result_msg(msg='Grub config file ok.', result=True)
         else:
             passed_requirement = False
             failmsg += '\n  - Grub config file not found.'

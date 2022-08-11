@@ -45,6 +45,7 @@ def parse_args():
         The command line namespace.
     """
     parser = argparse.ArgumentParser(
+        prog='oci-image-migrate-upload',
         description='Utility to upload on-premise legacy images to object '
                     'storage of the Oracle Cloud Infrastructure.')
     #

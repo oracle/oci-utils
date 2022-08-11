@@ -568,6 +568,8 @@ def mount_partition(devname, mountpoint=None):
         #
         # mount failed, need to remove mountpoint.
         _logger.critical('   Failed to mount %s, missing driver, filesystem corruption...: %s', devname, str(e))
+        _logger.critical('   Check file system driver and kernel version compatibility. '
+                         'Check Known Issues in the man page and manual.')
         if mountpoint is None:
             if system_tools.exec_rmdir(mntpoint):
                 _logger.debug('%s removed', mntpoint)
