@@ -63,6 +63,7 @@ def parse_args():
         The command line namespace.
     """
     parser = argparse.ArgumentParser(
+        prog='oci-image-migrate',
         description='Utility to support preparation of on-premise legacy '
                     'images for importing in the Oracle Cloud Infrastructure.')
     #
@@ -260,7 +261,7 @@ def verify_support():
     if ostype not in ['ol', 'redhat', 'centos']:
         _logger.info('OS type %s is not supported.', ostype)
         return False
-    if majorrelease not in ['7', '8']:
+    if majorrelease not in ['7', '8', '9']:
         _logger.info('OS %s %s is not supported', ostype, majorrelease)
         return False
     return True
@@ -487,8 +488,7 @@ def main():
             prereq_msg += msg
         #
         if imgres:
-            prereq_msg += '\n\n  %s data collection and processing succeeded.' \
-                          % image_path
+            prereq_msg += '\n\n  %s data collection and processing succeeded.' % image_path
         else:
             prereq_passed = False
         #
@@ -501,12 +501,10 @@ def main():
                 result_msg(msg='\n  Boot type is UEFI, use launch_mode NATIVE (or EMULATED) at import.',
                            result=True)
             else:
-                raise OciMigrateException('Something wrong checking '
-                                          'the boot type')
+                raise OciMigrateException('Checking the boot type failed.')
         else:
-            prereq_msg += '\n\n  %s processing failed, check the logfile ' \
-                          'and/or set environment variable _OCI_UTILS_DEBUG.' \
-                          % image_path
+            prereq_msg += '\n\n  %s processing failed, check the logfile and/or set environment variable ' \
+                          '_OCI_UTILS_DEBUG.' % image_path
             raise OciMigrateException(prereq_msg)
     except Exception as e:
         exit_with_msg('*** ERROR ***  %s' % str(e))

@@ -1,6 +1,6 @@
 # oci-utils
 #
-# Copyright (c) 2019, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http://oss.oracle.com/licenses/upl.
 
@@ -775,6 +775,53 @@ def get_free_nbd():
     except Exception as e:
         _logger.critical('   Failed to screen nbd devices: %s', str(e))
         raise OciMigrateException('\nFailed to screen nbd devices:') from e
+
+
+def get_grubby_kernels(boot_loader_entries):
+    """
+    Get the version of the kernels defined in the boot loader entries directory.
+
+    Parameters
+    ----------
+    boot_loader_entries: str
+        The boot loader entries directory.
+
+    Returns
+    -------
+        list: list of kernels.
+    """
+    _logger.debug('__ Get the kernel versions from %s', boot_loader_entries)
+    kernels_list = list()
+    for _, _, files in os.walk(boot_loader_entries):
+        for name in files:
+            with open(os.path.join(boot_loader_entries, name)) as bootloaderentry:
+                bl_lines = bootloaderentry.readlines()
+            for bline in bl_lines:
+                if 'vmlinuz' in bline:
+                    kernels_list.append(bline.split('-', 1)[1].strip())
+                    break
+    return kernels_list
+
+def get_grubby_default_kernel(grubenv_path):
+    """
+    Get the kernel booted by default in a loader entries env.
+
+    Parameters
+    ----------
+    grubenv_path: str
+        The full path of the grubenv file.
+
+    Returns
+    -------
+        str: the kernel version.
+    """
+    _logger.debug('__ Get the default kernel from %s', grubenv_path)
+    with open(grubenv_path, 'r') as gf:
+        gf_lines = gf.readlines()
+    for gf_line in gf_lines:
+        if 'saved_entry' in gf_line:
+            return(gf_line.split('-', 1)[1].strip())
+    return None
 
 
 def get_grub2_kernels(grub_config_file):

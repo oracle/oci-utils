@@ -21,6 +21,7 @@ import termios
 import tty
 from datetime import datetime
 from subprocess import call
+from pprint import pformat
 
 import oci
 
@@ -69,6 +70,15 @@ default_values = {
     # "http_no_proxy": "169.254.169.254,.oraclecloud.com,.oraclecorp.com,.us.oracle.com"
 }
 
+updatable_parameters = {'availability domain': 'availability_domain',
+                        'boot volume size': 'boot_volume_size_in_gbs',
+                        'memory': 'instance_flex_memory_in_gbs',
+                        'nb cpus': 'instance_flex_ocpus',
+                        'subnet': 'subnet_ocid',
+                        'shape': 'shape',
+                        'image': 'source_ocid'}
+
+
 _logger = logging.getLogger(__name__)
 
 
@@ -92,6 +102,28 @@ def print_g(msg, term=True):
     _logger.debug(msg)
 
 
+def print_g_left(head, headlen, msg, term=True):
+    """
+    Write message with header of a defined size.
+
+    Parameters
+    ----------
+    head: str
+        The header
+    headlen: int
+        The length of the header.
+    msg: str
+        The message.
+    term: bool
+        If True, write to stdout.
+
+    Returns
+    -------
+        No return value.
+    """
+    print_g(f'{head:{headlen}s}: {msg}', term=term)
+
+
 def parse_args():
     """
     Parse the command line arguments.
@@ -101,7 +133,8 @@ def parse_args():
     -------
         The command line namespace.
     """
-    parser = argparse.ArgumentParser(description='Configure oci utils auto test.')
+    parser = argparse.ArgumentParser(prog='modify_instance',
+                                     description='Configure oci utils auto test.')
     parser.add_argument('-n', '--name',
                         action='store',
                         dest='display_name',
@@ -302,23 +335,280 @@ def get_configdata(profile, configfile='~/.oci/config'):
     return config
 
 
-class autotesttfvars:
+class InstanceData:
+    def __init__(self, instance_name, args):
+        self.instance_name = instance_name
+        self.args = args
+        #
+        # initialise config structure
+        self.data = self.init_config()
+        self.compartments = self.get_compartments()
+        self.subnets = self.get_subnet_details()
+        self.availability_domains = list()
+        self.image_list = list()
+        self.shape_list = list()
+
+    def init_config(self):
+        """
+        Initialise config struct.
+
+        Parameters
+        ----------
+        instance_name: str
+            The instance display name.
+
+        Returns
+        -------
+            dict: the config structure.
+        """
+        data = dict()
+        exec_dir = inspect.getfile(inspect.currentframe())
+        data['instance_display_name'] = self.instance_name
+        data['exec_dir'] = os.path.dirname(exec_dir)
+        data['base_exec_dir'] = os.path.dirname(exec_dir)
+        data['operator'] = _get_current_user()
+        data['operator_home'] = _get_current_user_home()
+        def_base_dir = data['operator_home'] + '/' + default_instance_dir
+        instance_display_name = data['instance_display_name']
+        data['def_instance_dir'] = def_base_dir + '/' + instance_display_name
+        data['def_data_dir'] = def_base_dir + '/' + instance_display_name + '/data'
+        data['base_instance_dir'] = def_base_dir + '/' + instance_display_name + '/base_instance'
+        data['def_tf_scripts_dir'] = def_base_dir + '/' + instance_display_name + '/tf_scripts'
+        data['def_sh_scripts_dir'] = def_base_dir + '/' + instance_display_name + '/sh_scripts'
+        data['tfvarsfile'] = data['def_data_dir'] + '/' + self.args.varfilename + '.tfvars.json'
+        if self.args.datadir != '_DDDD_':
+            data['def_data_dir'] = self.args.datadir + '/data'
+            data['def_tf_scripts_dir'] = self.args.datadir + '/tf_scripts'
+            data['def_sh_scripts_dir'] = self.args.datadir + '/sh_scripts'
+            data['base_instance_dir'] = self.args.datadir + '/base_instance'
+        data['oci_config'] = self.get_configdata()
+        return data
+
+    def get_configdata(self):
+        """
+        Read the oci sdk/cli config file.
+
+        Parameters
+        ----------
+            profile: str
+                the config profile.
+            configfile: str
+                the path of the configfile.
+        Returns
+        -------
+            dict: the config data.
+        """
+        sdkconfigfile = self.args.configfile
+        if self.args.configfile.startswith('~/'):
+            sdkconfigfile = os.path.expanduser('~') + self.args.configfile[1:]
+        return oci.config.from_file(file_location=sdkconfigfile, profile_name=self.args.profile)
+
+    def get_compartments(self):
+        """
+        Get the list of compartments in this tenancy.
+
+        Parameters
+        ----------
+        config_dict: dict
+            The oci configuration file data.
+
+        Returns
+        -------
+            list: list of compartment objects.
+        """
+        try:
+            oci_identity = oci.identity.IdentityClient(self.data['oci_config'])
+            oci_compartments = oci_identity.list_compartments(self.data['oci_config']['tenancy'])
+        except oci.exceptions.ServiceError as e:
+            print_g('*** AUTHORISATION ERROR ***')
+            sys.exit(1)
+        except Exception as e:
+            print_g('*** ERROR *** %s' % str(e))
+            _logger.error('ERROR %s', str(e), exc_info=True)
+            sys.exit(1)
+        return oci_compartments.data
+
+    def set_compartment_name(self):
+        """
+        Get the compartment name based on the ocid
+
+        Parameters
+        ----------
+        compartments: list
+            List of compartment objects.
+        compartment_id: str
+            The compartment ocid.
+
+        Returns
+        -------
+            str: the compartment name.
+        """
+        for compartment in self.compartments:
+            if compartment.id == self.data['compartment_ocid']:
+                return compartment.name
+        return None
+
+    def set_compartment_id(self, ocid):
+        """
+        Set the current compartment id and name.
+
+        Parameters
+        ----------
+        ocid: str
+            The compartment ocid.
+
+        Returns
+        -------
+            No return value.
+        """
+        self.data['compartment_ocid'] = ocid
+        self.data['compartment_name'] = self.set_compartment_name()
+
+    def get_compartment_name(self):
+        """
+        Return the compartent name.
+
+        Returns
+        -------
+            str: the compartment name.
+        """
+        return self.data['compartment_name']
+
+    def get_subnet_details(self):
+        """
+        Get all subnets in all accessible compartments.
+
+        Parameters
+        ----------
+        compartments: list
+            list of compartment objects.
+        config_dict: dict
+            The oci configuration file data.
+
+        Returns
+        -------
+            list: the list of subnets.
+        """
+        oci_subnet_list = list()
+        oci_subnetclient = oci.core.VirtualNetworkClient(self.data['oci_config'])
+        oci_vcn_client = oci.core.VirtualNetworkClient(self.data['oci_config'])
+        for compartment in self.compartments:
+            try:
+                oci_vcns = oci_vcn_client.list_vcns(compartment.id).data
+                for vcn in oci_vcns:
+                    oci_subnet_list.extend(oci_subnetclient.list_subnets(compartment.id, vcn_id=vcn.id).data)
+            except oci.exceptions.ServiceError as e:
+                #
+                # we skip an authorisation error here, as one cannot expect to have access to all compartments.
+                if e.status == 404:
+                    pass
+                else:
+                    print_g('*** ERROR *** %s' % str(e))
+                    _logger.error('ERROR %s', str(e), exc_info=True)
+                    sys.exit(1)
+        return oci_subnet_list
+
+    def get_subnet_name(self, ocid):
+        for subn in self.subnets:
+            if subn.id == ocid:
+                return subn.display_name()
+        return None
+
+    def set_availability_domains(self, compartment_id):
+        """
+        Set the list of availability domains.
+
+        Parameters
+        ----------
+        compartment_id: str
+            The compartment ocid.
+
+        Returns
+        -------
+            No return value.
+        """
+        try:
+            oci_identity = oci.identity.IdentityClient(self.data['oci_config'])
+            oci_availability_domains = oci_identity.list_availability_domains(compartment_id)
+        except oci.exceptions.ServiceError as e:
+            print_g('*** AUTHORISATION ERROR ***')
+            _logger.error('Authorisation error', exc_info=True)
+            sys.exit(1)
+        except Exception as e:
+            print_g('*** ERROR *** %s' % str(e))
+            _logger.error('ERROR %s', str(e), exc_info=True)
+            sys.exit(1)
+        self.availability_domains = oci_availability_domains.data
+
+    def set_image_list(self, compartment_id):
+        """
+        Get a list of availabel images in this compartment.
+
+        Parameters
+        ----------
+        config_dict: dict
+            The oci configuration file data.
+        compartment_id: str
+            The compartment ocid.
+
+        Returns
+        -------
+            list: the list of the image objects.
+        """
+        try:
+            oci_imageclient = oci.core.ComputeClient(self.data['oci_config'])
+            oci_images_data_all = oci.pagination.list_call_get_all_results(oci_imageclient.list_images, compartment_id)
+        except oci.exceptions.ServiceError as e:
+            print_g('*** AUTHORISATION ERROR ***')
+            _logger.error('Authorisation error', exc_info=True)
+            sys.exit(1)
+        except Exception as e:
+            print_g('*** ERROR *** %s' % str(e))
+            _logger.error('ERROR %s', str(e), exc_info=True)
+            sys.exit(1)
+        #
+        # remove windows from the list.
+        oci_images_list = list()
+        for image in oci_images_data_all.data:
+            if 'Windows' not in image.operating_system:
+                oci_images_list.append(image)
+        self.image_list = oci_images_list
+
+    def get_image_name(self, image_id):
+        for img in self.image_list:
+            if img.id == image_id:
+                return img.display_name
+        return None
+
+    def set_shape_list(self, image_ocid):
+        try:
+            oci_imageclient = oci.core.ComputeClient(self.data['oci_config'])
+            oci_shapes = oci_imageclient.list_image_shape_compatibility_entries(image_ocid)
+        except oci.exceptions.ServiceError as e:
+            print_g('*** AUTHORISATION ERROR ***')
+            _logger.error('Authorisation error', exc_info=True)
+            sys.exit(1)
+        except Exception as e:
+            print_g('*** ERROR *** %s' % str(e))
+            _logger.error('ERROR %s', str(e), exc_info=True)
+            sys.exit(1)
+        self.shape_list = oci_shapes.data
+
+
+class TerraformData:
     """
     Manipulate the tfvar.json file.
     """
     def __init__(self, tfvars_file):
         """
-        Initialise.
+        Initialise, read the terraform variables values if they exist.
 
         Parameters
         ----------
         tfvars_file: str
             Full path of the tfvar.json file.
-        # sdkconfig: dict
-        #     Contents of the sdk config file.
         """
         self.json_file = tfvars_file
-        # self.sdkconfig = sdkconfig
         try:
             with open(self.json_file, 'rb') as tfvj:
                 self.jsondata = json.load(tfvj)
@@ -556,6 +846,96 @@ def _select_from(some_list, prompt, default_val=0):
     return some_list[select_index]
 
 
+def get_compartments(config_dict):
+    """
+    Get the list of compartments in this tenancy.
+
+    Parameters
+    ----------
+    config_dict: dict
+        The oci configuration file data.
+
+    Returns
+    -------
+        list: list of compartment objects.
+    """
+    try:
+        oci_identity = oci.identity.IdentityClient(config_dict)
+        oci_compartments = oci_identity.list_compartments(config_dict['tenancy'])
+    except oci.exceptions.ServiceError as e:
+        print_g('*** AUTHORISATION ERROR ***')
+        sys.exit(1)
+    except Exception as e:
+        print_g('*** ERROR *** %s' % str(e))
+        _logger.error('ERROR %s', str(e), exc_info=True)
+        sys.exit(1)
+    return oci_compartments.data
+
+
+def get_compartment_name(compartments, compartment_id):
+    """
+    Get the compartment name based on the ocid
+
+    Parameters
+    ----------
+    compartments: list
+        List of compartment objects.
+    compartment_id: str
+        The compartment ocid.
+
+    Returns
+    -------
+        str: the compartment name.
+    """
+    for compartment in compartments:
+        if compartment.id == compartment_id:
+            return compartment.name
+    return None
+
+
+def get_subnet_name(subnets, subnet_id):
+    """
+    Get the subnet name based on the ocid.
+
+    Parameters
+    ----------
+    subnets: list
+        List of subnet objects.
+    subnet_id: str
+        The subnet ocid.
+
+    Returns
+    -------
+        str: the subnet name.
+    """
+    for subnet in subnets:
+        if subnet.id == subnet_id:
+            return subnet.display_name
+    return None
+
+
+def get_image_name(images, image_id):
+    """
+    Get the image name based on the ocid.
+
+    Parameters
+    ----------
+    images: list
+        List of image objects.
+    image_id: str
+        The image ocid.
+
+    Returns
+    -------
+        str: the image name.
+    """
+    print(dir(images[0]))
+    for image in images:
+        if image.id == image_id:
+            return image.display_name
+    return None
+
+
 def select_compartment(config_dict, prompt):
     """
     Select a compartment in the tenancy.
@@ -571,19 +951,40 @@ def select_compartment(config_dict, prompt):
     -------
         dict: the data of the compartment.
     """
+    oci_compartments = get_compartments(config_dict['tenancy'])
+
+    for comp in oci_compartments:
+        print_g('%4d %-30s %s' % (oci_compartments.index(comp), comp.name, comp.id))
+    return _select_from(oci_compartments.data, prompt)
+
+
+def get_vcns(config_dict, compartment_id):
+    """
+    Get the list of vcns in this compartment.
+
+    Parameters
+    ----------
+    config_dict: dict
+        The oci configuration data.
+    compartment_id: str
+        The compartment ocid.
+
+    Returns
+    -------
+        list: the list of vcn objects.
+    """
     try:
-        oci_identity = oci.identity.IdentityClient(config_dict)
-        oci_compartments = oci_identity.list_compartments(config_dict['tenancy'])
+        oci_vcnclient = oci.core.VirtualNetworkClient(config_dict)
+        oci_vcns = oci_vcnclient.list_vcns(compartment_id).data
     except oci.exceptions.ServiceError as e:
         print_g('*** AUTHORISATION ERROR ***')
+        _logger.error('Authorisation error', exc_info=True)
         sys.exit(1)
     except Exception as e:
         print_g('*** ERROR *** %s' % str(e))
         _logger.error('ERROR %s', str(e), exc_info=True)
         sys.exit(1)
-    for comp in oci_compartments.data:
-        print_g('%4d %-30s %s' % (oci_compartments.data.index(comp), comp.name, comp.id))
-    return _select_from(oci_compartments.data, prompt)
+    return oci_vcns
 
 
 def select_vcn(config_dict, compartment_id):
@@ -601,19 +1002,10 @@ def select_vcn(config_dict, compartment_id):
     -------
         dict: the VCN
     """
-    try:
-        oci_vncclient = oci.core.VirtualNetworkClient(config_dict)
-        oci_vcns = oci_vncclient.list_vcns(compartment_id)
-    except oci.exceptions.ServiceError as e:
-        print_g('*** AUTHORISATION ERROR ***')
-        _logger.error('Authorisation error', exc_info=True)
-        sys.exit(1)
-    except Exception as e:
-        print_g('*** ERROR *** %s' % str(e))
-        _logger.error('ERROR %s', str(e), exc_info=True)
-        sys.exit(1)
-    for vcn in oci_vcns.data:
-        print_g('%4d %-30s %s' % (oci_vcns.data.index(vcn), vcn.display_name, vcn.id))
+    oci_vcns = get_vcns(config_dict['tenancy'], compartment_id)
+
+    for vcn in oci_vcns :
+        print_g('%4d %-30s %s' % (oci_vcns.index(vcn), vcn.display_name, vcn.id))
     return _select_from(oci_vcns.data, 'Select VCN for instance.')
 
 
@@ -648,6 +1040,76 @@ def select_subnet(config_dict, compartment_id, vcn_id):
     return _select_from(oci_subnets.data, 'Select subnet instance.')
 
 
+def get_subnet_details(compartments,config_dict):
+    """
+    Get all subnets in all accessible compartments.
+
+    Parameters
+    ----------
+    compartments: list
+        list of compartment objects.
+    config_dict: dict
+        The oci configuration file data.
+
+    Returns
+    -------
+        list: the list of subnets.
+    """
+    oci_subnet_list = list()
+    oci_subnetclient = oci.core.VirtualNetworkClient(config_dict)
+    oci_vcn_client = oci.core.VirtualNetworkClient(config_dict)
+    for compartment in compartments:
+        try:
+            oci_vcns = oci_vcn_client.list_vcns(compartment.id).data
+            for vcn in oci_vcns:
+                oci_subnet_list.extend(oci_subnetclient.list_subnets(compartment.id, vcn_id=vcn.id).data)
+        except oci.exceptions.ServiceError as e:
+            #
+            # we skip an authorisation error here, as one cannot expect to have access to all compartments.
+            if e.status == 404:
+                pass
+            else:
+                print_g('*** ERROR *** %s' % str(e))
+                _logger.error('ERROR %s', str(e), exc_info=True)
+                sys.exit(1)
+    return oci_subnet_list
+
+
+def get_images(config_dict, compartment_id):
+    """
+    Get a list of availabel images in this compartment.
+
+    Parameters
+    ----------
+    config_dict: dict
+        The oci configuration file data.
+    compartment_id: str
+        The compartment ocid.
+
+    Returns
+    -------
+        list: the list of the image objects.
+    """
+    try:
+        oci_imageclient = oci.core.ComputeClient(config_dict)
+        oci_images_data_all = oci.pagination.list_call_get_all_results(oci_imageclient.list_images, compartment_id).data
+    except oci.exceptions.ServiceError as e:
+        print_g('*** AUTHORISATION ERROR ***')
+        _logger.error('Authorisation error', exc_info=True)
+        sys.exit(1)
+    except Exception as e:
+        print_g('*** ERROR *** %s' % str(e))
+        _logger.error('ERROR %s', str(e), exc_info=True)
+        sys.exit(1)
+    #
+    # remove windows from the list.
+    oci_images_list = list()
+    for image in oci_images_data_all:
+        if 'Windows' not in image.operating_system:
+            oci_images_list.append(image)
+    return oci_images_list
+
+
 def select_image(config_dict, compartment_id):
     """
     Select an image.
@@ -663,24 +1125,57 @@ def select_image(config_dict, compartment_id):
     -------
         dict: the image
     """
+    oci_images_data = get_images(config_dict, compartment_id)
+    for image in oci_images_data:
+        # print_g('%4d %-40s %s' % (oci_images_data.index(image), image.display_name, image.id))
+        print_g('%4d %-40s %s' % (oci_images_data.index(image), image.display_name, image.operating_system))
+    image_data = _select_from(oci_images_data, 'Select Image')
+    print_g(image_data, term=False)
+    return image_data
+
+
+def get_availability_domain(data):
+    """
+    Get the availablility domain data.
+
+    Parameters
+    ----------
+    data: dict
+        The configuration data.
+
+    Returns
+    -------
+        dict: the configuration data.
+    """
+    _ = _clear()
+    print_g('Availability domain.\n', term=True)
+    availability_domain = select_availability_domain(data['oci_config'], data['compartment'].id)
+    print_g(availability_domain, term=False)
+    print_g('Selected availability domain: %s\n' % availability_domain.name)
+    data['availability_domain'] = availability_domain.name
+    if not _read_yn('Continue?', default_yn=True):
+        sys.exit(1)
+    return data
+
+
+def get_availability_domains(config_dict, compartment_id):
+    """
+    Get the list of availbility domains.
+
+    Parameters
+    ----------
+    config_dict: dict
+        The oci configuration data.
+    compartment_id: str
+        The compartment ocid.
+
+    Returns
+    -------
+        list of availability domains.
+    """
     try:
-        oci_imageclient = oci.core.ComputeClient(config_dict)
-        oci_images_data_all = oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-                                                                       compartment_id).data
-
-        # oci_images_data = oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-        #                                                            compartment_id,
-        #                                                            operating_system='Zero').data
-        # oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-        #                                                             compartment_id,
-        #                                                             operating_system='Custom').data
-        # oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-        #                                                             compartment_id,
-        #                                                             operating_system='Oracle Linux').data
-        # oci_images_data += oci.pagination.list_call_get_all_results(oci_imageclient.list_images,
-        #                                                            compartment_id,
-        #                                                            operating_system='Oracle Autonomous Linux').data
-
+        oci_identity = oci.identity.IdentityClient(config_dict)
+        oci_availability_domains = oci_identity.list_availability_domains(compartment_id)
     except oci.exceptions.ServiceError as e:
         print_g('*** AUTHORISATION ERROR ***')
         _logger.error('Authorisation error', exc_info=True)
@@ -689,16 +1184,7 @@ def select_image(config_dict, compartment_id):
         print_g('*** ERROR *** %s' % str(e))
         _logger.error('ERROR %s', str(e), exc_info=True)
         sys.exit(1)
-    oci_images_data = list()
-    for img in oci_images_data_all:
-        if 'Windows' not in img.operating_system:
-            oci_images_data.append(img)
-    for image in oci_images_data:
-        # print_g('%4d %-40s %s' % (oci_images_data.index(image), image.display_name, image.id))
-        print_g('%4d %-40s %s' % (oci_images_data.index(image), image.display_name, image.operating_system))
-    image_data = _select_from(oci_images_data, 'Select Image')
-    print_g(image_data, term=False)
-    return image_data
+    return oci_availability_domains.data
 
 
 def select_availability_domain(config_dict, compartment_id):
@@ -716,18 +1202,8 @@ def select_availability_domain(config_dict, compartment_id):
     -------
         dict: the availability domain.
     """
-    try:
-        oci_identity = oci.identity.IdentityClient(config_dict)
-        oci_availability_domains = oci_identity.list_availability_domains(compartment_id)
-    except oci.exceptions.ServiceError as e:
-        print_g('*** AUTHORISATION ERROR ***')
-        _logger.error('Authorisation error', exc_info=True)
-        sys.exit(1)
-    except Exception as e:
-        print_g('*** ERROR *** %s' % str(e))
-        _logger.error('ERROR %s', str(e), exc_info=True)
-        sys.exit(1)
-    for domain in oci_availability_domains.data:
+    oci_availability_domains = get_availability_domains(config_dict, compartment_id)
+    for domain in oci_availability_domains:
         print_g('%4d %-30s %s' % (oci_availability_domains.data.index(domain), domain.name, domain.id))
     return _select_from(oci_availability_domains.data, 'Select availability domain.')
 
@@ -1005,6 +1481,32 @@ def copy_dir(src, dest):
     return True
 
 
+def backup_file(tfvars):
+    """
+    Backup a file.
+
+    Parameters
+    ----------
+    tfvars: str
+        File name.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    try:
+        if os.path.exists(tfvars):
+            tfvars_bck = tfvars + '_%s' % datetime.now().strftime('%Y%m%d_%H%M')
+            shutil.copy(tfvars, tfvars_bck)
+            print_g('Copied %s to %s' % (tfvars, tfvars_bck))
+        else:
+            print_g('File %s does not exist.', tfvars)
+    except ValueError as e:
+        _logger.error('Failed to backup %s to %s: %s', tfvars, tfvars_bck, str(e))
+        return False
+    return True
+
+
 def write_bash(fn, cmd):
     """
     Write a command to the script file fn.
@@ -1084,8 +1586,8 @@ def get_user_data(data):
     """
     data['operator'] = _get_current_user()
     data['operator_home'] = _get_current_user_home()
-    print_g('Username: %s' % data['operator'])
-    print_g('Home:     %s' % data['operator_home'])
+    print_g_left('Username', 30, data['operator'])
+    print_g_left('Home', 30, data['operator_home'])
     return data
 
 
@@ -1116,11 +1618,11 @@ def create_directories(data, args):
         data['def_tf_scripts_dir'] = args.datadir + '/tf_scripts'
         data['def_sh_scripts_dir'] = args.datadir + '/sh_scripts'
         data['base_instance_dir'] = args.datadir + '/base_instance'
-    print_g('Default instance dir   %s' % data['def_instance_dir'])
-    print_g('Default data dir       %s' % data['def_data_dir'])
-    print_g('Base instance dir      %s' % data['base_instance_dir'])
-    print_g('Default tf_scripts dir %s' % data['def_tf_scripts_dir'])
-    print_g('Default sh_scripts dir %s' % data['def_sh_scripts_dir'])
+    print_g_left('Default instance dir', 30, data['def_instance_dir'])
+    print_g_left('Default data dir', 30,data['def_data_dir'])
+    print_g_left('Base instance dir', 30, data['base_instance_dir'])
+    print_g_left('Default tf_scripts dir', 30, data['def_tf_scripts_dir'])
+    print_g_left('Default sh_scripts dir', 30, data['def_sh_scripts_dir'])
     return data
 
     if not create_dir(data['def_instance_dir']):
@@ -1318,9 +1820,9 @@ def get_oci_config(data, args):
         dict: the configuration data.
     """
     cfg_dict = get_configdata(args.profile, args.configfile)
-    print_g('Configuration')
+    print_g('\nConfiguration:\n-------------')
     for k, v in cfg_dict.items():
-        print_g('%40s: %s' % (k, v))
+        print_g_left(k, 30, v)
     data['oci_config'] = cfg_dict
     return data
 
@@ -1619,6 +2121,19 @@ def write_scripts(data):
     print_g('\nor\n%s\n%s' % (create_script, destroy_script))
 
 
+def current_data(tfvars, instance):
+    head = 'Compartment: %s' % instance.get_compartment_name()
+    # print('%s\n%s' % (head, '-' * len(head)))
+    selection = ['availability domain: ' + tfvars['availability_domain'],
+                 'subnet:              ' + instance.get_subnet_name(tfvars['subnet_ocid']),
+                 'image:               ' + instance.get_image_name(tfvars['source_ocid']),
+                 'shape:               ' + tfvars['shape'],
+                 'boot volume size:    ' + tfvars['boot_volume_size_in_gbs']]
+    if 'instance_flex_memory_in_gbs' in tfvars:
+        selection.extend(['flex number of cpus: ' + tfvars['instance_flex_ocpus'],
+                          'flex memory in gbs:  ' + tfvars['instance_flex_memory_in_gbs']])
+    return head, selection
+
 def main():
     """
     Configure auto tests.
@@ -1640,52 +2155,107 @@ def main():
     # instance name to create
     instance_display_name = args.display_name if args.display_name is not None else _get_display_name()
     #
-    # exec dir
-    config_data = init_struct(instance_display_name)
-    #
     # initialise logging
     logging.basicConfig(filename=default_log + instance_display_name + '.log',
                         level=logging.DEBUG,
                         format='%(asctime)s - %(name)s - %(levelname)s (%(module)s:%(lineno)s) - %(message)s')
     #
+    # init
+    print_g('Collecting instance data.....\n')
+    config_data = InstanceData(instance_display_name, args)
+    #
+    # current user data
+    #config_data = get_user_data(config_data)
+    #
     # show initial data
-    print_g('Display name: %s' % instance_display_name)
-    print_g('exec dir: %s' % config_data['exec_dir'], term=False)
-    print_g('base exec dir: %s' % config_data['base_exec_dir'], term=False)
-    #
-    # current user
-    config_data = get_user_data(config_data)
-    #
-    # initialise data structure
-    image_data = dict()
-    #
-    # __GT__
-    print(config_data)
-    print(image_data)
-    #
-    # __GT__
-    # create directories
-    config_data = create_directories(config_data, args)
-    #
-    # __GT__
-    # copy the scripts in place.
-    # _ = copy_scripts(config_data)
-    #
-    # tf variable file path
-    config_data['tfvarsfile'] = config_data['def_data_dir'] + '/' + args.varfilename + '.tfvars.json'
-    print_g('tfvars file: %s' % config_data['tfvarsfile'])
+    print_g_left('Display name', 30, config_data.data['instance_display_name'])
+    print_g_left('exec dir', 30, config_data.data['exec_dir'], term=False)
+    print_g_left('base exec dir', 30, config_data.data['base_exec_dir'], term=False)
+    print_g_left('Username', 30, config_data.data['operator'])
+    print_g_left('Home dir', 30, config_data.data['operator_home'])
+    print_g_left('Default instance dir', 30, config_data.data['def_instance_dir'])
+    print_g_left('Default data dir', 30,config_data.data['def_data_dir'])
+    print_g_left('Base instance dir', 30, config_data.data['base_instance_dir'])
+    print_g_left('Default tf_scripts dir', 30, config_data.data['def_tf_scripts_dir'])
+    print_g_left('Default sh_scripts dir', 30, config_data.data['def_sh_scripts_dir'])
+    print_g('\nConfiguration:\n-------------')
+    for k, v in config_data.data['oci_config'].items():
+        print_g_left(k, 30, v)
+    print_g_left('tfvars file', 30, config_data.data['tfvarsfile'])
     #
     # Get configuration data from config file.
-    config_data = get_oci_config(config_data, args)
+    # config_data = get_oci_config(config_data, args)
     if not _read_yn('Continue?', default_yn=True):
         sys.exit(1)
-    print(config_data)
-    sys.exit(0)
-    # _ = _clear()
+    #
+    # Get the current instance var file data
+    try:
+        with TerraformData(config_data.data['tfvarsfile']) as atfv:
+            tfvars_data = atfv.jsondata
+    except Exception as e:
+        print_g('***ERROR*** %s' % str(e), term=True)
+        sys.exit(1)
+    #
+    # compartment ocid
+    config_data.set_compartment_id(tfvars_data['compartment_ocid'])
+    #
+    # availability_domains
+    config_data.set_availability_domains(config_data.data['compartment_ocid'])
+    #
+    # images
+    config_data.set_image_list(config_data.data['compartment_ocid'])
+    #
+    # __GT__
+    print(pformat(config_data.data, indent=4))
+    print(pformat(tfvars_data, indent=4))
+    # print(pformat(config_data.compartments, indent=4))
+    # print(pformat(config_data.subnets, indent=4))
+    # print(pformat(config_data.availability_domains, indent=4))
+    # print(pformat(config_data.image_list, indent=4))
+    # print(pformat(config_data.shape_list, indent=4))
+    #
+    sys.exit(1)
+    #
+    # images
+    # image_list = get_images(config_data['oci_config'], tfvars_data['compartment_ocid'])
+    #
+    # current data
+    # compartment_name = get_compartment_name(compartment_list, tfvars_data['compartment_ocid'])
+    #
+    # subnet
+    # subnet_name = get_subnet_name(subnet_list, tfvars_data['subnet_ocid'])
+    #
+    # image
+    # image_name = get_image_name(image_list, tfvars_data['source_ocid'])
+    #
+    print_g_left('Instance name', 30, config_data.data['instance_display_name'])
+    print_g_left('Compartment', 30, config_data.data)
+    instance_data = {'compartment': {'name': compartment_name, 'ocid': tfvars_data['compartment_ocid']}}
+    instance_data['availability_domain'] = tfvars_data['availability_domain']
+    instance_data['subnet'] = {'name': subnet_name, 'ocid': tfvars_data['subnet_ocid']}
+    instance_data['image'] = {'name': image_name, 'ocid': tfvars_data['source_ocid']}
+    instance_data['shape'] = {'name': tfvars_data['shape']}
+    instance_data['boot_volume_size_in_gbs'] = {'name': tfvars_data['boot_volume_size_in_gbs']}
+    if 'instance_flex_memory_in_gbs' in tfvars_data:
+        instance_data['instance_flex_memory_in_gbs'] = {'name': tfvars_data['instance_flex_memory_in_gbs']}
+        instance_data['instance_flex_ocpus'] = {'name': tfvars_data['instance_flex_ocpus']}
+    #
+    print_g_left('compartment', 30, '%-40s %s' % (instance_data['compartment']['name'], instance_data['compartment']['ocid']))
+    print_g_left('availability domain', 30, instance_data['availability_domain'])
+    print_g_left('subnet', 30, '%-40s %s' % (instance_data['subnet']['name'], instance_data['subnet']['ocid']))
+    print_g_left('image', 30, '%-40s %s' % (instance_data['image']['name'], instance_data['image']['ocid']))
+    print_g_left('shape', 30, instance_data['shape']['name'])
+    print_g_left('boot volume size', 30, instance_data['boot_volume_size_in_gbs']['name'])
+    if 'instance_flex_memory_in_gbs' in instance_data:
+        print_g_left('memory in gbs', 30, str(instance_data['instance_flex_memory_in_gbs']['name']))
+        print_g_left('number of cpus', 30, str(instance_data['instance_flex_ocpus']['name']))
+
+    #
+    sys.exit(1)
     #
     # compose var file.
     try:
-        with autotesttfvars(config_data['tfvarsfile']) as atfv:
+        with TerraformData(config_data['tfvarsfile']) as atfv:
             _ = atfv.update_json_with_config(config_data['oci_config'])
             print_g('Updated variables with config data', term=True)
             _ = atfv.update_user(instance_display_name)
@@ -1748,7 +2318,7 @@ def main():
     # various data
     varia_data = {'vnic_display_name': instance_display_name}
     try:
-        with autotesttfvars(config_data['tfvarsfile']) as atfv:
+        with TerraformData(config_data['tfvarsfile']) as atfv:
             _ = atfv.update_varia(varia_data)
             print_g('Updated various data.')
     except Exception as e:
@@ -1756,7 +2326,7 @@ def main():
     #
     # update tfvars file
     try:
-        with autotesttfvars(config_data['tfvarsfile']) as atfv:
+        with TerraformData(config_data['tfvarsfile']) as atfv:
             _ = atfv.update_image(image_data)
             print_g('Updated variables with image data.')
             _ = atfv.update_gen_data(gen_data)

@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.14.0
-Release: 0%{?dist}
+Release: 1%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -206,6 +206,9 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Thu Aug 11 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.14.0-1
+- LINUX-12027: oci-image-migrate on ol7 unable to mount ol9 xfs filesystem
+
 * Mon Jul 25 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.14.0-0
 - support for ipv6:
 - LINUX-9259 add ipv6 support in oci-metadata
