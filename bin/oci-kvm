@@ -10,7 +10,7 @@
 
 
 _PY3=/usr/bin/python3
-_PY_CMD=oci_kvm_main
+_PY_CMD=oci_kvm_main.py
 s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
 
 

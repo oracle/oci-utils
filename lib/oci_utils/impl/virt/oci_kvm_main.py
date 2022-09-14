@@ -30,7 +30,8 @@ _delete_network = 'delete-network'
 
 _fs_pool = 128
 _netfs_pool = 256
-
+_supported_os = ['ol', 'redhat', 'centos']
+_supported_release = ['7', '8']
 
 def _disk_size_in_gb(_string):
     """
@@ -455,7 +456,7 @@ def _get_pools():
         else:
             _logger.error('Failed to contact hypervisor')
             raise ValueError('Failed to contact hypervisor.')
-    except Exception as e:
+    except libvirt.libvirtError as e:
         _logger.error('Failed to collect vm pool data: %s', str(e))
         raise ValueError('Failed to collect vm pool data.') from e
     finally:
@@ -591,6 +592,55 @@ def get_pool_state(state):
     return pool_states[state]
 
 
+def _domain_state(state):
+    """
+    Convert an instance state number to a string.
+
+    Parameters
+    ----------
+    state: int
+        The instance state number.
+
+    Returns
+    -------
+        str: the instance state string
+    """
+    domain_states = {
+        libvirt.VIR_DOMAIN_NOSTATE:     'no state',
+        libvirt.VIR_DOMAIN_RUNNING:     'running',
+        libvirt.VIR_DOMAIN_BLOCKED:     'blocked',
+        libvirt.VIR_DOMAIN_PAUSED:      'paused',
+        libvirt.VIR_DOMAIN_SHUTDOWN:    'shut down',
+        libvirt.VIR_DOMAIN_SHUTOFF:     'shut off',
+        libvirt.VIR_DOMAIN_CRASHED:     'crashed',
+        libvirt.VIR_DOMAIN_PMSUSPENDED: 'pm suspended'
+    }
+    return domain_states[state] if domain_states.get(state) else 'unknown'
+
+
+def _get_guests():
+    """
+    Get the list of all domains.
+
+    Returns
+    -------
+        list: list of domains.
+    """
+    _guests = list()
+    try:
+        conn = libvirt.open(None)
+        if conn:
+            _domains = conn.listAllDomains(0)
+        else:
+            raise ValueError('Failed to contact hypervisor.')
+    except libvirt.libvirtError as e:
+        _logger.error('Failed to contact hypervisor')
+        raise ValueError('Failed to contact hypervisor.')
+    finally:
+        conn.close()
+    return _domains
+
+
 def get_yesno(yesno):
     """
     Convert a yes/no id to yes/no string.
@@ -704,10 +754,10 @@ def verify_support():
         bool: True on success, False otherwise.
     """
     ostype, majorrelease, _ = get_os_release_data()
-    if ostype not in ['ol', 'redhat', 'centos']:
+    if ostype not in _supported_os:
         _logger.info('OS type %s is not supported.', ostype)
         return False
-    if majorrelease not in ['7']:
+    if majorrelease not in _supported_release:
         _logger.info('OS %s %s is not supported', ostype, majorrelease)
         return False
     return True

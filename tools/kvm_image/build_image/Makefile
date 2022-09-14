@@ -18,7 +18,7 @@ DOCS=$(README)
 
 #
 TARGET=build-kvm-image
-VERSION=0.10_May_04_2022
+VERSION=0.10_September_13_2022
 OLTYPE=OL
 ALTYPE=AL
 VALIDTYPES=$(OLTYPE) $(ALTYPE)
@@ -63,7 +63,7 @@ help:
 	$(WRITE) " make install_packer"
 	$(WRITE) " make configure PROFILE=<profile> CONFIG=<config> DATADIR=<data directory> VARFILENAME=<packer variable file name> TYPE=[$(OLTYPE)|$(ALTYPE)] RELEASE=[7|8]"
 	$(WRITE) "          TYPE=[$(OLTYPE)|$(ALTYPE)] and RELEASE=[7|8] are mandatory"
-	$(WRITE) " make configure TYPE=[$(OLTYPE)|$(ALTYPE)]"
+	$(WRITE) " make configure TYPE=[$(OLTYPE)|$(ALTYPE)] RELEASE=[7|8]"
 	$(WRITE) " make show_vars"
 	$(WRITE) " make build_image VARFILENAME=<packer variable file name> TYPE=[$(OLTYPE)|$(ALTYPE)] RELEASE=[7|8]"
 	$(WRITE) " make all TYPE=[$(OLTYPE)|$(ALTYPE)] RELEASE=[7|8]"

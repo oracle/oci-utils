@@ -335,6 +335,95 @@ def get_configdata(profile, configfile='~/.oci/config'):
     return config
 
 
+class SubnetsData:
+    def __init__(self, config):
+        self.config = config
+        self.compartment_list = list()
+        self.vcns = list()
+        self.subnets = list()
+
+    def get_compartemnts(self, tenancy_id):
+        """
+        Collect the data for all compartments in a tenancy.
+
+        Parameters
+        ----------
+        tenancy_id: str
+            ocid of a tenancy.
+
+        Returns
+        -------
+            list: list of compartment objercts.
+        """
+        oci_identity = oci.identity.IdentityClient(self.config)
+        try:
+            oci_compartments = oci_identity.list_compartments(self.config['tenancy']).data
+        except oci.exceptions.ServiceError as e:
+            print_g('*** AUTHORISATION ERROR ***')
+            sys.exit(1)
+        except Exception as e:
+            print_g('*** ERROR *** %s' % str(e))
+            _logger.error('ERROR %s', str(e), exc_info=True)
+            sys.exit(1)
+        return oci_compartments
+
+    def get_vcns(self, compartment_id):
+        """
+        Collect the data of all vcns in a tenancy.
+
+        Parameters
+        ----------
+        compartment_id: str
+            ocid of a compartment
+
+        Returns
+        -------
+        list: list of vcn objects.
+        """
+        oci_vcn_client = oci.core.VirtualNetworkClient(self.config)
+        try:
+            oci_vcns = oci_vcn_client.list_vcns(compartment_id).data
+        except oci.exceptions.ServiceError as e:
+            if e.status == 404:
+                #
+                # we skip an authorisation error here, as one cannot expect to have access to all compartments.
+                return None
+            else:
+                print_g('*** ERROR *** %s' % str(e))
+                _logger.error('ERROR %s', str(e), exc_info=True)
+                sys.exit(1)
+        return oci_vcns
+
+    def get_subnets_in_vcn(self, compartment_id, vcn_id):
+        """
+        Collect the data of all subnets in a tenancy.
+
+        Parameters
+        ----------
+        compartment_id: str
+            ocid of a compartment
+        vcn_id: str
+            ocid of a vcn.
+
+        Returns
+        -------
+            list: list of subnet objects.
+        """
+        oci_subnet_client = oci.core.VirtualNetworkClient(self.config)
+        try:
+            oci_subnets = oci_subnet_client.list_subnets(compartment_id, vcn_id)
+        except oci.exceptions.ServiceError as e:
+            if e.status == 404:
+                #
+                # we skip an authorisation error here, as one cannot expect to have access to all compartments.
+                return None
+            else:
+                print_g('*** ERROR *** %s' % str(e))
+                _logger.error('ERROR %s', str(e), exc_info=True)
+                sys.exit(1)
+        return  oci_subnets
+
+
 class InstanceData:
     def __init__(self, instance_name, args):
         self.instance_name = instance_name
@@ -418,6 +507,7 @@ class InstanceData:
         """
         try:
             oci_identity = oci.identity.IdentityClient(self.data['oci_config'])
+            print(self.data['oci_config']['tenancy'])
             oci_compartments = oci_identity.list_compartments(self.data['oci_config']['tenancy'])
         except oci.exceptions.ServiceError as e:
             print_g('*** AUTHORISATION ERROR ***')
@@ -2148,9 +2238,11 @@ def main():
     #
     # parse the commandline
     args = parse_args()
+    args_dict = vars(args)
     #
     # clear
     _ = _clear()
+    print('%s'% args_dict)
     #
     # instance name to create
     instance_display_name = args.display_name if args.display_name is not None else _get_display_name()
@@ -2161,14 +2253,14 @@ def main():
                         format='%(asctime)s - %(name)s - %(levelname)s (%(module)s:%(lineno)s) - %(message)s')
     #
     # init
-    print_g('Collecting instance data.....\n')
+    print_g('Collecting instance data for %s.....\n' % instance_display_name)
     config_data = InstanceData(instance_display_name, args)
     #
     # current user data
-    #config_data = get_user_data(config_data)
+    # config_data = get_user_data(config_data)
     #
     # show initial data
-    print_g_left('Display name', 30, config_data.data['instance_display_name'])
+    # print_g_left('Display name', 30, config_data.data['instance_display_name'])
     print_g_left('exec dir', 30, config_data.data['exec_dir'], term=False)
     print_g_left('base exec dir', 30, config_data.data['base_exec_dir'], term=False)
     print_g_left('Username', 30, config_data.data['operator'])
@@ -2195,6 +2287,11 @@ def main():
     except Exception as e:
         print_g('***ERROR*** %s' % str(e), term=True)
         sys.exit(1)
+    #
+    # show terraform data
+    for k,v in updatable_parameters.items():
+        if v in tfvars_data:
+            print_g_left(k, 30, tfvars_data[v])
     #
     # compartment ocid
     config_data.set_compartment_id(tfvars_data['compartment_ocid'])

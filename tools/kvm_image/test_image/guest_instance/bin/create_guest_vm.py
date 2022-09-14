@@ -71,6 +71,11 @@ ks_templates = {
         {
             'passthrough': 'kickstart_direct_template_ol8',
             'bridge': 'kickstart_bridge_template_ol8'
+        },
+    'ol9':
+        {
+            'passthrough': 'kickstart_direct_template_ol9',
+            'bridge': 'kickstart_bridge_template_ol9'
         }
 }
 
@@ -81,8 +86,8 @@ disk_name_prefix = 'oci_kvm_vm_disk_'
 pool_name_prefix = 'oci_kvm_image_pool_'
 pool_size = '128'
 disk_size = '51'
-vcpus = '2'
-memory = '4096'
+# vcpus = '2'
+# memory = '4096'
 network_name = 'oci-kvm-bridge'
 bridge_ip = '192.168.100.1'
 log_output = ''
@@ -100,9 +105,9 @@ def parse_args():
     parser.add_argument('-d', '--distro',
                         action='store',
                         type=str,
-                        choices=['ol7', 'ol8'],
+                        choices=['ol7', 'ol8', 'ol9'],
                         required=True,
-                        help='Distribution to be installed, [ol7|ol8]')
+                        help='Distribution to be installed, [ol7|ol8|ol9]')
     parser.add_argument('-t', '--network-type',
                         action='store',
                         type=str,
@@ -125,6 +130,26 @@ def parse_args():
                         type=str,
                         required=True,
                         help='os-variant for kvm.')
+    parser.add_argument('-c', '--cpus',
+                        action='store',
+                        default='2',
+                        type=str,
+                        help='Number of vcpus, default is 2.')
+    parser.add_argument('-m', '--memory',
+                        action='store',
+                        default='4',
+                        type=str,
+                        help='Amount of memory in GBs, default is 4.')
+    parser.add_argument('-v', '--volume-size',
+                        action='store',
+                        default='51',
+                        type=str,
+                        help='Size of root volume in GBs, default is 51.')
+    parser.add_argument('-p', '--pool-size',
+                        action='store',
+                        default='128',
+                        type=str,
+                        help='Size of disk pool in GBs, default is 128.')
     parser.add_argument('-b', '--bare-metal',
                         action='store_true',
                         help='Is a bare-metal host.')
@@ -630,8 +655,13 @@ def main():
     parser = parse_args()
     args = parser.parse_args()
     #
+    memory = str(int(args.memory) * 1024)
+    vcpus = args.cpus
+    disk_size = args.volume_size
+    pool_size = args.pool_size
+    #
     # hostname
-    hostname = 'guest_' + uuid.uuid4().hex[:6]
+    hostname = 'guest-' + uuid.uuid4().hex[:6]
     log_output = '/var/tmp/' + hostname + '.log'
     #
     # verify if iso exists

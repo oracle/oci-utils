@@ -1,0 +1,61 @@
+#version=DEVEL
+# System authorization information
+auth --enableshadow --passalgo=sha512
+# Use CDROM installation media
+cdrom
+# Use text mode install
+text
+# Run the Setup Agent on first boot
+firstboot --enable
+ignoredisk --only-use=vda
+# Keyboard layouts
+keyboard --vckeymap=us --xlayouts=''
+# System language
+lang en_US.UTF-8
+
+# Network information
+network  --bootproto=static --device=link --gateway=__GATEWAY__ --ip=__IPADDRESS__ --nameserver=__NAMESERVER__ --netmask=__NETMASK__ --ipv6=auto --activate
+network  --hostname=__HOSTNAME__
+
+repo --name="AppStream" --baseurl=file:///run/install/repo/AppStream
+# Root password
+rootpw --plaintext '__ROOTPASSWORD__'
+# System services
+services --enabled="chronyd"
+# Do not configure the X Window System
+skipx
+# System timezone
+timezone Europe/Brussels --utc
+user --groups=wheel --name=__USERNAME__ --password='__USERPASSWORD__' --plaintext --gecos="__USERNAME__"
+# System bootloader configuration
+bootloader --append=" crashkernel=auto" --location=mbr --boot-drive=vda
+autopart --type=lvm
+# Partition clearing information
+clearpart --all --initlabel --drives=vda
+# Firewall configuration
+firewall --enabled --ssh
+# reboot after install
+reboot
+
+%packages
+@core
+chrony
+kexec-tools
+tmux
+psmisc
+firewalld
+python3
+strace
+tree
+%end
+
+%addon com_redhat_kdump --enable --reserve-mb='auto'
+
+%end
+
+%anaconda
+pwpolicy root --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+pwpolicy user --minlen=6 --minquality=1 --notstrict --nochanges --emptyok
+pwpolicy luks --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+%end
+

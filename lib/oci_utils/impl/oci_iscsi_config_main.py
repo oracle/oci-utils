@@ -138,9 +138,73 @@ def get_args_parser():
                                      )
     subparser = parser.add_subparsers(dest='command')
     #
+    # usage
+    _ = def_usage_parser(subparser)
+    #
     # sync
-    sync_parser = subparser.add_parser('sync',
-                                       description='Try to attach available block devices.'
+    _ = def_sync_parser(subparser)
+    #
+    # show-all
+    _ = def_show_all_parser(subparser)
+    #
+    # show
+    _ = def_show_parser(subparser)
+    #
+    # create
+    _ = def_create_parser(subparser)
+    #
+    # attach
+    _ = def_attach_parser(subparser)
+    #
+    # detach
+    _ = def_detach_parser(subparser)
+    #
+    # destroy
+    _ = def_destroy_parser(subparser)
+
+    return parser
+
+
+def def_usage_parser(s_parser):
+    """
+    Define the usage parser.
+
+    Parameters
+    ----------
+    s_parser: subparsers.
+
+    Returns
+    -------
+        ArgumentParser: the usage subcommand parser.
+    """
+    usage_parser = s_parser.add_parser('usage',
+                                       description='Displays usage',
+                                       help='Displays usage'
+                                       )
+        # for compatibility mode
+    usage_parser.add_argument('--compat',
+                              action='store_true',
+                              default=False,
+                              help=argparse.SUPPRESS
+                              )
+    return usage_parser
+
+
+def def_sync_parser(s_parser):
+    """
+    Define the sync subparser.
+
+    Parameters
+    ----------
+    s_parser: subparsers.
+
+    Returns
+    -------
+        ArgumentParser: the sync subcommand parser.
+    """
+    sync_parser = s_parser.add_parser('sync',
+                                       description='Try to attach available block devices.',
+                                       help='Try to attach available block devices.'
                                        )
     sync_parser.add_argument('-a', '--apply',
                              action='store_true',
@@ -157,22 +221,28 @@ def get_args_parser():
                              default=False,
                              help=argparse.SUPPRESS
                              )
-    #
-    # usage
-    usage_parser = subparser.add_parser('usage',
-                         description='Displays usage.')
-    # for compatibility mode
-    usage_parser.add_argument('--compat',
-                             action='store_true',
-                             default=False,
-                             help=argparse.SUPPRESS
-                              )
+    return sync_parser
+
+
+def def_show_all_parser(s_parser):
+    """
+    Define the show-all parser
+
+    Parameters
+    ----------
+    s_parser: subparsers.
+
+    Returns
+    -------
+        ArgumentParser: the show-all subcommand parser.
+
+    """
     #
     # show all volumes all details
-    show_all_parser = subparser.add_parser('show-all',
-                                           description='Show all volumes with details '
-                                                       'in this availability domain.'
-                                           )
+    show_all_parser = s_parser.add_parser('show-all',
+                                          description='Show all volumes with details in this availability domain.',
+                                          help='Show all volumes with details in this availability domain.'
+                                          )
     show_all_parser.add_argument('-t', '--truncate',
                                  action='store_true',
                                  help=argparse.SUPPRESS
@@ -182,11 +252,25 @@ def get_args_parser():
                                  help='Set output mode.',
                                  default='table'
                                  )
-    #
-    # show
-    show_parser = subparser.add_parser('show',
-                                       description='Show block volumes and iSCSI information.'
-                                       )
+    return show_all_parser
+
+
+def def_show_parser(s_parser):
+    """
+    Define the show parser
+
+    Parameters
+    ----------
+    s_parser: subparsers.
+
+    Returns
+    -------
+        ArgumentParser: the show subcommand parser.
+    """
+    show_parser = s_parser.add_parser('show',
+                                      description='Show block volumes and iSCSI information.',
+                                      help='Show block volumes and iSCSI information.'
+                                      )
     show_parser.add_argument('-C', '--compartments',
                              metavar='COMP',
                              default=(),
@@ -219,11 +303,25 @@ def get_args_parser():
                              default=False,
                              help=argparse.SUPPRESS
                              )
-    #
-    # create
-    create_parser = subparser.add_parser('create',
-                                         description='Creates a block volume.'
-                                         )
+    return show_parser
+
+
+def def_create_parser(s_parser):
+    """
+    Define the create parser
+
+    Parameters
+    ----------
+    s_parser: subparsers
+
+    Returns
+    -------
+        ArgumentParser: the create subcommand parser
+    """
+    create_parser = s_parser.add_parser('create',
+                                        description='Creates a block volume.',
+                                        help='Creates a block volume.'
+                                        )
     create_parser.add_argument('-S', '--size',
                                type=volume_size_validator,
                                required=True,
@@ -245,12 +343,27 @@ def get_args_parser():
                                default=False,
                                help=argparse.SUPPRESS
                                )
-    #
-    # attach
-    attach_parser = subparser.add_parser('attach',
-                                         description='Attach a block volume to this instance '
-                                                     'and make it available to the system.'
-                                         )
+    return create_parser
+
+
+def def_attach_parser(s_parser):
+    """
+    Define the attach parser.
+
+    Parameters
+    ----------
+    s_parser: subparsers
+
+    Returns
+    -------
+        ArgumentParser: the attach subcommand parser
+    """
+    attach_parser = s_parser.add_parser('attach',
+                                        description='Attach a block volume to this instance and make it available '\
+                                                    'to the system.',
+                                        help='Attach a block volume to this instance and make it available to the '\
+                                             'system.'
+    )
     ocidiqn = attach_parser.add_mutually_exclusive_group(required=True)
     ocidiqn.add_argument('-I', '--iqns',
                          type=attachable_iqn_list_validator,
@@ -282,10 +395,24 @@ def get_args_parser():
                                default=False,
                                help=argparse.SUPPRESS
                                )
-    #
-    # detach
-    detach_parser = subparser.add_parser('detach',
-                                         description='Detach a block volume'
+    return attach_parser
+
+
+def def_detach_parser(s_parser):
+    """
+    Define the detach subcommand parser.
+
+    Parameters
+    ----------
+    s_parser: subparsers
+
+    Returns
+    -------
+        ArgumentParser: the detach subcommand parser
+    """
+    detach_parser = s_parser.add_parser('detach',
+                                         description='Detach a block volume',
+                                         help='Detach a block volume'
                                          )
     detach_parser.add_argument('-I', '--iqns',
                                required=True,
@@ -305,10 +432,24 @@ def get_args_parser():
                                default=False,
                                help=argparse.SUPPRESS
                                )
-    #
-    # destroy
-    destroy_parser = subparser.add_parser('destroy',
-                                          description='Destroy a block volume.'
+    return detach_parser
+
+
+def def_destroy_parser(s_parser):
+    """
+    Define the destroy subcommand parser.
+
+    Parameters
+    ----------
+    s_parser: subparsers
+
+    Returns
+    -------
+        ArgumentParser: the destroy subcommand parser
+    """
+    destroy_parser = s_parser.add_parser('destroy',
+                                          description='Destroy a block volume.',
+                                          help='Destroy a block volume.'
                                           )
     destroy_parser.add_argument('-O', '--ocids',
                                 required=True,
@@ -329,7 +470,7 @@ def get_args_parser():
                                 default=False,
                                 help=argparse.SUPPRESS
                                 )
-    return parser
+    return destroy_parser
 
 
 def _getch():
@@ -1541,7 +1682,7 @@ def do_create_volume(sess, size, display_name, attach_it, detached, chap_credent
     #
     # Something wrong if passing here.
     try:
-        _logger.debug('Destroying the volume')
+        _logger.debug('Trying to destroy the volume')
         vol.destroy()
     except Exception as e:
         _logger.debug("Failed to destroy volume", exc_info=True)
