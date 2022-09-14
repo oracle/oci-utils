@@ -41,6 +41,7 @@ oci_regions = {
     'kix': 'kix - ap-osaka-1 (Osaka, Japan)',
     'lhr': 'lhr - uk-london-1 (London, UK)',
     'lin': 'lin - eu-milan-1 (Milan, Italy)',
+    'mad': 'mad - eu-madrid-1 (Madrid, Spain)',
     'mct': 'mct - me-dcc-muscat-1 (Muscat, Oman)',
     'mel': 'mel - ap-melbourne-1 (Melbourne, Australia)',
     'mrs': 'mrs - eu-marseille-1 (Marseille, France)',

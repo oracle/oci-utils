@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.14.0
-Release: 1%{?dist}
+Release: 2%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -206,6 +206,9 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Mon Sep 5 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.14.0-2
+- LINUX-12761/OLUEK-6199 ocid leaves lots of connections in CLOSE_WAIT state
+
 * Thu Aug 11 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.14.0-1
 - LINUX-12027: oci-image-migrate on ol7 unable to mount ol9 xfs filesystem
 

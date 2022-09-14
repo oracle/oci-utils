@@ -60,7 +60,8 @@ def def_show_parser(s_parser):
     show_parser = s_parser.add_parser('show',
                                       description='Shows the current Virtual Interface Cards provisioned in the '
                                                   'Oracle Cloud Infrastructure and configured on this instance. '
-                                                  'This is the default action if no options are given.')
+                                                  'This is the default action if no options are given.',
+                                      help='Shows data of the VNICs configured on this instance.')
     show_parser.add_argument('-I', '--include',
                              metavar='ITEM',
                              action='append',
@@ -108,7 +109,8 @@ def def_show_vnics_parser(s_parser):
         ArgumentParser: the show subcommand parser.
     """
     show_vnics_parser = s_parser.add_parser('show-vnics',
-                                            description="Shows VNICs information of this instance.")
+                                            description='Shows VNICs information of this instance.',
+                                            help='Shows VNICs information of this instance.')
     show_vnics_parser.add_argument('--output-mode',
                                    choices=('parsable', 'table', 'json', 'text'),
                                    help='Set output mode.',
@@ -153,7 +155,8 @@ def def_show_vnics_all_parser(s_parser):
         ArgumentParser: the show subcommand parser.
     """
     show_vnics_all_parser = s_parser.add_parser('show-vnics-all',
-                                                description='Show all VNICs information with details of this instance.')
+                                                description='Show all VNICs information with details of this instance.',
+                                                help='Show all VNICs information with details of this instance.')
     show_vnics_all_parser.add_argument('-t', '--truncate',
                                        action='store_true',
                                        help=argparse.SUPPRESS)
@@ -177,7 +180,8 @@ def def_show_vcn_parser(s_parser):
         ArgumentParser: the show subcommand parser.
     """
     show_vcn_parser = s_parser.add_parser('show-vcns',
-                                          description='Show VCN information in this compartment.')
+                                          description='Show VCN information in this compartment.',
+                                          help='Show VCN information in this compartment.')
     show_vcn_parser.add_argument('--output-mode',
                                  choices=('parsable', 'table', 'json', 'text'),
                                  help='Set output mode.',
@@ -217,7 +221,8 @@ def def_show_subnet_parser(s_parser):
         ArgumentParser: the show subcommand parser.
     """
     show_subnet_parser = s_parser.add_parser('show-subnets',
-                                             description='Show subnet information in this compartment.')
+                                             description='Show subnet information in this compartment.',
+                                             help='Show subnet information in this compartment.')
     show_subnet_parser.add_argument('--output-mode',
                                     choices=('parsable', 'table', 'json', 'text'),
                                     help='Set output mode.',
@@ -258,7 +263,9 @@ def def_configure_parser(s_parser):
     """
     configure_parser = s_parser.add_parser('configure',
                                            description='Add IP configuration for VNICs that are not configured '
-                                                       'and delete for VNICs that are no longer provisioned.')
+                                                       'and delete for VNICs that are no longer provisioned.',
+                                           help='Add IP configuration for VNICs that are not configured '
+                                                'and delete for VNICs that are no longer provisioned.')
     configure_parser.add_argument('-n', '--namespace',
                                   action='store',
                                   metavar='FORMAT',
@@ -305,7 +312,8 @@ def def_unconfigure_parser(s_parser):
         ArgumentParser: the show subcommand parser.
     """
     unconfigure_parser = s_parser.add_parser('unconfigure',
-                                             description='Unconfigure all VNICs (except the primary).')
+                                             description='Unconfigure all VNICs (except the primary).',
+                                             help='Unconfigure all VNICs (except the primary).')
     # Secondary private IP address to use in conjunction configure or unconfigure.'
     # deprecated as redundant with add-secondary-addr and remove-secondary-addr
     unconfigure_parser.add_argument('-S', '--secondary-ip',
@@ -343,7 +351,8 @@ def def_attach_vnic_parser(s_parser):
         ArgumentParser: the show subcommand parser.
     """
     attach_vnic_parser = s_parser.add_parser('attach-vnic',
-                                             description='Create a new VNIC and attach it to this instance.')
+                                             description='Create a new VNIC and attach it to this instance.',
+                                             help='Create a new VNIC and attach it to this instance.')
     attach_vnic_parser.add_argument('-I', '--ip-address',
                                     action='store',
                                     metavar='IP_ADDR',
@@ -395,7 +404,9 @@ def def_detach_vnic_parser(s_parser):
     """
     detach_vnic_parser = s_parser.add_parser('detach-vnic',
                                              description='Detach and delete the VNIC with the given OCID or '
-                                                         'primary IP address.')
+                                                         'primary IP address.',
+                                             help='Detach and delete the VNIC with the given OCID or '
+                                                  'primary IP address.')
     dg = detach_vnic_parser.add_mutually_exclusive_group(required=True)
     dg.add_argument('-O', '--ocid',
                     action='store',
@@ -422,7 +433,8 @@ def def_add_secondary_addr_parser(s_parser):
         ArgumentParser: the show subcommand parser.
     """
     add_secondary_addr = s_parser.add_parser('add-secondary-addr',
-                                             description="Adds the given secondary private IP.")
+                                             description="Adds the given secondary private IP.",
+                                             help="Adds the given secondary private IP.")
     # add_secondary_addr.add_argument('--ipv',
     #                                 action='store',
     #                                 type=int,
@@ -441,7 +453,7 @@ def def_add_secondary_addr_parser(s_parser):
     add_secondary_addr.add_argument('-I', '--ip-address',
                                     action='store',
                                     metavar='IP_ADDR',
-                                    help='Secondary private IPV4 to to be added.')
+                                    help='Secondary private IP address to to be added.')
     add_secondary_addr.add_argument('-O', '--ocid',
                                     action='store',
                                     type=vnic_ocid_validator,
@@ -463,7 +475,8 @@ def def_remove_secondary_addr_parser(s_parser):
         ArgumentParser: the show subcommand parser.
     """
     remove_secondary_addr = s_parser.add_parser('remove-secondary-addr',
-                                                description="Removes the given secondary private IP.")
+                                                description='Removes the given secondary private IP.',
+                                                help='Removes the given secondary private IP.')
     remove_secondary_addr.add_argument('-I', '--ip-address',
                                        action='store',
                                        type=ip_address_validator,

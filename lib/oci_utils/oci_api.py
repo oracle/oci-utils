@@ -96,7 +96,7 @@ class OCISession:
         # if oci sdk config file fails. try IP data
         if self.signer is not None:
             return self.signer.tenancy_id
-        _logger.debug('signer is missing tenancy')
+        _logger.debug('Signer is missing tenancy')
         #
         # fall back to the instance's own compartment_id
         # We will only see the current compartment, but better than nothing

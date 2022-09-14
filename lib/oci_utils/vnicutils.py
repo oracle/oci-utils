@@ -35,7 +35,7 @@ class VNICUtils:
     # kept here for compatiblity with pre-0.12.6 releases.
     __net_exclude_file = "/var/lib/oci-utils/net_exclude"
 
-    def __init__(self):
+    def __init__(self, ocisession=None):
         """ Class VNICUtils initialisation.
         """
         self.vnic_info = self.get_vnic_info()
@@ -44,6 +44,16 @@ class VNICUtils:
             self._metadata = InstanceMetadata().refresh()
         except IOError as e:
             _logger.warning('Cannot get metadata: %s', str(e))
+        if ocisession is None:
+            try:
+                self.oci_sess = OCISession()
+            except Exception as e:
+                _logger.error('Cannot create a session.')
+                _logger.debug('Cannot create a session: %s', str(e), stack_info=True)
+     
+        else:
+            self.oci_sess = ocisession
+            
 
     @staticmethod
     def __new_vnic_info():
@@ -596,8 +606,7 @@ class VNICUtils:
             self.vnic_info['deconfig'].remove(item)
             _ = self.save_vnic_info()
 
-    @staticmethod
-    def _get_priv_addrs():
+    def _get_priv_addrs(self):
         """
         Gets all vnic private addrs
 
@@ -607,13 +616,12 @@ class VNICUtils:
         """
         _logger.debug('%s', where_am_i())
         res = {}
-        oci_sess = None
+        # oci_sess = None
         my_instance = None
         try:
-            oci_sess = OCISession()
-            my_instance = oci_sess.this_instance()
+            my_instance = self.oci_sess.this_instance()
         except Exception as e:
-            _logger.debug('Cannot get OCI session: %s', str(e), stack_info=True)
+            _logger.debug('Failed to get instance data: %s', str(e), stack_info=True)
 
         if bool(my_instance):
             p_ips = my_instance.all_private_ips()

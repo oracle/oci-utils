@@ -632,6 +632,7 @@ class InstanceMetadata:
     def __getitem__(self, item):
         """
         Overwrite dict.__getitem__.
+
         Parameters
         ----------
         item : str

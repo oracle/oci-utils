@@ -208,8 +208,7 @@ def public_ip_func(context, func_logger):
     Parameters
     ----------
     context: dict
-        THe thread context.
-        # GT not used, kept to avoid to break the function call.
+        The thread context.
     func_logger: logger
 
     Returns
@@ -217,20 +216,27 @@ def public_ip_func(context, func_logger):
     dict
         Dictionary containiong the external IP address.
     """
+    if 'oci_sess' not in context:
+        oci_sess = None
+        try:
+            oci_sess = oci_utils.oci_api.OCISession()
+        except Exception as e:
+            func_logger.debug('Failed to get a session: %s' % str(e))
+        context['oci_sess'] = oci_sess
 
+    func_logger.debug('Entering public_func, context == %s' % str(context))
     try:
-        sess = oci_utils.oci_api.OCISession()
-        instance = sess.this_instance()
+        instance = context['oci_sess'].this_instance()
         if instance is None:
             raise Exception('Cannot get instance')
-        return {'publicIp': instance.get_public_ip()}
+        context['publicIp'] = instance.get_public_ip()
+        return context
     except Exception as e:
         func_logger.exception('failed to retrieve public ip information: %s' % str(e))
 
     # fallback
-    external_ip = get_ip_info()[1]
-
-    return {'publicIp': external_ip}
+    context['publicIp'] = get_ip_info()[1]
+    return context
 
 
 def iscsi_func(context, func_logger):
@@ -250,6 +256,7 @@ def iscsi_func(context, func_logger):
         The new context.
     """
     if 'oci_sess' not in context:
+        # func_logger.debug('__GT__ oci sess NOT in context')
         oci_sess = None
         try:
             oci_sess = oci_utils.oci_api.OCISession()
@@ -284,6 +291,8 @@ def iscsi_func(context, func_logger):
                    'offline_vols': {},
                    'auto_detach': auto_detach,
                    'detach_retry': detach_retry, }
+    # else:
+    #     func_logger.debug('__GT__ oci sess in context')
 
     # devices currently attached
     session_devs = oci_utils.iscsiadm.session()
@@ -314,7 +323,7 @@ def iscsi_func(context, func_logger):
     # if context['oci_sess'] is not None:
     #     try:
     #         #
-    #         # get a list of volumes attached to the instance
+    #         # get a list of volumes attached to the instance.
     #         instance = context['oci_sess'].this_instance()
     #         if instance is None:
     #             func_logger.debug('Cannot get current instance.')
@@ -327,6 +336,7 @@ def iscsi_func(context, func_logger):
     # volumes connected to this instance
     inst_volumes = []
     if context['oci_sess'] is not None:
+        # func_logger.debug('__GT__ context[oci sess] is NOT none')
         #
         # get a list of volumes attached to the instance
         instance = context['oci_sess'].this_instance()
@@ -363,6 +373,7 @@ def iscsi_func(context, func_logger):
     #
     # -------------------------------------------------------------------------------------
     else:
+        # func_logger.debug('__GT__ context[oci sess] is none')
         #
         # fall back to scanning
         func_logger.debug('Scan for volumes.')
@@ -588,6 +599,13 @@ def vnic_func(context, func_logger):
     dict
         The new context.
     """
+    if 'oci_sess' not in context:
+        oci_sess = None
+        try:
+            oci_sess = oci_utils.oci_api.OCISession()
+        except Exception as e:
+            func_logger.debug('Failed to get a session: %s' % str(e))
+        context['oci_sess'] = oci_sess
 
     func_logger.debug('Entering vnic_func, context == %s' % str(context))
 
@@ -600,7 +618,7 @@ def vnic_func(context, func_logger):
     _vnic_utils = None
 
     if context['vnic_utils'] is None:
-        _vnic_utils = vnicutils.VNICUtils()
+        _vnic_utils = vnicutils.VNICUtils(ocisession=context['oci_sess'])
     else:
         _vnic_utils = context['vnic_utils']
 
@@ -628,6 +646,7 @@ def start_thread(name, repeat):
 
     true_list = ['true', 'True', 'TRUE']
 
+    # __ocid_logger.debug('__GT__ ocid %s', list(OCIUtilsConfiguration.items('public_ip')))
     if name == 'public_ip':
         is_enabled = OCIUtilsConfiguration.get('public_ip', 'enabled')
         if is_enabled not in true_list:
