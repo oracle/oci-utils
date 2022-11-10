@@ -11,6 +11,9 @@ oci-notify - Send a message and data to a Oracle Cloud Infrastructure
 notification service.
 .SH SYNOPSIS
 .B oci-notify
+usage
+
+.B oci-notify
 config OCID_TOPIC
 
 .B oci-notify
@@ -62,7 +65,7 @@ must be run with root privileges, either as user root or using
 .B sudo(8).
 
 .SH OPTIONS
-.IP "oci-notify --help"
+.IP "oci-notify usage"
 usage: oci-notify-main.py [-h] {config,message} ...
 
 This utility assists with sending messages to an Oracle Cloud Infrastructure
@@ -72,7 +75,8 @@ number of chunks is limited to 10. The message file can be a flat file, a url
 or a string. See the manual page for more information.
 
 positional arguments:
-  {config,message}
+  {usage,config,message}
+    usage           Displays usage
     config          Configure the notification server.
     message         Send a message.
 

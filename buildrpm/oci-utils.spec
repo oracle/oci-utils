@@ -1,6 +1,6 @@
 Name: oci-utils
 Version: 0.14.0
-Release: 2%{?dist}
+Release: 3%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
@@ -206,6 +206,11 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
+* Thu Sep 22 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.14.0-3
+- LINUX-11440/LINUX-12246 iscsi does not fall back to scanning if authentication succeeds but get instance data fails
+- added oci-attached-volumes, collects data on volumes, via OCI if priviliges in place, via scan otherwise.
+- LINUX-12907 sudo oci-network-config --show missing spaces between values
+
 * Mon Sep 5 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.14.0-2
 - LINUX-12761/OLUEK-6199 ocid leaves lots of connections in CLOSE_WAIT state
 

@@ -214,7 +214,7 @@ def public_ip_func(context, func_logger):
     Returns
     -------
     dict
-        Dictionary containiong the external IP address.
+        Dictionary containing the external IP address.
     """
     if 'oci_sess' not in context:
         oci_sess = None
@@ -256,7 +256,6 @@ def iscsi_func(context, func_logger):
         The new context.
     """
     if 'oci_sess' not in context:
-        # func_logger.debug('__GT__ oci sess NOT in context')
         oci_sess = None
         try:
             oci_sess = oci_utils.oci_api.OCISession()
@@ -291,8 +290,6 @@ def iscsi_func(context, func_logger):
                    'offline_vols': {},
                    'auto_detach': auto_detach,
                    'detach_retry': detach_retry, }
-    # else:
-    #     func_logger.debug('__GT__ oci sess in context')
 
     # devices currently attached
     session_devs = oci_utils.iscsiadm.session()
@@ -318,64 +315,68 @@ def iscsi_func(context, func_logger):
 
     # -------------------------------------------------------------------------------------
     # possible change for LINUX-11440; comment out the in-between
-    # verify if user has authorisation to list volumes; if not, scan for new volumes.
-    # volumes = None
-    # if context['oci_sess'] is not None:
-    #     try:
-    #         #
-    #         # get a list of volumes attached to the instance.
-    #         instance = context['oci_sess'].this_instance()
-    #         if instance is None:
-    #             func_logger.debug('Cannot get current instance.')
-    #         else:
-    #             volumes = instance.all_volumes()
-    #     except Exception as e:
-    #         func_logger.debug('User is not authorized to list all volumes.')
+    # first verify if user has authorisation to list volumes; if so, use this to get a list of volumes;
+    # if not, switch to scanning the ipaddresses:3260 scan for new volumes.
+    volumes = None
+    if context['oci_sess'] is not None:
+        try:
+            #
+            # get a list of volumes attached to the instance.
+            instance = context['oci_sess'].this_instance()
+            if instance is None:
+                func_logger.debug('Cannot get current instance.')
+            else:
+                volumes = instance.all_volumes()
+        except Exception as e:
+            func_logger.debug('User is not authorized to list all volumes, switch to scanning.')
+    else:
+        func_logger.debug('No oci session in the context, switch to scanning.')
     # -------------------------------------------------------------------------------------
     #
     # volumes connected to this instance
     inst_volumes = []
-    if context['oci_sess'] is not None:
-        # func_logger.debug('__GT__ context[oci sess] is NOT none')
-        #
-        # get a list of volumes attached to the instance
-        instance = context['oci_sess'].this_instance()
-        if instance is None:
-            func_logger.debug('Cannot get current instance.')
-        else:
-            volumes = instance.all_volumes()
-            for v in volumes:
-                vol = {'iqn': v.get_iqn(),
-                       'ipaddr': v.get_portal_ip(),
-                       'user': v.get_user(),
-                       'password': v.get_password()}
-                inst_volumes.append(vol)
-                if v.get_portal_ip() in all_iqns:
-                    all_iqns[v.get_portal_ip()].append(v.get_iqn())
-                else:
-                    all_iqns[v.get_portal_ip()] = [v.get_iqn()]
-            func_logger.debug('All volumes: %s', all_iqns)
+    # if context['oci_sess'] is not None:
+    #     # func_logger.debug('__GT__ context[oci sess] is NOT none')
+    #     #
+    #     # get a list of volumes attached to the instance
+    #     instance = context['oci_sess'].this_instance()
+    #     if instance is None:
+    #         func_logger.debug('Cannot get current instance.')
+    #     else:
+    #         volumes = instance.all_volumes()
+    #         for v in volumes:
+    #             vol = {'iqn': v.get_iqn(),
+    #                    'ipaddr': v.get_portal_ip(),
+    #                    'user': v.get_user(),
+    #                    'password': v.get_password()}
+    #             inst_volumes.append(vol)
+    #             if v.get_portal_ip() in all_iqns:
+    #                 all_iqns[v.get_portal_ip()].append(v.get_iqn())
+    #             else:
+    #                 all_iqns[v.get_portal_ip()] = [v.get_iqn()]
+    #         func_logger.debug('All volumes: %s', all_iqns)
     # -------------------------------------------------------------------------------------
     #
     # possible change for LINUX-11440; comment out the above
-    # if bool(volumes):
-    #     for v in volumes:
-    #         vol = {'iqn': v.get_iqn(),
-    #                'ipaddr': v.get_portal_ip(),
-    #                'user': v.get_user(),
-    #                'password': v.get_password()}
-    #         inst_volumes.append(vol)
-    #         if v.get_portal_ip() in all_iqns:
-    #             all_iqns[v.get_portal_ip()].append(v.get_iqn())
-    #         else:
-    #             all_iqns[v.get_portal_ip()] = [v.get_iqn()]
-    #     func_logger.debug('All volumes: %s', all_iqns)
+    if bool(volumes):
+        #
+        # we have a list of volumes collected from the oci-session, only formatting it.
+        for v in volumes:
+            vol = {'iqn': v.get_iqn(),
+                   'ipaddr': v.get_portal_ip(),
+                   'user': v.get_user(),
+                   'password': v.get_password()}
+            inst_volumes.append(vol)
+            if v.get_portal_ip() in all_iqns:
+                all_iqns[v.get_portal_ip()].append(v.get_iqn())
+            else:
+                all_iqns[v.get_portal_ip()] = [v.get_iqn()]
+        func_logger.debug('All volumes: %s', all_iqns)
     #
     # -------------------------------------------------------------------------------------
     else:
-        # func_logger.debug('__GT__ context[oci sess] is none')
         #
-        # fall back to scanning
+        # we do not have a list of volumes yet, fall back to ip address scanning to collect the available information.
         func_logger.debug('Scan for volumes.')
         for r in range(context['max_volumes'] + 1):
             ipaddr = "169.254.2.%d" % (r + 1)
@@ -540,8 +541,6 @@ def iscsi_func(context, func_logger):
     # connected to the instance
     inst_iqns = [vol['iqn'] for vol in inst_volumes]
     for iqn in ignore_iqns:
-        # if iqn not in inst_iqns:
-        # GT
         if iqn in inst_iqns:
             func_logger.debug("Removing iqn %s from ignore list" % iqn)
             ignore_iqns.remove(iqn)
@@ -646,7 +645,6 @@ def start_thread(name, repeat):
 
     true_list = ['true', 'True', 'TRUE']
 
-    # __ocid_logger.debug('__GT__ ocid %s', list(OCIUtilsConfiguration.items('public_ip')))
     if name == 'public_ip':
         is_enabled = OCIUtilsConfiguration.get('public_ip', 'enabled')
         if is_enabled not in true_list:

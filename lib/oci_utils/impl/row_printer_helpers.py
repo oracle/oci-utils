@@ -136,6 +136,7 @@ def get_value_data(struct, data):
     func = data['func'] if 'func' in data else None
     item = data['item'] if 'item' in data else None
     lfunc = data['lfunc'] if 'lfunc' in data else None
+    attrib = data['attrib'] if 'attrib' in data else None
     val = None
     value = '-'
     if func is not None:
@@ -185,6 +186,15 @@ def get_value_data(struct, data):
         except Exception as e:
             _logger.debug('Failed to collect %s: %s', lfunc, str(e))
             return '-', 1
+
+    elif attrib is not None:
+        # get an attriburte
+        try:
+            val = getattr(struct, attrib)
+        except Exception as e:
+            _logger.debug('Failed to collect %s: %s', attrib, str(e))
+            return '-', 1
+
 
     if bool(val):
         if data['type'] == 'str':

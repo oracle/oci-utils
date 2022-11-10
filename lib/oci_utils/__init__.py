@@ -159,9 +159,7 @@ def is_root_user():
     -------
         bool: True if root, False otherwise.
     """
-    if os.geteuid() != 0:
-        return False
-    return True
+    return bool(os.getuid() == 0)
 
 
 def get_os_release_data():

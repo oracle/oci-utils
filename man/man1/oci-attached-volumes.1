@@ -1,0 +1,83 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-attached-volumes.1
+.\"
+.\" Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
+.\" Licensed under the Universal Permissive License v 1.0 as shown
+.\" at http://oss.oracle.com/licenses/upl.
+.\"
+.TH OCI-ATTACHED-VOLUMES 1 "SEPTEMBER 2022" Linux "User Manuals"
+.SH NAME
+oci-attached-volumes \- Collect data of iscsi volumes attached to this instance.
+.SH SYNOPSIS
+.B oci-attached-volumes
+usage
+
+.B oci-attached-volumes
+attached [-h|--help] [-i|--iqn] [-a|--all] [-o|--output-mode MODE]
+
+.B oci-attached-volumes
+all [-h|--help] [-o|--output-mode MODE]
+
+.B oci-attached-volumes
+uses  the services of the python3
+.B oci-sdk
+package.
+
+.SH DESCRIPTION
+If the Oracle Cloud Infrastructure services authorisation allows listing the block volumes,
+.B oci-attached-volumes
+can show more details on the attached and other volumes. Otherwise only the
+.B iqn, ip address and port
+are displayed. More, if there is no authorisation to list all block volumes, the
+.B attached option falls back to
+
+.B oci-attached-volume
+attached --iqn
+
+and the
+.B all
+option shows a message and exits.
+
+.B oci-attached-volumes
+must be run with root privileges, either as user root or using
+.BR sudo(8).
+
+
+.TP
+oci-attached-volumes attached
+Show data on attached block volumes.
+.RS
+.IP -i,--iqn
+Displays the ipaddress, the port and the iqn of the attached block volumes
+.IP -a,--all
+Displays the ipaddress, the port, the iqn, the display name, the create date and the volume of the attached block volumes. The 
+flags
+.B --iqn
+and
+.B --all
+are mutually exclusive.
+.IP --output-mode={json,text,parsable}
+Display list of the attached block volumes using json format, simple text or using parsable output.
+(default is text)
+.RE
+.TP
+oci-attache-volume all
+Show data on all block volumes in the availability domain.
+.RS
+.IP --output-mode={json,text,parsable}
+Display list of block volumes using json format, simple text or using parsable output
+(default is text)
+
+
+.SH EXAMPLES
+.PP
+.nf
+.RS
+sudo oci-attached-volumes attached --iqn --output-mode=parsable
+.RE
+.PP
+.nf
+.RS
+sudo oci-attached-volumes all --output-mode=text
+.RE
+.fi

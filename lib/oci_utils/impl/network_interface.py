@@ -76,6 +76,7 @@ class NetworkInterfaceSetupHelper:
     def __init__(self, interface_info, namespace_name=None):
         """
         Creates a new NetworkInterface
+
         Parameters:
         ----------
           interface_info : information about the interface as _intf_dict
@@ -89,9 +90,10 @@ class NetworkInterfaceSetupHelper:
 
     def setup(self):
         """
-        Setup the interface.
+        Set up the interface.
 
-        Returns:
+        Returns
+        -------
             No return value, raises an exception in case of error.
         """
         _logger.debug('NetworkInterfaceSetupHelper %s', where_am_i())
@@ -212,10 +214,13 @@ class NetworkInterfaceSetupHelper:
 
     def tear_down(self):
         """
-        unconfigure the interface.
-        returns:
+        Unconfigure the interface.
+
+        Returns
+        -------
             None
-        raises:
+        Raises
+        ------
             Exception in case of error
         """
         _logger.debug('NetworkInterfaceSetupHelper %s\n%s', where_am_i(), pformat(self.info, indent=4))
@@ -251,10 +256,13 @@ class NetworkInterfaceSetupHelper:
         """
         Add a secondary ip address ro this interface
         Add it to VLAN or device according to this being VLANed or not
-        parameter:
-           ip_address: the IP to be removed as str
-        raise:
-        Exception : in case of error during removal
+
+        Parameters
+        ----------
+            ip_address: the IP to be removed as str
+        Raise
+        -----
+            Exception : in case of error during removal
         """
         _logger.debug('%s: %s', where_am_i(), ip_address)
         if self.info.has('VLAN'):
@@ -280,10 +288,13 @@ class NetworkInterfaceSetupHelper:
         """
         Remove a secondary ip address from this interface
         Remove it from VLAN or device according to this being VLANed or not
-        parameter:
+        Parameters
+        ----------
            ip_address: the IP to be removed as str
-        raise:
-        Exception : in case of error during removal
+
+        Raise
+        -----
+            Exception : in case of error during removal
         """
         _logger.debug('%s: %s', where_am_i(), ip_address)
         if self.info.has('VLAN'):

@@ -29,6 +29,8 @@ import uuid
 from datetime import datetime
 
 import oci as oci_sdk
+from oci_utils import is_root_user
+from oci_utils import where_am_i
 from oci_utils import _configuration as OCIUtilsConfiguration
 from oci_utils.impl.auth_helper import OCIAuthProxy
 from oci_utils.metadata import InstanceMetadata
@@ -58,7 +60,79 @@ OCI_API_KEY_FILE = NOTIFY_CONFIG_DIR + '/oci_api_key.pem'
 OCI_CLI_CONFIG_FILE = NOTIFY_CONFIG_DIR + '/oci_cli.conf'
 
 
-def parse_args():
+def def_usage_parser(s_parser):
+    """
+    Define the usage parser.
+
+    Parameters
+    ----------
+    s_parser: subparsers.
+
+    Returns
+    -------
+        ArgumentParser: the usage subcommand parser.
+    """
+    usage_parser = s_parser.add_parser('usage',
+                                       description='Displays usage',
+                                       help='Displays usage'
+                                       )
+    return usage_parser
+
+
+def def_config_parser(s_parser):
+    """
+    Define the config parser.
+
+    Parameters
+    ----------
+    s_parser:subparsers
+
+    Returns
+    -------
+        ArgumentParser: the config parser
+    """
+    config_parser = s_parser.add_parser('config',
+                                         description='Configure the notificatio server.',
+                                         help='Configure the notification server.')
+
+    config_parser.add_argument(action='store',
+                               dest='notification_ocid',
+                               type=str,
+                               help='The ocid of the notification topic.')
+    return config_parser
+
+
+def def_message_parser(s_parser):
+    """
+    Define the send message parser.
+
+    Parameters
+    ----------
+    s_parser: subparsers.
+
+    Returns
+    -------
+        ArgumentParser: the send message parser.
+    """
+    message_parser = s_parser.add_parser('message',
+                                         description='Send a message.',
+                                         help='Send a message.')
+    message_parser.add_argument('-t', '--title',
+                                action='store',
+                                dest='message_title',
+                                required=True,
+                                type=str,
+                                help='The subject of the message.')
+    message_parser.add_argument('-f', '--file',
+                                action='store',
+                                dest='message_file',
+                                required=True,
+                                type=str,
+                                help='The message data.')
+    return message_parser
+
+
+def get_args_parser():
     """
     Parse the command line arguments and return an object representing the
     command line (as returned by argparse's parse_args()).
@@ -73,7 +147,7 @@ def parse_args():
     -------
         The command line namespace.
     """
-    _logger.debug('_parse_args')
+    _logger.debug('_get_args_parser')
     extra_descr = ''
     for helpline in __doc__.splitlines():
         extra_descr += '%s\n' % (helpline.replace('MAX_MESSAGE_TITLE_LEN', str(MAX_MESSAGE_TITLE_LEN))
@@ -81,40 +155,35 @@ def parse_args():
                                  .replace('MAX_MESSAGE_CHUNKS', str(MAX_MESSAGE_CHUNKS)))
     parser = argparse.ArgumentParser(prog='oci-notify',
                                      description='%s' % extra_descr)
-    sub_parser = parser.add_subparsers(dest='mode')
+    subparser = parser.add_subparsers(dest='mode')
+    #
+    # usage
+    _ = def_usage_parser(subparser)
+    #
+    # config
+    _ = def_config_parser(subparser)
+    #
+    # send message
+    _ = def_message_parser(subparser)
 
-    config_parser = sub_parser.add_parser('config', help='Configure the notification server.')
-
-    config_parser.add_argument(action='store',
-                               dest='notification_ocid',
-                               type=str,
-                               help='The ocid of the notification topic.')
-
-    message_parser = sub_parser.add_parser('message', help='Send a message.')
-    message_parser.add_argument('-t', '--title',
-                                action='store',
-                                dest='message_title',
-                                required=True,
-                                type=str,
-                                help='The subject of the message.')
-    message_parser.add_argument('-f', '--file',
-                                action='store',
-                                dest='message_file',
-                                required=True,
-                                type=str,
-                                help='The message data.')
     return parser
 
 
-def is_root():
+def show_usage(usage_args):
     """
-    Verify is operator is the root user.
+    Wrapper for showing usage info.
+
+    Parameters
+    ----------
+    usage_args:
+        The command line arguments.
 
     Returns
     -------
         bool: True on success, False otherwise.
     """
-    return bool(os.getuid() == 0)
+    _logger.debug('%s', where_am_i())
+    return True
 
 
 def config_notification_service_wrap(config_args):
@@ -130,7 +199,7 @@ def config_notification_service_wrap(config_args):
     -------
         bool: True on success, False otherwise.
     """
-    _logger.debug('_config_notification_service_wrap: %s', config_args.notification_ocid)
+    _logger.debug('%s: %s', where_am_i(), config_args.notification_ocid)
     cfg = NotificationConfig(config_args.notification_ocid, OCI_CONFIG_FILE)
     cfg_title, cfg_message = cfg.config_notification_service(config_args.notification_ocid)
     cfg_res = handle_message(cfg_title, cfg_message)
@@ -151,7 +220,7 @@ def handle_message_wrap(message_args):
     -------
         bool: True on success, False otherwise.
     """
-    _logger.debug('_handle_message_wrap: %s', message_args)
+    _logger.debug('%s: %s', where_am_i(), message_args)
     message_title = message_args.message_title
     message_file = message_args.message_file
     try:
@@ -177,7 +246,7 @@ def handle_message(title, message):
     -------
         bool: True on success, False otherwise.
     """
-    _logger.debug('_handle_message')
+    _logger.debug('%s', where_am_i())
     _logger.debug('title %s', title)
     _logger.debug('message %s', message)
     try:
@@ -195,7 +264,7 @@ class NotificationException(Exception):
     """
     def __init__(self, message=None):
         """
-        Initialisation of the Oci Migrate Exception.
+        Initialisation of the Oci Notification Exception.
 
         Parameters
         ----------
@@ -258,7 +327,7 @@ class OnsIdentity:
         Exception
             If the configuration file does not exist or is not readable.
         """
-        _logger.debug('_read_oci_config')
+        _logger.debug('%s', where_am_i())
         full_fname = os.path.expanduser(fname)
         try:
             oci_config = oci_sdk.config.from_file(full_fname, profile)
@@ -285,7 +354,7 @@ class OnsIdentity:
         the authentication method which passed or NONE.
             [NONE | DIRECT | PROXY | AUTO | IP]
         """
-        _logger.debug('_get_auth_method')
+        _logger.debug('%s', where_am_i())
         if authentication_method is None:
             auth_method = OCIUtilsConfiguration.get('auth', 'auth_method')
         else:
@@ -337,7 +406,7 @@ class OnsIdentity:
         Exception
             The authentication using direct mode is noit possible
         """
-        _logger.debug('_proxy_authenticate')
+        _logger.debug('%s', where_am_i())
         if os.geteuid() != 0:
             raise Exception('Must be root to use Proxy authentication')
 
@@ -365,7 +434,7 @@ class OnsIdentity:
         Exception
             The authentication using direct mode is not possible
         """
-        _logger.debug('_direct_authenticate')
+        _logger.debug('%s', where_am_i())
         try:
             self._oci_config = self._read_oci_config(fname=self._oci_config_file, profile=self._oci_config_profile)
             self._identity_client = oci_sdk.identity.IdentityClient(self._oci_config)
@@ -388,7 +457,7 @@ class OnsIdentity:
         Exception
             If IP authentication fails.
         """
-        _logger.debug('_ip_authenticate')
+        _logger.debug('%s', where_am_i())
         try:
             self._signer = oci_sdk.auth.signers.InstancePrincipalsSecurityTokenSigner()
             self._identity_client = oci_sdk.identity.IdentityClient(config={}, signer=self._signer)
@@ -449,7 +518,7 @@ class NotificationConfig:
         -------
             class: oci.ons.notification_control_plane_client.NotificationControlPlaneClient
         """
-        _logger.debug('_get_ons_control_client')
+        _logger.debug('%s', where_am_i())
         identity_client = OnsIdentity()
         return identity_client.ons_control_client()
 
@@ -461,7 +530,7 @@ class NotificationConfig:
         -------
             list: List of available topics.
         """
-        _logger.debug('_get_topic_list')
+        _logger.debug('%s', where_am_i())
         try:
             ons_topics = self._get_ons_control_client().list_topics(compartment_id=self._compartment_id).data
             topics_list = [topic.topic_id for topic in ons_topics]
@@ -485,7 +554,7 @@ class NotificationConfig:
         -------
             bool: True if topic in list, False if topic not in list, (True if list is not available for any reason)
         """
-        _logger.debug('_topic_exist')
+        _logger.debug('%s', where_am_i())
         topics = self._get_topic_list()
         return bool(notification_topic in topics) if 'FAILED TO RETRIEVE TOPIC LIST' not in topics else 'FAILED'
 
@@ -497,7 +566,7 @@ class NotificationConfig:
         -------
             str: the notification topic.
         """
-        _logger.debug('_Collect the notification topic.')
+        _logger.debug('%s', where_am_i())
         if not os.path.exists(self._config_file):
             raise NotificationException('Configuration for oci-notify not found.')
 
@@ -534,7 +603,7 @@ class NotificationConfig:
         -------
             bool: True on success, False otherwise.
         """
-        _logger.debug('_convert_oci_config_file: %s', self._config_file)
+        _logger.debug('%s: %s', where_am_i(), self._config_file)
         #
         # backup file
         configfile_bck = self._config_file + '_backup_' + datetime.today().strftime('%Y-%m-%d-%H%M%S')
@@ -569,7 +638,7 @@ class NotificationConfig:
         -------
             tuple: config title, config message
         """
-        _logger.debug('_config_notification_service: %s', notification_ocid)
+        _logger.debug('%s: %s', where_am_i(), notification_ocid)
         try:
             ocid_check = re.compile(r'^ocid\d\.onstopic\.')
         except Exception as e:
@@ -680,7 +749,7 @@ class NotificationMessage:
          -------
              class: oci.ons.notification_data_plane_client.NotificationDataPlaneClient
          """
-        _logger.debug('_get_ons_data_client')
+        _logger.debug('%s', where_am_i())
         identity_client = OnsIdentity()
         return identity_client.ons_data_client()
 
@@ -691,7 +760,7 @@ class NotificationMessage:
         -------
             bool: True on success, raises an exception otherwise.
         """
-        _logger.debug('_get_topic')
+        _logger.debug('%s', where_am_i())
         try:
             config_data = NotificationConfig()
             self._topic = config_data.get_notification_topic()
@@ -708,7 +777,7 @@ class NotificationMessage:
         -------
             str: the message subject.
         """
-        _logger.debug('_message_title')
+        _logger.debug('%s', where_am_i())
         subject = self._message[:MAX_MESSAGE_TITLE_LEN]
         _logger.debug('_Message subject: %s', subject)
         return subject
@@ -737,7 +806,7 @@ class NotificationMessage:
             -------
                 tuple: (bool: accessible, int: size, str: path to local file)
             """
-            _logger.debug('_file %s', message)
+            _logger.debug('%s: %s', where_am_i(), message)
             msg_access = False
             msg_size = -1
             if os.path.isfile(self._message) and os.access(message, os.R_OK):
@@ -762,7 +831,7 @@ class NotificationMessage:
             -------
                 tuple: (bool: accessible, int: size, str: path to local file)
             """
-            _logger.debug('_url %s', message)
+            _logger.debug('%s: %s', where_am_i(), message)
             msg_access = False
             msg_size = -1
             msg_fn = None
@@ -806,7 +875,7 @@ class NotificationMessage:
         -------
             bool: True on success, raises an exception otherwise.
         """
-        _logger.debug('_send_notification')
+        _logger.debug('%s', where_am_i())
         try:
             self._get_topic()
         except Exception as e:
@@ -858,7 +927,7 @@ class NotificationMessage:
         -------
             bool: True on success, raises an exception otherwise.
         """
-        _logger.debug('_send_message_chunk')
+        _logger.debug('%s', where_am_i())
         try:
             _logger.debug('_Send chunk %d of %d', nb, nbtot)
             if nbtot <= 1:
@@ -898,18 +967,19 @@ def main():
     # locale
     os.environ['LC_ALL'] = "%s" % lc_all
 
-    if not is_root():
+    if not is_root_user():
         _logger.error('This program needs to be run with root privileges.')
         sys.exit(1)
 
-    sub_commands = {'config': config_notification_service_wrap,
-                    'message': handle_message_wrap}
-
-    parser = parse_args()
+    parser = get_args_parser()
     args = parser.parse_args()
-    if args.mode is None:
+    if args.mode is None or args.mode == 'usage':
         parser.print_help()
         sys.exit(0)
+
+    sub_commands = {'usage': show_usage,
+                    'config': config_notification_service_wrap,
+                    'message': handle_message_wrap}
 
     try:
         res = sub_commands[args.mode](args)

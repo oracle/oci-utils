@@ -73,7 +73,6 @@ class TestOCIVolume(OciTestCase):
     #
     # attach_volume was removed from instance object
     #
-    # GT
     # this test is obsolete since refactoring, 0.12
     def test__oci_instance__attach_volume(self):
         """

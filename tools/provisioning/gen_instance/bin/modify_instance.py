@@ -2302,7 +2302,6 @@ def main():
     # images
     config_data.set_image_list(config_data.data['compartment_ocid'])
     #
-    # __GT__
     print(pformat(config_data.data, indent=4))
     print(pformat(tfvars_data, indent=4))
     # print(pformat(config_data.compartments, indent=4))

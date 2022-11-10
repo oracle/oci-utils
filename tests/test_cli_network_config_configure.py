@@ -12,6 +12,7 @@ from ipaddress import ip_address
 
 import oci_utils.oci_api
 from tools.oci_test_case import OciTestCase
+from pprint import pformat
 
 os.environ['LC_ALL'] = 'en_US.UTF8'
 os.environ['_OCI_UTILS_DEBUG'] = '1'
@@ -116,22 +117,26 @@ class TestCliOciNetworkConfigConfigure(OciTestCase):
             No return value.
         """
         try:
-            create_data = subprocess.check_output([self.oci_net_config, '--create-vnic']).decode('utf-8')
-            print(create_data)
-            self.assertIn('Creating', create_data, 'attach vnic failed')
-            new_ipv4 = _get_ip_from_response(create_data)[0]
+            create_data = subprocess.check_output([self.oci_net_config, '--create-vnic']).decode('utf-8').splitlines()
+            print(create_data[0])
+            self.assertIn('Creating', create_data[0], 'attach vnic failed')
+            new_ipv4 = _get_ip_from_response(create_data[0])[0]
+            print(new_ipv4)
             time.sleep(self.waittime)
-            print(subprocess.check_output([self.oci_net_config, '--deconfigure']).decode('utf-8'))
+            deconfig_data = subprocess.check_output([self.oci_net_config, '--deconfigure']).decode('utf-8').splitlines()
+            print(deconfig_data)
             time.sleep(self.waittime)
-            print(subprocess.check_output([self.oci_net_config, '--configure']).decode('utf-8'))
+            config_data = subprocess.check_output([self.oci_net_config, '--configure']).decode('utf-8').splitlines()
+            print(config_data)
             time.sleep(self.waittime)
-            exclude_output = subprocess.check_output([self.oci_net_config, '--configure', '-X', new_ipv4]).decode('utf-8')
+            exclude_output = subprocess.check_output([self.oci_net_config, '--configure', '-X', new_ipv4]).decode('utf-8').splitlines()
             print(exclude_output)
-            include_output = subprocess.check_output([self.oci_net_config, '--configure', '-I', new_ipv4]).decode('utf-8')
+            include_output = subprocess.check_output([self.oci_net_config, '--configure', '-I', new_ipv4]).decode('utf-8').splitlines()
             print(include_output)
-            delete_data = subprocess.check_output([self.oci_net_config, '--detach-vnic', new_ipv4 ]).decode('utf-8')
-            print(delete_data)
-            self.assertNotIn(new_ipv4, subprocess.check_output([self.oci_net_config, '--show']).decode('utf-8'), 'detach vnic failed')
+            delete_data = subprocess.check_output([self.oci_net_config, '--detach-vnic', new_ipv4]).decode('utf-8').splitlines()
+            print(delete_data[0])
+            detach_data = subprocess.check_output([self.oci_net_config, '--show']).decode('utf-8').splitlines()
+            self.assertNotIn(new_ipv4, detach_data[0], 'detach vnic failed')
         except Exception as e:
             self.fail('Execution oci-network-config configure in compatibility mode has failed: %s' % str(e))
 
@@ -140,35 +145,48 @@ class TestCliOciNetworkConfigConfigure(OciTestCase):
         Test basic run of configure command. We do not check out.
 
         Returns
-        -------
+
             No return value.
         """
         try:
-            create_data = subprocess.check_output([self.oci_net_config, 'attach-vnic', '--name', self.vnic_name]).decode('utf-8')
-            self.assertIn('Creating', create_data, 'attach vnic failed')
+            create_data = subprocess.check_output([self.oci_net_config, 'attach-vnic', '--name', self.vnic_name]).decode('utf-8').splitlines()
+            print(create_data)
+            self.assertIn('Creating', create_data[0], 'attach vnic failed')
             time.sleep(self.waittime)
             vn_ocid = self._get_vnic_ocid(self.vnic_name)
-            new_ipv4 = _get_ip_from_response(create_data)[0]
-            print(subprocess.check_output([self.oci_net_config, 'show']).decode('utf-8'))
-            config_output = subprocess.check_output([self.oci_net_config, 'configure']).decode('utf-8')
-            print(config_output)
-            # self.assertNotIn('ADD', config_output, 'configuration failed')
+            print(vn_ocid)
+            new_ipv4 = _get_ip_from_response(create_data[0])[0]
+            print(new_ipv4)
+            print(subprocess.check_output([self.oci_net_config, 'show']).decode('utf-8').splitlines())
+            config_output = subprocess.check_output([self.oci_net_config, 'configure']).decode('utf-8').splitlines()
+            print(config_output[0])
+            self.assertNotIn('ADD', config_output, 'configuration failed')
             time.sleep(self.waittime)
-            print(subprocess.check_output([self.oci_net_config, 'show']).decode('utf-8'))
-            unconfig_output = subprocess.check_output([self.oci_net_config, 'unconfigure']).decode('utf-8')
-            print(unconfig_output)
-            # self.assertIn('ADD', unconfig_output, 'un-configuration failed')
-            print(subprocess.check_output([self.oci_net_config, 'show']).decode('utf-8'))
-            exclude_output = subprocess.check_output([self.oci_net_config, 'configure', '--exclude', new_ipv4]).decode('utf-8')
-            print(exclude_output)
+            print(subprocess.check_output([self.oci_net_config, 'show']).decode('utf-8').splitlines())
+            unconfig_output = subprocess.check_output([self.oci_net_config, 'unconfigure']).decode('utf-8').splitlines()
+            print(pformat(unconfig_output, indent=4))
+            show_output = subprocess.check_output([self.oci_net_config, 'show']).decode('utf-8')
+            print(pformat(show_output.splitlines(), indent=4))
+            self.assertIn('ADD', show_output, 'un-configuration failed')
+            print(new_ipv4)
+            exclude_output = subprocess.check_output([self.oci_net_config, 'configure', '--exclude', new_ipv4]).decode('utf-8').splitlines()
+            print(pformat(exclude_output, indent=4))
             time.sleep(self.waittime)
-            #self.assertIn('EXCL', exclude_output, 'Exclusion of %s failed' % new_ipv4)
-            include_output = subprocess.check_output([self.oci_net_config, 'configure', '--include', new_ipv4]).decode('utf-8')
-            print(include_output)
+            show_output = subprocess.check_output([self.oci_net_config, 'show']).decode('utf-8')
+            print(pformat(show_output.splitlines(), indent=4))
+            self.assertIn('EXCL', show_output, 'Exclusion of %s failed' % new_ipv4)
+            include_output = subprocess.check_output([self.oci_net_config, 'configure', '--include', new_ipv4]).decode('utf-8').splitlines()
+            print(pformat(include_output, indent=4))
             time.sleep(self.waittime)
-            print(subprocess.check_output([self.oci_net_config, 'show']).decode('utf-8'))
-            #self.assertIn('EXCL', include_output, 'Exclusion of %s failed' % new_ipv4)
-            delete_data = subprocess.check_output([self.oci_net_config, 'detach-vnic', '--ocid', vn_ocid]).decode('utf-8')
-            print(delete_data)
+            show_output = subprocess.check_output([self.oci_net_config, 'show']).decode('utf-8')
+            print(pformat(show_output.splitlines(), indent=4))
+            # self.assertNotIn('EXCL', show_output, 'Exclusion of %s failed' % new_ipv4)
+            delete_data = subprocess.check_output([self.oci_net_config, 'detach-vnic', '--ocid', vn_ocid]).decode('utf-8').splitlines()
+            print(pformat(delete_data, indent=4))
         except Exception as e:
             self.fail('Execution oci-network-config configure has failed: %s' % str(e))
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestCliOciNetworkConfigConfigure)
+    unittest.TextTestRunner().run(suite)
+

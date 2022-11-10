@@ -96,7 +96,7 @@ def discovery(ipaddr):
             The list of iSCSI qualified names discovered.
     """
     if not is_ip_reachable(ipaddr):
-        _iscsi_logger.warning('Given IP is not reachable.')
+        _iscsi_logger.debug('Given IP %s is not reachable.', ipaddr)
         return []
     try:
         with open(os.devnull, 'w') as dev_null:

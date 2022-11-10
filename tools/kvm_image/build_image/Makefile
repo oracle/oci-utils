@@ -159,7 +159,8 @@ type:
 release:
 	@[ "$(RELEASE)" ] || ( echo "RELEASE [7|8] is not set"; exit 1 )
 
-configure: install_packer profile config datadir varfile type release
+# configure: install_packer profile config datadir varfile type release
+configure: profile config datadir varfile type release
 	$(WRITE) "$(HOMEBIN)/$(CONFIGUREIMAGE) --profile $(PROFILE) --config $(CONFIG) --data-directory $(DATADIR) --var-file $(VARFILENAME) --type $(TYPE) --release $(RELEASE)"
 	$(HOMEBIN)/$(CONFIGUREIMAGE) --profile $(PROFILE) --config $(CONFIG) --data-directory $(DATADIR) --var-file $(VARFILENAME) --type $(TYPE) --release $(RELEASE)
 #

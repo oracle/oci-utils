@@ -7,18 +7,18 @@
 # creates a user with given name and id, create the structure to run automated tests.
 #
 EXPECTEDNBPAR=5
-USERADD=$(which useradd)
-GETENT=$(which getent)
-PASSWD=$(which passwd)
-SU=$(which su)
-SED=$(which sed)
-COPY=$(which cp)
-CAT=$(which cat)
+USERADD=$(command -v useradd)
+GETENT=$(command -v getent)
+PASSWD=$(command -v passwd)
+SU=$(command -v su)
+SED=$(command -v sed)
+COPY=$(command -v cp)
+CAT=$(command -v cat)
 CHDIR="cd"
-MKDIR=$(which mkdir)
-DELETE="$(which rm) -rf"
-CHMOD=$(which chmod)
-CHOWN=$(which chown)
+MKDIR=$(command -v mkdir)
+DELETE="$(command -v rm) -rf"
+CHMOD=$(command -v chmod)
+CHOWN=$(command -v chown)
 GROUPID=1000
 USERSHELL="/bin/bash"
 BINDIR="bin"
@@ -39,7 +39,7 @@ KEYFILENAME="oci_api_key.pem"
 #
 # todo:
 # hardcode github link to automation.
-GIT=$(which git)
+GIT=$(command -v git)
 # GITHUBURL="https://github.com/oracle/oci-utils.git"
 GITHUBURL="https://github.com/guidotijskens/oci-utils.git"
 #
