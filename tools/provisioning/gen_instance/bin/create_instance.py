@@ -303,187 +303,6 @@ def get_configdata(profile, configfile='~/.oci/config'):
     return config
 
 
-class autotesttfvars:
-    """
-    Manipulate the tfvar.json file.
-    """
-    def __init__(self, tfvars_file):
-        """
-        Initialise.
-
-        Parameters
-        ----------
-        tfvars_file: str
-            Full path of the tfvar.json file.
-        # sdkconfig: dict
-        #     Contents of the sdk config file.
-        """
-        self.json_file = tfvars_file
-        # self.sdkconfig = sdkconfig
-        try:
-            with open(self.json_file, 'rb') as tfvj:
-                self.jsondata = json.load(tfvj)
-        except Exception as e:
-            #
-            # Failed to read variable def file, falling back to idle defaults.
-            print_g('Failed to read %s, creating default' % self.json_file)
-            self.jsondata = default_values
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, xtype, value, traceback):
-        try:
-            with open(self.json_file, 'w') as tfvj:
-                json.dump(self.jsondata, tfvj, indent=4)
-            return True
-        except Exception as e:
-            raise Exception('Failed to write %s:' % self.json_file) from e
-
-    def update_json_with_config(self, sdk_config):
-        """
-        Update tf.json file with .oci/config data.
-
-        Returns
-        -------
-            bool: True on success, False otherwise.
-        """
-        print_g('\nCollecting data from sdk config file:')
-        self.jsondata['user_ocid'] = sdk_config['user']
-        print_g('user ocid:          %s' % sdk_config['user'])
-        self.jsondata['fingerprint'] = sdk_config['fingerprint']
-        print_g('fingerprint         %s' % sdk_config['fingerprint'])
-        self.jsondata['oci_private_key'] = sdk_config['key_file']
-        print_g('oci_private_key:    %s' % sdk_config['key_file'])
-        self.jsondata['tenancy_ocid'] = sdk_config['tenancy']
-        print_g('tenancy_ocid:       %s' % sdk_config['tenancy'])
-        self.jsondata['region'] = sdk_config['region']
-        print_g('region:             %s' % sdk_config['region'])
-        if _read_yn('Agree?', default_yn=True):
-            return True
-        return False
-
-    def update_user(self, display_name):
-        """
-        Update tf.json file with user related data.
-
-        Parameters
-        ----------
-        display_name: str
-            The instance display name
-
-        Returns
-        -------
-           bool: True on success, False otherwise.
-        """
-        #
-        # os user data
-        current_user = _get_current_user()
-        if bool(self.jsondata['os_user']):
-            if _read_yn('\nReplace %s by %s' % (self.jsondata['os_user'], current_user), default_yn=True):
-                self.jsondata['os_user'] = current_user
-        else:
-            self.jsondata['os_user'] = _from_stdin('os user', default=current_user)
-
-        current_user_home = _get_current_user_home()
-        if bool(self.jsondata['os_user_home']):
-            if _read_yn('Replace %s by %s' % (self.jsondata['os_user_home'], current_user_home), default_yn=True):
-                self.jsondata['os_user_home'] = current_user_home
-        else:
-            self.jsondata['os_user_home'] = _from_stdin('os user home', default=current_user_home)
-        #
-        # ssh keys
-        pub_key = current_user_home + '/.ssh/id_rsa.pub'
-        if bool(self.jsondata['ssh_public_key']):
-            if _read_yn('Replace %s by %s' % (self.jsondata['ssh_public_key'], pub_key), default_yn=True):
-                self.jsondata["ssh_public_key"] = pub_key
-        else:
-            self.jsondata['ssh_publid_key'] = _from_stdin('ssh public key', default=pub_key)
-        priv_key = current_user_home + '/.ssh/id_rsa'
-        if bool(self.jsondata['ssh_private_key']):
-            if _read_yn('Replace %s by %s' % (self.jsondata['ssh_private_key'], priv_key), default_yn=True):
-                self.jsondata["ssh_private_key"] = priv_key
-        else:
-            self.jsondata['ssh_private_key'] = _from_stdin('ssh private key', default=priv_key)
-        #
-        # initial script
-        # self.jsondata['initial_script_path'] = self.jsondata['os_user_home'] \
-        #                                        + '/' \
-        #                                        + default_instance_dir \
-        #                                        + '/' \
-        #                                        + display_name \
-        #                                       + '/sh_scripts/initial_config.sh'
-        self.jsondata['initial_script_path'] = os.path.join(self.jsondata['os_user_home'],
-                                                            default_instance_dir,
-                                                            display_name,
-                                                            'sh_scripts',
-                                                            'initial_config.sh')
-        #
-        # ip V4 address
-        thisipv4 = socket.gethostbyname(socket.gethostname())
-        if bool(self.jsondata['server_ip']):
-            if _read_yn('Replace %s by %s' % (self.jsondata['server_ip'], thisipv4), default_yn=True):
-                self.jsondata['server_ip'] = thisipv4
-        else:
-            self.jsondata['server_ip'] = _from_stdin('server ip address', default=thisipv4)
-        return True
-
-    def update_image(self, image_data):
-        """
-        Update tf.json file with image related data.
-
-        Parameters
-        ----------
-        image_data: dict
-            The image data
-
-        Returns
-        -------
-            bool: True on success, False otherwise.
-        """
-        print_g(image_data)
-        for k, v in image_data.items():
-            print_g('%30s %s' % (k, v))
-            self.jsondata[k] = v
-
-        return True
-
-    def update_varia(self, variadata):
-        """
-        Update various data.
-
-        Parameters
-        ----------
-        variadata: dict
-            The various data.
-
-        Returns
-        -------
-            bool: True on success, False otherwise.
-        """
-        for var_key, var_val in variadata.items():
-            print_g('%30s %s' % (var_key, var_val))
-            self.jsondata[var_key] = var_val
-        return True
-
-    def update_gen_data(self, gendata):
-        """
-        Update tf.json with generic data.
-
-        Parameters
-        ----------
-        gendata: dict
-            The generic data.
-
-        Returns
-        -------
-            bool: True on success, False otherwise.
-        """
-        for var_key, var_val in gendata.items():
-            self.jsondata[var_key] = var_val
-        return True
-
-
 def _read_nb(prompt, min_val=1, max_val=64, default_val=1):
     """
     Read an integer number from stdin.
@@ -1551,6 +1370,7 @@ def get_boot_volume_size(data):
     #
     return data
 
+
 def print_config_data(xx):
     """
     Print dict.
@@ -1609,6 +1429,187 @@ def write_scripts(data):
                                       % (data['def_tf_scripts_dir'], data['tfvarsfile'], def_log_dir)):
         sys.exit(1)
     print_g('\nor\n%s\n%s' % (create_script, destroy_script))
+
+
+class autotesttfvars:
+    """
+    Manipulate the tfvar.json file.
+    """
+    def __init__(self, tfvars_file):
+        """
+        Initialise.
+
+        Parameters
+        ----------
+        tfvars_file: str
+            Full path of the tfvar.json file.
+        # sdkconfig: dict
+        #     Contents of the sdk config file.
+        """
+        self.json_file = tfvars_file
+        # self.sdkconfig = sdkconfig
+        try:
+            with open(self.json_file, 'rb') as tfvj:
+                self.jsondata = json.load(tfvj)
+        except Exception as e:
+            #
+            # Failed to read variable def file, falling back to idle defaults.
+            print_g('Failed to read %s, creating default' % self.json_file)
+            self.jsondata = default_values
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, xtype, value, traceback):
+        try:
+            with open(self.json_file, 'w') as tfvj:
+                json.dump(self.jsondata, tfvj, indent=4)
+            return True
+        except Exception as e:
+            raise Exception('Failed to write %s:' % self.json_file) from e
+
+    def update_json_with_config(self, sdk_config):
+        """
+        Update tf.json file with .oci/config data.
+
+        Returns
+        -------
+            bool: True on success, False otherwise.
+        """
+        print_g('\nCollecting data from sdk config file:')
+        self.jsondata['user_ocid'] = sdk_config['user']
+        print_g('user ocid:          %s' % sdk_config['user'])
+        self.jsondata['fingerprint'] = sdk_config['fingerprint']
+        print_g('fingerprint         %s' % sdk_config['fingerprint'])
+        self.jsondata['oci_private_key'] = sdk_config['key_file']
+        print_g('oci_private_key:    %s' % sdk_config['key_file'])
+        self.jsondata['tenancy_ocid'] = sdk_config['tenancy']
+        print_g('tenancy_ocid:       %s' % sdk_config['tenancy'])
+        self.jsondata['region'] = sdk_config['region']
+        print_g('region:             %s' % sdk_config['region'])
+        if _read_yn('Agree?', default_yn=True):
+            return True
+        return False
+
+    def update_user(self, display_name):
+        """
+        Update tf.json file with user related data.
+
+        Parameters
+        ----------
+        display_name: str
+            The instance display name
+
+        Returns
+        -------
+           bool: True on success, False otherwise.
+        """
+        #
+        # os user data
+        current_user = _get_current_user()
+        if bool(self.jsondata['os_user']):
+            if _read_yn('\nReplace %s by %s' % (self.jsondata['os_user'], current_user), default_yn=True):
+                self.jsondata['os_user'] = current_user
+        else:
+            self.jsondata['os_user'] = _from_stdin('os user', default=current_user)
+
+        current_user_home = _get_current_user_home()
+        if bool(self.jsondata['os_user_home']):
+            if _read_yn('Replace %s by %s' % (self.jsondata['os_user_home'], current_user_home), default_yn=True):
+                self.jsondata['os_user_home'] = current_user_home
+        else:
+            self.jsondata['os_user_home'] = _from_stdin('os user home', default=current_user_home)
+        #
+        # ssh keys
+        pub_key = current_user_home + '/.ssh/id_rsa.pub'
+        if bool(self.jsondata['ssh_public_key']):
+            if _read_yn('Replace %s by %s' % (self.jsondata['ssh_public_key'], pub_key), default_yn=True):
+                self.jsondata["ssh_public_key"] = pub_key
+        else:
+            self.jsondata['ssh_publid_key'] = _from_stdin('ssh public key', default=pub_key)
+        priv_key = current_user_home + '/.ssh/id_rsa'
+        if bool(self.jsondata['ssh_private_key']):
+            if _read_yn('Replace %s by %s' % (self.jsondata['ssh_private_key'], priv_key), default_yn=True):
+                self.jsondata["ssh_private_key"] = priv_key
+        else:
+            self.jsondata['ssh_private_key'] = _from_stdin('ssh private key', default=priv_key)
+        #
+        # initial script
+        # self.jsondata['initial_script_path'] = self.jsondata['os_user_home'] \
+        #                                        + '/' \
+        #                                        + default_instance_dir \
+        #                                        + '/' \
+        #                                        + display_name \
+        #                                       + '/sh_scripts/initial_config.sh'
+        self.jsondata['initial_script_path'] = os.path.join(self.jsondata['os_user_home'],
+                                                            default_instance_dir,
+                                                            display_name,
+                                                            'sh_scripts',
+                                                            'initial_config.sh')
+        #
+        # ip V4 address
+        thisipv4 = socket.gethostbyname(socket.gethostname())
+        if bool(self.jsondata['server_ip']):
+            if _read_yn('Replace %s by %s' % (self.jsondata['server_ip'], thisipv4), default_yn=True):
+                self.jsondata['server_ip'] = thisipv4
+        else:
+            self.jsondata['server_ip'] = _from_stdin('server ip address', default=thisipv4)
+        return True
+
+    def update_image(self, image_data):
+        """
+        Update tf.json file with image related data.
+
+        Parameters
+        ----------
+        image_data: dict
+            The image data
+
+        Returns
+        -------
+            bool: True on success, False otherwise.
+        """
+        print_g(image_data)
+        for k, v in image_data.items():
+            print_g('%30s %s' % (k, v))
+            self.jsondata[k] = v
+
+        return True
+
+    def update_varia(self, variadata):
+        """
+        Update various data.
+
+        Parameters
+        ----------
+        variadata: dict
+            The various data.
+
+        Returns
+        -------
+            bool: True on success, False otherwise.
+        """
+        for var_key, var_val in variadata.items():
+            print_g('%30s %s' % (var_key, var_val))
+            self.jsondata[var_key] = var_val
+        return True
+
+    def update_gen_data(self, gendata):
+        """
+        Update tf.json with generic data.
+
+        Parameters
+        ----------
+        gendata: dict
+            The generic data.
+
+        Returns
+        -------
+            bool: True on success, False otherwise.
+        """
+        for var_key, var_val in gendata.items():
+            self.jsondata[var_key] = var_val
+        return True
 
 
 def main():

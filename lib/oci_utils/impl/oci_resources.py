@@ -1184,7 +1184,7 @@ class OCIVNIC(OCIAPIAbstractResource):
 
     def find_private_ipv4(self, ipv4_address):
         """
-        Find a secondary private IPv6 based on its IP address.
+        Find a secondary private IPv4 based on its IP address.
 
         Parameters
         ----------
@@ -1917,11 +1917,6 @@ class OCISubnet(OCIAPIAbstractResource):
         """
         OCISubnet._logger.debug('%s', where_am_i())
         return self._oci_session.get_vcn(vcn_id=self._data.vcn_id).get_display_name()
-        # this_vcn_ocid = self.get_vcn_id()
-        # for vcn in self._oci_session.all_vcns():
-        #     if vcn.get_ocid() == this_vcn_ocid:
-        #         return vcn.get_display_name()
-        # return ''
 
     def get_security_list_ids(self):
         """
@@ -2325,7 +2320,7 @@ class OCIVolume(OCIAPIAbstractResource):
         OCIVolume._logger.debug('%s', where_am_i())
         return self.volume_lifecycle == OCI_ATTACHMENT_STATE.ATTACHED
 
-    def get_size(self, format_str=None):
+    def get_size(self, format_str=OCI_VOLUME_SIZE_FMT.HUMAN.name):
         """
         Get the size of the volume.
 

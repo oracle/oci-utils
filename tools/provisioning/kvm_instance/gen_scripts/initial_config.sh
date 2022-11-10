@@ -3,18 +3,18 @@
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http:/oss.oracle.com/licenses/upl.
 
-RPM=$(which rpm)
-GREP=$(which grep)
-FIND=$(which find)
-SED=$(which sed)
+RPM=$(command -v rpm)
+GREP=$(command -v grep)
+FIND=$(command -v find)
+SED=$(command -v sed)
 COPY=cp
 WRITE=echo
 NOW=$(date +"%Y%m%d_%H%M")
-MKDIR=$(which mkdir)
+MKDIR=$(command -v mkdir)
 DNF=dnf
 YUM=yum
-SYSTEMCTL=$(which systemctl)
-SUDO=$(which sudo)
+SYSTEMCTL=$(command -v systemctl)
+SUDO=$(command -v sudo)
 INITIALLOG=/logs/initial.log
 OSVERSION=$(${SED} -rn 's/.*([0-9])\.[0-9].*/\1/p' /etc/redhat-release)
 #
@@ -23,7 +23,7 @@ OSVERSION=$(${SED} -rn 's/.*([0-9])\.[0-9].*/\1/p' /etc/redhat-release)
 if ! command -v dnf; then
   #
   # OL7
-  INSTALLRPM=$(which yum)
+  INSTALLRPM=$(command -v yum)
   ${SUDO} ${INSTALLRPM} install --assumeyes python36-libvirt
   ${SUDO} ${INSTALLRPM} install --assumeyes git
   ${SUDO} --login ${installrpm}-config-manager --enablerepo ol${OSVERSION}_kvm_utils
@@ -38,7 +38,7 @@ if ! command -v dnf; then
 else
   #
   # OL8+
-  INSTALLRPM=$(which dnf)
+  INSTALLRPM=$(command -v dnf)
   ${SUDO} ${INSTALLRPM} install --assumeyes python3-libvirt
   ${SUDO} ${INSTALLRPM} install --assumeyes git
   ${SUDO} ${INSTALLRPM} --assumeyes install oci-utils-kvm \

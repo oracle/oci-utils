@@ -1,15 +1,15 @@
-#!/bin/bash
+#!/bin/sh
 
 # Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-
-# Read the OCI SDK config and return the config data through stdout.
+# utility verifies if instance principal authentication with OCI is
+# configured correctly to create a working oci session.
 
 _PY3=/usr/bin/python3
+_PY_CMD=oci_attached_volumes_main.py
 s_dir=`${_PY3} -c 'import os.path ; import oci_utils.impl ; print (os.path.dirname(oci_utils.impl.__file__))' 2>/dev/null`
-_PY_CMD=oci_show_config_main.py
 
+exec ${_PY3}  ${s_dir}/${_PY_CMD} "$@"
 
-exec ${_PY3}  ${s_dir}/${_PY_CMD}
