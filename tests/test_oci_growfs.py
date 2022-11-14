@@ -179,7 +179,7 @@ class TestOciNotify(OciTestCase):
 
     def test_config_non_existent(self):
         """
-        Tests oci notify configuration with a non existent notification topic.
+        Tests oci notify configuration with a non-existent notification topic.
 
         Returns
         -------
