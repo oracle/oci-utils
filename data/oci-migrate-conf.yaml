@@ -294,9 +294,9 @@ ol_os_oci_region_bash :
     - '#!/bin/bash'
     - unset http_proxy
     - unset https_proxy
-    - CURL=$(which curl)
-    - JQ=$(which jq)
-    - CUT=$(which cut)
+    - CURL=$(command -v curl)
+    - JQ=$(command -v jq)
+    - CUT=$(command -v cut)
     - METADATAURL="http://169.254.169.254"
     - OCIREGION=$(${CURL} -sfm 5 ${METADATAURL}/opc/v1/instance/ | ${JQ} -r '.region' | ${CUT} -d '-' -f 2)
     - echo '-'$OCIREGION > /etc/yum/vars/ociregion
@@ -313,9 +313,9 @@ ubuntu_os_snapd_bash:
     - '#!/bin/bash'
     - SNAPD='snapd'
     - snaplist=_XXXX_
-    - SNAP=$(which snap)
-    - SYSCTL=$(which systemctl)
-    - LOGGER=$(which logger)
+    - SNAP=$(command -v snap)
+    - SYSCTL=$(command -v systemctl)
+    - LOGGER=$(command -v logger)
     - ${SYSCTL} enable ${SNAPD}
     - ${SYSCTL} start ${SNAPD}
     - snapdstatus=$(${SYSCTL} status ${SNAPD})
@@ -338,8 +338,8 @@ reinitialise_cloud_init_script : /usr/local/bin/reinitialise_cloud_init.sh
 reinitialise_cloud_init:
     - '#!/bin/bash'
     - CLOUDINIT='cloud-init'
-    - RM=$(which rm)
-    - SYSTEMCTL=$(which systemctl)
+    - RM=$(command -v rm)
+    - SYSTEMCTL=$(command -v systemctl)
     - VARLIBCLOUD='/var/lib/cloud/'
     - VARLOGCLOUD='/var/log/cloud'
     - ${RM} -rf "${VARLIBCLOUD}*"

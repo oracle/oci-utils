@@ -3,20 +3,20 @@
 # Licensed under the Universal Permissive License v 1.0 as shown
 # at http:/oss.oracle.com/licenses/upl.
 
-RPM=$(which rpm)
-GREP=$(which grep)
-FIND=$(which find)
-SED=$(which sed)
-MKDIR=$(which mkdir)
+RPM=$(command -v rpm)
+GREP=$(command -v grep)
+FIND=$(command -v find)
+SED=$(command -v sed)
+MKDIR=$(command -v mkdir)
 DNF=dnf
-SYSTEMCTL=$(which systemctl)
-SUDO=$(which sudo)
+SYSTEMCTL=$(command -v systemctl)
+SUDO=$(command -v sudo)
 OSVERSION=$(${SED} -rn 's/.*([0-9])\.[0-9].*/\1/p' /etc/redhat-release)
 if ! command -v dnf; then
-installrpm=$(which yum)
+installrpm=$(command -v yum)
 ${SUDO} --login ${installrpm}-config-manager --enablerepo ol${OSVERSION}_developer
 else
-installrpm=$(which dnf)
+installrpm=$(command -v dnf)
 ${SUDO} --login ${installrpm} config-manager --set-enabled ol${OSVERSION}_developer
 fi
 

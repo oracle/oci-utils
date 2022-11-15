@@ -33,6 +33,30 @@ custom_kvm_build_scripts = ['custom_install.sh', 'custom_firstboot.sh', 'custom_
 _logger = logging.getLogger(__name__)
 
 
+def print_g(msg, term=True, destination=default_log):
+    """
+    Write msg to stdout and to file.
+
+    Parameters
+    ----------
+    msg: str
+        The text.
+    term: bool
+        If true, write to stdout.
+    destination: str
+        Path of destination file.
+
+    Returns
+    -------
+        No return value.
+    """
+    if term:
+        print('%s' % msg)
+    with open(destination, 'a') as f:
+        f.write('%s\n' % msg)
+        f.flush()
+
+
 def parse_args():
     """
     Parse the command line arguments.
@@ -82,30 +106,6 @@ def parse_args():
     parser._optionals.title = 'Arguments'
     args = parser.parse_args()
     return args
-
-
-def print_g(msg, term=True, destination=default_log):
-    """
-    Write msg to stdout and to file.
-
-    Parameters
-    ----------
-    msg: str
-        The text.
-    term: bool
-        If true, write to stdout.
-    destination: str
-        Path of destination file.
-
-    Returns
-    -------
-        No return value.
-    """
-    if term:
-        print('%s' % msg)
-    with open(destination, 'a') as f:
-        f.write('%s\n' % msg)
-        f.flush()
 
 
 def _clear_term():
@@ -212,6 +212,28 @@ def _is_int(string_data):
     return re.match(r"[-+]?\d+$", string_data) is not None
 
 
+def _get_current_user():
+    """
+    Get the current username.
+
+    Returns
+    -------
+        str: the username.
+    """
+    return getpass.getuser()
+
+
+def _get_current_user_home():
+    """
+    Get the home directory of the current user.
+
+    Returns
+    -------
+        str: the full path of the home directory.
+    """
+    return os.path.expanduser('~')
+
+
 def _from_stdin(prompt, default=None):
     """
     Read from stdin, if default is not set to None, some input is expected.
@@ -233,6 +255,34 @@ def _from_stdin(prompt, default=None):
             return return_val
         if default is not None:
             return default
+
+
+def get_configdata(profile, configfile='~/.oci/config'):
+    """
+    Read the oci sdk/cli config file.
+
+    Parameters
+    ----------
+        profile: str
+            the config profile.
+        configfile: str
+            the path of the configfile.
+    Returns
+    -------
+        code: int 0 for success, 1 for failure
+        dict: the config data.
+    """
+    sdkconfigfile = configfile
+    if configfile.startswith('~/'):
+        sdkconfigfile = os.path.expanduser('~') + configfile[1:]
+    if os.path.exists(sdkconfigfile):
+        try:
+            return 0, oci.config.from_file(file_location=sdkconfigfile, profile_name=profile)
+        except Exception as e:
+            exit_msg = str(e)
+    else:
+        exit_msg = '%s does not exist' % sdkconfigfile
+    return 1, exit_msg
 
 
 def _select_from(some_list, prompt, default_val=0):
@@ -284,28 +334,6 @@ def this_path(this_file=None):
     return exec_dir if not this_file else os.path.join(exec_dir, this_file)
 
 
-def _get_current_user():
-    """
-    Get the current username.
-
-    Returns
-    -------
-        str: the username.
-    """
-    return getpass.getuser()
-
-
-def _get_current_user_home():
-    """
-    Get the home directory of the current user.
-
-    Returns
-    -------
-        str: the full path of the home directory.
-    """
-    return os.path.expanduser('~')
-
-
 def _get_today():
     """
     Get todays date as a sting in YYYY.MM.DD format
@@ -327,34 +355,6 @@ def _get_timestamp():
         str: timestamp in requested format.
     """
     return datetime.now().strftime('%Y%m%d-%H%M%S')
-
-
-def get_configdata(profile, configfile='~/.oci/config'):
-    """
-    Read the oci sdk/cli config file.
-
-    Parameters
-    ----------
-        profile: str
-            the config profile.
-        configfile: str
-            the path of the configfile.
-    Returns
-    -------
-        code: int 0 for success, 1 for failure
-        dict: the config data.
-    """
-    sdkconfigfile = configfile
-    if configfile.startswith('~/'):
-        sdkconfigfile = os.path.expanduser('~') + configfile[1:]
-    if os.path.exists(sdkconfigfile):
-        try:
-            return 0, oci.config.from_file(file_location=sdkconfigfile, profile_name=profile)
-        except Exception as e:
-            exit_msg = str(e)
-    else:
-        exit_msg = '%s does not exist' % sdkconfigfile
-    return 1, exit_msg
 
 
 def select_compartment_id(config_dict, prompt):
@@ -571,9 +571,20 @@ def select_shape(config_dict, image_ocid, prompt):
         print_g('*** ERROR *** %s' % str(e))
         _logger.error('ERROR %s', str(e), exc_info=True)
         sys.exit(1)
-    for shape_dict in oci_shapes.data:
-        print_g('%4d %-30s' % (oci_shapes.data.index(shape_dict), shape_dict.shape))
-    shape = _select_from(oci_shapes.data, prompt)
+    while 1 == 1:
+        for shape_dict in oci_shapes.data:
+            print_g('%4d %-30s' % (oci_shapes.data.index(shape_dict), shape_dict.shape))
+        shape = _select_from(oci_shapes.data, prompt)
+        #
+        # is shape Flex?
+        if bool(re.search('Flex', shape.shape)):
+            print_g('*** Flex shapes are not supported here.')
+            _ = sys.stdout.write('Press Key to continue.')
+            sys.stdout.flush()
+            _ = _getch().rstrip()
+        else:
+            break
+
     print_g(shape, term=False)
     print_g('Selected shape: \n%30s' % shape.shape)
     return shape.shape

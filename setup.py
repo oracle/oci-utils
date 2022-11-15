@@ -413,6 +413,7 @@ setup(
                   'man/man1/oci-instanceid.1',
                   'man/man1/oci-compartmentid.1',
                   'man/man1/oci-volume-data.1',
+                  'man/man1/oci-attached-volumes.1',
                   ]),
                 (os.path.join(sys.prefix, "share", "man", "man5"),
                  ['man/man5/oci-utils.conf.d.5',
@@ -443,6 +444,7 @@ setup(
              'bin/oci-instanceid',
              'bin/oci-test-ip-auth',
              'bin/oci-volume-data',
+             'bin/oci-attached-volumes',
              ],
     classifiers=[
         "Development Status :: 3 - Alpha",

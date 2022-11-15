@@ -1511,6 +1511,30 @@ def get_flex_data(data):
     return data
 
 
+def get_boot_volume_size(data):
+    """
+    Get the size of the boot volume in GigaBytes.
+
+    Parameters
+    ----------
+    data: dict
+        The configuration data.
+
+    Returns
+    -------
+        dict: the configuration data.
+    """
+    _ = _clear()
+    print_g('Boot Volume Size in GigaBytes', term=True)
+    data['boot_volume_size_in_gbs'] = _read_nb('Boot Volume Size', default_val=51, max_val=2048)
+    print_g(data['boot_volume_size_in_gbs'], term=False)
+    print_g('Selected boot volume size: %dGB' % data['boot_volume_size_in_gbs'])
+    if not _read_yn('Continue?', default_yn=True):
+        sys.exit(1)
+    #
+    return data
+
+
 def print_config_data(xx):
     """
     Print dict.
@@ -1657,7 +1681,6 @@ def main():
     image_data['subnet_ocid'] = config_data['subnet'].id
     #
     # Public ip
-    # Public ip
     image_data['assign_public_ip'] = get_public_ip()
     #
     # update public ip
@@ -1673,6 +1696,10 @@ def main():
     # Shape
     config_data = get_shape(config_data)
     image_data['shape'] = config_data['shape'].shape
+    #
+    # Boot volume size
+    config_data = get_boot_volume_size(config_data)
+    image_data['boot_volume_size_in_gbs'] = config_data['boot_volume_size_in_gbs']
     #
     # is shape Flex?
     if bool(re.search('Flex', image_data['shape'])):

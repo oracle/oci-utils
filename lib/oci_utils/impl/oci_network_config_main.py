@@ -23,7 +23,6 @@ from oci_utils.impl.network_helpers import is_valid_ip_address
 from oci_utils.impl.oci_resources import OCIVNIC
 from oci_utils.impl.row_printer import TablePrinter
 from oci_utils.impl.row_printer import TextPrinter
-from oci_utils.impl.row_printer import get_row_printer_impl
 from oci_utils.impl.row_printer_helpers import IndentPrinter
 from oci_utils.impl.row_printer_helpers import get_value_data
 from oci_utils.impl.row_printer_helpers import initialise_column_lengths
@@ -36,6 +35,34 @@ _logger = logging.getLogger("oci-utils.oci-network-config")
 VCN_PREFIX = ['ocid1.vcn.oc']
 SUBNET_PREFIX = ['ocid1.subnet.oc']
 VNIC_PREFIX = ['ocid1.vnic.oc']
+
+
+class NetworkConfigException(Exception):
+    """Class of exceptions during notification handling
+    """
+    def __init__(self, message=None):
+        """
+        Initialisation of the Oci NetworkConfig Exception.
+
+        Parameters
+        ----------
+        message: str
+            The exception message.
+        """
+        super().__init__()
+        self._message = message
+        assert (self._message is not None), 'No exception message given, no further information.'
+
+    def __str__(self):
+        """
+        Get this OCISDKError representation.
+
+        Returns
+        -------
+        str
+            The error message.
+        """
+        return str(self._message)
 
 
 class NameWithSpaces(argparse.Action):
@@ -435,12 +462,7 @@ def def_add_secondary_addr_parser(s_parser):
     add_secondary_addr = s_parser.add_parser('add-secondary-addr',
                                              description="Adds the given secondary private IP.",
                                              help="Adds the given secondary private IP.")
-    # add_secondary_addr.add_argument('--ipv',
-    #                                 action='store',
-    #                                 type=int,
-    #                                 choices=[4, 6],
-    #                                 default=4,
-    #                                 help='Add an ipv4 or ipv6 address.')
+
     ipv = add_secondary_addr.add_mutually_exclusive_group()
     ipv.add_argument('-ipv4', '--ipv4',
                      action='store_true',
@@ -541,6 +563,23 @@ def get_arg_parser():
     _ = def_remove_secondary_addr_parser(subparser)
 
     return parser
+
+
+def show_usage(usage_args):
+    """
+    Wrapper for showing usage info.
+
+    Parameters
+    ----------
+    usage_args:
+        The command line arguments.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
+    """
+    _logger.debug('%s', where_am_i())
+    return True
 
 
 def uniq_item_validator(value):
@@ -684,261 +723,6 @@ def ip_address_validator(value):
     raise argparse.ArgumentTypeError('Invalid arguments: %s is not a valid IP address.' % value)
 
 
-def get_oci_api_session():
-    """
-    Ensure the OCI SDK is available if the option is not None.
-
-    Returns
-    -------
-        OCISession
-            The session or None, if we cannot get one
-    """
-    _logger.debug('%s', where_am_i())
-    session_cache = getattr(get_oci_api_session, "_session", None)
-    if session_cache:
-        return session_cache
-
-    sess = None
-    try:
-        _logger.debug('Creating session')
-        sess = oci_utils.oci_api.OCISession()
-        # it seems that having a client is not enough, we may not be able to query anything on it
-        # workaround :
-        # try a dummy call to be sure that we can use this session
-        if not bool(sess.this_instance()):
-            _logger.debug('Returning None session')
-            return None
-        setattr(get_oci_api_session, "_session", sess)
-    except Exception as e:
-        _logger.error("Failed to access OCI services: %s", str(e))
-    _logger.debug('Returning session')
-    return sess
-
-
-def show_vcn(args):
-    """
-    Show virtual cloud network data.
-
-    Parameters
-    ----------
-    args: namespace
-        The command line.
-
-    Returns
-    -------
-        No return value.
-    """
-    _logger.debug('%s', where_am_i())
-    sess = get_oci_api_session()
-    if sess is None:
-        _logger.error("Failed to get API session.")
-        return 1
-    vcns = set()
-    _vcns = sess.all_vcns()
-    if not args.ocid and not args.name:
-        vcns.update(_vcns)
-    else:
-        if args.ocid:
-            for v in _vcns:
-                if v.get_ocid() == args.ocid:
-                    vcns.add(v)
-        if args.name:
-            for v in _vcns:
-                if v.get_display_name() == args.name:
-                    vcns.add(v)
-    do_show_vcn_information(vcns, args)
-    return 0
-
-
-def do_show_vcn_information(vcn_list, args):
-    """
-    Display virtual cloud network data.
-
-    Parameters
-    ----------
-    vcn_list: list of OCIVCN
-        The list of vnics.
-    args: namespace
-        The command line arguments.
-
-    Returns
-    -------
-        No return value.
-    """
-    _logger.debug('%s', where_am_i())
-    #
-    #
-    _data_struct = {
-        'name':  {'head': 'Name',             'func': 'get_display_name',     'type': 'str', 'collen': 20},
-        'ipv4':  {'head': 'IPv4 cidr block',  'func': 'get_ipv4_cidr_block',  'type': 'str', 'collen': 15},
-        'ipv6':  {'head': 'IPv6 cidr block',  'func': 'get_ipv6_cidr_blocks', 'type': 'str', 'collen': 20, 'convert': list_to_str}
-    }
-    _data_struct_detail = {
-        'uuid':  {'head': 'OCID',             'func': 'get_ocid',             'type': 'str', 'collen': 32},
-        'ipv4s': {'head': 'IPv4 cidr blocks', 'func': 'get_ipv4_cidr_blocks', 'type': 'str', 'collen': 16, 'convert': list_to_str},
-        'dns':   {'head': 'DNS label',        'func': 'get_dns_label',        'type': 'str', 'collen': 10},
-        'state': {'head': 'State',            'func': 'get_state',            'type': 'str', 'collen': 10},
-        'life ': {'head': 'Lifecycle state',  'func': 'get_lifecycle_state',  'type': 'str', 'collen': 17}
-    }
-    if args.details:
-        _data_struct.update(_data_struct_detail)
-    #
-    # initialise the column widths if no-truncate is set
-    if args.no_truncate:
-        _data_struct = initialise_column_lengths(_data_struct)
-    #
-    vcn_data = list()
-    for _vcn in vcn_list:
-        _vcn_dict = dict()
-        for key, _ in _data_struct.items():
-            value_data = get_value_data(_vcn, _data_struct[key])
-            _vcn_dict[key] = value_data[0]
-            val_length = value_data[1]
-            if args.no_truncate:
-                _data_struct[key]['collen'] = max(val_length, _data_struct[key]['collen'])
-        vcn_data.append(_vcn_dict)
-    #
-    print_data('Virtual Cloud Network Information:',
-               _data_struct,
-               vcn_data,
-               mode=args.output_mode,
-               truncate=not args.no_truncate)
-
-
-def show_subnet(args):
-    """
-    Show virtual cloud subnet data.
-
-    Parameters
-    ----------
-    args: namespace
-        The command line.
-
-    Returns
-    -------
-        No return value.
-    """
-    _logger.debug('%s', where_am_i())
-    sess = get_oci_api_session()
-    if sess is None:
-        _logger.error("Failed to get API session.")
-        return 1
-    subnets = set()
-    _subnets = sess.all_subnets()
-    if not args.ocid and not args.name:
-        subnets.update(_subnets)
-    else:
-        if args.ocid:
-            for s in _subnets:
-                if s.get_ocid() == args.ocid:
-                    subnets.add(s)
-        if args.name:
-            for s in _subnets:
-                if s.get_display_name() == args.name:
-                    subnets.add(s)
-    do_show_subnet_information(subnets, args)
-    return 0
-
-
-def do_show_subnet_information(subnet_list, args):
-    """
-    Display subnetdata.
-
-    Parameters
-    ----------
-    subnet_list: list of OCISubnet
-        The list of subnets.
-    args: namespace
-        The command line.
-
-    Returns
-    -------
-        No return value.
-    """
-    _logger.debug('%s', where_am_i())
-    #
-    #
-    _data_struct = {
-        'name':  {'head': 'Name',               'func': 'get_display_name',                    'type': 'str', 'collen': 20},
-        'ipv4':  {'head': 'ipv4 cidr block',    'func': 'get_ipv4_cidr_block',                 'type': 'str', 'collen': 15},
-        'ipv6':  {'head': 'ipv6 cidr block',    'func': 'get_ipv6_cidr_block',                 'type': 'str', 'collen': 20}
-    }
-    _data_struct_detail = {
-        'uuid':     {'head': 'OCID',            'func': 'get_ocid',                            'type': 'str',  'collen': 32},
-        'vcn':      {'head': 'VCN name',        'func': 'get_vcn_name',                        'type': 'str',  'collen': 20},
-        'vcnid':    {'head': 'VCN ocid',        'func': 'get_vcn_id',                          'type': 'str',  'collen': 32},
-        'public':   {'head': 'Public',          'func': 'is_public_ip_on_vnic_allowed',        'type': 'bool', 'collen': 6},
-        'publicin': {'head': 'Public ingress',  'func': 'is_internet_ingress_on_vnic_allowed', 'type': 'bool', 'collen': 14},
-        'dns':      {'head': 'DNS label',       'func': 'get_dns_label',                       'type': 'str',  'collen': 11},
-        'domain':   {'head': 'Domain name',     'func': 'get_domain_name',                     'type': 'str',  'collen': 20},
-        'life ':    {'head': 'Lifecycle state', 'func': 'get_lifecycle_state',                 'type': 'str',  'collen': 17}
-    }
-    #
-    # remove vcn uuid if output mode is table
-    if args.output_mode in ['table']:
-        _data_struct_detail.pop('vcnid', None)
-    #
-    # add details if necessary
-    if args.details:
-        _data_struct.update(_data_struct_detail)
-    #
-    # initialise the column widths
-    if args.no_truncate:
-        _data_struct = initialise_column_lengths(_data_struct)
-    #
-    subnet_data = list()
-    for _subn in subnet_list:
-        _subn_dict = dict()
-        for key, _ in _data_struct.items():
-            value_data = get_value_data(_subn, _data_struct[key])
-            _subn_dict[key] = value_data[0]
-            val_length = value_data[1]
-            if args.no_truncate:
-                _data_struct[key]['collen'] = max(val_length, _data_struct[key]['collen'])
-        subnet_data.append(_subn_dict)
-    #
-    print_data('Subnet Information:', _data_struct, subnet_data, mode=args.output_mode, truncate=not args.no_truncate)
-
-
-def show_vnics(args):
-    """
-    Show Virtual Network Interface data.
-
-    Parameters
-    ----------
-    args: namespace
-        The command line.
-
-    Returns
-    -------
-        No return value.
-    """
-    _logger.debug('%s', where_am_i())
-    sess = get_oci_api_session()
-    if sess is None:
-        _logger.error("Failed to get API session.")
-        return 1
-    vnics = set()
-    _vnics = sess.this_instance().all_vnics()
-    if not args.ocid and not args.name and not args.ip_address:
-        vnics.update(_vnics)
-    else:
-        if args.ocid:
-            for v in _vnics:
-                if v.get_ocid() == args.ocid:
-                    vnics.add(v)
-        if args.name:
-            for v in _vnics:
-                if v.get_display_name() == args.name:
-                    vnics.add(v)
-        if args.ip_address:
-            for v in _vnics:
-                if v.get_private_ip() == args.ip_address:
-                    vnics.add(v)
-    do_show_vnics_information(vnics, args)
-    return 0
-
-
 def get_conf_states(vnics):
     """
     Get configuration state of the vnic,
@@ -964,15 +748,346 @@ def get_conf_states(vnics):
     return conf_states
 
 
+def get_oci_api_session():
+    """
+    Ensure the OCI SDK is available if the option is not None.
+
+    Returns
+    -------
+        OCISession
+            The session or None, if we cannot get one
+    """
+    _logger.debug('%s', where_am_i())
+    session_cache = getattr(get_oci_api_session, "_session", None)
+    if session_cache:
+        return session_cache
+
+    sess = None
+    try:
+        _logger.debug('Creating session')
+        sess = oci_utils.oci_api.OCISession()
+        # it seems that having a client is not enough, we may not be able to query anything on it
+        # work around but not full-proof:
+        # try a dummy call to be sure that we can use this session
+        if not bool(sess.this_instance()):
+            _logger.debug('Returning None session')
+            return None
+        setattr(get_oci_api_session, "_session", sess)
+    except Exception as e:
+        _logger.error("Failed to access OCI services: %s", str(e))
+    _logger.debug('Returning session')
+    return sess
+
+
+def compat_show_vnics_information():
+    """
+    Show the current VNIC configuration of the instance based on
+
+    Returns
+    -------
+       No return value.
+    """
+    def _display_subnet(_, vn):
+        """Return subnet display name of this vnic
+        """
+        return vn.get_subnet().get_display_name()
+
+    def _display_secondary_ip_subnet(_, privip):
+        _sn = privip.get_subnet()
+        return '%s (%s)' % (_sn.get_display_name(), _sn.get_ipv4_cidr_block())
+
+    def _display_vnic_name(_, vn):
+        return '%s (primary)' % vn.get_display_name() if vn.is_primary() else vn.get_display_name()
+
+    _logger.debug('%s', where_am_i())
+    oci_session = get_oci_api_session()
+    if oci_session is None:
+        _logger.error("Failed to get API session.")
+        return
+    instance = oci_session.this_instance()
+    if instance is None:
+        _logger.error("Failed to get information from OCI.")
+        return
+    _logger.debug('Getting all vnics ')
+    vnics = instance.all_vnics()
+    _logger.debug('Got all vnics for printing')
+
+    _title = 'VNIC configuration for instance %s:' % instance.get_display_name()
+
+    _columns = (['Name', 32, _display_vnic_name],
+                ['Hostname', 25, 'get_hostname'],
+                ['MAC', 17, 'get_mac_address'],
+                ['Public IP', 15, 'get_public_ip'],
+                ['Private IP(s)', 15, 'get_private_ip'],
+                ['Subnet', 18, _display_subnet],
+                ['OCID', 90, 'get_ocid'])
+
+    printer = TextPrinter(title=_title, columns=_columns, column_separator=' ')
+    ips_printer = TextPrinter(title='Private IP addresses:',
+                              columns=(['IP address', 15, 'get_address'],
+                                       ['OCID', '90', 'get_ocid'],
+                                       ['Hostname', 25, 'get_hostname'],
+                                       ['Subnet', 24, _display_secondary_ip_subnet]),
+                              printer=IndentPrinter(3))
+
+    printer.printHeader()
+    for vnic in vnics:
+        printer.printRow(vnic)
+        #
+        # to check if compatible mode works with ipv6 as soon as primary ipv6 address for a vnic and/or single stack
+        # ipv6 is implemented on OCI and oci sdk:
+        _all_p_ips = vnic.all_private_ips()
+        if len(_all_p_ips) > 1:
+            # _all_p_ips include the primary we won't print (>1)
+            ips_printer.printHeader()
+            for p_ip in _all_p_ips:
+                if not p_ip.is_primary():
+                    # primary already displayed
+                    ips_printer.printRow(p_ip)
+            printer.rowBreak()
+            ips_printer.printFooter()
+            ips_printer.finish()
+    printer.printFooter()
+    printer.finish()
+
+
+def do_show_information(nic_list, args):
+    """
+    Show network information.
+
+    Parameters
+    ----------
+    nic_list:
+        list: list of network data.
+    args: namespace
+        The command line.
+
+    Returns
+    -------
+        No return value.
+    """
+    _logger.debug('%s', where_am_i())
+    _data_struct = {
+        'state':     {'head': 'State',      'item': 'CONFSTATE', 'type': 'str', 'collen': 6},
+        'link':      {'head': 'Link',       'item': 'IFACE',     'type': 'str', 'collen': 5},
+        'status':    {'head': 'Status',     'item': 'STATE',     'type': 'str', 'collen': 6},
+        'ipaddress': {'head': 'IP address', 'item': 'ADDR',      'type': 'str', 'collen': 9},
+        'vnic':      {'head': 'VNIC',       'item': 'VNICNAME',  'type': 'str', 'collen': 6},
+        'mac':       {'head': 'MAC',        'item': 'MAC',       'type': 'str', 'collen': 17}
+    }
+    _data_struct_detail = {
+        'hostname':  {'head': 'Hostname',    'item': 'HOSTNAME', 'type': 'str', 'collen': 8},
+        'subnet':    {'head': 'Subnet',      'item': 'SUBNET',   'type': 'str', 'collen': 10},
+        'routerip':  {'head': 'Router IPv4', 'item': 'VIRTRT4',  'type': 'str', 'collen': 9},
+        'routerip6': {'head': 'Router IPv6', 'item': 'VIRTRT6',  'type': 'str', 'collen': 9},
+        'namespace': {'head': 'Namespace',   'item': 'NS',       'type': 'str', 'collen': 9},
+        'index':     {'head': 'Index',       'item': 'IND',      'type': 'str', 'collen': 5},
+        'vlantag':   {'head': 'VLAN tag',    'item': 'VLTAG',    'type': 'str', 'collen': 8},
+        'vlan':      {'head': 'VLAN',        'item': 'VLAN',     'type': 'str', 'collen': 4}
+    }
+    #
+    # add details information
+    if args.details:
+        _data_struct.update(_data_struct_detail)
+    #
+    # initialise the column widths if no-truncate is set
+    if args.no_truncate:
+        _data_struct = initialise_column_lengths(_data_struct)
+    #
+    nic_data = list()
+    for _nic in nic_list:
+        _nic_dict = dict()
+        for key, _ in _data_struct.items():
+            value_data = get_value_data(_nic, _data_struct[key])
+            _nic_dict[key] = value_data[0]
+            val_length = value_data[1]
+            if args.no_truncate:
+                _data_struct[key]['collen'] = max(val_length, _data_struct[key]['collen'])
+        nic_data.append(_nic_dict)
+    #
+    print_data('Network Configuration',
+               _data_struct,
+               nic_data,
+               mode=args.output_mode,
+               truncate=not args.no_truncate)
+    return True
+
+
+def update_network_config(nw_conf):
+    """
+    Add data from vnic to the network data.
+
+    Parameters
+    ----------
+    nw_conf: list
+        List of network configuration data.
+
+    Returns
+    -------
+        list: list of updated network configuration data.
+    """
+    def _get_vnic_name(interface):
+        """
+        Get the vnic name.
+
+        Parameters
+        ----------
+        interface: dict
+            The interface.
+
+        Returns
+        -------
+            str: the vnic name if the interface matches a vnic, else '-'
+        """
+        _logger.debug('%s', where_am_i())
+        if interface['VNIC']:
+            for v in vnics:
+                if v.get_ocid() == interface['VNIC']:
+                    return v.get_display_name()
+        return '-'
+
+    def _get_hostname(interface):
+        """
+        Return the interfaces' hostname.
+
+        Parameters
+        ----------
+        interface: dict
+            The interface.
+
+        Returns
+        -------
+            str: the vnic hostname if the interface matches a vnic, else '-'
+        """
+        _logger.debug('%s', where_am_i())
+        if interface['VNIC']:
+            for v in vnics:
+                if v.get_ocid() == interface['VNIC']:
+                    v_hostname = v.get_hostname()
+                    return 'None' if v_hostname is None else v_hostname
+        return '-'
+
+    def _display_subnet(interface):
+        """
+        Return the network subnet.
+
+        Parameters
+        ----------
+        interface: dict
+            The interface.
+
+        Returns
+        -------
+            str: the network subnet or if the interface matches a vnic, the OCI vnic subnet.
+        """
+        _logger.debug('%s', where_am_i())
+        if interface['VNIC']:
+            for v in vnics:
+                if v.get_ocid() == interface['VNIC']:
+                    v_subnet = [interface['SPREFIX4'], interface['SBITS4']]
+                    return '%s/%s (%s)' % (v_subnet[0], v_subnet[1], v.get_subnet().get_display_name())
+        return '%s/%s' % (interface['SPREFIX4'], interface['SBITS4'])
+
+    _logger.debug('%s', where_am_i())
+    sess = get_oci_api_session()
+    if sess is None:
+        raise Exception("Failed to get API session.")
+    vnics = sess.this_instance().all_vnics()
+
+    for _nic in nw_conf:
+        _nic['VNICNAME'] = _get_vnic_name(_nic)
+        _nic['HOSTNAME'] = _get_hostname(_nic)
+        _nic['SUBNET'] = _display_subnet(_nic)
+    return nw_conf
+
+
+def show_os_network_config(vnic_utils):
+    """
+    Display the current network interface configuration as well as the VNIC configuration from OCI.
+
+    Parameters
+    ----------
+    vnic_utils :
+        The VNIC configuration instance.
+
+    Returns
+    -------
+        No return value.
+    """
+    def _get_subnet(_, interface):
+        return '%s/%s' % (interface['SPREFIX4'], interface['SBITS4'])
+
+    _logger.debug('%s', where_am_i())
+    ret = vnic_utils.get_network_config()
+
+    _title = "Operating System level network configuration:"
+    _columns = (['CONFIG', 6, 'CONFSTATE'],
+                ['ADDR', 15, 'ADDR'],
+                ['SUBNET', 15, 'SPREFIX4'],
+                ['BITS', 5, 'SBITS4'],
+                ['VIRTROUTER', 15, 'VIRTRT4'],
+                ['NS', 10, 'NS'],
+                ['IND', 4, 'IND'],
+                ['IFACE', 15, 'IFACE'],
+                ['VLTAG', 5, 'VLTAG'],
+                ['VLAN', 13, 'VLAN'],
+                ['STATE', 6, 'STATE'],
+                ['MAC', 18, 'MAC'],
+                ['VNIC ID', 95, 'VNIC'])
+    printer = TablePrinter(title=_title, columns=_columns, column_separator=' ', text_truncate=False)
+
+    printer.printHeader()
+    for item in ret:
+        printer.printRow(item)
+    printer.printFooter()
+    printer.finish()
+
+
+def show_network(show_args):
+    """
+    Display the network information.
+
+    Parameters
+    ----------
+    show_args: namespace
+        The command line arguments.
+
+    Returns
+    -------
+        int: 0 on success, 1 otherwise.
+    """
+    _logger.debug('%s', where_am_i())
+    vnic_utils = get_vnic_utils(show_args)
+
+    network_config = vnic_utils.get_network_config()
+    network_config = update_network_config(network_config)
+    #
+    # for compatibility mode, oci-network-config show should provide the same output as oci-network-config --show;
+    # if output-mode is specified, compatiblity requirement is dropped.
+    showerror = False
+    if show_args.compat_output:
+        compat_show_vnics_information()
+    else:
+        try:
+            do_show_information(network_config, show_args)
+        except Exception as e:
+            _logger.debug('Cannot show information', exc_info=True)
+            _logger.error('Cannot show information: %s', str(e))
+            showerror = True
+    if show_args.output_mode == 'table':
+        show_os_network_config(vnic_utils)
+    return False if showerror else True
+
+
 def do_show_vnics_information(vnics, args):
     """
     Show given VNIC information.
 
     Parameters:
     ----------
-        vnics : OCIVNIC instances
-        mode : the output mode as str (text,json,parsable)
-        details : display detailed information ?
+        vnics: OCIVNIC instances
+        mode: the output mode as str (text,json,parsable)
+        details: display detailed information ?
     """
     _logger.debug('%s', where_am_i())
     _data_struct = {
@@ -998,10 +1113,12 @@ def do_show_vnics_information(vnics, args):
         'privateip':     {'head': 'Private IP', 'func': 'get_address', 'type': 'str', 'collen': 15},
         'ocid':          {'head': 'OCID',       'func': 'get_ocid',    'type': 'str', 'collen': 32},
     }
+    #
     # remove vcn uuid if output mode is table
     if args.output_mode in ['table']:
         _data_struct_detail.pop('subnetid', None)
-
+    #
+    # add details information
     if args.details:
         _data_struct.update(_data_struct_detail)
     #
@@ -1067,323 +1184,297 @@ def do_show_vnics_information(vnics, args):
                     truncate=not args.no_truncate)
 
 
-def do_show_information(vnic_utils, mode, details=False):
+def show_vnics(args):
     """
-    Display network information
+    Show Virtual Network Interface data.
 
     Parameters
     ----------
-        vnic_utils : instance of VNICUtils
-
-        mode : str
-            output mode (text,parsable etc...)
-        details : bool
-            display detailed information ?
-    """
-    _logger.debug('%s', where_am_i())
-    sess = get_oci_api_session()
-    if sess is None:
-        raise Exception("Failed to get API session.")
-
-    vnics = sess.this_instance().all_vnics()
-    network_config = vnic_utils.get_network_config()
-
-    def _display_subnet(interface):
-        """
-        Return the network subnet.
-
-        Parameters
-        ----------
-        interface: dict
-            The interface.
-
-        Returns
-        -------
-            str: the network subnet or if the interface matches a vnic, the OCI vnic subnet.
-        """
-        _logger.debug('%s', where_am_i())
-        if interface['VNIC']:
-            for v in vnics:
-                if v.get_ocid() == interface['VNIC']:
-                    v_subnet = [interface['SPREFIX4'], interface['SBITS4']]
-                    return '%s/%s (%s)' % (v_subnet[0], v_subnet[1], v.get_subnet().get_display_name())
-        return '%s/%s' % (interface['SPREFIX4'], interface['SBITS4'])
-
-    def _get_vnic_name(interface):
-        """
-        Get the vnic name.
-
-        Parameters
-        ----------
-        interface: dict
-            The interface.
-
-        Returns
-        -------
-            str: the vnic name if the interface matches a vnic, else '-'
-        """
-        _logger.debug('%s', where_am_i())
-        if interface['VNIC']:
-            for v in vnics:
-                if v.get_ocid() == interface['VNIC']:
-                    return v.get_display_name()
-        return '-'
-
-    def _get_hostname(interface):
-        """
-        Return the interfaces' hostname.
-
-        Parameters
-        ----------
-        interface: dict
-            The interface.
-
-        Returns
-        -------
-            str: the vnic hostname if the interface matches a vnic, else '-'
-        """
-        _logger.debug('%s', where_am_i())
-        if interface['VNIC']:
-            for v in vnics:
-                if v.get_ocid() == interface['VNIC']:
-                    v_hostname = v.get_hostname()
-                    return 'None' if v_hostname is None else v_hostname
-        return '-'
-
-    _logger.debug('%s', where_am_i())
-    _cols = ['State', 'Link', 'Status', 'IP address', 'VNIC', 'MAC']
-    _col_name = ['state', 'link', 'status', 'ipaddress', 'vnic', 'mac']
-    _cols_details = ['Hostname', 'Subnet', 'Router IP', 'Namespace', 'Index', 'VLAN tag', 'VLAN']
-    _col_detail_name = ['hostname', 'subnet', 'routerip4', 'namespace', 'index', 'vlantag', 'vlan']
-
-    if details:
-        _cols = [*_cols, *_cols_details]
-        _col_name = [*_col_name, *_col_detail_name]
-
-    _cols_len = list()
-    for col in _cols:
-        _cols_len.append(len(col))
-    _collen = dict(zip(_col_name, _cols_len))
-
-    vnic_data = list()
-    for item in network_config:
-        _nic_data = dict()
-        # state
-        _nic_data['state'] = item['CONFSTATE']
-        _collen['state'] = max(len(_nic_data['state']), _collen['state'])
-        # link
-        _nic_data['link'] = item['IFACE']
-        _collen['link'] = max(len(_nic_data['link']), _collen['link'])
-        # status
-        _nic_data['status'] = item['STATE']
-        _collen['status'] = max(len(_nic_data['status']), _collen['status'])
-        # ipaddress
-        _nic_data['ipaddress'] = item['ADDR']
-        _collen['ipaddress'] = max(len(_nic_data['ipaddress']), _collen['ipaddress'])
-        # vnic
-        _nic_data['vnic'] = _get_vnic_name(item)
-        _collen['vnic'] = max(len(_nic_data['vnic']), _collen['vnic'])
-        # mac
-        _nic_data['mac'] = item['MAC']
-        _collen['mac'] = max(len(_nic_data['mac']), _collen['mac'])
-        if details:
-            # hostname
-            _nic_data['hostname'] = _get_hostname(item)
-            _collen['hostname'] = max(len(_nic_data['hostname']), _collen['hostname'])
-            # subnet
-            _nic_data['subnet'] = _display_subnet(item)
-            _collen['subnet'] = max(len(_nic_data['subnet']), _collen['subnet'])
-            # routerip4
-            _nic_data['routerip4'] = item['VIRTRT4']
-            _collen['routerip4'] = max(len(_nic_data['routerip4']), _collen['routerip4'])
-            # namespace
-            _nic_data['namespace'] = item['NS']
-            _collen['namespace'] = max(len(_nic_data['namespace']), _collen['namespace'])
-            # index
-            _nic_data['index'] = item['IND']
-            _collen['index'] = max(len(_nic_data['index']), _collen['index'])
-            # vlantag
-            _nic_data['vlantag'] = item['VLTAG']
-            _collen['vlantag'] = max(len(_nic_data['vlantag']), _collen['vlantag'])
-            # vlan
-            _nic_data['vlan'] = item['VLAN']
-            _collen['vlan'] = max(len(_nic_data['vlan']), _collen['vlan'])
-        vnic_data.append(_nic_data)
-
-    _columns = list()
-    for i, _ in enumerate(_cols):
-        _columns.append([_cols[i], _collen[_col_name[i]]+2, _col_name[i]])
-
-    printerKlass = get_row_printer_impl(mode)
-    printer = printerKlass(title='Network configuration', columns=_columns)
-
-    printer.printHeader()
-    for item in vnic_data:
-        printer.printRow(item)
-        printer.rowBreak()
-    printer.printFooter()
-    printer.finish()
-
-
-def compat_show_vnics_information():
-    """
-    Show the current VNIC configuration of the instance based on
-
-    Returns
-    -------
-       No return value.
-    """
-    _logger.debug('%s', where_am_i())
-
-    def _display_subnet(_, vn):
-        """Return subnet display name of this vnic
-        """
-        return vn.get_subnet().get_display_name()
-
-    def _display_secondary_ip_subnet(_, privip):
-        _sn = privip.get_subnet()
-        return '%s (%s)' % (_sn.get_display_name(), _sn.get_ipv4_cidr_block())
-
-    def _display_vnic_name(_, vn):
-        if vn.is_primary():
-            return '%s (primary)' % vn.get_display_name()
-        return vn.get_display_name()
-
-    _logger.debug('%s', where_am_i())
-    sess = get_oci_api_session()
-    if sess is None:
-        _logger.error("Failed to get API session.")
-        return
-    _logger.debug('Getting instance ')
-    inst = sess.this_instance()
-    if inst is None:
-        _logger.error("Failed to get information from OCI.")
-        return
-    _logger.debug('Getting all vnics ')
-    vnics = inst.all_vnics()
-    _logger.debug('Got for printing')
-
-    _title = 'VNIC configuration for instance %s:' % inst.get_display_name()
-
-    _columns = (['Name', 32, _display_vnic_name],
-                ['Hostname', 25, 'get_hostname'],
-                ['MAC', 17, 'get_mac_address'],
-                ['Public IP', 15, 'get_public_ip'],
-                ['Private IP(s)', 15, 'get_private_ip'],
-                ['Subnet', 18, _display_subnet],
-                ['OCID', 90, 'get_ocid'])
-
-    printer = TextPrinter(title=_title, columns=_columns, column_separator='')
-    ips_printer = TextPrinter(title='Private IP addresses:',
-                              columns=(['IP address', 15, 'get_address'],
-                                       ['OCID', '90', 'get_ocid'],
-                                       ['Hostname', 25, 'get_hostname'],
-                                       ['Subnet', 24, _display_secondary_ip_subnet]),
-                              printer=IndentPrinter(3))
-
-    printer.printHeader()
-    for vnic in vnics:
-        printer.printRow(vnic)
-        #
-        # __GT__ to check if compatible mode works with ipv6:
-        # --> no for now, the IPv6 oci-sdk object has no attribute 'is_primary' and a few more.
-        _all_p_ips = vnic.all_private_ips()
-        if len(_all_p_ips) > 1:
-            # _all_p_ips include the primary we won't print (>1)
-            ips_printer.printHeader()
-            for p_ip in _all_p_ips:
-                if not p_ip.is_primary():
-                    # primary already displayed
-                    ips_printer.printRow(p_ip)
-            printer.rowBreak()
-            ips_printer.printFooter()
-            ips_printer.finish()
-    printer.printFooter()
-    printer.finish()
-
-
-def show_os_network_config(vnic_utils):
-    """
-    Display the current network interface configuration as well as the VNIC configuration from OCI.
-
-    Parameters
-    ----------
-    vnic_utils :
-        The VNIC configuration instance.
+    args: namespace
+        The command line.
 
     Returns
     -------
         No return value.
     """
-    def _get_subnet(_, interface):
-        return '%s/%s' % (interface['SPREFIX4'], interface['SBITS4'])
-
     _logger.debug('%s', where_am_i())
-    ret = vnic_utils.get_network_config()
+    sess = get_oci_api_session()
+    if sess is None:
+        _logger.error("Failed to get API session.")
+        return 1
+    vnics = set()
+    _vnics = sess.this_instance().all_vnics()
+    if not args.ocid and not args.name and not args.ip_address:
+        vnics.update(_vnics)
+    else:
+        if args.ocid:
+            for v in _vnics:
+                if v.get_ocid() == args.ocid:
+                    vnics.add(v)
+        if args.name:
+            for v in _vnics:
+                if v.get_display_name() == args.name:
+                    vnics.add(v)
+        if args.ip_address:
+            for v in _vnics:
+                if v.get_private_ip() == args.ip_address:
+                    vnics.add(v)
+    do_show_vnics_information(vnics, args)
+    return True
 
-    _title = "Operating System level network configuration:"
-    _columns = (['CONFIG', 6, 'CONFSTATE'],
-                ['ADDR', 15, 'ADDR'],
-                ['SUBNET', 15, 'SPREFIX4'],
-                ['BITS', 5, 'SBITS4'],
-                ['VIRTROUTER', 15, 'VIRTRT4'],
-                ['NS', 10, 'NS'],
-                ['IND', 4, 'IND'],
-                ['IFACE', 15, 'IFACE'],
-                ['VLTAG', 5, 'VLTAG'],
-                ['VLAN', 13, 'VLAN'],
-                ['STATE', 6, 'STATE'],
-                ['MAC', 17, 'MAC'],
-                ['VNIC ID', 90, 'VNIC'])
-    printer = TablePrinter(title=_title, columns=_columns, column_separator='', text_truncate=False)
 
-    printer.printHeader()
-    for item in ret:
-        printer.printRow(item)
-    printer.printFooter()
-    printer.finish()
-
-
-def do_detach_vnic(detach_options):
+def show_vnics_all(args):
     """
-    Detach and delete the VNIC with the given ocid or primary ip address
+    Show all Virtual Network Interface data.
 
     Parameters
     ----------
-    detach_options : namespace
-        The argparse namespace.
+    args: namespace
+        The command line.
 
     Returns
     -------
-        No return value on success;.
+        No return value.
+    """
+    _logger.debug('%s', where_am_i())
+    args.no_truncate = True
+    args.details = True
+    args.ocid = None
+    args.ip_address = None
+    args.name = None
+    return show_vnics(args)
 
-    Raises
-    ------
-        Exception
-            if session cannot be acquired
-            if the VNIC cannot be detached
 
+def do_show_vcn_information(vcn_list, args):
+    """
+    Display virtual cloud network data.
+
+    Parameters
+    ----------
+    vcn_list: list of OCIVCN
+        The list of vnics.
+    args: namespace
+        The command line arguments.
+
+    Returns
+    -------
+        No return value.
+    """
+    _logger.debug('%s', where_am_i())
+    #
+    #
+    _data_struct = {
+        'name':  {'head': 'Name',             'func': 'get_display_name',     'type': 'str', 'collen': 20},
+        'ipv4':  {'head': 'IPv4 cidr block',  'func': 'get_ipv4_cidr_block',  'type': 'str', 'collen': 15},
+        'ipv6':  {'head': 'IPv6 cidr block',  'func': 'get_ipv6_cidr_blocks', 'type': 'str', 'collen': 20, 'convert': list_to_str}
+    }
+    _data_struct_detail = {
+        'uuid':  {'head': 'OCID',             'func': 'get_ocid',             'type': 'str', 'collen': 32},
+        'ipv4s': {'head': 'IPv4 cidr blocks', 'func': 'get_ipv4_cidr_blocks', 'type': 'str', 'collen': 16, 'convert': list_to_str},
+        'dns':   {'head': 'DNS label',        'func': 'get_dns_label',        'type': 'str', 'collen': 10},
+        'state': {'head': 'State',            'func': 'get_state',            'type': 'str', 'collen': 10},
+        'life ': {'head': 'Lifecycle state',  'func': 'get_lifecycle_state',  'type': 'str', 'collen': 17}
+    }
+    #
+    # add details if requested.
+    if args.details:
+        _data_struct.update(_data_struct_detail)
+    #
+    # initialise the column widths if no-truncate is set
+    if args.no_truncate:
+        _data_struct = initialise_column_lengths(_data_struct)
+    #
+    vcn_data = list()
+    for _vcn in vcn_list:
+        _vcn_dict = dict()
+        for key, _ in _data_struct.items():
+            value_data = get_value_data(_vcn, _data_struct[key])
+            _vcn_dict[key] = value_data[0]
+            val_length = value_data[1]
+            if args.no_truncate:
+                _data_struct[key]['collen'] = max(val_length, _data_struct[key]['collen'])
+        vcn_data.append(_vcn_dict)
+    #
+    print_data('Virtual Cloud Network Information:',
+               _data_struct,
+               vcn_data,
+               mode=args.output_mode,
+               truncate=not args.no_truncate)
+
+
+def show_vcns(args):
+    """
+    Show virtual cloud network data.
+
+    Parameters
+    ----------
+    args: namespace
+        The command line.
+
+    Returns
+    -------
+        No return value.
     """
     _logger.debug('%s', where_am_i())
     sess = get_oci_api_session()
     if sess is None:
-        raise Exception("Failed to get API session.")
-    vnics = sess.this_instance().all_vnics()
-    for vnic in vnics:
-        v_ocid = vnic.get_ocid()
-        v_ip = vnic.get_private_ip()
-        if v_ocid == detach_options.ocid or v_ip == detach_options.ip_address:
-            if not vnic.is_primary():
-                _logger.info('Detaching VNIC %s [%s]', v_ip, v_ocid)
-                macaddress = vnic.get_mac_address()
-                vnic.detach()
-                _logger.info('VNIC [%s] is detached.', v_ocid)
-                add_mac_to_nm(macaddress)
-                _logger.debug('Added mac address %s back to nm.', macaddress)
-                break
-            raise Exception("The primary VNIC cannot be detached.")
+        _logger.error("Failed to get API session.")
+        return 1
+    vcns = set()
+    _vcns = sess.all_vcns()
+    if not args.ocid and not args.name:
+        vcns.update(_vcns)
     else:
-        _logger.error('VNIC %s [%s] is not attached to this instance.', detach_options.ip_address, detach_options.ocid)
+        if args.ocid:
+            for v in _vcns:
+                if v.get_ocid() == args.ocid:
+                    vcns.add(v)
+        if args.name:
+            for v in _vcns:
+                if v.get_display_name() == args.name:
+                    vcns.add(v)
+    do_show_vcn_information(vcns, args)
+    return True
+
+
+def do_show_subnet_information(subnet_list, args):
+    """
+    Display subnetdata.
+
+    Parameters
+    ----------
+    subnet_list: list of OCISubnet
+        The list of subnets.
+    args: namespace
+        The command line.
+
+    Returns
+    -------
+        No return value.
+    """
+    _logger.debug('%s', where_am_i())
+    #
+    #
+    _data_struct = {
+        'name':  {'head': 'Name',               'func': 'get_display_name',                    'type': 'str', 'collen': 20},
+        'ipv4':  {'head': 'ipv4 cidr block',    'func': 'get_ipv4_cidr_block',                 'type': 'str', 'collen': 15},
+        'ipv6':  {'head': 'ipv6 cidr block',    'func': 'get_ipv6_cidr_block',                 'type': 'str', 'collen': 20}
+    }
+    _data_struct_detail = {
+        'uuid':     {'head': 'OCID',            'func': 'get_ocid',                            'type': 'str',  'collen': 32},
+        'vcn':      {'head': 'VCN name',        'func': 'get_vcn_name',                        'type': 'str',  'collen': 20},
+        'vcnid':    {'head': 'VCN ocid',        'func': 'get_vcn_id',                          'type': 'str',  'collen': 32},
+        'public':   {'head': 'Public',          'func': 'is_public_ip_on_vnic_allowed',        'type': 'bool', 'collen': 6},
+        'publicin': {'head': 'Public ingress',  'func': 'is_internet_ingress_on_vnic_allowed', 'type': 'bool', 'collen': 14},
+        'dns':      {'head': 'DNS label',       'func': 'get_dns_label',                       'type': 'str',  'collen': 11},
+        'domain':   {'head': 'Domain name',     'func': 'get_domain_name',                     'type': 'str',  'collen': 20},
+        'life ':    {'head': 'Lifecycle state', 'func': 'get_lifecycle_state',                 'type': 'str',  'collen': 17}
+    }
+    #
+    # remove vcn uuid if output mode is table
+    if args.output_mode in ['table']:
+        _data_struct_detail.pop('vcnid', None)
+    #
+    # add details if necessary
+    if args.details:
+        _data_struct.update(_data_struct_detail)
+    #
+    # initialise the column widths
+    if args.no_truncate:
+        _data_struct = initialise_column_lengths(_data_struct)
+    #
+    subnet_data = list()
+    for _subn in subnet_list:
+        _subn_dict = dict()
+        for key, _ in _data_struct.items():
+            value_data = get_value_data(_subn, _data_struct[key])
+            _subn_dict[key] = value_data[0]
+            val_length = value_data[1]
+            if args.no_truncate:
+                _data_struct[key]['collen'] = max(val_length, _data_struct[key]['collen'])
+        subnet_data.append(_subn_dict)
+    #
+    print_data('Subnet Information:', _data_struct, subnet_data, mode=args.output_mode, truncate=not args.no_truncate)
+
+
+def show_subnets(args):
+    """
+    Show virtual cloud subnet data.
+
+    Parameters
+    ----------
+    args: namespace
+        The command line.
+
+    Returns
+    -------
+        No return value.
+    """
+    _logger.debug('%s', where_am_i())
+    sess = get_oci_api_session()
+    if sess is None:
+        _logger.error("Failed to get API session.")
+        return 1
+    subnets = set()
+    _subnets = sess.all_subnets()
+    if not args.ocid and not args.name:
+        subnets.update(_subnets)
+    else:
+        if args.ocid:
+            for s in _subnets:
+                if s.get_ocid() == args.ocid:
+                    subnets.add(s)
+        if args.name:
+            for s in _subnets:
+                if s.get_display_name() == args.name:
+                    subnets.add(s)
+    do_show_subnet_information(subnets, args)
+    return True
+
+
+def get_ipv_version(args):
+    """
+    Get the ip version from the commandline, default is 4.
+
+    Parameters
+    ----------
+    args: namespace
+        command line.
+    Returns
+    -------
+        int: the IP version.
+    """
+    if args.ipv4:
+        return 4
+    if args.ipv6:
+        return 6
+    return 4
+
+
+def get_vnic_utils(args):
+    """
+    Collect the VNIC data.
+
+    Parameters
+    ----------
+    args: namespace
+        The command lind arguments.
+
+    Returns
+    -------
+        VNICUtils: the data.
+    """
+    _logger.debug('%s', where_am_i())
+    vnic_utls = VNICUtils()
+
+    if 'exclude' in args and args.exclude:
+        for exc in args.exclude:
+            vnic_utls.exclude(exc)
+
+    if 'include' in args and args.include:
+        for inc in args.include:
+            vnic_utls.include(inc)
+    return vnic_utls
 
 
 def get_subnet_ocid_from_arg(this_session, subnet_arg):
@@ -1522,6 +1613,181 @@ def do_create_vnic(create_options):
         _logger.info('Creating VNIC: %s', vnic.get_private_ip())
 
 
+def ipv_not_supported(ipv):
+    """
+    Write a messages attaching a vnic with primary ipv6 address is not (yet) supported.
+    Parameters
+    ----------
+    ipv: int
+        The ipv version.
+    Returns
+    -------
+        No return value.
+    """
+    _logger.debug('%s', where_am_i())
+    if ipv == 6:
+        _logger.warning('Attaching a vnic with a primary ipv%d address is not yet supported by OCI.', ipv)
+        sys.exit(1)
+
+
+def attach_vnic(args):
+    """
+    Attach a new Virtula Network Interface Card to the instance.
+
+    Parameters
+    ----------
+    args: namespace
+        The command line.
+
+    Returns
+    -------
+        bool: True
+    """
+    _logger.debug('%s', where_am_i())
+    args.ipv = get_ipv_version(args)
+    #
+    # OCI does not support creating a vnic with an ipv6 address only.
+    ipv_not_supported(args.ipv)
+    if 'nic_index' in args and args.nic_index != 0:
+        if not get_oci_api_session().this_shape().startswith("BM"):
+            _logger.error('--nic-index option ignored when not runnig on Bare Metal type of shape')
+            return 1
+    try:
+        do_create_vnic(args)
+    except Exception as e:
+        _logger.debug('Cannot create the VNIC', exc_info=True)
+        _logger.error('%s', str(e))
+        return 1
+    #
+    # apply config of newly created vnic
+    time.sleep(25)
+    vnic_utils = VNICUtils()
+    vnic_utils.auto_config(None, deconfigured=False)
+    return True
+
+
+def do_detach_vnic(detach_options):
+    """
+    Detach and delete the VNIC with the given ocid or primary ip address
+
+    Parameters
+    ----------
+    detach_options : namespace
+        The argparse namespace.
+
+    Returns
+    -------
+        No return value on success;.
+
+    Raises
+    ------
+        Exception
+            if session cannot be acquired
+            if the VNIC cannot be detached
+
+    """
+    _logger.debug('%s', where_am_i())
+    sess = get_oci_api_session()
+    if sess is None:
+        raise Exception("Failed to get API session.")
+    vnics = sess.this_instance().all_vnics()
+    for vnic in vnics:
+        v_ocid = vnic.get_ocid()
+        v_ip = vnic.get_private_ip()
+        if v_ocid == detach_options.ocid or v_ip == detach_options.ip_address:
+            if not vnic.is_primary():
+                _logger.info('Detaching VNIC %s [%s]', v_ip, v_ocid)
+                macaddress = vnic.get_mac_address()
+                vnic.detach()
+                _logger.info('VNIC [%s] is detached.', v_ocid)
+                add_mac_to_nm(macaddress)
+                _logger.debug('Added mac address %s back to nm.', macaddress)
+                break
+            raise Exception("The primary VNIC cannot be detached.")
+    else:
+        _logger.error('VNIC %s [%s] is not attached to this instance.', detach_options.ip_address, detach_options.ocid)
+
+
+def detach_vnic(args):
+    """
+    Detach a new Virtula Network Interface Card to the instance.
+
+    Parameters
+    ----------
+    args: namespace
+        The command line.
+
+    Returns
+    -------
+        bool: True on success, false otherwise.
+    """
+    _logger.debug('%s', where_am_i())
+    try:
+        do_detach_vnic(args)
+    except Exception as e:
+        _logger.debug('Cannot detach VNIC', exc_info=True, stack_info=True)
+        # _logger.error('Cannot detach VNIC: %s', str(e))
+        _logger.error('%s', str(e))
+        return False
+    # if we are here session is alive: no check
+    vnic_utils = get_vnic_utils(args)
+    if get_oci_api_session().this_shape().startswith("BM"):
+        # in runnning on BM some cleanup is needed on the host
+        vnic_utils.auto_config(None, deconfigured=False)
+    return True
+
+
+def do_add_secondary_addr(vnic_utils, add_options):
+    """
+    Add a secondary private IP for an existing VNIC.
+
+    Parameters
+    ----------
+    vnic_utils : VNICUtils
+        The VNICUtils helper instance.
+    add_options : namespace
+        The argparse namespace.
+
+    Returns
+    -------
+        tuple
+            (private_IP,vnic_ocid) for the new IP on success; errors out with
+            return value 1 otherwise.
+
+    Raises
+    ------
+        Exception
+            On any error.
+    """
+    _logger.debug('%s', where_am_i())
+    # needs the OCI SDK installed and configured
+    sess = get_oci_api_session()
+    if sess is None:
+        raise Exception("Failed to get API session.")
+
+    if add_options.ocid:
+        vnic = sess.get_vnic(vnic_id=add_options.ocid)
+        if vnic is None:
+            raise Exception("VNIC not found: %s" % add_options.ocid)
+    else:
+        vnics = sess.this_instance().all_vnics()
+        if len(vnics) > 1:
+            _logger.error("More than one VNIC found.Use the --ocid option to select the one to add a secondary IP for:")
+            for vnic in vnics:
+                _logger.error("   %s: %s", vnic.get_private_ip(), vnic.get_ocid())
+            raise Exception("Too many VNICs found")
+        vnic = vnics[0]
+
+    if add_options.ipv == 4:
+        priv_ip, ip_ocid = do_add_private_ipv4(vnic_utils, vnic, add_options.ip_address)
+    elif add_options.ipv == 6:
+        priv_ip, ip_ocid = do_add_private_ipv6(vnic_utils, vnic, add_options.ip_address)
+    else:
+        raise Exception('Invalid ip version: %d' % add_options.ipv)
+
+    return priv_ip, ip_ocid
+
+
 def do_add_private_ipv4(vnic_utils, vnic, ip_address):
     """
     Add an ipv4 address to a vnic.
@@ -1580,55 +1846,36 @@ def do_add_private_ipv6(vnic_utils, vnic, ip_address):
     return priv_ipv6.get_address(), vnic.get_ocid()
 
 
-def do_add_secondary_addr(vnic_utils, add_options):
+def add_secondary_address(args):
     """
-    Add a secondary private IP for an existing VNIC.
+    Add a secondary address to a vnic.
 
     Parameters
     ----------
-    vnic_utils : VNICUtils
-        The VNICUtils helper instance.
-    add_options : namespace
-        The argparse namespace.
+    args: namespace
+        The command line.
 
     Returns
     -------
-        tuple
-            (private_IP,vnic_ocid) for the new IP on success; errors out with
-            return value 1 otherwise.
-
-    Raises
-    ------
-        Exception
-            On any error.
+        bool: True on success, False otherwise.
     """
     _logger.debug('%s', where_am_i())
-    # needs the OCI SDK installed and configured
-    sess = get_oci_api_session()
-    if sess is None:
-        raise Exception("Failed to get API session.")
-
-    if add_options.ocid:
-        vnic = sess.get_vnic(vnic_id=add_options.ocid)
-        if vnic is None:
-            raise Exception("VNIC not found: %s" % add_options.ocid)
-    else:
-        vnics = sess.this_instance().all_vnics()
-        if len(vnics) > 1:
-            _logger.error("More than one VNIC found.Use the --ocid option to select the one to add a secondary IP for:")
-            for vnic in vnics:
-                _logger.error("   %s: %s", vnic.get_private_ip(), vnic.get_ocid())
-            raise Exception("Too many VNICs found")
-        vnic = vnics[0]
-
-    if add_options.ipv == 4:
-        priv_ip, ip_ocid = do_add_private_ipv4(vnic_utils, vnic, add_options.ip_address)
-    elif add_options.ipv == 6:
-        priv_ip, ip_ocid = do_add_private_ipv6(vnic_utils, vnic, add_options.ip_address)
-    else:
-        raise Exception('Invalid ip version: %d' % add_options.ipv)
-
-    return priv_ip, ip_ocid
+    args.ipv = get_ipv_version(args)
+    if args.ip_address:
+        if is_valid_ip_address(args.ip_address):
+            args.ipv = ipv_version(args.ip_address)
+        else:
+            _logger.error('Invalid IP address provided: %s', args.ip_address)
+            return False
+    vnic_utils = get_vnic_utils(args)
+    try:
+        ip, vnic_id = do_add_secondary_addr(vnic_utils, args)
+        _logger.info("IP %s has been assigned to vnic %s.", ip, vnic_id)
+    except Exception as e:
+        _logger.debug('%s', str(e), stack_info=True)
+        _logger.error('%s', str(e))
+        return False
+    return True
 
 
 def do_remove_secondary_addr(vnic_utils, delete_options):
@@ -1655,7 +1902,7 @@ def do_remove_secondary_addr(vnic_utils, delete_options):
     ip_addr = delete_options.ip_address
     #
     # ipv4 or ipv6; valid ip address is verified by the ip_address_validator.
-    ip_version = ipv_version(ip_addr)
+    # ip_version = ipv_version(ip_addr)
     #
     # needs the OCI SDK installed and configured
     sess = get_oci_api_session()
@@ -1684,100 +1931,99 @@ def do_remove_secondary_addr(vnic_utils, delete_options):
     return vnic_utils.del_private_ip(ip_addr, vnic_id)
 
 
-def get_vnic_utils(args):
+def remove_secondary_address(args):
     """
-    Collect the VNIC data.
+    Remove a secondary address from a vnic.
 
     Parameters
     ----------
     args: namespace
-        The command lind arguments.
+        The command line.
 
     Returns
     -------
-        VNICUtils: the data.
+        bool: True on success, False otherwise.
     """
     _logger.debug('%s', where_am_i())
-    vnic_utls = VNICUtils()
+    vnic_utils = get_vnic_utils(args)
+    try:
+        (ret, out) = do_remove_secondary_addr(vnic_utils, args)
+        if ret != 0:
+            raise Exception('Cannot delete ip: %s' % out)
+    except Exception as e:
+        _logger.debug('Failed to delete private IP: %s', str(e), stack_info=True)
+        # _logger.error('Failed to delete private IP: %s', str(e))
+        _logger.error('%s', str(e))
+        return False
+    return True
 
-    if 'exclude' in args and args.exclude:
-        for exc in args.exclude:
-            vnic_utls.exclude(exc)
 
-    if 'include' in args and args.include:
-        for inc in args.include:
-            vnic_utls.include(inc)
-    return vnic_utls
-
-
-def show_network(vnic_utls, args):
+def configure(args):
     """
-    Display the network information.
-
     Parameters
     ----------
-    vnic_utls: VNICUtils
-        The vnic data.
     args: namespace
-        The command line arguments.
+        The command line.
 
     Returns
     -------
-        int: 0 on success, 1 otherwise.
+    Configure vnics.
+
+    Returns
+    -------
+        bool: True on success, False otherwise.
     """
     _logger.debug('%s', where_am_i())
-    #
-    # for compatibility mode, oci-network-config show should provide the same output as oci-network-config --show;
-    # if output-mode is specified, compatiblity requirement is dropped.
-    showerror = False
-    if args.compat_output:
-        compat_show_vnics_information()
-    else:
+    vnic_utils = get_vnic_utils(args)
+
+    if 'namespace' in args and args.namespace:
         try:
-            do_show_information(vnic_utls, args.output_mode, args.details)
+            vnic_utils.set_namespace(args.namespace)
         except Exception as e:
-            _logger.debug('Cannot show information', exc_info=True)
-            _logger.error('Cannot show information: %s', str(e))
-            showerror = True
-    if args.output_mode == 'table':
-        show_os_network_config(vnic_utls)
-    return 1 if showerror else 0
+            _logger.debug('Failed to set namespace: %s', str(e), stack_info=True)
+            _logger.error('Failed to set namespace: %s', str(e))
+            return False
+
+    if 'start_sshd' in args and args.start_sshd:
+        try:
+            vnic_utils.set_sshd(args.start_sshd)
+        except Exception as e:
+            _logger.debug('Failed to start sshd: %s', str(e), stack_info=True)
+            _logger.error('Failed to start sshd: %s', str(e))
+            return False
+
+    try:
+        vnic_utils.auto_config(args.sec_ip)
+        _logger.info('Configured ')
+    except Exception as e:
+        _logger.debug('Failed to configure network: %s', str(e), stack_info=True)
+        _logger.error('Failed to configure network: %s', str(e))
+        return False
+    return True
 
 
-def get_ipv_version(args):
+def unconfigure(args):
     """
-    Get the ip version from the commandline, default is 4.
+    Unconfigure vnics..
 
     Parameters
     ----------
     args: namespace
-        command line.
+        The command line.
+
     Returns
     -------
-        int: the IP version.
-    """
-    if args.ipv4:
-        return 4
-    if args.ipv6:
-        return 6
-    return 4
-
-
-def ipv_not_supported(ipv):
-    """
-    Write a messages attaching a vnic with primary ipv6 address is not (yet) supported.
-    Parameters
-    ----------
-    ipv: int
-        The ipv version.
-    Returns
-    -------
-        No return value.
+        bool: True on success, False otherwise.
     """
     _logger.debug('%s', where_am_i())
-    if ipv == 6:
-        _logger.warning('Attaching a vnic with a primary ipv%d address is not yet supported by OCI.', ipv)
-        sys.exit(1)
+    vnic_utils = get_vnic_utils(args)
+    try:
+        vnic_utils.auto_deconfig(args.sec_ip)
+        _logger.info('Unconfigured ')
+    except Exception as e:
+        _logger.debug('Failed to unconfigure network: %s', str(e), stack_info=True)
+        _logger.error('Failed to unconfigure network: %s', str(e))
+    return True
 
 
 def main():
@@ -1790,138 +2036,43 @@ def main():
             0 on success;
             1 on failure.
     """
+    sub_commands = {'usage': show_usage,
+                    'show': show_network,
+                    'show-vnics': show_vnics,
+                    'show-vnics-all': show_vnics_all,
+                    'show-vcns': show_vcns,
+                    'show-subnets': show_subnets,
+                    'attach-vnic': attach_vnic,
+                    'detach-vnic': detach_vnic,
+                    'add-secondary-addr': add_secondary_address,
+                    'remove-secondary-addr': remove_secondary_address,
+                    'configure': configure,
+                    'unconfigure': unconfigure
+                    }
+
     parser = get_arg_parser()
     args = parser.parse_args()
 
     if args.quiet:
         _logger.setLevel(logging.WARNING)
 
-    if not args.command:
-        parser.print_help()
-        return 1
-
-    if args.command == 'usage':
+    if args.command is None or args.command == 'usage':
         parser.print_help()
         return 0
-
+    #
+    # operator needs to have root priviliges.
     if not is_root_user():
         _logger.error("This program needs to be run with root privileges.")
         return 1
 
-    vnic_utils = get_vnic_utils(args)
-
-    if args.command == 'show':
-        return show_network(vnic_utils, args)
-
-    if args.command == 'show-vnics':
-        return show_vnics(args)
-
-    if args.command == 'show-vnics-all':
-        args.no_truncate = True
-        args.details = True
-        args.ocid = None
-        args.ip_address = None
-        args.name = None
-        return show_vnics(args)
-
-    if args.command == 'show-vcns':
-        return show_vcn(args)
-
-    if args.command == 'show-subnets':
-        return show_subnet(args)
-
-    if args.command == 'attach-vnic':
-        args.ipv = get_ipv_version(args)
-        #
-        # OCI does not support creating a vnic with an ipv6 address only.
-        ipv_not_supported(args.ipv)
-        if 'nic_index' in args and args.nic_index != 0:
-            if not get_oci_api_session().this_shape().startswith("BM"):
-                _logger.error('--nic-index option ignored when not runnig on Bare Metal type of shape')
-                return 1
-        try:
-            do_create_vnic(args)
-        except Exception as e:
-            _logger.debug('Cannot create the VNIC', exc_info=True)
-            _logger.error('%s', str(e))
-            return 1
-        # apply config of newly created vnic
-        time.sleep(25)
-        vnic_utils = VNICUtils()
-        vnic_utils.auto_config(None, deconfigured=False)
-
-    if args.command == 'detach-vnic':
-        try:
-            do_detach_vnic(args)
-        except Exception as e:
-            _logger.debug('Cannot detach VNIC', exc_info=True, stack_info=True)
-            # _logger.error('Cannot detach VNIC: %s', str(e))
-            _logger.error('%s', str(e))
-            return 1
-        # if we are here session is alive: no check
-        if get_oci_api_session().this_shape().startswith("BM"):
-            # in runnning on BM some cleanup is needed on the host
-            vnic_utils.auto_config(None, deconfigured=False)
-
-    if args.command == "add-secondary-addr":
-        args.ipv = get_ipv_version(args)
-        if args.ip_address:
-            if is_valid_ip_address(args.ip_address):
-                args.ipv = ipv_version(args.ip_address)
-            else:
-                _logger.error('Invalid IP address provided: %s', args.ip_address)
-                return 1
-        try:
-            ip, vnic_id = do_add_secondary_addr(vnic_utils, args)
-            _logger.info("IP %s has been assigned to vnic %s.", ip, vnic_id)
-        except Exception as e:
-            _logger.debug('%s', str(e), stack_info=True)
-            # _logger.error('Failed to add private IP: %s', str(e))
-            _logger.error('%s', str(e))
-            return 1
-
-    if args.command == "remove-secondary-addr":
-        try:
-            (ret, out) = do_remove_secondary_addr(vnic_utils, args)
-            if ret != 0:
-                raise Exception('Cannot delete ip: %s' % out)
-        except Exception as e:
-            _logger.debug('Failed to delete private IP: %s', str(e), stack_info=True)
-            # _logger.error('Failed to delete private IP: %s', str(e))
-            _logger.error('%s', str(e))
-            return 1
-
-    if 'namespace' in args and args.namespace:
-        try:
-            vnic_utils.set_namespace(args.namespace)
-        except Exception as e:
-            _logger.debug('Failed to set namespace: %s', str(e), stack_info=True)
-            _logger.error('Failed to set namespace: %s', str(e))
-
-    if 'start_sshd' in args and args.start_sshd:
-        try:
-            vnic_utils.set_sshd(args.start_sshd)
-        except Exception as e:
-            _logger.debug('Failed to start sshd: %s', str(e), stack_info=True)
-            _logger.error('Failed to start sshd: %s', str(e))
-
-    if args.command == 'configure':
-        try:
-            vnic_utils.auto_config(args.sec_ip)
-            _logger.info('Configured ')
-        except Exception as e:
-            _logger.debug('Failed to configure network: %s', str(e), stack_info=True)
-            _logger.error('Failed to configure network: %s', str(e))
-
-    if args.command == 'unconfigure':
-        try:
-            vnic_utils.auto_deconfig(args.sec_ip)
-            _logger.info('Unconfigured ')
-        except Exception as e:
-            _logger.debug('Failed to unconfigure network: %s', str(e), stack_info=True)
-            _logger.error('Failed to unconfigure network: %s', str(e))
-
-    return 0
+    try:
+        res = sub_commands[args.command](args)
+        if not res:
+            raise NetworkConfigException('Failed to complete %s.' % sub_commands[args.command].__name__)
+        return 0
+    except Exception as e:
+        _logger.error('*** ERROR *** %s', str(e))
+        return 1
 
 
 if __name__ == "__main__":

@@ -51,10 +51,12 @@ else
   # Install UEKR7 kernel on OL8
   LSBRELEASE=$($CMDPATH lsb_release)
   OSREL=$(${LSBRELEASE} -rs | ${AWK} -F'.' '{print $1}')
-  if [ "${OSREL}" == '8' ]
-  then
-    ${DNF} --enablerepo=ol8_UEKR7 --assumeyes update kernel-uek kernel-uek-devel
-  fi
+#
+# To force UEK7 kernel installed.
+#  if [ "${OSREL}" == '8' ]
+#  then
+#    ${DNF} --enablerepo=ol8_UEKR7 --assumeyes update kernel-uek kernel-uek-devel
+#  fi
   # UEKR7 is default on OL9, which is not yet supported.
 fi
 #
