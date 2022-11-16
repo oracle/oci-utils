@@ -24,7 +24,6 @@ def get_instance_id():
     """
     url = 'http://169.254.169.254/opc/v2/instance/id'
     try:
-        x=1/0
         req = urllib.request.Request(url=url)
         req.add_header('Authorization', 'Bearer Oracle')
         response = urllib.request.urlopen(req)
