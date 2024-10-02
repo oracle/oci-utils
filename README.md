@@ -23,3 +23,18 @@ The following list summarizes the components that are included in the OCI utilit
 - `oci-notify` Sends a message to an OCI notification service.
 
 For usage details, see the [OCI Utilities section of the Oracle Cloud Infrastructure documentation](https://docs.oracle.com/en-us/iaas/Content/Compute/References/ociutilities.htm).
+
+## Contributing
+
+This project welcomes contributions from the community. Before submitting a pull request, please [review our contribution guide](./CONTRIBUTING.md)
+
+## Security
+
+Please consult the [security guide](./SECURITY.md) for our responsible security vulnerability disclosure process
+
+## License
+
+Copyright (c) 2019, 2024 Oracle and/or its affiliates.
+
+Released under the Universal Permissive License v1.0 as shown at
+<https://oss.oracle.com/licenses/upl/>.
