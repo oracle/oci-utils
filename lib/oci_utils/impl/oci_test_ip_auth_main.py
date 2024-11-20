@@ -81,7 +81,7 @@ def test_collecting_instance_data(instance_ocid):
               'with Instance Principal Authentication using OCI SDK only. Verify the configuration or switch to '
               'Direct Authentication.\n')
         print('Exception: %s' % str(e))
-        # traceback.print_exception(*sys.exc_info())
+        traceback.print_exception(*sys.exc_info())
     return False
 
 
@@ -106,7 +106,7 @@ def test_collecting_compartments_data():
               'with Instance Principal Authentication using OCI SDK only. Verify the configuration or switch '
               'to Direct Authentication.\n')
         print('Exception: %s' % str(e))
-        # traceback.print_exception(*sys.exc_info())
+        traceback.print_exception(*sys.exc_info())
     return False
 
 
@@ -135,7 +135,7 @@ def test_collecting_instances_data(compartment_ocid):
               'with Instance Principal Authentication using OCI SDK only. Verify the configuration or switch to '
               'Direct Authentication.\n')
         print('Exception: %s' % str(e))
-        # traceback.print_exception(*sys.exc_info())
+        traceback.print_exception(*sys.exc_info())
     return False
 
 
@@ -164,7 +164,7 @@ def test_collecting_all_volumes_data(compartment_id):
               'with Instance Principal Authentication using OCI SDK only. Verify the configuration or switch to '
               'Direct Authentication.\n')
         print('Exception: %s' % str(e))
-        # traceback.print_exception(*sys.exc_info())
+        traceback.print_exception(*sys.exc_info())
     return False
 
 
@@ -199,7 +199,7 @@ def test_collecting_attached_volume_data(compartment_ocid, instance_ocid, instan
               'with Instance Principal Authentication using OCI SDK only. Verify the configuration or switch to '
               'Direct Authentication.\n')
         print('Exception: %s' % str(e))
-        # traceback.print_exception(*sys.exc_info())
+        traceback.print_exception(*sys.exc_info())
     return False
 
 
@@ -228,7 +228,7 @@ def test_collecting_notification_topics(compartment_ocid, instance_name):
         print('\n--- ERROR --- Unable to authenticate correctly for collecting notification service topics '
               'with Instance Principal Authentication using OCI SDK only: %s\nVerify the configuration or switch to '
               'Direct Authentication.\n' % str(e))
-        # traceback.print_exception(*sys.exc_info())
+        traceback.print_exception(*sys.exc_info())
     return False
 
 
@@ -257,7 +257,7 @@ def test_collecting_vcns_data(compartment_id):
         print('\n--- ERROR --- Unable to authenticate correctly for collecting the vcns '
               'with Instance Principal Authentication using OCI SDK only: %s\nVerify the configuration or switch to '
               'Direct Authentication.\n' % str(e))
-        # traceback.print_exception(*sys.exc_info())
+        traceback.print_exception(*sys.exc_info())
     return False
 
 
@@ -286,7 +286,7 @@ def test_collecting_subnets_data(compartment_id):
         print('\n--- ERROR --- Unable to authenticate correctly for collecting the subnet list '
               'with Instance Principal Authentication using OCI SDK only: %s\nVerify the configuration or switch to '
               'Direct Authentication.\n' % str(e))
-        # traceback.print_exception(*sys.exc_info())
+        traceback.print_exception(*sys.exc_info())
     return False
 
 
@@ -315,7 +315,7 @@ def test_collecting_vnics_data(compartment_id):
         print('\n--- ERROR --- Unable to authenticate correctly for collecting the vnic list '
               'with Instance Principal Authentication using OCI SDK only: %s\nVerify the configuration or switch to '
               'Direct Authentication.\n' % str(e))
-        # traceback.print_exception(*sys.exc_info())
+        traceback.print_exception(*sys.exc_info())
     return False
 
 

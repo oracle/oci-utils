@@ -35,9 +35,9 @@ def iommu_check():
         bool
             True on success, False otherwise.
     """
-    iommu_enabled_exp = "IOMMU.*enabled"
+    iommu_on_exp = "iommu=on"
     output = sudo_utils.call_popen_output(
-        ['/bin/dmesg', '|', 'egrep', '"{}"'.format(iommu_enabled_exp)])
+        ['cat /proc/cmdline', '|', 'egrep', '"{}"'.format(iommu_on_exp)])
     if not output:
         _logger.debug('IOMMU flag not set on kernel')
         return False

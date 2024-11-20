@@ -221,14 +221,11 @@ def create_network_namespace(name):
 def destroy_network_namespace(name):
     """
     Destroy network namespace
-
-    Parameters
-    ----------
+    parameter:
       name : namespace name as str
-
-    Raises
-    ------
-      Exception :in case of error
+    raise:
+      exception :in case of error
+    return none
     """
     _logger.debug('%s: %s', where_am_i(), name)
     ret = sudo_utils.call([IP_CMD, 'netns', 'delete', name])
@@ -239,9 +236,7 @@ def destroy_network_namespace(name):
 def _get_namespaces():
     """
     Gets list of network namespace
-
-    Returns
-    -------
+    Returns:
        list of namespaces
     """
     _logger.debug('%s', where_am_i())
@@ -399,7 +394,6 @@ def _get_link_infos(namespace):
 def get_network_namespace_infos():
     """
     Retrieve par namespace network link info
-
     Returns:
     --------
       dict: namespace name indexed dict (can be empty) with per namespadce all link info  as dict
@@ -567,7 +561,6 @@ def add_route_table(table_name):
     Adds a new routing table by name
     Add a new entry in /etc/iproute2/rt_tables
     If a table of that name already exists, silently abort the operation
-
     Parameters
     ----------
     table_name : str
@@ -616,7 +609,6 @@ def delete_route_table(table_name):
     """
     Deletes a routing table by name
     remove a  entry in /etc/iproute2/rt_tables
-
     Parameters
     ----------
     table_name : str
@@ -652,9 +644,7 @@ def delete_route_table(table_name):
 def network_prefix_to_mask(prefix):
     """
     Converts an ipv4 prefix to a netmask address
-
-    Parameters
-    ----------
+    Parameters:
        prefix: int
         the prefix
     Returns:
@@ -671,12 +661,10 @@ def remove_static_ip_route4(link_name):
     """
     Deletes all ipv4 routes related to a network device.
 
-    Parameter
-    ----------
+    Parameters:
        link_name : str
           the ip link name
-    Returns
-    ------
+    Return:
         None
     """
     _logger.debug('%s: %s', where_am_i(), link_name)
@@ -700,12 +688,10 @@ def remove_static_ip_route6(link_name):
     """
     Deletes all ipv6 routes related to a network device.
 
-    Parameter
-    ----------
+    Parameters:
        link_name : str
           the ip link name
-    Returns
-    ------
+    Return:
         None
     """
     _logger.debug('%s: %s', where_am_i(), link_name)
@@ -728,12 +714,10 @@ def remove_static_ip_routes(link_name):
     """
     Deletes all routes related to a network device.
 
-    Parameters
-    ----------
+    Parameters:
        link_name : str
           the ip link name
-    Returns
-    ------
+    Return:
         None
     """
     _logger.debug('%s: %s', where_am_i(), link_name)
@@ -747,14 +731,12 @@ def add_static_ip_route4(*args, **kwargs):
     """
     Add a static ipv4 route
 
-    Parameter
-    ----------
+    Parameters:
         kwargs:
             namespace : network namespace in which to create the rule
 
         args : argument list as passed to the ip-route(8) command
-    Returns
-    ------
+    Return:
         (code,message): command code , on failure a message is sent back
     """
     _logger.debug('%s: \n%s\n%s', where_am_i(), args, kwargs)
@@ -765,14 +747,12 @@ def add_static_ip_route6(*args, **kwargs):
     """
     Add a static ipv6 route
 
-    Parameter
-    ----------
+    Parameters:
         kwargs:
             namespace : network namespace in which to create the rule
 
         args : argument list as passed to the ip-route(8) command
-    Returns
-    ------
+    Return:
         (code,message): command code , on failure a message is sent back
     """
     _logger.debug('%s: \n%s\n%s', where_am_i(), args, kwargs)
@@ -783,16 +763,14 @@ def add_static_ip_route(route_cmd, *args, **kwargs):
     """
     Add a static route
 
-    Parameter
-    ----------
+    Parameters:
         route_cmd: list
             version specific ip route command.
         kwargs:
             namespace : network namespace in which to create the rule
 
         args : argument list as passed to the ip-route(8) command
-    Returns
-    ------
+    Return:
         (code,message): command code , on failure a message is sent back
     """
     _logger.debug('%s: \n%s\n%s', where_am_i(), args, kwargs)
@@ -827,11 +805,9 @@ def remove_mac_from_nm(mac):
     """
     Removes given MAC addres from the ones managed by NetworkManager
 
-    Parameter
-    ----------
+    Parameters:
         mac : the mac address as string
-    Returns
-    ------
+    Return:
         None
     """
     _logger.debug('%s: %s', where_am_i(), mac)
@@ -862,11 +838,9 @@ def add_mac_to_nm(mac):
     """
     Adds given MAC addres from the one managed by NetworkManager
 
-    Parameter
-    ----------
+    Parameters:
         mac : the mac address as string
-    Returns
-    -------
+    Return:
         None
     """
     _logger.debug('%s: %s', where_am_i(), mac)
@@ -881,16 +855,14 @@ def add_mac_to_nm(mac):
 def remove_ip_addr(device, ip_addr, namespace=None):
     """
     Removes an IP address on a given device
-
-    Parameters
-    ----------
+    Parameter:
         device : network device  as string
         ip_addr : the ip address as string
         [namespace]: network namespace as string
-    Returns
-    -------
+    Return:
         None
     raise Exception : renmoval has failed
+    __GT__ nowhere used
     """
     _logger.debug('%s: %s', where_am_i(), ip_addr)
     _cmd = [IP_CMD]
@@ -906,12 +878,9 @@ def remove_ip_addr(device, ip_addr, namespace=None):
 def remove_ip_rules(ip_addr):
     """
     Remove all ip rules set for an  ip address
-
-    Parameter
-    ---------
+    Parameter:
         ip_addr : the ip address as string
-    Returns
-    -------
+    Return:
         None
     """
     _logger.debug('%s: %s', where_am_i(), ip_addr)
@@ -945,7 +914,6 @@ def remove_ip_rules(ip_addr):
 def remove_static_ip_rules46(link_name, ipversion):
     """
     Delete all ipv4 or ipv6 rules related to a network device.
-
     Parameters
     ----------
     link_name: str
@@ -984,13 +952,10 @@ def remove_static_ip_rules46(link_name, ipversion):
 def remove_static_ip_rules(link_name):
     """
     Deletes all rules related to a network device
-
-    Parameters
-    ----------
+    Parameters:
        link_name : str
           the ip link name
-    Returns
-    -------
+    Return:
         None
     """
     _logger.debug('%s: %s', where_am_i(), link_name)
@@ -1004,7 +969,6 @@ def remove_static_ip_rules(link_name):
 def add_static_ip_rule4(*args, **kwargs):
     """
     Add a static rule for ipv4 address.
-
     Parameters
     ----------
     args: argument list as passed to the ip-rule(8) command
@@ -1023,7 +987,6 @@ def add_static_ip_rule4(*args, **kwargs):
 def add_static_ip_rule6(*args, **kwargs):
     """
     Add a static rule for ipv4 address.
-
     Parameters
     ----------
     args: argument list as passed to the ip-rule(8) command
@@ -1041,17 +1004,14 @@ def add_static_ip_rule6(*args, **kwargs):
 
 def add_static_ip_rule(ip_cmd, *args, **kwargs):
     """
-    Add a static rule
-
-    Parameters
-    ----------
+    add a static rule
+    Parameters:
         ip_cmd: str
             ip command with version.
         kwargs:
             device : network device on which assign the rule
         args : argument list as passed to the ip-rule(8) command
-    Return
-    ------
+    Return:
         (code,message): command code , on failure a message is sent back
     """
     _logger.debug('%s: %s', where_am_i(), args)
@@ -1067,18 +1027,17 @@ def add_static_ip_rule(ip_cmd, *args, **kwargs):
     return 0, ''
 
 
+# never called
 def add_firewall_rule(*args, **kwargs):
     """
-    Add a static firewall rule
-
-    Parameters
-    ----------
+    add a static firewall rule
+    Parameters:
         kwargs:
            script : a reference to StringIO object to write the command for future use in script
         *args : argument list as passed to the iptables(8) command
-    Returns
-    -------
+    Return:
         (code,message): command code , on failure a message is sent back
+    __GT__ nowhere used, virt??
     """
     _logger.debug('%s: \n%s\n%s', where_am_i(), args, kwargs)
     fw_rule_cmd = ['/usr/sbin/iptables']
@@ -1096,14 +1055,12 @@ def add_firewall_rule(*args, **kwargs):
 
 def remove_firewall_rule(*args):
     """
-    Remove a static firewall rule
-
-    Parameters
-    ----------
+    remove a static firewall rule
+    Parameters:
         *args : argument list as passed to the iptables(8) command
-    Returns
-    -------
+    Return:
         (code,message): command code , on failure a message is sent back
+    __GT__ used in virt ... need ipv6 version??
     """
     _logger.debug('%s: %s', where_am_i(), args)
     fw_rule_cmd = ['/usr/sbin/iptables']
@@ -1121,7 +1078,7 @@ def kill_processes_in_namespace(namespace):
     """
     Kills remaining process within a network namespace
 
-    Parameters:
+    parameters:
     -----------
         namespace : the namespace name as str
     Returns:

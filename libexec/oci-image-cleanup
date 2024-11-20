@@ -332,7 +332,7 @@ cleanup()
   backup_and_delete "/var/log/*" -c 1
   #                                                                  oracle-cloud-init directiry must not be deleted
   for file in `find /var/log -regex ".+[\.\-]+[0-9]+" -and   ! -name oracle-cloud-agent 2>/dev/null`; do
-      plan rm -f $file
+      plan rm -rf $file
   done
   # Scrub Chrony Cleanup
   plan 'echo -e "\nScrubbing /etc/chrony.keys..."'
@@ -370,7 +370,7 @@ cleanup()
   fi
   # Purge cloud-init data
   plan 'echo -e "\nClearing cloud-init data..."'
-  backup_and_delete "/var/lib/cloud/*"
+  backup_and_delete "/var/lib/cloud/*" -x "oci.sh"
   backup_and_delete "/var/lib/cloud/instance"
   backup_and_delete "/var/lib/cloud/instances"
 

@@ -1,0 +1,103 @@
+.\" Process this file with
+.\" groff -man -Tascii oci-image-expand.8
+.\"
+.\" Copyright (c) 2024 Oracle and/or its affiliates. All rights reserved.
+.\"
+
+.TH OCI-IMAGE-EXPAND 8 "23 May 2024" Linux "User Manuals"
+.SH NAME
+oci-image-expand \- Allows a user to restore key functionality not included in an Oracle Linux 9 Minimal Image. 
+
+.SH SYNOPSIS
+.B /usr/libexec/oci-image-cleanup [-h|--help]
+
+.SH DESCRIPTION
+The oci-image-expand utility gives the user of an Oracle Linux 9 Minimal Image instance options to restore key functionality.  There are two sets of options: default options and reboot required options.  
+
+.P The default options are always restored -- they are not user selectable.  Restoring the default options will not increase the instance boot time.  
+
+.P There are three user selectable options, each of which will require a reboot to be fully activated: enabling SELinux, enabling Kdump and enabling Ksplice. Restoring a reboot required option will increase instance boot time.  
+
+.P Output from the oci-image-expand utility will be logged at /var/log/oci-image-expand.log. 
+
+.SS WARNINGS
+
+.SB THIS UTILITY SHOULD NOT BE RUN ON NON-MINIMAL IMAGES
+.P After the oci-image-expand utility is run and all features have been applied via a reboot, instance boot performance is no longer guaranteed to be as before. 
+
+.P Some of the changes applied by the oci-image-expand utility will impact user configured areas.  For example, the oci-image-expand utility restores cloud-init config to default platform image settings, hence any user configured cloud-config changes will be over-written.  Also note that that enabling Ksplice will result in a re-install of the oci-linux-config package to ensure that the new access key is stored in the proper configuration file. 
+
+.BR oci-image-expand(8)
+requires sudo privileges.
+
+.SH OPTIONS
+The oci-image-expand utility clears the screen and presents the user the following menu.  
+
+oci-image-expand
+    Adds key functionality not included in an OL9 minimal image.
+    Default added functions include systemd services, diagnostic packages, cloud configuration settings as well as configuring and enabling swap on the instance.
+    User selectable functions (requiring reboot) -- SELinux, Kdump, Ksplice.
+ 
+Please select the set of reboot required functions, if any
+    Selecting a function transitions from not selected [ ] to selected [+] or vice versa
+ 
+[ ] 0) All reboot options
+
+[ ] 1) Enable SELinux
+
+[ ] 2) Enable Kdump
+
+[ ] 3) Enable Ksplice
+  
+Select the desired options using their number (again to uncheck, ENTER when done):
+
+.SH RETURN VALUES
+
+The oci-image-expand utility passes back a return value upon exit.  For successful completion 0 is returned, else a non-zero error value is returned.  The complete list of error values is shown in the ERRORS section.  If an attempted command fails, then the oci-image-expand utility will rollback the failing command to the last good state.  
+
+.SH ERRORS
+
+The possible return values are:
+
+0   Successful completion
+
+1   Enabling auditd failed
+
+2   Enabling ldconfig failed
+
+3   Enabling DNF makecache timer failed
+
+4   Enabling Oracle Cloud Agent Updater failed
+
+5   Enabling Performance Co-Pilot failed
+
+6   Enabling diagnostic RPMs failed
+
+7   Enabling cloud init modules failed
+
+8   Enabling cloud config modules failed
+
+9   Enabling cloud final modules failed
+
+10  Enabling SELinux failed
+
+11  Enabling Kdump failed
+
+12  Enabling Ksplice failed
+
+20  Failed to obtain valid operating system level
+
+21  Operating system version is not Oracle Linux 9
+
+22  Processor type is not x64_64
+
+23  Operating system is not Oracle Linux 9 Minimal Image
+
+24  User does not have sudo privileges
+
+.SH SEE ALSO 
+
+More info on Oracle Linux 9 Minimal images can be found here:
+
+https://docs.oracle.com/iaas/oracle-linux/minimal/index.htm
+
