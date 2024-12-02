@@ -13,3 +13,60 @@ _PY_CMD=oci_show_config_main.py
 
 
 exec ${_PY3}  ${s_dir}/${_PY_CMD}
+
+
+# __GT__ kept this for reference, for now
+#
+# import json
+# import sys
+# 
+# import oci_utils.oci_api
+# 
+# debug = False
+# 
+# 
+# def response(status, **kwargs):
+#     """
+#     Send a json formatted response to stdout, jdata is already json formatted.
+# 
+#     Parameters
+#     ----------
+#     status: str
+#         The status.
+#     kwargs: key,value
+#         The data to convert to json.
+# 
+#     Returns
+#     -------
+#         str
+#            The json formatted version of **kwargs
+#     """
+#     resp = {'status': status}
+#     for key, val in kwargs.items():
+#         resp[key] = val
+#     sys.stdout.write(json.dumps(resp) + '\n')
+#     sys.stdout.flush()
+# 
+# 
+# def main():
+#     """
+#     Main program
+# 
+#     Returns
+#     -------
+#         int
+#             0
+#     """
+#     try:
+#         session = oci_utils.oci_api.OCISession(
+#             authentication_method=oci_utils.oci_api.DIRECT)
+#     except Exception as e:
+#         response('ERROR', data=str(e))
+#         return 1
+# 
+#     response('OK', data=session.oci_config)
+#     return 0
+# 
+# 
+# if __name__ == "__main__":
+#     sys.exit(main())

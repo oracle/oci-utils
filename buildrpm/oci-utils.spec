@@ -1,10 +1,11 @@
 Name: oci-utils
 Version: 0.14.0
-Release: 3%{?dist}
+Release: 8%{?dist}
 Url: http://cloud.oracle.com/iaas
 Summary: Oracle Cloud Infrastructure utilities
 License: UPL
 Group: Development/Tools
+
 Source: %{name}-%{version}.tar.gz
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
@@ -135,6 +136,12 @@ Utilities migrate unit tests
 %{__cp} -r setup.py %{buildroot}/opt/oci-utils
 %{__cp} -r requirements.txt %{buildroot}/opt/oci-utils
 %{__cp} -r README.md %{buildroot}/opt/oci-utils
+# oci-image-expand files
+%{__mkdir_p} %{buildroot}%{_sysconfdir}/rsyslog.d
+%{__mkdir_p} %{buildroot}%{_libexecdir}
+%{__cp} -r etc/rsyslog.d/12-oci-utils.conf %{buildroot}%{_sysconfdir}/rsyslog.d/.
+%{__cp} -r libexec/oci-image-expand %{buildroot}%{_libexecdir}/.
+%{__cp} -r usr/share/man/man8/oci-image-expand.8 %{buildroot}%{_datadir}/man/man8/.
 
 %clean
 rm -rf %{buildroot}
@@ -164,6 +171,10 @@ rm -rf %{buildroot}
 %exclude %{_datadir}/man/man1/oci-kvm.1.gz
 %dir %{_localstatedir}/lib/oci-utils
 %doc LICENSE.txt PKG-INFO
+# oci-image-expand files
+%attr(644,root,root) %{_sysconfdir}/rsyslog.d/12-oci-utils.conf
+%attr(755,root,root) %{_libexecdir}/oci-image-expand
+%attr(644,root,root) %{_datadir}/man/man8/oci-image-expand.8.gz
 
 %files kvm
 %{_bindir}/oci-kvm
@@ -178,6 +189,10 @@ rm -rf %{buildroot}
 %files outest
 %exclude /opt/oci-utils/tests/test_mig*
 /opt/oci-utils
+
+%post 
+# Need to restart the rsyslogd service when the RPM is installed or upgraded
+/bin/systemctl restart rsyslog.service
 
 %post kvm
 %systemd_post oci-kvm-config.service
@@ -206,10 +221,24 @@ rm -rf %{buildroot}
 /opt/oci-utils/tests/__init__*
 
 %changelog
-* Thu Sep 22 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.14.0-3
-- LINUX-11440/LINUX-12246 iscsi does not fall back to scanning if authentication succeeds but get instance data fails
-- added oci-attached-volumes, collects data on volumes, via OCI if priviliges in place, via scan otherwise.
-- LINUX-12907 sudo oci-network-config --show missing spaces between values
+* Mon Oct 14 2024 Jesse Gordon <jesse.gordon@oracle.com> -- 0.14.0-8
+- oci-network-config: fix for too long VNIC names [Orabug: 36991547]
+
+* Tue Jul 30 2024 Jesse Gordon <jesse.gordon@oracle.com> -- 0.14.0-7
+- oci-image-expand: new utility to restore functionality, with conf file for logging and a man page [Orabug: 36223392]
+
+* Thu Jul 11 2024 Oussama Jamal <oussama.jamal@oracle.com> -- 0.14.0-6
+- oci-kvm: add patch information for the iommu_check fix [Orabug: 36380825]
+
+* Thu Jun 20 2024 Oussama Jamal <oussama.jamal@oracle.com> -- 0.14.0-5
+- oci-kvm: fix the iommu_check failure [Orabug: 36380825]
+
+* Tue Sep 5 2023 Kaylin Devchand <kaylin.devchand@oracle.com> -- 0.14.0-4
+- oci-image-cleanup: preserve oci.sh [Orabug: 35766360]
+- oci-image-cleanup: remove backup log directories [Orabug: 35766353]
+
+* Mon Aug 7 2023 Oussama Jamal <oussama.jamal@oracle.com> -- 0.14.0-3
+- Make ocid vendor preset disabled [Orabug: 35683717]
 
 * Mon Sep 5 2022 Guido Tijskens <guido.tijskens@oracle.com> -- 0.14.0-2
 - LINUX-12761/OLUEK-6199 ocid leaves lots of connections in CLOSE_WAIT state

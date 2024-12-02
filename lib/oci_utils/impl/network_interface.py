@@ -14,6 +14,7 @@ from pprint import pformat
 from oci_utils import where_am_i
 
 from . import IP_CMD
+from . import IF_NAME_PREFIX, MACVLAN_IF_NAME_PREFIX
 from . import network_helpers as NetworkHelpers
 from . import sudo_utils
 from ..metadata import InstanceMetadata
@@ -76,7 +77,6 @@ class NetworkInterfaceSetupHelper:
     def __init__(self, interface_info, namespace_name=None):
         """
         Creates a new NetworkInterface
-
         Parameters:
         ----------
           interface_info : information about the interface as _intf_dict
@@ -90,10 +90,9 @@ class NetworkInterfaceSetupHelper:
 
     def setup(self):
         """
-        Set up the interface.
+        Setup the interface.
 
-        Returns
-        -------
+        Returns:
             No return value, raises an exception in case of error.
         """
         _logger.debug('NetworkInterfaceSetupHelper %s', where_am_i())
@@ -109,8 +108,8 @@ class NetworkInterfaceSetupHelper:
         # for BM case , create virtual interface if needed
         if _is_bm_shape and self.info['VLTAG'] != "0":
 
-            _vlan_name = '%sv%s' % (self.info['IFACE'], self.info['VLTAG'])
-            _macvlan_name = "%s.%s" % (self.info['IFACE'], self.info['VLTAG'])
+            _vlan_name = '%sv%s' % (IF_NAME_PREFIX, self.info['VLTAG'])
+            _macvlan_name = "%s%s" % (MACVLAN_IF_NAME_PREFIX, self.info['VLTAG'])
 
             _ip_cmd = [IP_CMD]
             if self.info.has('NS'):
@@ -214,13 +213,10 @@ class NetworkInterfaceSetupHelper:
 
     def tear_down(self):
         """
-        Unconfigure the interface.
-
-        Returns
-        -------
+        unconfigure the interface.
+        returns:
             None
-        Raises
-        ------
+        raises:
             Exception in case of error
         """
         _logger.debug('NetworkInterfaceSetupHelper %s\n%s', where_am_i(), pformat(self.info, indent=4))
@@ -231,7 +227,10 @@ class NetworkInterfaceSetupHelper:
 
         if self.info.has('VLAN'):
             # delete vlan and macvlan, removes the addrs (pri and sec) as well
-            _macvlan_name = "%s.%s" % (self.info['IFACE'], self.info['VLTAG'])
+            if IF_NAME_PREFIX in self.info['VLAN']:
+                _macvlan_name = MACVLAN_IF_NAME_PREFIX + self.info['VLTAG']
+            else: # original naming scheme
+                _macvlan_name = self.info['IFACE'] + "." + self.info['VLTAG']
             _ip_cmd.extend(['link', 'del', 'link', self.info['VLAN'], 'dev', _macvlan_name])
             _logger.debug('Deleting macvlan [%s]', _macvlan_name)
             ret = sudo_utils.call(_ip_cmd)
@@ -256,13 +255,10 @@ class NetworkInterfaceSetupHelper:
         """
         Add a secondary ip address ro this interface
         Add it to VLAN or device according to this being VLANed or not
-
-        Parameters
-        ----------
-            ip_address: the IP to be removed as str
-        Raise
-        -----
-            Exception : in case of error during removal
+        parameter:
+           ip_address: the IP to be removed as str
+        raise:
+        Exception : in case of error during removal
         """
         _logger.debug('%s: %s', where_am_i(), ip_address)
         if self.info.has('VLAN'):
@@ -288,13 +284,10 @@ class NetworkInterfaceSetupHelper:
         """
         Remove a secondary ip address from this interface
         Remove it from VLAN or device according to this being VLANed or not
-        Parameters
-        ----------
+        parameter:
            ip_address: the IP to be removed as str
-
-        Raise
-        -----
-            Exception : in case of error during removal
+        raise:
+        Exception : in case of error during removal
         """
         _logger.debug('%s: %s', where_am_i(), ip_address)
         if self.info.has('VLAN'):

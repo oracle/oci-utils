@@ -194,8 +194,7 @@ class TestCliOciNetworkConfig(OciTestCase):
             time.sleep(self.waittime)
             self.assertIn('Deconfigure secondary private IP', subprocess.check_output([self.oci_net_config, 'remove-secondary-addr', '--ip-address', new_ip]).decode('utf-8'), 'remove secondary ip failed')
             time.sleep(self.waittime)
-            detach_data = subprocess.check_output([self.oci_net_config, 'detach-vnic', '--ocid', vn_ocid]).decode('utf-8')
-            self.assertIn('is detached', detach_data, '')
+            self.assertEqual(subprocess.check_output([self.oci_net_config, 'detach-vnic', '--ocid', vn_ocid]).decode('utf-8'), '')
             time.sleep(self.waittime)
         except Exception as e:
             self.fail('Execution oci-network-config attach detach has  failed: %s' % str(e))
@@ -213,8 +212,7 @@ class TestCliOciNetworkConfig(OciTestCase):
             self.assertIn('Creating', create_data, 'attach vnic failed')
             new_ipv4 = _get_ip_from_response(create_data)[0]
             time.sleep(self.waittime)
-            detach_data = subprocess.check_output([self.oci_net_config, '--detach-vnic', new_ipv4]).decode('utf-8')
-            self.assertIn('is detached', detach_data, '')
+            self.assertEqual(subprocess.check_output([self.oci_net_config, '--detach-vnic', new_ipv4[0]]).decode('utf-8'), '')
             time.sleep(self.waittime)
         except Exception as e:
             self.fail('Execution oci-network-config attach detach in 0.11 compatibility mode has failed: %s' % str(e))
@@ -239,8 +237,7 @@ class TestCliOciNetworkConfig(OciTestCase):
             del_ip_data = subprocess.check_output([self.oci_net_config, '--del-private-ip', self.extra_ip]).decode('utf-8')
             self.assertIn('Deconfigure secondary private IP', del_ip_data, 'remove private ip failed')
             time.sleep(self.waittime)
-            detach_data =subprocess.check_output([self.oci_net_config, '--detach-vnic', new_ipv4]).decode('utf-8')
-            self.assertIn('is detached', detach_data, '')
+            self.assertEqual(subprocess.check_output([self.oci_net_config, '--detach-vnic', new_ipv4]).decode('utf-8'), '')
             time.sleep(self.waittime)
         except Exception as e:
             self.fail('Execution oci-network-config attach detach in 0.11 compatibility mode has failed: %s' % str(e))

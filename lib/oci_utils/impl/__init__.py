@@ -39,6 +39,9 @@ MK_XFS_CMD = '/sbin/mkfs.xfs'
 SYSTEMCTL_CMD = '/bin/systemctl'
 LSBLK_CMD = '/bin/lsblk'
 
+IF_NAME_PREFIX = 'vlan'
+MACVLAN_IF_NAME_PREFIX = 'macvlan'
+
 
 def print_choices(header, choices, sep="\n  "):
     """

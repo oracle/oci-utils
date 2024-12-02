@@ -50,6 +50,7 @@ shape_key_set = ('ocpus',
 agentconfig_key_set = ('monitoringdisabled',
                        'managementdisabled',
                        'allpluginsdisabled',
+                       'pluginsconfig',
                        )
 pluginsconfig_key_set = ('name',
                          'desiredstate',

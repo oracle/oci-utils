@@ -13,6 +13,7 @@ from oci_utils import where_am_i
 
 from . import cache
 from .impl import IP_CMD
+from .impl import IF_NAME_PREFIX
 from .impl import network_helpers as NetworkHelpers
 from .impl import sudo_utils
 from .impl.network_interface import NetworkInterfaceSetupHelper, _intf_dict
@@ -386,7 +387,7 @@ class VNICUtils:
                             if ip not in _intf['MISSING_SECONDARY_IPS']:
                                 _intf['MISSING_SECONDARY_IPS'].append(ip)
 
-            #
+            # GT
             _logger.debug('Auto config interface %s %s', _intf['ADDR'], _intf['CONFSTATE'])
             if _intf['CONFSTATE'] == 'ADD':
                 if deconfigured:
@@ -401,7 +402,7 @@ class VNICUtils:
                         _intf['MISSING_SECONDARY_IPS'] = _intf['SECONDARY_ADDRS']
             if _intf['CONFSTATE'] == 'DELETE':
                 _all_to_be_deconfigured.append(_intf)
-            #
+            # GT
             # if called by the ocid service, the interfaces which were unconfigured by the oci-network-config
             # unconfigure command should not be touched; only an oci-network-config configure command will change this;
             # the ocid service calls auto_config with deconfigured=False.
@@ -889,12 +890,10 @@ class VNICUtils:
             CONFSTATE  'uncfg' indicates missing IP config, 'missing' missing VNIC,
                             'excl' excluded (-X), '-' hist configuration match oci vcn configuration
             ADDR       IP address
-            SPREFIX4   subnet CIDR IPV4 prefix
-            SBITS4     subnet mask IPV4 bits
-            VIRTRT4    virtual router IPV4 address
-            SPREFIX6   subnet CIDR IPV6 prefix
-            SBITS6     subnet mask IPV6 bits
-            VIRTRT6    virtual router IPV6 addressNS         namespace (if any)
+            SPREFIX4   subnet CIDR prefix
+            SBITS4     subnet mask bits
+            VIRTRT4    virtual router IP address
+            NS         namespace (if any)
             IND        interface index (if BM)
             IFACE      interface (underlying physical if VLAN is also set)
             VLTAG      VLAN tag (if BM)
@@ -997,7 +996,7 @@ class VNICUtils:
         _intf_to_use = intf_infos['IFACE']
         if self._metadata['instance']['shape'].startswith('BM') and intf_infos['VLTAG'] != "0":
             # in that case we operate on the VLAN tagged intf no
-            _intf_to_use = '%sv%s' % (intf_infos['IFACE'], intf_infos['VLTAG'])
+            _intf_to_use = '%sv%s' % (IF_NAME_PREFIX, intf_infos['VLTAG'])
 
         if net_namespace_info:
             _logger.debug("Default ipv4 route add")

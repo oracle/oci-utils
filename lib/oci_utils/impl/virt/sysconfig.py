@@ -10,6 +10,7 @@ import os
 import logging
 import stat
 from .. import sudo_utils
+from .. import IF_NAME_PREFIX
 from ..network_helpers import network_prefix_to_mask
 
 _logger = logging.getLogger('oci-utils.sysconfig')
@@ -396,14 +397,12 @@ def make_vf_name(name):
     return name
 
 
-def make_vlan_name(parent, vlan_id):
+def make_vlan_name(vlan_id):
     """
     Create a VLAN name.
 
     Parameters
     ----------
-    parent : str
-        The parent interface.
     vlan_id :
         The vlan id.
 
@@ -412,7 +411,7 @@ def make_vlan_name(parent, vlan_id):
         str
             The VLAN name.
     """
-    return '{}.{}'.format(parent, vlan_id)
+    return '{}{}'.format(IF_NAME_PREFIX, vlan_id)
 
 
 def make_vf(name, mac, ip=None, prefix=None):
@@ -491,7 +490,7 @@ def make_vlan_with_ip(parent, vlan, mac, ip, prefix):
     -------
         The VLAN interface file contents.
     """
-    name = make_vlan_name(parent, vlan)
+    name = make_vlan_name(vlan)
     if ip and prefix:
         return ('vm-{}'.format(name),
                 {'DEVICE': name,
