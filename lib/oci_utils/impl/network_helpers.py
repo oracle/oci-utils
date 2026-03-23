@@ -13,6 +13,7 @@ import socket
 import subprocess
 import signal
 import logging
+import shutil
 from socket import inet_ntoa
 from struct import pack
 import re
@@ -58,6 +59,17 @@ __all__ = ['is_valid_ip_address',
 _CLASS_NET_DIR = '/sys/class/net'
 _NM_CONF_DIR = '/etc/NetworkManager/conf.d/'
 _ROUTE_TABLES = '/etc/iproute2/rt_tables'
+_SOURCE = '/usr/share/iproute2/rt_tables'
+
+if not os.path.exists(_ROUTE_TABLES):
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(_ROUTE_TABLES), exist_ok=True)
+    # Copy the file
+    shutil.copy2(_SOURCE, _ROUTE_TABLES)
+    print(f"Copied {_SOURCE} to {_ROUTE_TABLES}")
+else:
+    print(f"{_ROUTE_TABLES} already exists")
+           
 _ROUTE_TABLES_BCK = _ROUTE_TABLES + '.bck'
 _logger = logging.getLogger('oci-utils.network-helpers')
 
