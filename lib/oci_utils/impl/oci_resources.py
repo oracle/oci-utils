@@ -477,6 +477,12 @@ class OCIInstance(OCIAPIAbstractResource):
             OCIInstance._logger.debug('SDK call failed: [%s]', str(e), exc_info=True)
             return []
         for v_a_data in vnic_atts.data:
+            if v_a_data.lifecycle_state != OCI_ATTACHMENT_STATE.ATTACHED.name:
+                continue
+            # An attachment without a VNIC ID cannot be looked up by the SDK.
+            if not (v_a_data.vnic_id or '').strip():
+                OCIInstance._logger.debug('Skipping VNIC attachment without a VNIC ID')
+                continue
             try:
                 vnic_data = nc.get_vnic(v_a_data.vnic_id).data
                 vnics.append(OCIVNIC(self._oci_session,
